@@ -90,3 +90,7 @@
 .dirsearch .ds-go:hover{filter:brightness(1.08)}
 .dirsearch .ds-go:focus-visible{outline:2px solid var(--brass-light,#d8a64e);outline-offset:2px}
 @media(max-width:720px){.dirsearch .ds-go{padding:9px 14px}}
+
+/* P2 (2026-06-23): "open now first" listings above a department's sub-tiles. */
+.dir-listings{margin:18px 0 26px}
+.dir-listings-h{font-family:var(--disp);font-weight:600;font-size:18px;margin:0 0 10px}

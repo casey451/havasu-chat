@@ -31,6 +31,7 @@ from __future__ import annotations
 import re
 import time as _time
 from collections.abc import Callable
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
@@ -56,6 +57,7 @@ from app.home import sponsor_store
 from app.home.queries import _provider_image_url
 from app.home.router import _utility_chips as _home_utility_chips
 from app.monetization import serving
+from app.providers import queries as provider_queries
 from app.seo.urls import absolute_url
 from app.v1.categories import BUCKET_SLUG_REDIRECTS
 
@@ -234,6 +236,79 @@ def _dept_peek_provider(db: Session, dept_id: int) -> Provider | None:
         )
     except Exception:
         return None
+
+
+# Department landing listings (P2 2026-06-23): the landing PROMISED "open-now
+# first" but rendered only sub-tiles — no businesses until you pick a leaf. Show
+# a few real listings above the leaf grid. Pool a small top-rated set, then float
+# the open-now ones first; the rest stay (the page never lands empty after dark).
+_DEPT_LANDING_POOL = 24
+_DEPT_LANDING_CARDS = 6
+
+
+def _dept_top_providers(db: Session, dept_id: int, *, limit: int) -> list[Provider]:
+    """Up to ``limit`` top-rated active providers primary-linked under the
+    department's leaves. Generalizes :func:`_dept_peek_provider`. [] on hiccup."""
+    from app.db.models import Category, Entity, EntityCategory
+
+    try:
+        return (
+            db.query(Provider)
+            .join(Entity, Provider.entity_id == Entity.id)
+            .join(EntityCategory, EntityCategory.entity_id == Entity.id)
+            .join(Category, Category.id == EntityCategory.category_id)
+            .filter(
+                Category.parent_id == dept_id,
+                Category.level == 1,
+                EntityCategory.is_primary.is_(True),
+                Entity.is_active.is_(True),
+                Provider.is_active.is_(True),
+                Provider.draft.is_(False),
+            )
+            .order_by(*cat_queries._dampened_rating_sort_key(db))
+            .limit(limit)
+            .all()
+        )
+    except Exception:
+        return []
+
+
+def _dept_landing_cards(db: Session, dept: Any, *, now: datetime) -> list[dict[str, Any]]:
+    """3–6 'open-now first' listing cards for a department landing.
+
+    Pulls a small top-rated pool under the department, floats the providers that
+    are open right now to the front (stable within each band, so top-rated order
+    is preserved), and shapes the shared category-grid card dict (the same shape
+    ``components/lake_biz_card.html`` consumes). Returns [] on any hiccup so the
+    landing still shows its sub-tiles (never blocks the page)."""
+    try:
+        pool = _dept_top_providers(db, dept.id, limit=_DEPT_LANDING_POOL)
+        if not pool:
+            return []
+        scored: list[tuple[int, Provider, bool | None, str | None]] = []
+        for p in pool:
+            is_open, copy = provider_queries.is_open_now(p, now=now)
+            scored.append((0 if is_open else 1, p, is_open, copy))
+        scored.sort(key=lambda t: t[0])  # open-now first; stable within each band
+        cards: list[dict[str, Any]] = []
+        for _band, p, is_open, copy in scored[:_DEPT_LANDING_CARDS]:
+            if is_open is True:
+                status_class, status_text = "open", (copy or "Open now")
+            elif is_open is False:
+                status_class, status_text = "closed", (copy or "Closed")
+            else:
+                status_class, status_text = "", ""
+            cards.append(
+                cat_queries._build_category_card(
+                    p,
+                    status_class=status_class,
+                    status_text=status_text,
+                    image_url=cat_queries._resolve_category_card_image(p),
+                )
+            )
+        return cards
+    except Exception:  # pragma: no cover - landing must never 500 over the extra
+        return []
 
 
 def _build_index_payload(db: Session) -> list[dict[str, Any]]:
@@ -1104,6 +1179,9 @@ def _render_department_page(
     listing_total = sum(count for _, count in pairs)
     dept_path = f"/categories/{dept.slug}"
     dept_label = display_label(dept.slug, dept.name)
+    # P2: a few real "open now first" listings above the leaf grid (the landing
+    # promised them but showed only sub-tiles).
+    landing_cards = _dept_landing_cards(db, dept, now=now)
     # IA v2 Slice 2: surface related leaves from other departments (e.g. boat
     # services under Lake & Boating) under labeled sections. References only —
     # the listing's canonical home is unchanged, so no duplicate rows.
@@ -1153,6 +1231,7 @@ def _render_department_page(
             "department_slug": dept.slug,
             "department_label": dept_label,
             "leaves": leaves,
+            "landing_cards": landing_cards,
             "also_sections": also_sections,
             "leaf_total": len(leaves),
             "listing_total": listing_total,

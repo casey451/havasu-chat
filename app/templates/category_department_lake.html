@@ -20,6 +20,18 @@
     <p class="sub">{{ listing_total }} listing{{ '' if listing_total == 1 else 's' }} across {{ leaf_total }} categor{{ 'y' if leaf_total == 1 else 'ies' }} in Lake Havasu City.</p>
   </div>
 
+  {# P2 (2026-06-23): a few real "open now first" listings above the sub-tiles, so
+     the landing honors its "open-now first" promise instead of forcing a click
+     into a leaf before any business is visible. Omitted entirely when empty. #}
+  {% if landing_cards %}
+  <section class="dir-listings" aria-label="Open now in {{ department_label }}">
+    <h2 class="dir-listings-h">Open now &amp; popular</h2>
+    <div class="listcard">
+      {% for card in landing_cards %}{% include 'components/lake_biz_card.html' %}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
   <div class="leafgrid">
     {% for leaf in leaves %}
     <a class="leaftile" href="{{ leaf.url }}"><span class="ln">{{ leaf.name }}</span>{% if leaf.count %}<span class="lc">{{ leaf.count }}</span>{% endif %}</a>
