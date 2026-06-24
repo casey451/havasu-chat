@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the Ask Hava vision scrapers every other day
+
+[Timer]
+# Every other day (odd days of the month) at 13:10 UTC = 06:10 America/Phoenix,
+# matching the GitHub Actions parks-rec-scrapes cadence. Ingests are idempotent
+# (synthetic per-occurrence URLs), so the month-boundary doubling is harmless.
+OnCalendar=*-*-1/2 13:10:00 UTC
+# Catch up a missed run (VPS was off) on next boot.
+Persistent=true
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,20 @@
+[Unit]
+Description=Ask Hava vision image scrapers (Parks & Rec + Senior Center)
+# Wait for the network and the local model server before running.
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Run as a non-root service account that owns the repo + venv.
+User=havasu
+Group=havasu
+WorkingDirectory=/opt/havasu-chat
+EnvironmentFile=/etc/havasu/havasu-vision.env
+ExecStart=/opt/havasu-chat/deploy/vps-vision/run_vision_scrapes.sh
+# Generous timeout: small CPU vision models are slow.
+TimeoutStartSec=1800
+# Light hardening.
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
