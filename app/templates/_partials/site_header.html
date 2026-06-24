@@ -16,12 +16,15 @@
        "For Kids" (→ /family, the parent's one-tap front door — the highest-intent
        mobile case) and "Ask" (→ /ask → /chat, the product's namesake, previously
        reachable only via the hero search). "Explore" still opens the directory
-       (where the search bar + the other categories live). #}
+       (where the search bar + the other categories live). Phase 4 (UX review §P1)
+       adds the symmetric "For Seniors" (→ /seniors) front door, giving seniors the
+       same nav presence kids already have. #}
     <nav class="nav" aria-label="Primary">
       <a href="/home"{% if active_tab == 'home' or active_tab == 'today' %} aria-current="page"{% endif %}>Home</a>
       <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
       <a href="/movies"{% if active_tab == 'movies' %} aria-current="page"{% endif %}>Movies</a>
       <a href="/family"{% if active_tab == 'family' %} aria-current="page"{% endif %}>For Kids</a>
+      <a href="/seniors"{% if active_tab == 'seniors' %} aria-current="page"{% endif %}>For Seniors</a>
       <a href="/categories#search"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Explore</a>
       <a href="/ask"{% if active_tab == 'ask' or active_tab == 'chat' %} aria-current="page"{% endif %}>Ask</a>
       <a class="biz" href="/portal">For Business</a>
@@ -32,13 +35,14 @@
     </button>
   </div>
   {# Mobile disclosure menu opened by the hamburger — the SAME canonical set as
-     the desktop nav (incl. For Kids + Ask). Real menu, hidden until toggled;
-     without JS the desktop nav (scrollable) still covers navigation. #}
+     the desktop nav (incl. For Kids, For Seniors + Ask). Real menu, hidden until
+     toggled; without JS the desktop nav (scrollable) still covers navigation. #}
   <nav class="drawer" id="lk-drawer" aria-label="Site menu" hidden>
     <a href="/home"{% if active_tab == 'home' or active_tab == 'today' %} aria-current="page"{% endif %}>Home</a>
     <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
     <a href="/movies"{% if active_tab == 'movies' %} aria-current="page"{% endif %}>Movies</a>
     <a href="/family"{% if active_tab == 'family' %} aria-current="page"{% endif %}>For Kids</a>
+    <a href="/seniors"{% if active_tab == 'seniors' %} aria-current="page"{% endif %}>For Seniors</a>
     <a href="/categories#search"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Explore</a>
     <a href="/ask"{% if active_tab == 'ask' or active_tab == 'chat' %} aria-current="page"{% endif %}>Ask</a>
     <a class="biz" href="/portal">For Business</a>
