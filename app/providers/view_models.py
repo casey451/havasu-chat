@@ -403,13 +403,37 @@ def build(
     )
 
 
+def _url_for_category_row(cat: Any) -> str:
+    """Map a taxonomy ``Category`` row to its listing-page URL.
+
+    A leaf (``parent`` set) links to ``/categories/{department}/{leaf}``; a
+    department links to ``/categories/{slug}`` (via ``ROUTE_SLUG_ALIASES`` so a
+    retired legacy slug resolves to its successor department). ``""`` when the
+    row has no usable slug. Lazy import avoids a categories↔providers cycle.
+    """
+    from app.categories.router import ROUTE_SLUG_ALIASES
+
+    slug = (getattr(cat, "slug", "") or "").strip().lower()
+    if not slug:
+        return ""
+    parent = getattr(cat, "parent", None)
+    parent_slug = (getattr(parent, "slug", "") or "").strip().lower() if parent else ""
+    if parent_slug:
+        return f"/categories/{parent_slug}/{slug}"
+    return ROUTE_SLUG_ALIASES.get(slug, f"/categories/{slug}")
+
+
 def _category_url_for(provider: Provider) -> str:
     """The actual category-page URL for the breadcrumb (P-1).
 
-    The breadcrumb used to link to ``/categories`` (the Explore index) regardless
-    of the business's category. Resolve the provider's legacy category to its most
-    specific listing route — preferring a tile route (so a church links to
-    Community, not the broad Services mega) — and fall back to Explore when unknown.
+    Prefers the SAME source as the breadcrumb LABEL
+    (:func:`app.providers.queries.label_category_row`): when the label comes from
+    a taxonomy ``Category`` (entity primary category → ``category_ref``), the href
+    links THAT category's page, so label and link always agree (P2-2.1 fixed the
+    live divergence where the label was the entity category but the href came from
+    the legacy ``provider.category`` column). Falls back to resolving the legacy
+    category column to its listing route — preferring a tile route (so a church
+    links to Community, not the broad Services mega) — then Explore when unknown.
     Lazy imports avoid a categories↔providers import cycle.
 
     B3 (2026-06-10): the flat routes this resolves are RETIRED — each 301s to
@@ -418,6 +442,13 @@ def _category_url_for(provider: Provider) -> str:
     """
     from app.categories.queries import CATEGORY_FILTERS
     from app.categories.router import ROUTE_SLUG_ALIASES
+
+    # Same source as the label: link the entity/category_ref Category directly.
+    label_row = queries.label_category_row(provider)
+    if label_row is not None:
+        url = _url_for_category_row(label_row)
+        if url:
+            return url
 
     cat = (provider.category or "").strip().lower()
     if not cat:
