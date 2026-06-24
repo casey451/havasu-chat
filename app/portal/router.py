@@ -15,6 +15,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
+from app.admin.url_safety import safe_href
 from app.auth.dependencies import get_current_user
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import get_db
@@ -30,6 +31,31 @@ register_template_filters(templates)
 register_template_globals(templates)
 
 router = APIRouter(prefix="/portal", tags=["portal"])
+
+_CREATIVE_URL_ERROR = "Enter a valid web link (http:// or https://)."
+
+
+def _creative_url_errors(
+    *, cta_url: str, image_url: str, image_url_mobile: str
+) -> dict[str, str]:
+    """Field→error map for any unsafe creative URL (H1).
+
+    A creative's ``cta_url`` / ``image_url`` render onto public, cross-user pages
+    (the CTA link and a CSS ``background-image``), so a ``javascript:`` / ``data:``
+    / protocol-relative value must never be persisted. ``safe_href`` collapses an
+    unsafe value to ``"#"`` (it permits http(s) and root-relative ``/media`` upload
+    paths). Empty fields are allowed (the creative may have no CTA / a file upload).
+    """
+    out: dict[str, str] = {}
+    for field, value in (
+        ("cta_url", cta_url),
+        ("image_url", image_url),
+        ("image_url_mobile", image_url_mobile),
+    ):
+        v = (value or "").strip()
+        if v and safe_href(v) == "#":
+            out[field] = _CREATIVE_URL_ERROR
+    return out
 
 
 def _t(request: Request, name: str) -> str:
@@ -347,6 +373,16 @@ async def portal_creatives_create(
 
     if not headline.strip() and not image_url.strip() and "image_url" not in errors:
         errors["headline"] = "Give the creative a headline or an image."
+
+    # Server-side URL safety (H1): the form's type="url" is client-only — a direct
+    # POST bypasses it. These values render onto public, cross-user pages (the
+    # card background-image and the CTA), so reject any non-http(s) link before it
+    # can be persisted. An upload populates image_url with a root-relative /media
+    # path, which is permitted.
+    for _field, _msg in _creative_url_errors(
+        cta_url=cta_url, image_url=image_url, image_url_mobile=image_url_mobile
+    ).items():
+        errors.setdefault(_field, _msg)
 
     if errors:
         providers = placement_logic.claimed_providers(db, user.id)
