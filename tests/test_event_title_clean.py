@@ -104,6 +104,15 @@ def test_clean_venue_label_strips_trailing_address():
     assert clean_venue_label("Elite Martial Arts, Inc.") == "Elite Martial Arts, Inc."
     assert clean_venue_label("Iron Wolf Golf & Country Club") == "Iron Wolf Golf & Country Club"
     assert clean_venue_label("Pier 66") == "Pier 66"
-    # A label that is ONLY an address has no name to keep — left as-is, not emptied.
-    assert clean_venue_label("2146 McCulloch Blvd") == "2146 McCulloch Blvd"
     assert clean_venue_label(None) is None
+
+
+def test_clean_venue_label_names_known_bare_addresses():
+    from app.events.title_clean import clean_venue_label
+
+    # Known bare-address venues get their real name (verified 2026-06-23), incl.
+    # a second source's same-address label so the feeds read consistently.
+    assert clean_venue_label("2134 McCulloch Blvd N. in beautiful Lake Havasu City") == "Havasu Lanes"
+    assert clean_venue_label("2146 McCulloch Blvd") == "GraceArts Live"
+    assert clean_venue_label("2144 McCulloch Blvd N Lake Havasu City, AZ 86403") == "Downtown Lake Havasu"
+    assert clean_venue_label("3516 McCulloch Blvd N, Lake Havasu City, AZ 86406") == "Abundant Grace Church"

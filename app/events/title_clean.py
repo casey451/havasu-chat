@@ -111,10 +111,27 @@ def clean_event_title(title: str | None, *, location_name: str | None = None) ->
 # (there is no name to keep). Future scrapes get the same cleanup for free.
 _VENUE_ADDR_CUT_RE = re.compile(r"\s*,\s*\d.*$|\s+\d{3,}\b.*$")
 
+# Some venues arrive from scrapers as ONLY a street address (no name to keep), so
+# the address-strip can't help. This maps the known bare-address venues to their
+# real name (verified 2026-06-23). Keyed by the lowercased street-number prefix;
+# also rewrites a same-address label a second source emitted (e.g. river_scene's
+# "2146 McCulloch Blvd" for GraceArts Live), so the two feeds read consistently.
+_VENUE_ADDR_TO_NAME: dict[str, str] = {
+    "2134 mcculloch": "Havasu Lanes",
+    "2144 mcculloch": "Downtown Lake Havasu",
+    "2146 mcculloch": "GraceArts Live",
+    "3516 mcculloch": "Abundant Grace Church",
+}
+
 
 def clean_venue_label(name: str | None) -> str | None:
-    """Drop a trailing street address from a venue label, keeping the name."""
+    """Tidy a venue label: name a known bare-address venue, else drop a trailing
+    street address, keeping the leading name."""
     if not name:
         return name
+    low = name.strip().lower()
+    for prefix, real in _VENUE_ADDR_TO_NAME.items():
+        if low.startswith(prefix):
+            return real
     cleaned = _VENUE_ADDR_CUT_RE.sub("", name).strip().rstrip(",").strip()
     return cleaned or name
