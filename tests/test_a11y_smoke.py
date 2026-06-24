@@ -99,10 +99,10 @@ def test_category_page_all_categories_pill_is_labelled(
         resp = client.get("/lake-havasu/restaurants")
     assert resp.status_code == 200
     body = resp.text
-    # Sandstone: the "All" subcategory chip and the "Explore all" mega trigger
-    # carry accessible text names; the breadcrumb + logo link home.
+    # The "All" subcategory chip and the "Explore" nav trigger carry accessible
+    # text names; the breadcrumb + logo link home.
     assert ">All</a>" in body
-    assert "Explore all" in body
+    assert "Explore" in body
     assert 'href="/home"' in body
 
 
@@ -112,27 +112,18 @@ def test_category_page_all_categories_pill_is_labelled(
 
 
 def test_events_page_sections_are_labelled_for_screen_readers() -> None:
-    """Sandstone events is server-rendered; the default Today view wraps its
-    accordion in a labelled <section> so screen readers can navigate by
-    region, and the page links to its own month view (the events page now
-    carries the calendar instead of pointing at /home#calendar)."""
+    """The lake events page is server-rendered; it carries a labelled
+    breadcrumb, a single page <h1>, and a labelled calendar-view switcher so
+    screen readers can navigate by region, and it links to its own month view
+    (the events page carries the calendar instead of pointing at /home#calendar)."""
     client = TestClient(app)
     resp = client.get("/events-ui")
     assert resp.status_code == 200
     body = resp.text
-    assert 'aria-label="Today"' in body
-    assert "Events around the lake" in body
-    assert "/events-ui?view=month" in body
-
-
-def test_home_calendar_pager_buttons_have_aria_label() -> None:
-    """The month pager (now on the home calendar) spells out what it navigates."""
-    client = TestClient(app)
-    resp = client.get("/home")
-    assert resp.status_code == 200
-    body = resp.text
-    assert 'aria-label="Previous month"' in body
-    assert 'aria-label="Next month"' in body
+    assert 'aria-label="Breadcrumb"' in body
+    assert 'aria-label="Calendar view"' in body
+    assert body.count("<h1>") == 1
+    assert "view=month" in body
 
 
 def test_events_page_decorative_bookmark_is_hidden() -> None:
@@ -156,4 +147,4 @@ def test_events_page_renders_with_empty_db() -> None:
     client = TestClient(app)
     resp = client.get("/events-ui")
     assert resp.status_code == 200
-    assert "Events around the lake" in resp.text
+    assert 'aria-label="Calendar view"' in resp.text

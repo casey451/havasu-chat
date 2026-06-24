@@ -132,11 +132,11 @@
       {% for s in vm.google_review_snippets %}{% if s.text and _revs|length < 3 %}{% set _ = _revs.append(s) %}{% endif %}{% endfor %}
       {% if _revs %}
       <h2 style="margin-top:30px">Reviews</h2>
-      {% if _show_rating %}<div class="aggr"><div class="big tnum">{{ "%.1f"|format(vm.google_rating) }}</div><div><div class="st" aria-hidden="true">★★★★★</div><div class="src">{{ vm.google_review_count }} public reviews · From Google reviews, unedited</div></div></div>{% endif %}
+      {% if _show_rating %}<div class="aggr"><div class="big tnum">{{ "%.1f"|format(vm.google_rating) }}</div><div><div class="src">{{ vm.google_review_count }} public reviews · From Google reviews, unedited</div></div></div>{% endif %}
       <div class="revlist">
         {% for s in _revs %}
         <div class="rev">
-          <div class="rtop">{% if s.author %}<span class="nm">{{ s.author }}</span>{% endif %}{% if s.rating %}<span class="st">★ {{ s.rating }}</span>{% endif %}</div>
+          <div class="rtop">{% if s.author %}<span class="nm">{{ s.author }}</span>{% endif %}</div>
           {% set _w = s.text.split() %}
           <p>{% if _w|length > 40 %}“{{ _w[:40]|join(' ') }}…”{% else %}“{{ _w|join(' ') }}”{% endif %}</p>
         </div>

@@ -28,7 +28,7 @@ def _eat_category_id(db) -> int:
 
 
 def test_provider_profile_template_has_venue_events_anchor() -> None:
-    text = Path("app/templates/provider_profile.html").read_text(encoding="utf-8")
+    text = Path("app/templates/provider_profile_lake.html").read_text(encoding="utf-8")
     assert "Ask Hava about this business" in text
 
 
@@ -120,6 +120,6 @@ def test_provider_profile_regression_district_and_search(client: TestClient) -> 
     """Smoke: category + provider templates still include primary UI markers."""
     r = client.get("/lake-havasu/restaurants")
     assert r.status_code == 200
-    text = Path("app/templates/provider_profile.html").read_text(encoding="utf-8")
-    assert 'data-region="provider-identity"' in text  # Sandstone identity anchor
+    text = Path("app/templates/provider_profile_lake.html").read_text(encoding="utf-8")
+    assert 'class="ptitle"' in text  # lake identity anchor (name heading)
     assert "Ask Hava about this business" in text

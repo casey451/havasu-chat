@@ -34,4 +34,6 @@ def test_rating_param_marks_top_rated_pill_active() -> None:
     body = r.text
     # The Top-rated pill carries the active ``on`` class when the facet is set.
     # The anchor also carries an ``href`` (the toggle-off link), so match across it.
-    assert re.search(r'class="filterpill on"[^>]*>Top rated</a>', body), body
+    # Lake Ink & Brass renders filter pills as ``chip`` anchors (the desert
+    # ``filterpill`` class went away with the desert template).
+    assert re.search(r'class="chip on"[^>]*>Top rated</a>', body), body

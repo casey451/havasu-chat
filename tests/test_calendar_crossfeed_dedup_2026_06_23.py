@@ -76,9 +76,11 @@ def test_parenthetical_variant_twin_renders_once_on_events_ui() -> None:
     )
     r = TestClient(app).get(f"/events-ui?date={when.isoformat()}")
     assert r.status_code == 200
-    # The Event renders "Lap Swim <suf>"; the "(Morning)" class twin must be
-    # suppressed, so the base title appears exactly once (not once per feed).
-    assert r.text.count(base) == 1
+    # Count VISIBLE rows only (the lake page also echoes the title in JSON-LD):
+    # the Event renders one row; the "(Morning)" class twin must be suppressed,
+    # so exactly ONE visible row carries the base title (2 would mean the twin
+    # survived dedup).
+    assert r.text.count(f'rtitle">{base}') == 1
 
 
 def test_senior_center_exercise_class_twin_renders_once() -> None:
@@ -92,4 +94,4 @@ def test_senior_center_exercise_class_twin_renders_once() -> None:
     )
     r = TestClient(app).get(f"/events-ui?date={when.isoformat()}")
     assert r.status_code == 200
-    assert r.text.count(base) == 1
+    assert r.text.count(f'rtitle">{base}') == 1

@@ -152,8 +152,9 @@ def test_home_renders_sandstone_explore_strip(seeded_nav_departments: dict) -> N
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    assert "Explore Havasu" in r.text
-    assert 'class="cat-strip"' in r.text
+    # Lake home explore strip: department front doors with leaf-summed counts.
+    assert "Find a place or service" in r.text
+    assert 'class="exgrid dir-grid"' in r.text
     assert 'href="/categories/eat-and-drink"' in r.text
     # Legacy discover-grid markup and the cut "Browse by mood" copy are gone.
     assert 'class="ll-grid-two"' not in r.text

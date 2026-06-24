@@ -68,11 +68,11 @@ def _get_gas(result: CacheReadResult | None) -> str:
     return resp.text
 
 
-def test_gas_page_extends_desert_and_loads_page_css() -> None:
-    # Desert Modern reskin: /gas extends desert_base + its own page stylesheet.
+def test_gas_page_extends_lake_and_loads_page_css() -> None:
+    # Lake Ink & Brass: /gas extends base_lake + its own conditions stylesheet.
     body = _get_gas(_result(_payload(), fetched_at=_now() - timedelta(minutes=5)))
-    assert "/static/styles/desert.css" in body  # from desert_base
-    assert "/static/styles/desert_home.css" in body  # page-specific, separate file
+    assert "/static/styles/lake.css" in body  # from base_lake
+    assert "/static/styles/lake_conditions.css" in body  # page-specific stylesheet
     assert "/static/styles/lake_light.css" not in body  # old skin gone
 
 
@@ -169,12 +169,10 @@ def test_city_average_two_decimals() -> None:
     assert "$4.00" in body  # 4.0 -> two decimals
 
 
-def test_gas_page_carries_sandstone_shell_nav() -> None:
-    """The /gas page wears the full Sandstone shell: the route now supplies
-    primary_nav + mega_columns, so the header nav links render (they were
-    absent before WP-8 added the shell context)."""
+def test_gas_page_carries_shell_nav() -> None:
+    """The /gas page wears the full Lake shell: the header nav links render."""
     body = _get_gas(_result(_payload(), fetched_at=_now() - timedelta(minutes=5)))
-    assert 'href="/categories/on-the-water"' in body  # a primary-nav link
+    assert 'href="/events-ui"' in body  # a primary-nav link from the lake header
 
 
 def test_gas_page_renders_conditions_ribbon_with_gas_chip() -> None:
@@ -190,7 +188,7 @@ def test_gas_page_renders_conditions_ribbon_with_gas_chip() -> None:
         with patch.object(home_router, "read_source", return_value=result):
             with TestClient(app) as client:
                 body = client.get("/gas").text
-    assert 'class="d-conditions"' in body  # Desert conditions strip
+    assert 'class="condband"' in body  # Lake conditions strip
     assert "Cheapest gas" in body
 
 

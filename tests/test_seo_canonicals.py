@@ -173,7 +173,7 @@ def test_category_canonical_keeps_page_param(
     r = client.get("/lake-havasu/restaurants?page=2&cuisine=mexican")
     assert r.status_code == 200
     assert _canonicals(r.text) == [f"{_BASE}/lake-havasu/restaurants?page=2"]
-    assert "— Page 2 — Ask Hava" in r.text or "&mdash; Page 2" in r.text or "Page 2 —" in r.text
+    assert "Page 2" in r.text  # page-2 indicator in the <title>/heading
 
     r1 = client.get("/lake-havasu/restaurants?page=1")
     assert _canonicals(r1.text) == [f"{_BASE}/lake-havasu/restaurants"]

@@ -128,19 +128,18 @@ def test_events_window_carries_category_accent() -> None:
             db.commit()
 
 
-def test_home_renders_sandstone_text_hero(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The Sandstone home uses an editorial *text* hero (no background photo).
+def test_home_renders_text_hero(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The Lake home uses an editorial *text* hero (no background photo).
 
-    The configurable-photo hero was a Lake Light feature; the locked prototype's
-    home leads with a centered Fraunces headline + single search. The hero
-    composer (``_hero_context``) keeps its own unit test above for reuse on the
-    mode-landing heroes (step 5).
+    The configurable-photo hero was a Lake Light feature; the redesign's home
+    leads with a centered headline + single search. The hero composer
+    (``_hero_context``) keeps its own unit test above for reuse on the
+    mode-landing heroes.
     """
     monkeypatch.delenv("HOME_HERO_IMAGE_URL", raising=False)
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    assert 'class="hero wrap"' in r.text
-    # Desert Modern text hero: the display headline (Casey 2026-06-11), still
-    # no photo.
-    assert '<span class="hl">All Things</span>' in r.text
+    # Lake text hero: the display lede, still no background photo.
+    assert 'class="lead"' in r.text
+    assert '<h1 class="asklede">Everything in Lake Havasu, in one place.</h1>' in r.text

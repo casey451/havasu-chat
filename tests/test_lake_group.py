@@ -23,13 +23,6 @@ def _a11y(html: str) -> list[str]:
     return checker.finish()
 
 
-def test_desert_group_landing_is_default() -> None:
-    r = TestClient(app).get(_GROUP)
-    assert r.status_code == 200
-    assert 'data-theme="lake"' not in r.text
-    assert "lake_group.css" not in r.text
-
-
 def test_lake_group_landing_preserves_wiring() -> None:
     r = TestClient(app).get(f"{_GROUP}?theme=lake")
     assert r.status_code == 200

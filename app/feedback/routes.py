@@ -60,12 +60,10 @@ def _rate_limited(request: Request) -> bool:
     return False
 
 
-def _theme(request: Request) -> str:
-    return getattr(request.state, "theme", "lake") or "lake"
-
-
 def _template_name(request: Request) -> str:
-    return "feedback_lake.html" if _theme(request) == "lake" else "feedback.html"
+    """Lake is the only theme (desert lineage deleted 2026-06-24)."""
+    del request
+    return "feedback_lake.html"
 
 
 @router.get("/feedback", response_class=HTMLResponse, response_model=None)

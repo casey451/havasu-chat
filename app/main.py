@@ -323,10 +323,9 @@ def _render_static_doc(
 ) -> HTMLResponse:
     md = path.read_text(encoding="utf-8")
     body = _render_doc_markdown_to_html(md)
-    _lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="privacy_doc_lake.html" if _lake else "privacy_doc.html",
+        name="privacy_doc_lake.html",
         context={
             "head_title": head_title,
             "body": body,
@@ -523,7 +522,6 @@ class AdminLakeSkinMiddleware(BaseHTTPMiddleware):
         response = await call_next(request)
         if not (
             request.url.path.startswith("/admin")
-            and getattr(request.state, "theme", "desert") == "lake"
             and "text/html" in (response.headers.get("content-type") or "")
         ):
             return response
@@ -953,12 +951,10 @@ def _event_link_html(event_url: str | None, source_url: str | None) -> str:
 
 def _render_not_found_response(request: Request, *, gone: bool = False) -> HTMLResponse:
     """Render the event error page. ``gone=True`` → 410 (the event was removed:
-    status ``deleted``); otherwise 404 (missing or not-yet-public). Theme-select
-    picks the Lake variant when the THEME flag resolves to lake."""
-    lake = getattr(request.state, "theme", "desert") == "lake"
+    status ``deleted``); otherwise 404 (missing or not-yet-public)."""
     return templates.TemplateResponse(
         request=request,
-        name="event_not_found_lake.html" if lake else "event_not_found.html",
+        name="event_not_found_lake.html",
         context={"gone": gone},
         status_code=410 if gone else 404,
     )
@@ -1023,11 +1019,7 @@ def _render_permalink_response(
 
     return templates.TemplateResponse(
         request=request,
-        name=(
-            "event_permalink_lake.html"
-            if getattr(request.state, "theme", "desert") == "lake"
-            else "event_permalink.html"
-        ),
+        name="event_permalink_lake.html",
         context={
             "event_title": clean_event_title(event.title, location_name=event.location_name),
             "og_description": _truncate_for_og(event.description),
@@ -1451,10 +1443,9 @@ async def http_exception_handler(
             status_code=404,
             content={"detail": exc.detail or "Not Found"},
         )
-    lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="not_found_lake.html" if lake else "not_found.html",
+        name="not_found_lake.html",
         context={},
         status_code=404,
     )

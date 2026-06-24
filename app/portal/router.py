@@ -59,12 +59,12 @@ def _creative_url_errors(
 
 
 def _t(request: Request, name: str) -> str:
-    """Serve the Lake Ink & Brass variant when the THEME flag resolves to lake
-    (Phase 4c). ``foo.html`` -> ``foo_lake.html``; default stays desert until the
-    Phase-8 flip — see app/core/theme.py."""
-    if getattr(request.state, "theme", "desert") == "lake":
-        return f"{name[:-5]}_lake.html"
-    return name
+    """Map a ``foo.html`` page name to its Lake template ``foo_lake.html``.
+
+    Lake is the only theme (desert lineage deleted 2026-06-24); always the lake
+    variant. ``request`` kept so call sites are unchanged."""
+    del request
+    return f"{name[:-5]}_lake.html"
 
 
 @router.get("", response_class=HTMLResponse)

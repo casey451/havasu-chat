@@ -22,14 +22,6 @@ def test_search_lake_theme_select() -> None:
     assert 'name="robots" content="noindex"' in b.text  # results page = noindex
 
 
-def test_search_desert_is_default() -> None:
-    # No theme param / cookie / THEME_DEFAULT in the test env → desert.
-    b = TestClient(app).get(f"/search?q={_NO_MATCH}")
-    assert b.status_code == 200
-    assert "lake_search.css" not in b.text
-    assert "desert_directory.css" in b.text
-
-
 def test_search_lake_blank_query_indexable() -> None:
     b = TestClient(app).get("/search?theme=lake")
     assert b.status_code == 200

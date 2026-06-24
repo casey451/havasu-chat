@@ -22,13 +22,6 @@ def _get(path: str) -> str:
     return TestClient(app).get(path).text
 
 
-def test_desert_events_is_the_default() -> None:
-    r = TestClient(app).get("/events-ui")
-    assert r.status_code == 200
-    assert 'data-theme="lake"' not in r.text
-    assert "lake_events.css" not in r.text
-
-
 def test_lake_events_renders_all_views() -> None:
     for path in ("/events-ui?theme=lake", "/events-ui?theme=lake&view=week",
                  "/events-ui?theme=lake&view=month"):

@@ -51,10 +51,9 @@ def account_alerts_get(request: Request, db: SqlSession = Depends(get_db)) -> HT
         ).all()
     )
     active = {s.alert_type for s in subs}
-    _lake = getattr(request.state, "theme", "desert") == "lake"
     return _templates().TemplateResponse(
         request=request,
-        name="account_alerts_lake.html" if _lake else "account_alerts.html",
+        name="account_alerts_lake.html",
         context={
             "user": user,
             "active_types": active,

@@ -33,12 +33,6 @@ def _ld(html: str) -> list[dict]:
 
 # ── sponsor teaser (static) ─────────────────────────────────────────────────
 
-def test_desert_sponsor_is_default() -> None:
-    b = TestClient(app).get("/sponsor").text
-    assert 'data-theme="lake"' not in b
-    assert "lake_landing.css" not in b
-
-
 def test_lake_sponsor_teaser() -> None:
     b = TestClient(app).get("/sponsor?theme=lake").text
     assert 'data-theme="lake"' in b

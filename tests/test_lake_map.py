@@ -21,12 +21,6 @@ def _a11y(html: str) -> list[str]:
     return checker.finish()
 
 
-def test_desert_map_is_default() -> None:
-    b = TestClient(app).get("/map").text
-    assert 'data-theme="lake"' not in b
-    assert "lake_map.css" not in b
-
-
 def test_lake_map_preserves_all_js_wiring() -> None:
     b = TestClient(app).get("/map?theme=lake").text
     assert 'data-theme="lake"' in b

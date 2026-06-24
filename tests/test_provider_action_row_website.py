@@ -31,8 +31,8 @@ def _eat_category_id(db) -> int:
 
 
 def _actions_block(html: str) -> str:
-    """The markup inside ``<div class="actions">…</div>`` (no nested divs in it)."""
-    after = html.split('class="actions"', 1)[1]
+    """The markup inside the provider action row (lake: ``<div class="pcta-act">``)."""
+    after = html.split('class="pcta-act"', 1)[1]
     return after.split("</div>", 1)[0]
 
 
@@ -74,7 +74,7 @@ def test_website_button_renders_in_action_row_when_present(client: TestClient) -
         assert "Website" in actions, "Website CTA missing from the action row"
         assert site in actions, "Website href missing from the action row"
         # Call must remain the only primary CTA.
-        assert actions.count('class="primary"') <= 1
+        assert actions.count("btn-primary") <= 1
     finally:
         _cleanup(eid)
 

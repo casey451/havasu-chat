@@ -20,9 +20,9 @@ def test_map_view_returns_200_with_container_and_leaflet() -> None:
     assert "leaflet/1.9.4/leaflet.min.css" in r.text
     assert "leaflet/1.9.4/leaflet.min.js" in r.text
     assert "leaflet.markercluster/1.5.3/leaflet.markercluster.min.js" in r.text
-    # Desert Modern chrome (desert_base) + the directory skin overrides.
-    assert "/static/styles/desert.css" in r.text
-    assert "/static/styles/desert_directory.css" in r.text
+    # Lake Ink & Brass chrome (base_lake) + the lake map skin.
+    assert "/static/styles/lake.css" in r.text
+    assert "/static/styles/lake_map.css" in r.text
     assert 'class="map-page"' in r.text
     # Full-page map stylesheet.
     assert "/static/styles/components/map_view.css" in r.text
@@ -52,9 +52,3 @@ def test_map_view_rejects_unknown_scope_falls_back_to_default() -> None:
     assert r.status_code == 200
     # Unknown scope falls back to the default themed group.
     assert 'data-map-scope="eat-drink-group"' in r.text
-
-
-def test_bottom_nav_has_map_link() -> None:
-    with TestClient(app) as client:
-        r = client.get("/map")
-    assert 'href="/map"' in r.text

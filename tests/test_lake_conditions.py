@@ -33,13 +33,6 @@ def _a11y(html: str) -> list[str]:
 
 # ── /gas ────────────────────────────────────────────────────────────────────
 
-def test_desert_conditions_are_default() -> None:
-    for path in ("/gas", "/today"):
-        b = TestClient(app).get(path).text
-        assert 'data-theme="lake"' not in b, path
-        assert "lake_conditions.css" not in b, path
-
-
 def test_lake_gas_route_is_themed() -> None:
     # Route-level flag check only — data-independent. The gas conditions cache is
     # shared and the conftest sweep doesn't clear it, so under xdist a concurrent

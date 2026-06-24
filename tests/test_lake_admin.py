@@ -27,13 +27,6 @@ def _admin_client() -> TestClient:
     return c
 
 
-def test_desert_admin_is_default() -> None:
-    b = _admin_client().get("/admin/jobs")
-    assert b.status_code == 200
-    assert "lake_admin.css" not in b.text  # desert admin untouched
-    assert 'data-theme="lake"' not in b.text
-
-
 def test_lake_admin_inline_html_page() -> None:
     # inline-HTML _nav_shell family (jobs)
     b = _admin_client().get("/admin/jobs?theme=lake")

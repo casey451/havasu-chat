@@ -92,11 +92,7 @@ def serve_movies(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
     is_today = selected == today
     # THEME flag (Lake Ink & Brass): the lake skin renders the SAME context
     # through base_lake; default stays desert until/unless the flip.
-    movies_template = (
-        "movies_lake.html"
-        if getattr(request.state, "theme", "desert") == "lake"
-        else "movies.html"
-    )
+    movies_template = "movies_lake.html"
     return templates.TemplateResponse(
         request=request,
         name=movies_template,

@@ -642,13 +642,7 @@ def serve_home(
     # owners can retune the eyebrow/headline per season via env without a redeploy.
     hero_eyebrow_override = os.getenv("HOME_HERO_EYEBROW") or None
     hero_headline_override = os.getenv("HOME_HERO_HEADLINE") or None
-    # THEME flag (Lake Ink & Brass, Phase 1): the lake home reskins the SAME
-    # real context into the v10 layout. Default stays desert until the flip.
-    template_name = (
-        "home_lake.html"
-        if getattr(request.state, "theme", "desert") == "lake"
-        else "home_sandstone.html"
-    )
+    template_name = "home_lake.html"
     return templates.TemplateResponse(
         request=request,
         name=template_name,
@@ -800,10 +794,9 @@ def serve_map_view(request: Request, scope: str | None = None) -> HTMLResponse:
     valid_scopes = {s["slug"] for s in group_scopes} | {s["slug"] for s in category_scopes}
     requested = (scope or "").strip().lower()
     default_scope = requested if requested in valid_scopes else group_scopes[0]["slug"]
-    _lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="map_c_lake.html" if _lake else "map_c.html",
+        name="map_c_lake.html",
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "group_scopes": group_scopes,
@@ -1060,13 +1053,7 @@ def serve_events_ui(
                 "movies_today": movies_today(db, day=today),
             }
         )
-    # THEME flag (Lake Ink & Brass, Phase 2): the lake events surface reskins
-    # the SAME real context. Default stays desert until the flip.
-    events_template = (
-        "events_lake.html"
-        if getattr(request.state, "theme", "desert") == "lake"
-        else "events_sandstone.html"
-    )
+    events_template = "events_lake.html"
     return templates.TemplateResponse(
         request=request, name=events_template, context=context
     )
@@ -1179,10 +1166,9 @@ def collection_landing(
         raise HTTPException(status_code=404, detail="unknown_collection")
     collection = _delink_stale_places(db, collection)
     now = now_lake_havasu()
-    _lake = getattr(request.state, "theme", "desert") == "lake"
     return templates.TemplateResponse(
         request=request,
-        name="collection_landing_lake.html" if _lake else "collection_landing.html",
+        name="collection_landing_lake.html",
         context={
             "collection": collection,
             "today_label": now.strftime("%A, %B ") + str(now.day),
@@ -1198,11 +1184,10 @@ def sponsor_landing(request: Request, db: Session = Depends(get_db)) -> HTMLResp
     category "Advertise" CTAs land here, so the purchase path is public up front;
     payment itself is login + claim gated downstream.
     """
-    _lake = getattr(request.state, "theme", "desert") == "lake"
     from app.portal.products import storefront_offers
 
     return templates.TemplateResponse(
         request=request,
-        name="sponsor_landing_lake.html" if _lake else "sponsor_landing.html",
+        name="sponsor_landing_lake.html",
         context={"offers": storefront_offers(db)},
     )

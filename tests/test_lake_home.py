@@ -25,14 +25,6 @@ def _lake_home() -> str:
     return TestClient(app).get("/home?theme=lake").text
 
 
-def test_desert_home_is_the_default() -> None:
-    r = TestClient(app).get("/home")
-    assert r.status_code == 200
-    assert 'data-theme="lake"' not in r.text
-    # Still the desert home (its own stylesheet / hero), unchanged by the flag.
-    assert "desert_home.css" in r.text or "home-hero" in r.text
-
-
 def test_lake_home_renders_with_flag() -> None:
     r = TestClient(app).get("/home?theme=lake")
     assert r.status_code == 200

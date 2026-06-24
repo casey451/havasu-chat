@@ -32,13 +32,6 @@ def _client() -> TestClient:
     return TestClient(app)
 
 
-def test_desert_editorial_is_default() -> None:
-    for path in ("/about", "/help", "/contact", "/privacy", "/terms"):
-        b = _client().get(path).text
-        assert 'data-theme="lake"' not in b, path
-        assert "lake_editorial.css" not in b, path
-
-
 def test_lake_about_aboutpage_schema() -> None:
     b = _client().get("/about?theme=lake").text
     assert 'data-theme="lake"' in b

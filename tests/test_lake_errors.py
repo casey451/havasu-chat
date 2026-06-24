@@ -51,13 +51,6 @@ def _seed_event(status: str) -> str:
 
 # ── generic 404 (exception handler) ─────────────────────────────────────────
 
-def test_desert_404_is_default() -> None:
-    r = TestClient(app).get("/nonexistent-page-xyz")
-    assert r.status_code == 404
-    assert 'data-theme="lake"' not in r.text
-    assert "lake_error.css" not in r.text
-
-
 def test_lake_404_page() -> None:
     r = TestClient(app).get("/nonexistent-page-xyz?theme=lake")
     assert r.status_code == 404
@@ -90,12 +83,12 @@ def test_event_deleted_returns_410_gone() -> None:
     assert "This event is gone." in r.text
     assert 'name="robots" content="noindex"' in r.text
     assert not _a11y(r.text)
-    # desert default still returns 410 (status code is theme-agnostic), desert UI.
-    # Fresh client so the earlier ?theme=lake cookie doesn't carry over.
+    # Default (no theme param) still returns 410 (status code is theme-agnostic),
+    # now rendered in lake. Fresh client so cookies don't carry over.
     eid2 = _seed_event("deleted")
     r2 = TestClient(app).get(f"/events/{eid2}")
     assert r2.status_code == 410
-    assert 'data-theme="lake"' not in r2.text
+    assert 'data-theme="lake"' in r2.text
 
 
 # ── direct template render (both branches) ──────────────────────────────────
