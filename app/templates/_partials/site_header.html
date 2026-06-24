@@ -10,16 +10,20 @@
       {{ logo_nav(26) }}
       <span class="wm">Ask <span class="b">Hava</span></span>
     </a>
-    {# P3 canonical nav (directory-first): the same six destinations across
-       breakpoints — Home · Events · Movies · Explore · For Business · Sign in.
-       "Explore" opens the directory (where the search bar lives). Map and Ask
-       were removed from the nav (Map route stays live but unlinked; Ask/chat is
-       no longer an identity front door). Mirrored in the mobile drawer below. #}
+    {# Canonical nav — the SAME primary destinations across breakpoints (mirrored
+       in the mobile drawer below). Phase 1.2 (UX review §P0 + FIX_SPEC 1.2)
+       restores two front doors the lean P3 nav had dropped from BOTH surfaces:
+       "For Kids" (→ /family, the parent's one-tap front door — the highest-intent
+       mobile case) and "Ask" (→ /ask → /chat, the product's namesake, previously
+       reachable only via the hero search). "Explore" still opens the directory
+       (where the search bar + the other categories live). #}
     <nav class="nav" aria-label="Primary">
       <a href="/home"{% if active_tab == 'home' or active_tab == 'today' %} aria-current="page"{% endif %}>Home</a>
       <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
       <a href="/movies"{% if active_tab == 'movies' %} aria-current="page"{% endif %}>Movies</a>
+      <a href="/family"{% if active_tab == 'family' %} aria-current="page"{% endif %}>For Kids</a>
       <a href="/categories#search"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Explore</a>
+      <a href="/ask"{% if active_tab == 'ask' or active_tab == 'chat' %} aria-current="page"{% endif %}>Ask</a>
       <a class="biz" href="/portal">For Business</a>
       <a href="/login">Sign in</a>
     </nav>
@@ -27,14 +31,16 @@
       <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
     </button>
   </div>
-  {# Mobile disclosure menu opened by the hamburger — the SAME canonical six as
-     the desktop nav. Real menu, hidden until toggled; without JS the desktop
-     nav (scrollable) still covers navigation. #}
+  {# Mobile disclosure menu opened by the hamburger — the SAME canonical set as
+     the desktop nav (incl. For Kids + Ask). Real menu, hidden until toggled;
+     without JS the desktop nav (scrollable) still covers navigation. #}
   <nav class="drawer" id="lk-drawer" aria-label="Site menu" hidden>
     <a href="/home"{% if active_tab == 'home' or active_tab == 'today' %} aria-current="page"{% endif %}>Home</a>
     <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
     <a href="/movies"{% if active_tab == 'movies' %} aria-current="page"{% endif %}>Movies</a>
+    <a href="/family"{% if active_tab == 'family' %} aria-current="page"{% endif %}>For Kids</a>
     <a href="/categories#search"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Explore</a>
+    <a href="/ask"{% if active_tab == 'ask' or active_tab == 'chat' %} aria-current="page"{% endif %}>Ask</a>
     <a class="biz" href="/portal">For Business</a>
     <a href="/login">Sign in</a>
   </nav>
