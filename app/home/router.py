@@ -662,12 +662,16 @@ def serve_home(
             "primary_nav": sandstone.primary_nav(),
             "mega_columns": sandstone.mega_columns(db),
             "week": sandstone.week_strip(db, today=now.date()),
-            "today_groups": events_views.day_groups(db, day=now.date(), now=now),
+            # The home feed now renders the SAME organized day-group structure as
+            # /events-ui (typed subsections, Kids & Family / Seniors / City &
+            # Government groups, clean venue labels) for the selected day, so the
+            # two calendars are consistent (Casey 2026-06-23). ``now`` stays the
+            # real clock for today's auto-expiry.
+            "today_groups": events_views.day_groups(db, day=feed_day, now=now),
             "today_highlights": events_views.day_highlights(db, day=now.date(), now=now, limit=3),
-            # Phase 2: the home four-group unified feed (Events / Classes &
-            # fitness / Open all day / At the movies). Same deduped pipeline as
-            # /events-ui, remapped to the home's simplified group model. Renders
-            # for the selected day (``?date=``); ``now`` stays the real clock.
+            # ``today_feed`` is still computed for its collapsed "At the movies"
+            # group (the per-film showtime rollup), which the day-group view does
+            # not build; the home template renders only that group from it.
             "today_feed": today_feed(db, day=feed_day, now=now),
             # FIX_DAYPICKER item 4: the feed's small date label ("Saturday,
             # June 20") + the iso the day-picker highlights as selected.

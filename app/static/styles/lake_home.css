@@ -169,7 +169,7 @@
 .tg-acc>summary:hover{background:var(--surface)}
 .tg-acc>summary:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--havasu)}
 .tg-sw{width:10px;height:10px;border-radius:3px;flex:none;background:var(--brass)}
-.tg-sw.family{background:var(--good)}.tg-sw.seniors{background:#c4793a}.tg-sw.music{background:#7a5cc0}.tg-sw.water{background:var(--havasu)}.tg-sw.classes{background:var(--brass-deep)}
+.tg-sw.family{background:var(--good)}.tg-sw.seniors{background:#c4793a}.tg-sw.music{background:#7a5cc0}.tg-sw.water{background:var(--havasu)}.tg-sw.classes{background:var(--brass-deep)}.tg-sw.civic{background:#3f5d7a}
 .tg-name{font-weight:600;font-size:15px;color:var(--ink)}
 .tg-count{margin-left:auto;font-size:12px;font-weight:700;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:999px;padding:2px 10px;flex:none}
 .tg-chev{flex:none;color:var(--muted);transition:transform .22s var(--ease)}

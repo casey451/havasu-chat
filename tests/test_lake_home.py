@@ -111,23 +111,29 @@ def test_lake_home_week_and_calendar_bindings() -> None:
     assert not checker.finish()
 
 
-def _sample_feed() -> dict:
+def _sample_groups() -> list:
+    # day_groups-shaped (the /events-ui organized structure the home now reuses).
+    return [
+        {"key": "events", "label": "Happening today", "icon": "", "count": 1, "open": True,
+         "rows": [{"time_label": "12 PM", "title": "ZZ Bridge Days", "venue": "The Bridge",
+                   "url": "/events/1", "type_label": None}]},
+        {"key": "classes", "label": "Fitness & classes", "icon": "", "count": 2, "open": False,
+         "rows": [], "subgroups": [
+            {"label": "Yoga", "count": 1, "rows": [
+                {"time_label": "6 AM", "title": "ZZ Inferno", "venue": "Amalaya Yoga",
+                 "url": "/provider/amalaya", "type_label": None}]},
+            {"label": "Martial Arts", "count": 1, "rows": [
+                {"time_label": "7 PM", "title": "ZZ MMA", "venue": "The Tap Room",
+                 "url": "/provider/tap-room", "type_label": None}]},
+         ]},
+    ]
+
+
+def _sample_movies_feed() -> dict:
+    # Only the "At the movies" group is consumed from today_feed now (day_groups
+    # builds everything else); it's the collapsed per-film showtime rollup.
     return {
-        "summary": "1 event · 2 fitness sessions · 1 film",
-        "groups": [
-            {"key": "events", "label": "Events", "count": 1, "open": True, "rows": [
-                {"time_label": "12 PM", "title": "ZZ Bridge Days", "venue": "The Bridge",
-                 "url": "/events/1", "recurring": False, "tags": []},
-            ]},
-            {"key": "fitness", "label": "Fitness & sports", "count": 2, "open": False, "rows": [],
-             "subgroups": [
-                {"label": "Adult", "count": 1, "rows": [
-                    {"time_label": "10 AM", "title": "ZZ Adult Wrestling", "venue": "The Tap Room",
-                     "url": "/events/2", "recurring": True, "tags": []}]},
-                {"label": "Youth", "count": 1, "rows": [
-                    {"time_label": "6 PM", "title": "ZZ BMX Race Night", "venue": "Havasu BMX",
-                     "url": "/events/3", "recurring": True, "tags": ["Kids"]}]},
-             ]},
+        "summary": "", "groups": [
             {"key": "movies", "label": "At the movies", "count": 1, "open": False, "films": [
                 {"title": "ZZ Robin Hood", "tags": ["Kids"], "summary": "Star Cinemas · next 6:30 PM",
                  "url": "https://x/book", "theaters": [{"name": "Star Cinemas", "times": ["6:30 PM"]}]},
@@ -137,33 +143,35 @@ def _sample_feed() -> dict:
 
 
 def test_lake_home_today_feed_renders() -> None:
-    """The home renders the regrouped unified feed: Events open by default, the
-    rest collapsed, the Fitness Adult/Youth sub-sections, audience tags, and
-    per-theater movie showtimes."""
+    """The home now renders the SAME organized day-group structure as /events-ui
+    (typed subsections, real group keys), plus the collapsed "At the movies"
+    group from today_feed. "Happening today" opens by default, the rest collapse."""
     from unittest.mock import patch
 
     from app.home import router as home_router
 
-    with patch.object(home_router, "today_feed", return_value=_sample_feed()):
+    with (
+        patch.object(home_router.events_views, "day_groups", return_value=_sample_groups()),
+        patch.object(home_router, "today_feed", return_value=_sample_movies_feed()),
+    ):
         b = TestClient(app).get("/home?theme=lake").text
 
-    # Feed present; Events open, others collapsed.
+    # Feed present; "Happening today" open, others collapsed.
     assert 'class="today-groups tfeed"' in b
     assert 'data-group="events" open' in b
-    assert 'data-group="fitness"' in b and 'data-group="fitness" open' not in b
+    assert 'data-group="classes"' in b and 'data-group="classes" open' not in b
     assert 'data-group="movies"' in b
-    # Rows + Fitness Adult/Youth sub-sections + movie showtime.
+    # Rows + typed Fitness subsections + the movie showtime (from today_feed).
     assert "ZZ Bridge Days" in b
-    assert "ZZ Adult Wrestling" in b and "ZZ BMX Race Night" in b
+    assert "ZZ Inferno" in b and "ZZ MMA" in b
     assert 'class="tg-subhead"' in b
-    assert ">Adult<" in b and ">Youth<" in b
+    assert ">Yoga<" in b and ">Martial Arts<" in b
     assert "ZZ Robin Hood" in b
     assert "6:30 PM" in b
-    # Item 3: the per-row green KIDS pill is gone (structural Adult/Youth
-    # sub-headers above stay); no audience rtag renders anywhere in the feed.
+    # No per-row green KIDS pill, no audience rtag in the feed.
     assert 'class="rtag kids"' not in b
     assert ">Kids</span>" not in b
-    # The dropped controls are gone: no "Show" filter, no Try-chips, no big heading.
+    # The dropped controls stay gone: no "Show" filter, no Try-chips, no big heading.
     assert 'id="feed-filter"' not in b
     assert 'class="tryrow"' not in b
     assert "Today in Lake Havasu" not in b
