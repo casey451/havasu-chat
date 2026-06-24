@@ -113,10 +113,10 @@ def _render_contribute_page(
     <header class="topbar">
       <a class="wordmark" href="/home">
         <span class="mark"></span>
-        <span>Hava</span>
+        <span>Ask Hava</span>
       </a>
       <div class="topbar-meta">
-        <a href="/home">Back to Hava</a>
+        <a href="/home">Back to Ask Hava</a>
       </div>
     </header>
 

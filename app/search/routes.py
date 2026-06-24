@@ -244,9 +244,17 @@ def api_search_suggestions(
 
     out: list[dict[str, Any]] = []
     for row in db.execute(stmt).all():
+        claim_url: str | None = None
         if row.entity_type == ENTITY_TYPE_COMMERCIAL:
             slug_out = row.provider_slug or row.slug
             url = f"/provider/{slug_out}"
+            # Direct one-step claim link (Phase 3.1): the claim flow resolves by
+            # ENTITY slug (auth.claims.get_entity_by_slug → Entity.slug, mirrored
+            # by the provider page's claim CTA), so build it from row.slug — NOT
+            # the provider slug used for the profile URL. Lets /portal/claim send
+            # a search hit straight to /claim/<slug> instead of via the listing.
+            if row.slug:
+                claim_url = f"/claim/{row.slug}"
         elif row.entity_type == ENTITY_TYPE_EVENT:
             url = f"/events/{row.id}"
         elif row.entity_type == ENTITY_TYPE_PROGRAM:
@@ -260,6 +268,9 @@ def api_search_suggestions(
                 "type": row.entity_type,
                 "subcategory": subcat,
                 "url": url,
+                # Only commercial rows are claimable; None for events/programs so
+                # the claim page can fall back to the profile URL.
+                "claim_url": claim_url,
             }
         )
     return out

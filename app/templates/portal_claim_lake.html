@@ -67,7 +67,9 @@
         var a = document.createElement("a");
         a.className = "dp-suggest-item";
         a.setAttribute("role", "option");
-        a.href = r.url;
+        /* One-step claim (Phase 3.1): straight to /claim/<slug> when supplied,
+           else fall back to the listing page (which has the Claim CTA). */
+        a.href = r.claim_url || r.url;
         var name = document.createElement("span");
         name.className = "dp-suggest-name";
         name.textContent = r.name;

@@ -110,7 +110,7 @@ def admin_v1_overview(request: Request, db: Session = Depends(get_db)) -> HTMLRe
     )
 
     body = f"""<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>Admin overview — Hava</title>
+<html lang="en"><head><meta charset="utf-8"><title>Admin overview — Ask Hava</title>
 <style>
 body {{ font-family: system-ui, sans-serif; margin: 24px; max-width: 960px; }}
 table {{ border-collapse: collapse; width: 100%; margin: 12px 0 24px; }}
