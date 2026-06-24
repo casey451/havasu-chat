@@ -58,7 +58,11 @@ the keyless EPA Envirofacts forecast — no action required for a working tile.
 | 11 | movies | `scripts/events_pull.py --source movies` | Movies Havasu showtimes; kids summer movies family-tagged (NEEDS_PROD_VERIFY XHR) |
 | 12 | eventbrite_orgs | `scripts/events_pull.py --source eventbrite` | Org events, worship listings excluded (needs `EVENTBRITE_API_TOKEN`). **Relevance gate — review samples** |
 | 13 | senior_center | `scripts/events_pull.py --source senior_center` | Classes/activities. **Relevance gate — review samples** (NEEDS_PROD_VERIFY) |
+| 25 | parks_rec_calendar | `scripts/parks_rec_calendar_pull.py` | Monthly Parks & Rec calendar IMAGE → events via vision LLM. `=== parks_rec_calendar — DRY RUN ===` banner, would-insert/skip, `would-hold-hidden` + confidence histogram, 3 samples. Needs `OPENAI_API_KEY` (0 fetched without it — not a bug). **VISION GATE — review samples AND held (confidence<0.75) rows.** NEEDS_PROD_VERIFY: datacenter IP may get an empty Cloudflare body for the ImageRepository |
+| 26 | parks_rec_flyers | `scripts/parks_rec_calendar_pull.py --source flyers` | Individual event-flyer images → events (one flyer ≈ one event). Cap with `PARKS_REC_FLYER_MAX` (default 8). Same vision gate |
+| 27 | senior_center_flyers | `scripts/senior_flyers_pull.py` | Senior Center Current-Events flyer images → `senior`-tagged events via the same vision engine (Task B). Decorative images drop via the guards; cap with `SENIOR_FLYER_MAX` (default 12). **VISION GATE.** Build-only path to retiring the hand-kept `CURATED_SPECIAL_EVENTS`; does NOT touch the live senior loader |
 | — | marquee coverage | `scripts/verify_marquee_event_coverage.py` | `[OK]`/`[GAP]` per marquee event (Speedway/Desert Storm/Balloon/Boat Show). Read-only |
+| — | parks-rec coverage | `scripts/verify_parks_rec_coverage.py` | `[OK]`/`[GAP]` per Parks & Rec surface (webtrac / aquatic / civic-iCal / calendar-image). Also flags whether civic `catID=23` carries Events vs meetings-only. Read-only, no LLM |
 
 ## Group D — Conditions & outdoors
 
@@ -96,6 +100,10 @@ the keyless EPA Envirofacts forecast — no action required for a working tile.
 | `ZILLOW_ZHVI_CSV_URL` / `ZILLOW_ZORI_CSV_URL` | #23 zillow_research | Only if the published file URLs have rotated |
 | `MOVIES_WEBEDIA_API_URL` | #11 movies | Override once the real XHR endpoint is captured |
 | `LHC_NWS_ZONE_ID` | #14 nws_extras | Add `AZZ036` to catch Lake Wind Advisories |
+| `OPENAI_API_KEY` | #25/#26 parks_rec_calendar/flyers | Vision LLM call. Already set in prod; without it the source fetches 0 (graceful) |
+| `PARKS_REC_VISION_MODEL` | #25/#26 parks_rec | Override the vision model (default `gpt-4o`) |
+| `PARKS_REC_FLYER_MAX` | #26 parks_rec_flyers | Cap flyer vision calls per run (default 8) |
+| `SENIOR_FLYER_MAX` | #27 senior_center_flyers | Cap senior flyer vision calls per run (default 12) |
 
 ## Integration step (NOT done in this branch)
 

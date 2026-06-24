@@ -1,0 +1,16 @@
+{
+  "events": [
+    {
+      "title": "Fourth of July Baking",
+      "date": "2026-07-01",
+      "start_time": "09:00",
+      "end_time": "11:00",
+      "location": "Recreation Center",
+      "cost": "$5",
+      "audience": "families",
+      "notes": "Bring an apron",
+      "confidence": 0.92,
+      "source_cell": "July 1  Fourth of July Baking  9-11am  $5"
+    }
+  ]
+}
