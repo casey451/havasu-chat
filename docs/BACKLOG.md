@@ -13,6 +13,25 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ---
 
+# P6 Production hardening & owner handoff (2026-06-23) — branch `p6-hardening-handoff`, held for push
+
+Production-readiness P6 (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P6). Commits held for Casey's push. Gate: pytest (see closeout) / 0 failed, ruff clean.
+
+- **Staleness monitor (all feeds)** — **RESOLVED.** `app/monitoring/freshness.py` grades events + **gas** + **movies** against per-feed budgets (the gas/movies feeds whose silent staleness caused the P0 date-desync). `scripts/data_freshness_monitor.py` exits non-zero on STALE/MISSING; wired into `data-freshness-check.yml` so the Actions failure email pages. Surfaced in `/admin/overview` as a "Feed freshness" table. Demonstrably-fires test in `tests/test_data_freshness_monitor.py`.
+- **Carried-forward: rollup-count consistency** — **RESOLVED.** `_occurrence_group_keys` is the single source of truth for day-view placement; `week_rows` rollup counts now replay the same Seniors/Kids/Happening-today re-routes, so the week strip can't disagree with the day groups. Test in `test_events_ui_views.py`.
+- **Carried-forward: "Troy's Alligator Feed" → Music** — **RESOLVED.** Food/novelty guard in `sandstone._event_tier` demotes a food one-off that inherited a venue's coarse `music` tag, unless it carries a real (strong) live-music signal. Tests in `test_event_tier_classifier.py`.
+- **Carried-forward: "Roatary" venue typo** — **RESOLVED (display) + GATED (DB).** Durable display fix via `title_clean.fix_venue_spelling` (corrects the calendar + survives re-scrape). `scripts/fix_venue_typos.py` repairs the underlying row(s) — **--dry-run by default, held for Casey's approval** (prod DB write).
+- **Carried-forward: residual "Other classes" (Star Search / Stitchers / Pickleball)** — **RESOLVED (verified).** Pickleball types correctly; Star Search / Stitchers hit FALLBACK → day-view re-route to "Happening today" (never a stranded "Other classes"). Test in `test_activity_taxonomy.py`.
+- **Carried-forward: N1 recurring detail "passed" banner** — **VERIFIED (already fixed).** `_event_is_past`/`_display_date`/`next_occurrence` handle the 2024-anchored recurring seed; covered by `test_event_permalink_context.py::test_is_past_recurring_rrule_anchor_in_past_not_past`. No change needed.
+- **Security H1 (creative URLs)** — **RESOLVED.** Merchant `cta_url`/`image_url`/`image_url_mobile` validated server-side (`_creative_url_errors` + `safe_href`) before persisting onto public cards. Test in `test_creative_url_safety.py`.
+- **Security/perf M1/M2 (analytics dashboards)** — **RESOLVED.** Added `analytics_events(slot, created_at)` + `(slot_origin, created_at)` indexes (model + migration `p6analyticsidx01`) for the placement/traffic group-bys; de-wildcarded the impression/click counters to the `.impression`/`.click` suffix convention.
+
+P6 carry-forward / deferred:
+- **Curated page-less-venue link map → entity-level `website` (P6 maintainability).** `app/events/class_occurrences.py:_PAGELESS_VENUE_WEBSITES` (Desert Bloom / Havasu Pilates / Havasu Horseback) is a hardcoded map; migrate to data-driven `Entity.website` so it isn't hand-maintained. Low priority — the map self-deactivates once a real directory listing exists. **DEFERRED** (not cheap: needs a gated prod write + loader change).
+- **PR #493 (Summer Free Movies backfill exclusion)** — **OPEN, not merged.** The exclusion is a one-line regex in a backfill *script* (`scripts/backfill_event_descriptions_2026_06_23.py`, commit `965eb484`) on the unmerged #493 branch; it has no runtime/served effect. #492 (description backfill) merged `17e88c73`. Recommend Casey merge #493 to retire the carry; not duplicated here.
+- **Security low-priority** (none exploitable; recorded in `docs/OWNER_HANDOFF.md` §7): Stripe `success/cancel_url` from `request.base_url` (safe behind Railway's fixed host; prefer configured `BASE_URL`); admin audit actor is static `"admin"` (single shared password — move to per-user role if multiple operators); feedback rate limit is per-process/IP.
+- **Owner handoff runbook** — **RESOLVED.** `docs/OWNER_HANDOFF.md`: admin tour, the freshness monitor, owner-only Stripe go-live (`STRIPE_*` vars), feedback inbox/Resend (`RESEND_*` + `FEEDBACK_NOTIFY_EMAIL`).
+
 # Event minimum-info gate + description backfill (2026-06-23) — branch `fix/event-minimum-info`, held for push
 
 "No event/class with no information." Investigation flipped remedy from remove → find descriptions. Gate: pytest 11769 passed / 0 failed, ruff clean.
