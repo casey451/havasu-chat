@@ -461,6 +461,51 @@ def extract_validated_rows(
     return ExtractionResult(rows=rows, stats=stats, raw_text=text)
 
 
+def extract_flyer_rows(
+    image_bytes: bytes,
+    *,
+    context_label: str,
+    mime: str = "image/png",
+    model: str | None = None,
+    openai_symbol: object = OpenAI,
+    raw_text: str | None = None,
+) -> ExtractionResult:
+    """Engine entry for a single flyer image (one event, occasionally a series).
+
+    A flyer has no authoritative month grid, so each row is month-bounded against
+    the month/year of its OWN parsed date -- a stray hallucinated second date is
+    still dropped. Shared by every flyer adapter (Parks & Rec, senior center) so
+    the guard logic lives in one place. Tests inject ``raw_text``.
+    """
+    text = (
+        raw_text
+        if raw_text is not None
+        else call_vision(
+            image_bytes,
+            system_prompt=flyer_system_prompt(context_label=context_label),
+            model=model,
+            mime=mime,
+            openai_symbol=openai_symbol,
+        )
+    )
+    raw_rows = parse_events_json(text)
+    kept: list[VisionEventRow] = []
+    stats = ValidationStats(raw=len(raw_rows))
+    for r in raw_rows:
+        d = parse_date(r.get("date")) if isinstance(r, dict) else None
+        if d is None:
+            stats.dropped_bad_date += 1
+            continue
+        rows, sub = validate_rows([r], month=d.month, year=d.year)
+        kept.extend(rows)
+        stats.kept += sub.kept
+        stats.held_low_confidence += sub.held_low_confidence
+        stats.dropped_no_provenance += sub.dropped_no_provenance
+        stats.dropped_bad_title += sub.dropped_bad_title
+        stats.dropped_out_of_month += sub.dropped_out_of_month
+    return ExtractionResult(rows=kept, stats=stats, raw_text=text)
+
+
 __all__ = [
     "CONFIDENCE_THRESHOLD",
     "DEFAULT_VISION_MODEL",
@@ -471,6 +516,7 @@ __all__ = [
     "apply_self_check_flags",
     "calendar_system_prompt",
     "call_vision",
+    "extract_flyer_rows",
     "extract_validated_rows",
     "flyer_system_prompt",
     "parse_date",

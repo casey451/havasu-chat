@@ -43,15 +43,10 @@ from app.contrib.parks_rec_loader import DEFAULT_PROVIDER_WEBTRAC, _all_tags
 from app.contrib.vision_calendar import (
     MONTH_INDEX,
     ExtractionResult,
-    ValidationStats,
     VisionEventRow,
     calendar_system_prompt,
-    call_vision,
+    extract_flyer_rows,
     extract_validated_rows,
-    flyer_system_prompt,
-    parse_date,
-    parse_events_json,
-    validate_rows,
     vision_model,
 )
 from app.utils.slug import slugify
@@ -551,37 +546,13 @@ def _extract_flyer(
     ref: GalleryImage,
     raw_text: str | None,
 ) -> ExtractionResult:
-    """Flyer extraction: parse raw rows, then month-bound each row by its OWN date.
-
-    Unlike a calendar (one authoritative month), a flyer may name any month. We
-    parse rows once, then validate each against the month/year of its own parsed
-    date so a stray hallucinated second date in the flyer is still dropped.
-    """
-    text = (
-        raw_text
-        if raw_text is not None
-        else call_vision(
-            image_bytes,
-            system_prompt=flyer_system_prompt(context_label="Lake Havasu City Parks & Recreation"),
-            mime=mime,
-        )
+    """Parks & Rec flyer extraction -- delegates to the shared engine entry."""
+    return extract_flyer_rows(
+        image_bytes,
+        context_label="Lake Havasu City Parks & Recreation",
+        mime=mime,
+        raw_text=raw_text,
     )
-    raw_rows = parse_events_json(text)
-    kept: list[VisionEventRow] = []
-    stats = ValidationStats(raw=len(raw_rows))
-    for r in raw_rows:
-        d = parse_date(r.get("date")) if isinstance(r, dict) else None
-        if d is None:
-            stats.dropped_bad_date += 1
-            continue
-        rows, sub = validate_rows([r], month=d.month, year=d.year)
-        kept.extend(rows)
-        stats.kept += sub.kept
-        stats.held_low_confidence += sub.held_low_confidence
-        stats.dropped_no_provenance += sub.dropped_no_provenance
-        stats.dropped_bad_title += sub.dropped_bad_title
-        stats.dropped_out_of_month += sub.dropped_out_of_month
-    return ExtractionResult(rows=kept, stats=stats, raw_text=text)
 
 
 __all__ = [
