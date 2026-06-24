@@ -307,12 +307,25 @@ def _drop_schedule_twins(occurrences: list[ClassOccurrence]) -> list[ClassOccurr
         tokens = _dedup_title_tokens(o.title)
         replaced = False
         for i, (k_tokens, k_occ, k_idx) in enumerate(group):
-            if not _tokens_match(tokens, k_tokens):
+            # Exact-slot over-capture: identical start+end+weekdays is one class
+            # no matter how the title is worded (a venue can't run two DIFFERENT
+            # classes in the same room at the same time). Collapse as long as the
+            # titles share an activity word, so a genuine two-room "Yoga"+"Spin"
+            # at the same time (no shared token) is NOT merged. This catches the
+            # Havasu Pilates capture stored 4-5x per slot under title variants.
+            same_slot = (
+                o.start_time == k_occ.start_time
+                and o.end_time == k_occ.end_time
+                and frozenset(o.weekdays) == frozenset(k_occ.weekdays)
+            )
+            if same_slot and (tokens & k_tokens):
+                pass  # exact-slot twin
+            elif not _tokens_match(tokens, k_tokens):
                 continue
             # Within-venue twins must agree on a REAL time window (no
             # wildcard): "Adult No-Gi (Morning)" and "(Night)" share tokens
             # and may only differ by clock.
-            if o.start_time is None or k_occ.start_time is None:
+            elif o.start_time is None or k_occ.start_time is None:
                 if o.start_time is not k_occ.start_time:
                     continue
                 if frozenset(o.weekdays) != frozenset(k_occ.weekdays):

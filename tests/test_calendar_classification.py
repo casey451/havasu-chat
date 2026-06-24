@@ -164,6 +164,39 @@ def test_youth_titles_route_to_family():
     assert is_family_event("Intro to Ballroom") is False
 
 
+def test_kids_venue_routes_generic_class_to_family():
+    # Provider/venue-aware: a generically-named class at a kids-only venue is a
+    # Kids & Family item even with no kid word in the title.
+    assert is_family_event("Afternoon Enrichment: Life Skills Lab", None,
+                           "Desert Bloom Learning Center") is True
+    assert is_family_event("Rec Cheer", None, "Universal Sonics Gymnastics") is True
+    # New youth-name + pony hints.
+    assert is_family_event("Tiny Toes") is True
+    assert is_family_event("Pony / Lead Line Rides") is True
+    # A generic class at a NON-kids venue is not family on venue alone.
+    assert is_family_event("Reformer Pilates", None, "Crazy Eds Cardio") is False
+
+
+def test_pickleball_at_aquatic_center_files_under_pickleball():
+    # The pool's name in the title ("...Aquatic Center") must not file a
+    # pickleball round robin under Aquatic fitness — the activity word wins.
+    assert classify_class_subgroup(
+        "Pickleball Round Robin - Lake Havasu City Aquatic Center",
+        "Lake Havasu City Aquatic Center", None,
+    ) == "Pickleball"
+    # Genuine pool classes still file under Aquatic fitness.
+    assert classify_class_subgroup("Lap Swim", "Lake Havasu City Aquatic Center", None) == "Aquatic fitness"
+
+
+def test_dropin_swim_not_filed_as_swim_lessons():
+    # Open Swim / Free Family Swim are drop-in rec, not lessons — they must NOT
+    # file under the "Swim Lessons" youth subsection (live bug: they did).
+    assert _family_subgroup("Open Swim") == "More for kids"
+    assert _family_subgroup("Free Family Swim") == "More for kids"
+    # An actual swim lesson still files under Swim Lessons.
+    assert _family_subgroup("Swim Lessons (Station-Based Program)") == "Swim Lessons"
+
+
 def test_youth_subgroup_uses_provider_activity():
     # A generically-named youth gymnastics class types as Youth Gymnastics via the
     # provider activity (no "gymnastics" token in "Boys Athletics").

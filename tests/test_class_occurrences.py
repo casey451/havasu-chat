@@ -228,6 +228,50 @@ def test_pageless_venue_links_to_curated_website(monkeypatch) -> None:
             db.commit()
 
 
+def test_schedule_twins_collapse_exact_slot_title_variants() -> None:
+    """An over-captured venue stored one class 4-5x per slot under title variants
+    ("11:00 AM Beginner Pilates", "11:00 AM Pilates", "Reformer Pilates - 11:00
+    AM Mon/Wed/Fri"). Same exact slot (start+end+weekdays) + a shared activity
+    word collapses to one (Havasu Pilates filled a whole Pilates wall on live)."""
+    from app.events.class_occurrences import ClassOccurrence, _drop_schedule_twins
+
+    d = date(2026, 12, 7)
+    wd = frozenset({0, 2, 4})
+
+    def occ(title: str) -> ClassOccurrence:
+        return ClassOccurrence(
+            title=title, date=d, start_time=time(11, 0), end_time=time(11, 50),
+            venue="Havasu Pilates Studio", provider_slug=None, weekdays=wd,
+        )
+
+    rows = [
+        occ("11:00 AM Beginner Pilates (Mon/Wed/Fri)"),
+        occ("11:00 AM Pilates"),
+        occ("11:00 AM Reformer Pilates (Mon, Wed & Fri)"),
+        occ("Reformer Pilates - 11:00 AM Mon/Wed/Fri"),
+    ]
+    kept = _drop_schedule_twins(rows)
+    assert len(kept) == 1, [k.title for k in kept]
+
+
+def test_schedule_twins_keep_distinct_same_slot_classes() -> None:
+    """Two genuinely DIFFERENT classes at the same slot (no shared activity word
+    — a two-room venue running Yoga and Spin at 6 PM) are NOT merged."""
+    from app.events.class_occurrences import ClassOccurrence, _drop_schedule_twins
+
+    d = date(2026, 12, 7)
+    wd = frozenset({0})
+
+    def occ(title: str) -> ClassOccurrence:
+        return ClassOccurrence(
+            title=title, date=d, start_time=time(18, 0), end_time=time(19, 0),
+            venue="Big Multi-Room Gym", provider_slug=None, weekdays=wd,
+        )
+
+    kept = _drop_schedule_twins([occ("Yoga"), occ("Spin")])
+    assert len(kept) == 2, [k.title for k in kept]
+
+
 def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
     """A permalink-less program (no provider page) still appears in the home
     feed, but renders WITHOUT a "Details →" link — we no longer fabricate a

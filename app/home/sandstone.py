@@ -901,7 +901,7 @@ def calendar_month(
     )
     if family:
         occ_by_date = {
-            d: [ev for ev in evs if is_family_event(ev.title, ev.tags)]
+            d: [ev for ev in evs if is_family_event(ev.title, ev.tags, ev.location_name)]
             for d, evs in occ_by_date.items()
         }
     elif seniors:
@@ -939,7 +939,7 @@ def calendar_month(
         event_keys,
     )
     for occ in class_occs:
-        if family and not is_family_event(occ.title):
+        if family and not is_family_event(occ.title, None, occ.venue):
             continue
         if seniors and not is_senior_event(occ.title, None, occ.venue):
             continue

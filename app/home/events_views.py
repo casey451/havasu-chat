@@ -54,8 +54,14 @@ from app.events.event_type_tags import event_type_label
 from app.events.family_filter import is_family_event
 from app.events.senior_filter import is_senior_event
 from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_key
-from app.events.title_clean import clean_event_title
-from app.home.event_buckets import GROUP_DEFS, GROUP_NOUNS, TIER_SPECIAL, group_for_tier
+from app.events.title_clean import clean_event_title, clean_venue_label
+from app.home.event_buckets import (
+    GROUP_DEFS,
+    GROUP_NOUNS,
+    TIER_SPECIAL,
+    group_for_tier,
+    is_dropin_rec,
+)
 from app.home.family_venues import open_today_rows
 from app.home.sandstone import (
     _event_tier,
@@ -146,6 +152,11 @@ def _family_subgroup(title: str, activity: str | None = None) -> str:
 
     Title keyword wins (specific); otherwise the provider-derived ``activity``
     (Gymnastics/Dance/…) maps to its Youth subsection; else "More for kids"."""
+    # Drop-in rec (Open Swim, Free Family Swim, Open Gym) is NOT a lesson/class —
+    # it must not file under "Swim Lessons" (or any typed youth class) on the
+    # "swim"/"gym" keyword. Route it to the general "More for kids" bucket.
+    if is_dropin_rec(title):
+        return _FAMILY_FALLBACK_LABEL
     low = title.lower()
     for label, hints in _FAMILY_SUBGROUPS:
         for h in hints:
@@ -205,7 +216,7 @@ def _event_row(ev: Event) -> dict[str, Any]:
         "sort": time_sort_key(ev.start_time, ev.end_time),
         "time_label": _row_time_label(ev.title or "", ev.start_time, ev.end_time),
         "title": clean_event_title(ev.title, location_name=ev.location_name),
-        "venue": ev.location_name,
+        "venue": clean_venue_label(ev.location_name),
         "url": f"/events/{ev.id}",
         "recurring": bool(ev.is_recurring),
         # P2: the event TYPE folded into a scannable label ("Live Music",
@@ -246,6 +257,19 @@ def _route_occurrence(
         return
     if is_family and gkey == "classes":
         family_overlay.append(row)
+        return
+    # Non-fitness recurring "classes" (dog obedience, a cooking class, a craft
+    # series, homeschool enrichment) carry no fitness activity type, so they used
+    # to pile up in a "Fitness & classes > Other classes" residue that read as
+    # leftovers. Route them to "Happening today" instead, so Fitness & classes
+    # holds only real fitness/movement classes and nothing looks out of place
+    # (Casey 2026-06-23). Kids/senior versions are already pulled off above.
+    if gkey == "classes" and classify_class_subgroup(
+        row.get("title") or "", row.get("venue"), row.get("activity")
+    ) == FALLBACK_LABEL:
+        rows_by_group["events"].append(row)
+        if is_family:
+            family_overlay.append(row)
         return
     rows_by_group[gkey].append(row)
     if is_family:
@@ -317,7 +341,7 @@ def day_groups(
         seniors = False
     events = _live_events_by_day(db, window_start=day, window_end=day).get(day, [])
     if family:
-        events = [ev for ev in events if is_family_event(ev.title, ev.tags)]
+        events = [ev for ev in events if is_family_event(ev.title, ev.tags, ev.location_name)]
     elif seniors:
         events = [ev for ev in events if is_senior_event(ev.title, ev.tags, ev.location_name)]
     # Item 6 auto-expiry: on the current day, drop occurrences finished >1h ago
@@ -351,7 +375,10 @@ def day_groups(
         row = _event_row(ev)
         _route_occurrence(
             row, gkey, rows_by_group, family_overlay, senior_overlay,
-            is_family=(not family and not seniors and is_family_event(ev.title, ev.tags)),
+            is_family=(
+                not family and not seniors
+                and is_family_event(ev.title, ev.tags, ev.location_name)
+            ),
             is_senior=(
                 not family and not seniors
                 and is_senior_event(ev.title, ev.tags, ev.location_name)
@@ -361,7 +388,7 @@ def day_groups(
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
     ):
-        if family and not is_family_event(occ.title):
+        if family and not is_family_event(occ.title, None, occ.venue):
             continue
         if seniors and not is_senior_event(occ.title, None, occ.venue):
             continue
@@ -372,7 +399,7 @@ def day_groups(
             "sort": time_sort_key(occ.start_time, occ.end_time),
             "time_label": _row_time_label(occ.title or "", occ.start_time, occ.end_time),
             "title": clean_event_title(occ.title, location_name=occ.venue),
-            "venue": occ.venue,
+            "venue": clean_venue_label(occ.venue),
             "url": occ.url,  # venue page — class series have no permalink
             "recurring": True,
             # Provider-derived activity (Yoga/Dance/Gymnastics/…) so the Fitness &
@@ -387,7 +414,10 @@ def day_groups(
         }
         _route_occurrence(
             row, gkey, rows_by_group, family_overlay, senior_overlay,
-            is_family=(not family and not seniors and is_family_event(occ.title)),
+            is_family=(
+                not family and not seniors
+                and is_family_event(occ.title, None, occ.venue)
+            ),
             is_senior=(
                 not family and not seniors
                 and is_senior_event(occ.title, None, occ.venue)
@@ -468,7 +498,7 @@ def week_rows(
     by_day = _live_events_by_day(db, window_start=start, window_end=end)
     if family:
         by_day = {
-            d: [ev for ev in evs if is_family_event(ev.title, ev.tags)]
+            d: [ev for ev in evs if is_family_event(ev.title, ev.tags, ev.location_name)]
             for d, evs in by_day.items()
         }
     elif seniors:
@@ -485,7 +515,7 @@ def week_rows(
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=start, window_end=end), event_keys
     ):
-        if family and not is_family_event(occ.title):
+        if family and not is_family_event(occ.title, None, occ.venue):
             continue
         if seniors and not is_senior_event(occ.title, None, occ.venue):
             continue
