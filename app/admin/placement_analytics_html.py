@@ -152,8 +152,8 @@ def _render(db: Session, win: str) -> str:
 
     # Impressions vs clicks (CTR) by slot — event_name carries the ".impression"
     # / ".click" suffix, slot is the inventory unit (marquee / spotlight / ...).
-    imp = func.sum(case((AnalyticsEvent.event_name.like("%impression%"), 1), else_=0)).label("imp")
-    clk = func.sum(case((AnalyticsEvent.event_name.like("%click%"), 1), else_=0)).label("clk")
+    imp = func.sum(case((AnalyticsEvent.event_name.like("%.impression"), 1), else_=0)).label("imp")
+    clk = func.sum(case((AnalyticsEvent.event_name.like("%.click"), 1), else_=0)).label("clk")
     ctr = db.execute(
         _scoped(
             select(func.coalesce(AnalyticsEvent.slot, "(none)"), imp, clk)

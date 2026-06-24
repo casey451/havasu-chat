@@ -217,8 +217,12 @@ def placements(
         return redirect
     win, since = _window(window)
 
-    imp = func.sum(case((AnalyticsEvent.event_name.like("%impression%"), 1), else_=0))
-    clk = func.sum(case((AnalyticsEvent.event_name.like("%click%"), 1), else_=0))
+    # event_name follows the "<surface>.<slot>.impression" / ".click" suffix
+    # convention, so anchor to the suffix (precise; won't miscount a future
+    # "impression_count"-style name). The slot group-by below rides the
+    # ix_analytics_events_slot_created index (P6 M1).
+    imp = func.sum(case((AnalyticsEvent.event_name.like("%.impression"), 1), else_=0))
+    clk = func.sum(case((AnalyticsEvent.event_name.like("%.click"), 1), else_=0))
 
     def _scoped_ae(stmt):
         return stmt.where(AnalyticsEvent.created_at >= since) if since is not None else stmt

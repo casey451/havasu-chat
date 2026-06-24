@@ -123,10 +123,30 @@ _VENUE_ADDR_TO_NAME: dict[str, str] = {
     "3516 mcculloch": "Abundant Grace Church",
 }
 
+# Known scraped misspellings in venue/location text, corrected as whole-word
+# substitutions wherever a venue label is cleaned for display — so a source typo
+# is fixed on the calendar AND survives a re-scrape (the underlying DB row may
+# still carry the typo; a gated data correction handles that separately). Keep
+# this TIGHT: only unambiguous, verified misspellings of real local venues, so it
+# can never mangle a legitimately-spelled name.
+_VENUE_SPELLING_FIXES: dict[str, str] = {
+    "roatary": "Rotary",  # "Roatary Community Ball Fields" (Splash Bash, Jul 25)
+}
+_VENUE_SPELLING_RE = re.compile(
+    r"\b(?:" + "|".join(re.escape(k) for k in _VENUE_SPELLING_FIXES) + r")\b",
+    re.IGNORECASE,
+)
+
+
+def fix_venue_spelling(name: str) -> str:
+    """Correct known scraped venue misspellings (whole-word, case-insensitive)."""
+    return _VENUE_SPELLING_RE.sub(lambda m: _VENUE_SPELLING_FIXES[m.group(0).lower()], name)
+
 
 def clean_venue_label(name: str | None) -> str | None:
     """Tidy a venue label: name a known bare-address venue, else drop a trailing
-    street address, keeping the leading name."""
+    street address, keeping the leading name. Known scraped misspellings are
+    corrected last so the display name is always right."""
     if not name:
         return name
     low = name.strip().lower()
@@ -134,4 +154,4 @@ def clean_venue_label(name: str | None) -> str | None:
         if low.startswith(prefix):
             return real
     cleaned = _VENUE_ADDR_CUT_RE.sub("", name).strip().rstrip(",").strip()
-    return cleaned or name
+    return fix_venue_spelling(cleaned or name)

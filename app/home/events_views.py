@@ -226,6 +226,36 @@ def _event_row(ev: Event) -> dict[str, Any]:
     }
 
 
+def _occurrence_group_keys(
+    gkey: str,
+    *,
+    title: str,
+    venue: str | None,
+    activity: str | None,
+    is_family: bool,
+    is_senior: bool,
+) -> list[str]:
+    """Every group key the day view renders this occurrence under.
+
+    The single source of truth for placement, shared by the day accordion
+    (:func:`_route_occurrence`) and the week/month rollup counts
+    (:func:`week_rows`). Before this, the day view re-routed senior / youth-class /
+    "other class" occurrences via :func:`_route_occurrence` while the week rollup
+    counted them by bare primary group — so the week strip said "14 classes" but
+    the day showed fewer under Fitness & classes (the rest under Seniors / Kids &
+    Family / Happening today). Routing both through this function makes the rollup
+    counts agree with the rendered groups by construction. The rules mirror the
+    Seniors-only / youth-class-only / fallback-class re-route documented below.
+    """
+    if is_senior:
+        return ["seniors"]
+    if is_family and gkey == "classes":
+        return ["family"]
+    if gkey == "classes" and classify_class_subgroup(title, venue, activity) == FALLBACK_LABEL:
+        return ["events", "family"] if is_family else ["events"]
+    return [gkey, "family"] if is_family else [gkey]
+
+
 def _route_occurrence(
     row: dict[str, Any],
     gkey: str,
@@ -251,29 +281,28 @@ def _route_occurrence(
     list. Non-class youth items (festivals, story time) keep the additive overlay
     (they stay in their primary group AND re-list under Kids & Family for
     discoverability).
+
+    Non-fitness recurring "classes" (dog obedience, a cooking class, a craft
+    series, homeschool enrichment) carry no fitness activity type, so they used to
+    pile up in a "Fitness & classes > Other classes" residue that read as
+    leftovers; they route to "Happening today" instead (Casey 2026-06-23). The
+    routing decision itself lives in :func:`_occurrence_group_keys` so the week
+    rollup can replay it identically.
     """
-    if is_senior:
-        senior_overlay.append(row)
-        return
-    if is_family and gkey == "classes":
-        family_overlay.append(row)
-        return
-    # Non-fitness recurring "classes" (dog obedience, a cooking class, a craft
-    # series, homeschool enrichment) carry no fitness activity type, so they used
-    # to pile up in a "Fitness & classes > Other classes" residue that read as
-    # leftovers. Route them to "Happening today" instead, so Fitness & classes
-    # holds only real fitness/movement classes and nothing looks out of place
-    # (Casey 2026-06-23). Kids/senior versions are already pulled off above.
-    if gkey == "classes" and classify_class_subgroup(
-        row.get("title") or "", row.get("venue"), row.get("activity")
-    ) == FALLBACK_LABEL:
-        rows_by_group["events"].append(row)
-        if is_family:
+    for key in _occurrence_group_keys(
+        gkey,
+        title=row.get("title") or "",
+        venue=row.get("venue"),
+        activity=row.get("activity"),
+        is_family=is_family,
+        is_senior=is_senior,
+    ):
+        if key == "seniors":
+            senior_overlay.append(row)
+        elif key == "family":
             family_overlay.append(row)
-        return
-    rows_by_group[gkey].append(row)
-    if is_family:
-        family_overlay.append(row)
+        else:
+            rows_by_group[key].append(row)
 
 
 def _occurrence_expired(
@@ -520,8 +549,21 @@ def week_rows(
         if seniors and not is_senior_event(occ.title, None, occ.venue):
             continue
         gkey = _group_for(title=occ.title, tags=None, featured=False, recurring=True)
+        # Count into the SAME group(s) the day view renders this under (Seniors /
+        # Kids & Family / Happening today re-routes), not the bare primary — so
+        # the week rollup can't disagree with the day. Overlays are suppressed
+        # under an explicit narrow (the whole view is already that audience).
+        overlay_ok = not family and not seniors
         day_counts = sched_by_day.setdefault(occ.date, {})
-        day_counts[gkey] = day_counts.get(gkey, 0) + 1
+        for key in _occurrence_group_keys(
+            gkey,
+            title=occ.title or "",
+            venue=occ.venue,
+            activity=occ.provider_activity,
+            is_family=overlay_ok and is_family_event(occ.title, None, occ.venue),
+            is_senior=overlay_ok and is_senior_event(occ.title, None, occ.venue),
+        ):
+            day_counts[key] = day_counts.get(key, 0) + 1
 
     rows: list[dict[str, Any]] = []
     for i in range(days):
@@ -538,14 +580,22 @@ def week_rows(
                 featured=bool(ev.featured),
                 recurring=bool(ev.is_recurring),
             )
-            counts[
-                _group_for_tier(
-                    tier,
-                    recurring=bool(ev.is_recurring),
-                    title=ev.title or "",
-                    tags=ev.tags,
-                )
-            ] += 1
+            ev_gkey = _group_for_tier(
+                tier,
+                recurring=bool(ev.is_recurring),
+                title=ev.title or "",
+                tags=ev.tags,
+            )
+            overlay_ok = not family and not seniors
+            for key in _occurrence_group_keys(
+                ev_gkey,
+                title=ev.title or "",
+                venue=ev.location_name,
+                activity=None,
+                is_family=overlay_ok and is_family_event(ev.title, ev.tags, ev.location_name),
+                is_senior=overlay_ok and is_senior_event(ev.title, ev.tags, ev.location_name),
+            ):
+                counts[key] += 1
             if ev.is_recurring:
                 continue  # a recurring class never headlines
             rank: tuple[int, int, time] = (tier, *time_sort_key(ev.start_time, ev.end_time))

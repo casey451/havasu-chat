@@ -413,6 +413,16 @@ _CLASS_HINTS = (
     "lesson", "class", "zumba", "dodgeball", "bootcamp", "tai chi", "spin",
     "spinning", "water fitness", "senior", "story hour",
 )
+# Food / charity-dinner novelty one-offs (a fish fry, pancake breakfast, a gator
+# "feed"). Hosted at a bar/brewery, these can inherit that venue's coarse `music`
+# tag and wrongly tier as Music & nightlife (live: "Troy's Alligator Feed"). They
+# are "Happening today" events, not shows — the guard below demotes them UNLESS
+# they carry a real live-music signal (a band/concert/curated act). Kept tight and
+# unambiguous so it can never pull a genuine show out of the Music group.
+_FOOD_NOVELTY_HINTS = (
+    "feed", "fish fry", "cook-off", "cookoff", "chili cook",
+    "pancake breakfast", "spaghetti dinner", "bake sale", "ice cream social",
+)
 
 # Hints match on WORD BOUNDARIES, not substrings. The substring matcher
 # produced false tiers from letters buried inside unrelated words ("dj" in
@@ -440,6 +450,7 @@ _ONWATER_ACTIVITY_RE = _compile_hints(_ONWATER_ACTIVITY_HINTS)
 _MUSIC_HINTS_RE = _compile_hints(_MUSIC_HINTS)
 _COMMUNITY_HINTS_RE = _compile_hints(_COMMUNITY_HINTS)
 _CLASS_HINTS_RE = _compile_hints(_CLASS_HINTS)
+_FOOD_NOVELTY_RE = _compile_hints(_FOOD_NOVELTY_HINTS)
 
 
 def _is_music_event_type(title: str, tags: list[str] | None) -> bool:
@@ -461,11 +472,21 @@ def _event_tier(*, title: str, tags: list[str] | None, featured: bool, recurring
     # routes them to their own "City & Government" bucket via is_civic.
     if is_civic(title, tags):
         return _TIER_COMMUNITY
+    # A food/novelty one-off (fish fry, pancake breakfast, "Alligator Feed") at a
+    # bar/brewery can inherit that venue's coarse `music` tag; it is a "Happening
+    # today" event, not a show. Suppress the music tiers below for it UNLESS it
+    # carries a real live-music signal (band/concert/curated act) — mirrors the
+    # automotive guard in event_type_tags so a genuine "Blues & BBQ Concert" stays.
+    from app.events.event_type_tags import is_strong_live_music
+
+    food_novelty_guard = bool(_FOOD_NOVELTY_RE.search(title.lower())) and not is_strong_live_music(
+        title, "", " ".join(tags or [])
+    )
     # A durable music/comedy signal (P2 event-type classifier: curated act names,
     # strong live-music phrasing, explicit comedy) wins over an INCIDENTAL class
     # keyword in the title — e.g. "Top Goons: A First CLASS Night of Comedy"
     # otherwise matched _CLASS_HINTS ("class") and landed in Fitness & classes.
-    if _is_music_event_type(title, tags):
+    if not food_novelty_guard and _is_music_event_type(title, tags):
         return _TIER_MUSIC
     # An on-the-water ACTIVITY in the TITLE (kayak, paddle, sail, …) is Lake &
     # Boating, even if an 'aquatics' tag would otherwise read it as a pool class —
@@ -484,7 +505,7 @@ def _event_tier(*, title: str, tags: list[str] | None, featured: bool, recurring
     # one-off tiers when there's no class signal.
     if _CLASS_HINTS_RE.search(joined):
         return _TIER_CLASS
-    if _MUSIC_HINTS_RE.search(joined):
+    if not food_novelty_guard and _MUSIC_HINTS_RE.search(joined):
         return _TIER_MUSIC
     if _COMMUNITY_HINTS_RE.search(joined):
         return _TIER_COMMUNITY

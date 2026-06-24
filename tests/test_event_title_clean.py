@@ -115,4 +115,15 @@ def test_clean_venue_label_names_known_bare_addresses():
     assert clean_venue_label("2134 McCulloch Blvd N. in beautiful Lake Havasu City") == "Havasu Lanes"
     assert clean_venue_label("2146 McCulloch Blvd") == "GraceArts Live"
     assert clean_venue_label("2144 McCulloch Blvd N Lake Havasu City, AZ 86403") == "Downtown Lake Havasu"
+
+
+def test_clean_venue_label_fixes_known_misspelling():
+    from app.events.title_clean import clean_venue_label
+
+    # "Roatary" -> "Rotary" (Splash Bash venue typo from the scrape). Whole-word,
+    # case-insensitive, and only the misspelling — the rest of the label is kept.
+    assert clean_venue_label("Roatary Community Ball Fields") == "Rotary Community Ball Fields"
+    assert clean_venue_label("ROATARY PARK") == "Rotary PARK"
+    # A correctly-spelled name is never touched.
+    assert clean_venue_label("Rotary Park") == "Rotary Park"
     assert clean_venue_label("3516 McCulloch Blvd N, Lake Havasu City, AZ 86406") == "Abundant Grace Church"

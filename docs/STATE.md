@@ -4,6 +4,15 @@
 
 This document is updated at the end of each session that ships work. It is the canonical answer to "where is the project right now."
 
+## P6 production hardening & owner handoff (2026-06-23) — branch `p6-hardening-handoff`, held for Casey's push
+
+Production-readiness P6 — the final phase ("sellable as-is" gate). Commits held for Casey's push; nothing on `main`. Gate: ruff clean; pytest per closeout.
+
+- **Staleness monitoring/alerting** — NEW `app/monitoring/freshness.py` grades every scheduled feed (events + **gas** + **movies**, the feeds whose silent staleness caused the P0 sitewide date-desync) against per-feed budgets → OK/STALE/MISSING. `scripts/data_freshness_monitor.py` exits non-zero on any stale feed and is wired into `data-freshness-check.yml` so the GitHub Actions failure email pages. Surfaced in `/admin/overview` as a "Feed freshness" table. The alert demonstrably fires in `tests/test_data_freshness_monitor.py`.
+- **Owner handoff runbook** — NEW `docs/OWNER_HANDOFF.md`: admin tour, the freshness monitor, owner-only Stripe go-live (`STRIPE_*` Railway vars + `/billing/webhook`), and the feedback inbox / Resend setup (`RESEND_*` + `FEEDBACK_NOTIFY_EMAIL`).
+- **Carried-forward findings closed** — rollup-count↔day-group consistency (shared `_occurrence_group_keys`); food/novelty music-mis-tier guard ("Troy's Alligator Feed"); "Roatary"→"Rotary" durable display fix + gated DB script; residual "Other classes" (Star Search/Stitchers/Pickleball) verified; N1 recurring "passed" banner verified already-fixed. PR #493 confirmed OPEN (script-only exclusion; recommend Casey merge).
+- **Security/perf pass (P4/P5 surfaces)** — H1: merchant creative URLs validated server-side before rendering onto public cards. M1/M2: `analytics_events` slot indexes (migration `p6analyticsidx01`) + de-wildcarded impression/click counters. Webhook signature/idempotency, auth gates, CSRF posture, open-redirect handling audited CLEAN; low-priority items recorded in `OWNER_HANDOFF.md` §7.
+
 ## Event minimum-info gate + description backfill (2026-06-23) — branch `fix/event-minimum-info`, held for Casey's push
 
 Casey: "any event or class with no information needs to be removed and not added in the future." Investigation flipped the remedy from *remove* to *find descriptions*. Gate green: `pytest -q` 11769 passed / 0 failed, `ruff check .` clean. Independent of the calendar-classification PR (#490).

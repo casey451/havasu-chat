@@ -243,6 +243,42 @@ def test_week_view_rollup_counts_and_headline(monkeypatch: pytest.MonkeyPatch) -
         _cleanup(eids)
 
 
+def test_week_rollup_counts_match_day_groups(monkeypatch: pytest.MonkeyPatch) -> None:
+    """The week rollup must count an occurrence under the SAME group the day view
+    renders it in. Regression for the carried-forward finding: a senior class
+    counted under "classes" in the week strip but rendered under Seniors in the
+    day view, so the two disagreed. With the shared router they agree."""
+    from app.home import events_views as ev_views
+
+    suffix = uuid.uuid4().hex[:6]
+    day = date(2099, 7, 15)  # a Wednesday inside the _MONDAY week window
+    senior_yoga = f"ZZ Senior Chair Yoga {suffix}"  # senior + class -> Seniors only
+    parade = f"ZZ Parade {suffix}"  # plain one-off -> Happening today
+    eids: list[str] = []
+    with SessionLocal() as db:
+        eids.append(
+            _add_event(
+                db, title=senior_yoga, on=day, start=time(9, 0), loc="Senior Center",
+                tags=["senior"], recurring=True,
+            )
+        )
+        eids.append(_add_event(db, title=parade, on=day, start=time(18, 0), loc="Main St"))
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            groups = ev_views.day_groups(db, day=day)
+            week = ev_views.week_rows(db, start=day, days=1)
+        rendered = {g["key"]: g["count"] for g in groups}
+        counts = week[0]["counts"]
+        # The senior class lands under Seniors in BOTH — never inflates "classes".
+        assert rendered.get("seniors", 0) >= 1
+        assert counts.get("seniors", 0) == rendered.get("seniors", 0)
+        assert counts.get("classes", 0) == rendered.get("classes", 0)
+        assert counts.get("events", 0) == rendered.get("events", 0)
+    finally:
+        _cleanup(eids)
+
+
 # --- (d) Month grid: weekday alignment (B-02) + one-off-only counts ----------
 
 

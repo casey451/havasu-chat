@@ -862,6 +862,15 @@ class AnalyticsEvent(Base):
     """
 
     __tablename__ = "analytics_events"
+    # P6 perf: the admin placement/traffic dashboards group by ``slot`` and by
+    # coalesce(``slot_origin``, ``slot``) over a created_at window. Without these
+    # the group-by is a full scan + filesort that degrades as the table grows one
+    # row per ad impression sitewide. Composite (col, created_at) so the window
+    # filter rides the same index.
+    __table_args__ = (
+        Index("ix_analytics_events_slot_created", "slot", "created_at"),
+        Index("ix_analytics_events_slot_origin_created", "slot_origin", "created_at"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     event_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
