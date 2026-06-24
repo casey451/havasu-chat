@@ -51,3 +51,17 @@ jobs:
             exit 1
           fi
           python scripts/freshness_check.py
+
+      - name: Check ALL feeds (events + movies + gas) for silent staleness
+        env:
+          # Comprehensive P6 monitor — superset of the event-only heartbeat
+          # above. Guards the feeds whose silent staleness caused the P0
+          # sitewide date-desync (gas, movies). Non-zero exit pages here too.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is empty — refusing to run (would not be checking prod)."
+            exit 1
+          fi
+          python scripts/data_freshness_monitor.py
