@@ -1,25 +1,29 @@
-"""CLI: Parks & Rec calendar/flyer vision scraper -- dry-run only (build-only).
+"""CLI: Parks & Rec calendar/flyer vision scraper (dry-run default; --apply ingests).
 
 Reads the Lake Havasu City Parks & Recreation monthly calendar IMAGE (and,
 optionally, the individual event-flyer images) on ``/185/Parks-Recreation`` into
-structured events via a vision model, and prints the dry-run contract Casey
-reviews to approve the source. Performs NO database writes and is wired into no
-orchestrator. ``--apply`` is intentionally guarded.
+structured events via a vision model.
 
-  # Monthly calendar image -> events (the primary gap this closes):
+Dry-run (default): fetch + transcribe, print the dry-run contract, write nothing.
+``--apply``: ingest the rows through the shared event funnel
+(``app.contrib.event_ingest.ingest_event_records``). parks_rec_calendar /
+parks_rec_flyers are NOT in the auto-approve registry, so every row lands as a
+PENDING contribution for admin review -- vision output never reaches users
+unreviewed. Needs ``OPENAI_API_KEY`` for the vision call; with no key the source
+fetches 0 (graceful no-op) and ``--apply`` ingests nothing.
+
+  # Dry-run the monthly calendar image (the primary gap this closes):
   .venv\\Scripts\\python.exe scripts/parks_rec_calendar_pull.py
 
-  # Individual event flyers (Task B):
+  # Event flyers (Task B):
   .venv\\Scripts\\python.exe scripts/parks_rec_calendar_pull.py --source flyers
 
-  # Enable the cheap confirm-dates self-check second pass:
-  .venv\\Scripts\\python.exe scripts/parks_rec_calendar_pull.py --self-check
+  # Ingest (lands pending in the review queue):
+  .venv\\Scripts\\python.exe scripts/parks_rec_calendar_pull.py --apply
 
-"Good output": a ``=== parks_rec_calendar — DRY RUN ===`` banner, a sane
-``fetched`` count, would-insert/update/skip, the held-hidden + confidence lines,
-and 3 sample records whose titles/dates/venues look right. Needs OPENAI_API_KEY
-for a live vision call (0 fetched without it -- not a bug). NEEDS_PROD_VERIFY: a
-datacenter IP may not reach the lhcaz.gov ImageRepository; re-run from prod.
+"Good dry-run output": a ``=== parks_rec_calendar — DRY RUN ===`` banner, a sane
+``fetched`` count, would-insert/skip, the held-hidden + confidence lines, and 3
+sample records whose titles/dates/venues look right.
 """
 
 from __future__ import annotations
@@ -43,7 +47,7 @@ from app.contrib.lhc_parks_rec_calendar import (  # noqa: E402
     pull_calendars,
     pull_flyers,
 )
-from app.contrib.scrape_dryrun import INSERT, SKIP, apply_guard, print_dry_run_report  # noqa: E402
+from app.contrib.scrape_dryrun import INSERT, SKIP, print_dry_run_report  # noqa: E402
 
 
 def _classify_against_db(records: list[EventRecord]) -> dict[int, str] | None:
@@ -120,13 +124,14 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--source", choices=("calendar", "flyers"), default="calendar")
     p.add_argument("--self-check", action="store_true", help="cheap confirm-dates second pass")
     p.add_argument("--max-flyers", type=int, default=None, help="cap flyer vision calls")
-    p.add_argument("--apply", action="store_true", help="guarded: build-only, refuses to write")
+    p.add_argument(
+        "--apply",
+        action="store_true",
+        help="ingest the rows (they land PENDING in the review queue, never live)",
+    )
     args = p.parse_args(argv)
 
     name = SOURCE if args.source == "calendar" else FLYER_SOURCE
-
-    if args.apply:
-        apply_guard(name)
 
     if args.source == "calendar":
         result = pull_calendars(self_check=args.self_check)
@@ -134,6 +139,17 @@ def main(argv: list[str] | None = None) -> int:
         result = pull_flyers(max_flyers=args.max_flyers)
 
     records = result.records
+
+    if args.apply:
+        # parks_rec_calendar / parks_rec_flyers are NOT in the auto-approve
+        # registry, so every ingested row lands as a PENDING contribution for
+        # admin review -- vision output never reaches users unreviewed.
+        from app.contrib.event_ingest import ingest_event_records, print_ingest_report
+
+        counts = ingest_event_records(records, source=name, dry_run=False)
+        print_ingest_report(name, counts, dry_run=False)
+        return 0 if counts.errors == 0 else 1
+
     decisions = _classify_against_db(records)
     classify = (lambda rec: decisions[id(rec)]) if decisions is not None else None
 

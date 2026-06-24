@@ -1,18 +1,19 @@
-"""CLI: Senior Center flyer vision scraper -- dry-run only (build-only).
+"""CLI: Senior Center flyer vision scraper (dry-run default; --apply ingests).
 
 Reads the Lake Havasu Senior Center Current Events flyer images (and the two
-monthly calendar grids) into ``senior``-tagged events via a vision model, and
-prints the dry-run contract. Performs NO database writes, does NOT touch the live
-senior loader, and is wired into no orchestrator. ``--apply`` is guarded.
+monthly calendar grids) into ``senior``-tagged events via a vision model.
 
-This is the build-only path to retiring the hand-maintained
-``app.events.senior_center.CURATED_SPECIAL_EVENTS`` table -- review the dry-run
-output before deciding whether it supersedes the manual table.
+Dry-run (default) prints the contract and writes nothing. ``--apply`` ingests via
+``ingest_event_records``; senior_center_flyers is NOT in the auto-approve
+registry, so rows land PENDING for admin review, and this does NOT touch the live
+senior loader. It is the path to retiring the hand-maintained
+``app.events.senior_center.CURATED_SPECIAL_EVENTS`` table -- review the pending
+rows before deciding whether it supersedes the manual table.
 
   .venv\\Scripts\\python.exe scripts/senior_flyers_pull.py
-  .venv\\Scripts\\python.exe scripts/senior_flyers_pull.py --max-flyers 6
+  .venv\\Scripts\\python.exe scripts/senior_flyers_pull.py --apply   # lands pending
 
-Needs OPENAI_API_KEY for a live vision call (0 fetched without it -- not a bug).
+Needs OPENAI_API_KEY for the vision call (0 fetched without it -- graceful no-op).
 """
 
 from __future__ import annotations
@@ -29,7 +30,7 @@ from app.bootstrap_env import ensure_dotenv_loaded  # noqa: E402
 ensure_dotenv_loaded()
 
 from app.contrib.event_record import EventRecord, event_sample  # noqa: E402
-from app.contrib.scrape_dryrun import apply_guard, print_dry_run_report  # noqa: E402
+from app.contrib.scrape_dryrun import print_dry_run_report  # noqa: E402
 from app.contrib.senior_center_vision import (  # noqa: E402
     SOURCE,
     SeniorFlyerPullResult,
@@ -78,18 +79,31 @@ def _notes(result: SeniorFlyerPullResult, records: list[EventRecord]) -> list[st
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--max-flyers", type=int, default=None, help="cap flyer vision calls")
-    p.add_argument("--apply", action="store_true", help="guarded: build-only, refuses to write")
+    p.add_argument(
+        "--apply",
+        action="store_true",
+        help="ingest the rows (they land PENDING in the review queue, never live)",
+    )
     args = p.parse_args(argv)
 
-    if args.apply:
-        apply_guard(SOURCE)
-
     result = pull_senior_flyers(max_flyers=args.max_flyers)
+    records = result.records
+
+    if args.apply:
+        # senior_center_flyers is NOT in the auto-approve registry, so every row
+        # lands PENDING for admin review -- and it does NOT touch the live senior
+        # loader; this is an additive review-queue feed.
+        from app.contrib.event_ingest import ingest_event_records, print_ingest_report
+
+        counts = ingest_event_records(records, source=SOURCE, dry_run=False)
+        print_ingest_report(SOURCE, counts, dry_run=False)
+        return 0 if counts.errors == 0 else 1
+
     print_dry_run_report(
         SOURCE,
-        result.records,
+        records,
         sample_fn=event_sample,
-        notes=_notes(result, result.records),
+        notes=_notes(result, records),
     )
     return 0
 
