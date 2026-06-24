@@ -62,7 +62,7 @@ from app.home.event_buckets import (
     group_for_tier,
     is_dropin_rec,
 )
-from app.home.family_venues import open_today_rows
+from app.home.family_venues import class_today_rows, open_today_rows
 from app.home.sandstone import (
     _event_tier,
     _live_events_by_day,
@@ -173,7 +173,11 @@ def _split_family_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     section (ordered last). Empty subsections omitted; row order preserved."""
     buckets: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
-        if row.get("ongoing"):
+        # An explicit subgroup (curated studio classes) wins — it pins the row to
+        # its youth subsection without depending on title-keyword routing.
+        if row.get("subgroup"):
+            label = row["subgroup"]
+        elif row.get("ongoing"):
             label = _FAMILY_OPEN_LABEL
         else:
             label = _family_subgroup(row.get("title") or "", row.get("activity"))
@@ -481,6 +485,10 @@ def day_groups(
     # sort after timed rows.
     if not seniors:
         family_overlay.extend(open_today_rows(day))
+        # Real, published youth-studio classes — each files under its own youth
+        # subsection (Youth Gymnastics / Youth Martial Arts) via the row's
+        # explicit "subgroup", not the "Open today for kids" drop-in section.
+        family_overlay.extend(class_today_rows(day))
     rows_by_group["family"] = family_overlay
     rows_by_group["seniors"].extend(senior_overlay)
 

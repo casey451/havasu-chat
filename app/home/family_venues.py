@@ -51,9 +51,6 @@ class FamilyVenue:
     url: str
     address: str = ""
     age_note: str = ""
-    # Label verb for the time chip: "Open" for drop-in venues, "Classes" for
-    # studios whose published block is class time, not public open hours.
-    open_verb: str = "Open"
     hours: dict[int, list[tuple[time, time]]] = field(default_factory=dict)
     verify: bool = False  # single-sourced hours — confirm before relying
 
@@ -118,39 +115,22 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
         verify=True,
     ),
     FamilyVenue(
-        name="Universal Sonics Gymnastics & Cheer",
-        kind="Gymnastics & cheer",
-        # http only — the https cert is broken and renders a login/error page
-        # (keep as http; do not "upgrade" to https).
-        url="http://www.universalgymnasticslakehavasu.com/",
-        address="2245 N Kiowa Blvd",
-        age_note="12 months–18 yrs · see schedule for class times",
-        open_verb="Classes",
-        # Source: chamberofcommerce.com, universalgymnasticslakehavasu.com.
-        # VERIFY summer hours. Building class window; exact class times on site.
+        name="Havasu Lanes",
+        kind="Bowling",
+        url="https://www.havasulanesaz.com/",
+        address="2128 McCulloch Blvd N",
+        age_note="Bumper lanes & arcade for kids · Rock & Bowl black-light "
+        "bowling Fri & Sat 6 PM–close",
+        # Source: havasulanesaz.com home (Hours of Operation) + SPECIALS page
+        # (Rock & Bowl cosmic/neon nights), read Jun 2026. 32-lane center.
         hours={
-            0: [(_h(15), _h(21))],   # Mon 3–9
-            1: [(_h(15), _h(21))],   # Tue 3–9
-            2: [(_h(15), _h(21))],   # Wed 3–9
-            3: [(_h(15), _h(21))],   # Thu 3–9
-            4: [(_h(15), _h(18, 30))],  # Fri 3–6:30
-        },
-        verify=True,
-    ),
-    FamilyVenue(
-        name="Lake Havasu Black Belt Academy",
-        kind="Martial arts (Taekwondo)",
-        url="https://www.lakehavasublackbeltacademy.com/schedule/",
-        address="597 N Lake Havasu Ave #2",
-        age_note="Kids & up · ATA Tigers, Karate for Kids",
-        open_verb="Classes",
-        # Source: lakehavasublackbeltacademy.com/schedule.
-        hours={
-            0: [(_h(16), _h(19))],      # Mon 4–7
-            1: [(_h(16), _h(19, 30))],  # Tue 4–7:30
-            2: [(_h(16), _h(19))],      # Wed 4–7
-            3: [(_h(16), _h(19))],      # Thu 4–7
-            4: [(_h(16), _h(19))],      # Fri 4–7
+            0: [(_h(12), _h(21))],  # Mon 12–9
+            1: [(_h(12), _h(21))],  # Tue 12–9
+            2: [(_h(12), _h(21))],  # Wed 12–9
+            3: [(_h(12), _h(21))],  # Thu 12–9
+            4: [(_h(12), _h(23))],  # Fri 12–11
+            5: [(_h(12), _h(23))],  # Sat 12–11
+            6: [(_h(12), _h(19))],  # Sun 12–7
         },
     ),
 )
@@ -170,8 +150,6 @@ DIRECTORY: tuple[FamilyVenue, ...] = (
                 "https://www.arizonacoastperformingarts.com/", "3476 McCulloch Blvd"),
     FamilyVenue("Aqua Beginnings (swim lessons)", "Swim school",
                 "https://aquabeginnings.com/"),
-    FamilyVenue("Havasu Lanes (bowling, bumper lanes)", "Bowling",
-                "https://www.havasulanesaz.com/"),
     FamilyVenue("Bless This Nest (kids art clubs & camps)", "Kids art studio",
                 "https://blessthisnestlhc.com/", "2886 Sweetwater Ave #B-108"),
     FamilyVenue("Movies Havasu", "Movie theater",
@@ -218,8 +196,11 @@ def open_today_rows(day: date) -> list[dict[str, Any]]:
             continue
         rows.append(
             {
+                # Bare hours range ("9 AM–5 PM") — no "Open" verb. The section
+                # heading ("Open today for kids") already says these are open
+                # hours, so the prefix was redundant noise on every row.
                 "sort": (_OPEN_ROW_RANK, spans[0][0]),
-                "time_label": f"{v.open_verb} {_span_label(spans)}",
+                "time_label": _span_label(spans),
                 "title": f"{v.name} · {v.kind}",
                 "venue": v.age_note or v.address,
                 "url": v.url,
@@ -227,5 +208,149 @@ def open_today_rows(day: date) -> list[dict[str, Any]]:
                 "ongoing": True,  # drop-in venue hours, not a scheduled class
             }
         )
+    rows.sort(key=lambda r: r["sort"])
+    return rows
+
+
+# -- Studio class schedules (real, published times) --------------------------
+# Two youth studios publish a full weekly class grid. Rather than a single
+# "open hours" row (which read as a misleading "Classes 3–9" block covering the
+# whole building-open window), we list each *real* class under its matching
+# Kids & Family youth subsection — Youth Gymnastics / Youth Martial Arts — with
+# the class name, day, time, and (where published) age range, so a parent can
+# actually plan around it. Honesty contract still holds: only times the studio
+# itself publishes; no fabricated blocks. Refresh when the studio updates its
+# grid (a twice-weekly scraper, once built, becomes the source of truth here).
+
+
+@dataclass(frozen=True)
+class StudioClass:
+    """One published class: weekday (Mon=0..Sun=6) + start/end + optional age."""
+
+    name: str
+    weekday: int
+    start: time
+    end: time
+    age_note: str = ""
+
+
+@dataclass(frozen=True)
+class Studio:
+    """A youth studio whose individual classes file under one youth subsection."""
+
+    name: str  # full venue name
+    short: str  # short suffix shown in the row title ("… · Universal Sonics")
+    section: str  # Kids & Family subsection these classes belong to
+    activity: str  # provider-activity hint (taxonomy fallback routing)
+    url: str  # link to the studio's full schedule
+    classes: tuple[StudioClass, ...] = ()
+
+
+def _c(name: str, wd: int, sh: int, sm: int, eh: int, em: int, age: str = "") -> StudioClass:
+    return StudioClass(name, wd, time(sh, sm), time(eh, em), age)
+
+
+STUDIOS: tuple[Studio, ...] = (
+    Studio(
+        name="Lake Havasu Black Belt Academy",
+        short="Black Belt Academy",
+        section="Youth Martial Arts",
+        activity="Martial Arts",
+        url="https://www.lakehavasublackbeltacademy.com/schedule/",
+        # Source: lakehavasublackbeltacademy.com/schedule weekly grid, read
+        # Jun 2026. Adult-only blocks (Adult/Teen, Adult Self Defense, Tai Chi)
+        # are intentionally left off the youth listing.
+        classes=(
+            _c("Beginners", 0, 16, 0, 16, 40),
+            _c("Advanced", 0, 16, 45, 17, 25),
+            _c("Black Belt", 0, 17, 30, 18, 0),
+            _c("Tigers", 1, 16, 0, 16, 30, "Ages 3–6"),
+            _c("Black Belt", 1, 16, 35, 17, 5),
+            _c("Legacy", 1, 17, 5, 17, 35),
+            _c("Advanced", 1, 17, 40, 18, 15),
+            _c("Beginner", 1, 18, 20, 19, 0),
+            _c("Beginner", 2, 16, 0, 16, 40),
+            _c("Beginner Weapons", 2, 16, 40, 17, 0),
+            _c("Advanced", 2, 17, 5, 17, 20),
+            _c("Advanced Weapons", 2, 17, 25, 18, 10),
+            _c("Tiny Tigers", 3, 15, 45, 16, 10, "Ages 2–3"),
+            _c("Tigers", 3, 16, 15, 16, 45, "Ages 3–6"),
+            _c("Leadership / Xtreme", 3, 16, 50, 17, 25),
+            _c("Sparring", 3, 17, 30, 18, 30),
+            _c("Tigers", 4, 16, 0, 16, 30, "Ages 3–6"),
+            _c("Beginner", 4, 16, 35, 17, 10),
+            _c("Advanced", 4, 17, 15, 18, 0),
+            _c("Technique / Fundamentals", 4, 18, 5, 18, 30),
+        ),
+    ),
+    Studio(
+        name="Universal Sonics Gymnastics & Cheer",
+        short="Universal Sonics",
+        section="Youth Gymnastics",
+        activity="Gymnastics",
+        # http only — the https cert is broken (renders a login/error page).
+        url="http://www.universalgymnasticslakehavasu.com/index.php?componentName=ClassScheduleDeluxe&scid=73927",
+        # Source: universalgymnasticslakehavasu.com class schedule, read Jun
+        # 2026. Recreational / preschool enrollable classes only; by-placement
+        # competitive team & all-star practices are left off the public listing.
+        classes=(
+            _c("Firecrackers Gymnastics", 0, 15, 0, 16, 15),
+            _c("Recreational Gymnastics", 0, 16, 0, 17, 0, "Ages 5–9"),
+            _c("Dynamites Gymnastics", 0, 16, 0, 17, 30),
+            _c("Recreational Gymnastics", 0, 17, 0, 18, 0),
+            _c("Sparklers Gymnastics", 1, 15, 0, 16, 30),
+            _c("Boys Athletics", 1, 15, 30, 16, 30, "Ages 5–10"),
+            _c("Tiny Tumblers", 1, 16, 30, 17, 15, "Ages 3–4"),
+            _c("Recreational Gymnastics", 1, 16, 30, 17, 30, "Ages 5–9"),
+            _c("Tiny Tumblers", 1, 17, 30, 18, 15, "Ages 3–4"),
+            _c("Recreational Tumbling", 1, 17, 30, 18, 30, "Ages 8+"),
+            _c("Boys Athletics", 1, 18, 30, 19, 30, "Ages 11+"),
+            _c("Firecrackers Gymnastics", 2, 15, 0, 16, 0),
+            _c("Recreational Gymnastics", 2, 16, 0, 17, 0, "Ages 5–9"),
+            _c("Dynamites Gymnastics", 2, 16, 0, 17, 30),
+            _c("Recreational Gymnastics", 2, 16, 45, 17, 45, "Ages 9+"),
+            _c("Lil Firecrackers", 2, 17, 0, 18, 0),
+            _c("Tiny Tumblers", 2, 17, 30, 18, 15, "Ages 3–4"),
+            _c("Sparklers Gymnastics", 3, 15, 0, 16, 30),
+            _c("Recreational Cheer", 3, 15, 30, 16, 30, "Ages 5+"),
+            _c("Recreational Gymnastics", 3, 16, 30, 17, 30, "Ages 5–9"),
+            _c("Gym Tots", 3, 17, 30, 18, 0, "Ages 6 mo–3 yr · parent participation"),
+            _c("Tiny Tumblers", 3, 18, 0, 18, 45, "Ages 3–4"),
+        ),
+    ),
+)
+
+# Studio class rows interleave with timed events by start time (rank 1), so they
+# sit naturally among the day's scheduled occurrences within their subsection.
+_CLASS_ROW_RANK = 1
+
+
+def class_today_rows(day: date) -> list[dict[str, Any]]:
+    """Accordion-row dicts for studio classes that meet on ``day``.
+
+    Shaped like :func:`open_today_rows` rows, but ``ongoing`` is false and each
+    row carries an explicit ``subgroup`` so it files under the studio's youth
+    subsection (Youth Gymnastics / Youth Martial Arts) instead of "Open today
+    for kids". Only the studio's real, published class times are emitted.
+    """
+    weekday = day.weekday()
+    rows: list[dict[str, Any]] = []
+    for s in STUDIOS:
+        for c in s.classes:
+            if c.weekday != weekday:
+                continue
+            rows.append(
+                {
+                    "sort": (_CLASS_ROW_RANK, c.start),
+                    "time_label": _fmt_span(c.start, c.end),
+                    "title": f"{c.name} · {s.short}",
+                    "venue": c.age_note,
+                    "url": s.url,
+                    "recurring": True,
+                    "ongoing": False,
+                    "subgroup": s.section,
+                    "activity": s.activity,
+                }
+            )
     rows.sort(key=lambda r: r["sort"])
     return rows
