@@ -112,3 +112,18 @@ contribution-queue routing for news/events; reconciler enrichment for
 provider-signal sources; conditions-cache registration for conditions sources)
 and register it in the relevant orchestrator/cron. That is the work `--apply`
 currently refuses to do.
+
+### Integrated (2026-06-24): the parks_rec vision sources
+
+`parks_rec_calendar` (#25), `parks_rec_flyers` (#26), and `senior_center_flyers`
+(#27) are now wired into `.github/workflows/parks-rec-scrapes.yml` (every other
+day) as a fail-soft `--apply` step. `--apply` ingests via `ingest_event_records`;
+because none of the three are in the auto-approve registry, **every row lands as a
+PENDING contribution for admin review** — vision output never reaches users
+unreviewed, and the senior step does not touch the live senior loader.
+
+**Casey action to activate:** add `OPENAI_API_KEY` to GitHub → Settings → Secrets
+and variables → Actions. Until then the cron step runs but fetches 0 (graceful
+no-op). Review the pending rows at `/admin` and tune prompts / `PARKS_REC_FLYER_MAX`
+/ `SENIOR_FLYER_MAX` before trusting the feed; drop any step from the workflow if
+its precision is low.

@@ -47,6 +47,29 @@ jobs:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
         run: python scripts/parks_rec_prune.py
 
+      - name: Vision calendar/flyer ingest (lands PENDING for review)
+        # Reads the Parks & Rec monthly calendar IMAGE + event-flyer images, and
+        # the Senior Center flyer images, into events via a vision model. These
+        # sources are NOT in the auto-approve registry, so every row lands as a
+        # PENDING contribution for admin review -- nothing reaches users
+        # unreviewed. Requires OPENAI_API_KEY in Actions secrets; with no key the
+        # scrapers fetch 0 and ingest nothing (graceful no-op). continue-on-error
+        # so a vision/API hiccup never fails the webtrac/aquatic load above.
+        # The monthly image changes ~monthly, so the every-other-day cadence is
+        # idempotent (synthetic per-occurrence URLs dedupe re-runs).
+        if: always()
+        continue-on-error: true
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python scripts/parks_rec_calendar_pull.py --apply \
+            || echo "::warning::parks_rec_calendar ingest failed"
+          python scripts/parks_rec_calendar_pull.py --source flyers --apply \
+            || echo "::warning::parks_rec_flyers ingest failed"
+          python scripts/senior_flyers_pull.py --apply \
+            || echo "::warning::senior_center_flyers ingest failed"
+
       - name: Upload snapshots as a run artifact (audit trail)
         if: always()
         uses: actions/upload-artifact@v5
