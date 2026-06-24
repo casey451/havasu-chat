@@ -25,6 +25,7 @@ from sqlalchemy.orm import Session
 
 from app.analytics import record_event
 from app.categories import queries as cat_queries
+from app.categories.display_labels import map_scope_label
 from app.conditions.cache import read_source
 from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
@@ -41,7 +42,6 @@ from app.events.time_labels import TIME_TBD_LABEL, is_time_tbd, time_sort_key
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
 from app.home import events_views, sandstone, sponsor_store
-from app.home.queries import CATEGORY_LABELS
 from app.home.today_feed import today_feed
 from app.monetization import serving
 from app.movies.queries import movies_today
@@ -749,28 +749,12 @@ def serve_family(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
     return _serve_mode_landing(request, db, "family")
 
 
-# Label standardization (research report / fixlist §7.5 + taxonomy decisions
-# 2026-06-12): the /map scopes reuse the tier-1 slugs. As of the 2026-06-12
-# reconciliation, auto-rv-fuel ("Auto, RV & Fuel"), classes-sports-recreation
-# ("Fitness, Sports & Classes") and health-wellness-care ("Health & Medical")
-# now MATCH CATEGORY_LABELS — those rows are pass-through. The remaining
-# overrides (outdoors / shopping / lodging / public-civic) still carry the
-# shorter 15-department directory names pending the B3 rebuild. The scope SLUGS
-# are unchanged, so /api/map_data/{scope} and map.js are untouched.
-_MAP_SCOPE_LABELS: dict[str, str] = {
-    "eat-drink": "Eat & Drink",
-    "on-the-water": "Lake Life",
-    "outdoors-parks-trails": "Outdoors & Recreation",
-    "classes-sports-recreation": "Fitness, Sports & Classes",
-    "shopping-essentials": "Shopping & Retail",
-    "home-property-services": "Home & Property Services",
-    "health-wellness-care": "Health & Medical",
-    "auto-rv-fuel": "Auto, RV & Fuel",
-    "lodging-vacation-rentals": "Lodging",
-    "pets": "Pets",
-    "public-civic-resources": "Community & Civic",
-    "events": "Events",
-}
+# Phase 3.2 label unification: the /map scope tabs now read their labels from the
+# canonical department source (app.categories.display_labels.map_scope_label), so
+# a category reads identically on /map, the directory, and the home grid (the live
+# drift was "Lake Life"/"Outdoors & Recreation" on /map vs "Lake & Boating"/"Things
+# to Do" in the directory). The scope SLUGS are unchanged, so /api/map_data/{scope}
+# and map.js are untouched — only the displayed strings move to one source.
 
 
 @router.get("/map", response_class=HTMLResponse)
@@ -796,8 +780,7 @@ def serve_map_view(request: Request, scope: str | None = None) -> HTMLResponse:
     category_scopes = [
         {
             "slug": slug,
-            "label": _MAP_SCOPE_LABELS.get(slug)
-            or CATEGORY_LABELS.get(slug, slug.replace("-", " ").title()),
+            "label": map_scope_label(slug),
         }
         for slug in (
             "eat-drink",

@@ -45,3 +45,65 @@ def display_label(slug: str, fallback: str = "") -> str:
     if override:
         return override
     return fallback or slug.replace("-", " ").title()
+
+
+# Canonical names for the rendered departments that have NO override above, so a
+# label-only consumer (the /map scope tabs) can resolve a final label WITHOUT a
+# DB round-trip and stay byte-identical to the directory + home grid, which call
+# ``display_label(slug, Category.name)``. Kept in sync with the live
+# ``Category.name`` for these slugs (verified 2026-06-23).
+_DEPARTMENT_BASE_LABELS: dict[str, str] = {
+    "eat-and-drink": "Eat & Drink",
+    "health-and-medical": "Health & Medical",
+    "city-and-government": "City & Government",
+    "worship-and-nonprofits": "Worship & Nonprofits",
+    "tattoo": "Tattoo & Piercing",
+    "events": "Events",
+}
+
+
+def department_label(slug: str) -> str:
+    """Final user-facing label for a canonical DEPARTMENT slug, DB-free.
+
+    Override (:data:`DEPARTMENT_DISPLAY_LABELS`) wins, else the canonical base
+    name, else a title-cased slug. Equals ``display_label(slug, Category.name)``
+    for every rendered department — the DB-free path used where loading the
+    taxonomy would be wasteful (the /map scope tabs).
+    """
+    return (
+        DEPARTMENT_DISPLAY_LABELS.get(slug)
+        or _DEPARTMENT_BASE_LABELS.get(slug)
+        or slug.replace("-", " ").title()
+    )
+
+
+# Phase 3.2 label unification: the /map scope selector uses the LEGACY tier-1
+# slugs (routing/scope ids consumed by map.js — unchanged), but its TAB LABELS
+# used to come from a separate hand-kept dict that drifted from the directory
+# ("Outdoors & Recreation" vs "Things to Do", "Lake Life" vs "Lake & Boating").
+# This maps each legacy scope to its canonical department so the tab reads the
+# SAME label as the directory + home grid. Slugs/routes are untouched.
+MAP_SCOPE_TO_DEPARTMENT: dict[str, str] = {
+    "eat-drink": "eat-and-drink",
+    "on-the-water": "on-the-water",
+    "outdoors-parks-trails": "things-to-do-and-attractions",
+    "classes-sports-recreation": "fitness-and-wellness",
+    "shopping-essentials": "shopping-and-retail",
+    "home-property-services": "home-and-property-services",
+    "health-wellness-care": "health-and-medical",
+    "auto-rv-fuel": "auto-rv-and-marine",
+    "lodging-vacation-rentals": "lodging",
+    "pets": "pets",
+    "public-civic-resources": "city-and-government",
+    "events": "events",
+}
+
+
+def map_scope_label(scope_slug: str) -> str:
+    """Department-canonical label for a /map category scope (Phase 3.2), so the
+    map tab reads identically to the directory + home grid. Falls back to a
+    title-cased slug for any scope with no department mapping."""
+    dept = MAP_SCOPE_TO_DEPARTMENT.get(scope_slug)
+    if dept:
+        return department_label(dept)
+    return scope_slug.replace("-", " ").title()
