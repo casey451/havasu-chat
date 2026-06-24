@@ -1,0 +1,52 @@
+{
+  "events": [
+    {
+      "title": "Tiny Tots Move & Groove",
+      "date": "2026-07-08",
+      "start_time": "10:00",
+      "end_time": "10:45",
+      "location": "Aquatic Center",
+      "cost": "$3",
+      "audience": "toddlers",
+      "notes": "Drop-in; no registration",
+      "confidence": 0.95,
+      "source_cell": "8  Tiny Tots Move & Groove  10:00a  $3"
+    },
+    {
+      "title": "Free Summer Craft Series",
+      "date": "2026-07-15",
+      "start_time": null,
+      "end_time": null,
+      "location": null,
+      "cost": "Free",
+      "audience": "kids",
+      "notes": null,
+      "confidence": 0.6,
+      "source_cell": "15  Free Summer Craft"
+    },
+    {
+      "title": "August Pizza Party",
+      "date": "2026-08-02",
+      "start_time": "12:00",
+      "end_time": null,
+      "location": null,
+      "cost": null,
+      "audience": null,
+      "notes": null,
+      "confidence": 0.9,
+      "source_cell": "2  Pizza Party"
+    },
+    {
+      "title": "Unreadable Cell Guess",
+      "date": "2026-07-20",
+      "start_time": null,
+      "end_time": null,
+      "location": null,
+      "cost": null,
+      "audience": null,
+      "notes": null,
+      "confidence": 0.9,
+      "source_cell": ""
+    }
+  ]
+}

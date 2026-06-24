@@ -1,0 +1,481 @@
+"""Generic vision-LLM calendar/flyer extractor (build-only, dry-run).
+
+Reads an activities-calendar grid or an event flyer IMAGE into structured event
+rows via a vision-capable OpenAI model. Built **generic** -- image bytes + a
+prompt variant + a tag set in, validated rows out -- so the Parks & Rec monthly
+calendar, the Parks & Rec event flyers, and (later) the senior-center flyers are
+thin adapters over ONE engine rather than three copies.
+
+This exists because Lake Havasu City Parks & Recreation (and the senior center)
+publish program content as IMAGES -- a monthly calendar flyer and individual
+event flyers -- that carry free/drop-in/special events appearing nowhere else in
+machine-readable form. Our text/feed scrapers physically cannot see them. The
+hand-maintained ``app.events.senior_center.CURATED_SPECIAL_EVENTS`` table is the
+manual answer today; this is the engine that replaces manual transcription.
+
+The two failure modes of LLM transcription, and the guardrails (build brief §6):
+
+  * month-bounding   -- a row whose date falls outside the calendar's own
+                        title-derived month/year is DROPPED (the model invented
+                        a date for a different month).
+  * provenance       -- every kept row must echo the verbatim cell text it read
+                        (``source_cell``); a row that cannot show its work is
+                        DROPPED (the model fabricated an event).
+  * confidence gate  -- a row below :data:`CONFIDENCE_THRESHOLD` is HELD (hidden,
+                        pending_review) rather than dropped, so a vision guess
+                        never lands live without a human glance.
+  * self-check       -- :func:`apply_self_check_flags` demotes any date the model
+                        flags as unsure on a cheap second pass to held.
+
+No DB access here, no orchestrator wiring. Degrades to ``[]`` (one log line) when
+``OPENAI_API_KEY`` is absent -- mirrors :mod:`app.core.extraction`. Parsing and
+validation are pure so the test suite exercises every guard with recorded model
+JSON and never makes a live LLM / HTTP call.
+"""
+
+from __future__ import annotations
+
+import base64
+import json
+import logging
+import os
+import re
+from dataclasses import dataclass, field
+from datetime import date, time
+
+try:  # same guarded-import pattern as the other OpenAI call sites
+    from openai import OpenAI
+except ImportError:  # pragma: no cover -- openai always present in prod
+    OpenAI = None  # type: ignore[misc, assignment]
+
+from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
+from app.core.openai_client import get_openai_client
+
+logger = logging.getLogger(__name__)
+
+# A row below this confidence is written HIDDEN (draft + pending_review), never
+# live -- vision rows must earn their way onto the calendar (build brief §5/§6).
+CONFIDENCE_THRESHOLD = 0.75
+DEFAULT_VISION_MODEL = "gpt-4o"
+# A real event title is a short label, never a paragraph. Anything longer is the
+# model leaking the cell body into the title field and is dropped.
+TITLE_MAX_LEN = 120
+
+_MONTH_NAMES = (
+    "January February March April May June July August September October "
+    "November December"
+).split()
+MONTH_INDEX: dict[str, int] = {m.lower(): i + 1 for i, m in enumerate(_MONTH_NAMES)}
+MONTH_INDEX.update({m.lower()[:3]: i + 1 for i, m in enumerate(_MONTH_NAMES)})
+
+
+def vision_model() -> str:
+    """Resolved vision model; ``PARKS_REC_VISION_MODEL`` overrides the default."""
+    return (os.getenv("PARKS_REC_VISION_MODEL") or "").strip() or DEFAULT_VISION_MODEL
+
+
+# --------------------------------------------------------------------------- #
+# Row shape + validation stats
+# --------------------------------------------------------------------------- #
+@dataclass
+class VisionEventRow:
+    """One validated event the model read out of a calendar/flyer image."""
+
+    title: str
+    event_date: date
+    start_time: time | None
+    end_time: time | None
+    location: str | None
+    cost: str | None
+    audience: str | None
+    notes: str | None
+    confidence: float
+    source_cell: str
+    # True when confidence < CONFIDENCE_THRESHOLD (or the self-check flagged the
+    # date): the row must land hidden (draft=True + pending_review=True).
+    should_hide: bool
+
+
+@dataclass
+class ValidationStats:
+    """Per-image accounting of what the guards did, for the dry-run report."""
+
+    raw: int = 0
+    kept: int = 0
+    held_low_confidence: int = 0
+    dropped_out_of_month: int = 0
+    dropped_no_provenance: int = 0
+    dropped_bad_title: int = 0
+    dropped_bad_date: int = 0
+
+
+# --------------------------------------------------------------------------- #
+# Field parsers (pure)
+# --------------------------------------------------------------------------- #
+_TIME_RE = re.compile(r"^\s*(\d{1,2})(?::(\d{2}))?(?::(\d{2}))?\s*([ap]\.?m\.?)?\s*$", re.IGNORECASE)
+
+
+def _clean_opt(value: object) -> str | None:
+    if value is None:
+        return None
+    s = str(value).strip()
+    return s or None
+
+
+def _parse_date(value: object) -> date | None:
+    """Parse a ``YYYY-MM-DD`` (or date) value; ``None`` on anything else."""
+    if isinstance(value, date):
+        return value
+    s = _clean_opt(value)
+    if not s:
+        return None
+    try:
+        return date.fromisoformat(s[:10])
+    except ValueError:
+        return None
+
+
+# Public alias: adapters month-bound flyer rows against each row's own parsed date.
+parse_date = _parse_date
+
+
+def _parse_time(value: object) -> time | None:
+    """Parse ``HH:MM`` / ``H:MM`` / ``H:MM AM`` / ``9pm`` to a ``time``.
+
+    The vision prompt asks for ``HH:MM`` (or null), but models drift to "9:00 AM"
+    or "9pm"; this accepts those rather than dropping a real start time. Returns
+    ``None`` for null/blank/garbage so the row lands "Time TBD" instead of with a
+    fabricated clock value.
+    """
+    if isinstance(value, time):
+        return value
+    s = _clean_opt(value)
+    if not s:
+        return None
+    m = _TIME_RE.match(s)
+    if not m:
+        return None
+    hour = int(m.group(1))
+    minute = int(m.group(2) or 0)
+    second = int(m.group(3) or 0)
+    meridiem = (m.group(4) or "").lower().replace(".", "")
+    if meridiem == "pm" and hour != 12:
+        hour += 12
+    elif meridiem == "am" and hour == 12:
+        hour = 0
+    if not (0 <= hour <= 23 and 0 <= minute <= 59 and 0 <= second <= 59):
+        return None
+    return time(hour, minute, second)
+
+
+def _clamp_confidence(value: object) -> float:
+    try:
+        c = float(value)  # type: ignore[arg-type]
+    except (TypeError, ValueError):
+        # No usable confidence -> treat as low so the row is held, not trusted.
+        return 0.0
+    return max(0.0, min(1.0, c))
+
+
+def validate_rows(
+    raw_rows: list[dict],
+    *,
+    month: int,
+    year: int,
+) -> tuple[list[VisionEventRow], ValidationStats]:
+    """Apply the §6 hallucination guards to raw model rows.
+
+    Drops rows that fail month-bounding, provenance, title-shape, or date-parse;
+    keeps the rest, marking sub-threshold confidence as ``should_hide``. Pure: no
+    network, no DB -- the test suite drives every branch with recorded JSON.
+    """
+    stats = ValidationStats(raw=len(raw_rows))
+    out: list[VisionEventRow] = []
+    for r in raw_rows:
+        if not isinstance(r, dict):
+            continue
+        title = _clean_opt(r.get("title"))
+        if not title or len(title) > TITLE_MAX_LEN:
+            stats.dropped_bad_title += 1
+            continue
+        # Provenance: the model must "show its work" -- a row with no verbatim
+        # cell text is an invention and is dropped.
+        source_cell = _clean_opt(r.get("source_cell"))
+        if not source_cell:
+            stats.dropped_no_provenance += 1
+            continue
+        d = _parse_date(r.get("date"))
+        if d is None:
+            stats.dropped_bad_date += 1
+            continue
+        # Month-bounding: the authoritative month/year comes from the image
+        # TITLE, not from ``today`` -- a date outside it is a hallucination.
+        if d.year != year or d.month != month:
+            stats.dropped_out_of_month += 1
+            continue
+        conf = _clamp_confidence(r.get("confidence"))
+        hide = conf < CONFIDENCE_THRESHOLD
+        out.append(
+            VisionEventRow(
+                title=title,
+                event_date=d,
+                start_time=_parse_time(r.get("start_time")),
+                end_time=_parse_time(r.get("end_time")),
+                location=_clean_opt(r.get("location")),
+                cost=_clean_opt(r.get("cost")),
+                audience=_clean_opt(r.get("audience")),
+                notes=_clean_opt(r.get("notes")),
+                confidence=conf,
+                source_cell=source_cell,
+                should_hide=hide,
+            )
+        )
+        stats.kept += 1
+        if hide:
+            stats.held_low_confidence += 1
+    return out, stats
+
+
+def apply_self_check_flags(
+    rows: list[VisionEventRow],
+    unsure_dates: set[date],
+) -> int:
+    """Demote any row whose date the self-check flagged as unsure to held.
+
+    Returns the number of rows newly demoted. Pure -- the live second-pass call
+    that produces ``unsure_dates`` lives in :func:`self_check_unsure_dates`.
+    """
+    demoted = 0
+    for row in rows:
+        if row.event_date in unsure_dates and not row.should_hide:
+            row.should_hide = True
+            demoted += 1
+    return demoted
+
+
+# --------------------------------------------------------------------------- #
+# Prompts
+# --------------------------------------------------------------------------- #
+def calendar_system_prompt(*, month: int, year: int) -> str:
+    month_name = _MONTH_NAMES[month - 1]
+    return (
+        f"You are transcribing a printed monthly activities calendar for "
+        f"{month_name} {year} from Lake Havasu City Parks & Recreation. Return "
+        f"ONLY events you can actually read in the image. For each event return "
+        f"the day number's full date in {year}-{month:02d}, the title verbatim, "
+        f"start/end time if printed (else null), location/cost/audience/notes if "
+        f"printed (else null), and the exact cell text you read in `source_cell`. "
+        f"Do NOT infer, complete, or invent events, dates, times, or prices. If a "
+        f"cell is blank or unreadable, skip it. If you are unsure of a value, set "
+        f"it to null and lower `confidence` (0-1). Output strict JSON: "
+        f'{{"events":[{{"title":...,"date":"YYYY-MM-DD","start_time":"HH:MM"|null,'
+        f'"end_time":...,"location":...,"cost":...,"audience":...,"notes":...,'
+        f'"confidence":0-1,"source_cell":...}}]}}.'
+    )
+
+
+def flyer_system_prompt(*, context_label: str) -> str:
+    return (
+        f"You are transcribing a single event flyer from {context_label}. The "
+        f"flyer usually advertises ONE event (occasionally a short multi-day "
+        f"series). Return ONLY what you can actually read: the title verbatim, "
+        f"the full date in YYYY-MM-DD (use the year on the flyer; if none is "
+        f"printed, set the date to null and lower confidence rather than "
+        f"guessing), start/end time if printed (else null), and "
+        f"location/cost/audience/notes if printed (else null), plus the exact "
+        f"text you read in `source_cell`. Do NOT infer or invent dates, times, or "
+        f"prices. Output strict JSON: "
+        f'{{"events":[{{"title":...,"date":"YYYY-MM-DD"|null,"start_time":...,'
+        f'"end_time":...,"location":...,"cost":...,"audience":...,"notes":...,'
+        f'"confidence":0-1,"source_cell":...}}]}}.'
+    )
+
+
+# --------------------------------------------------------------------------- #
+# Vision call (live; injectable for tests)
+# --------------------------------------------------------------------------- #
+def _data_url(image_bytes: bytes, mime: str) -> str:
+    return f"data:{mime};base64," + base64.b64encode(image_bytes).decode("ascii")
+
+
+def call_vision(
+    image_bytes: bytes,
+    *,
+    system_prompt: str,
+    model: str | None = None,
+    mime: str = "image/png",
+    openai_symbol: object = OpenAI,
+) -> str:
+    """Send one image to the vision model; return its raw text (``""`` on failure).
+
+    Graceful no-key: returns ``""`` (one log line) when ``OPENAI_API_KEY`` is
+    missing or the ``openai`` package is unavailable -- the caller treats ``""``
+    as "no events". The OpenAI symbol stays the patchable seam for tests.
+    """
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
+    if not api_key or openai_symbol is None:
+        logger.info("vision_calendar: no OPENAI_API_KEY; returning empty extraction")
+        return ""
+    try:
+        client = get_openai_client(
+            api_key, factory=openai_symbol, timeout=LLM_CLIENT_READ_TIMEOUT_SEC
+        )
+        resp = client.chat.completions.create(
+            model=model or vision_model(),
+            temperature=0,
+            response_format={"type": "json_object"},
+            messages=[
+                {"role": "system", "content": system_prompt},
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": (
+                                "Transcribe every event you can read. Output strict "
+                                'JSON {"events":[...]}.'
+                            ),
+                        },
+                        {"type": "image_url", "image_url": {"url": _data_url(image_bytes, mime)}},
+                    ],
+                },
+            ],
+        )
+        return (resp.choices[0].message.content or "").strip()
+    except Exception:
+        logger.exception("vision_calendar: vision call failed")
+        return ""
+
+
+def self_check_unsure_dates(
+    image_bytes: bytes,
+    rows: list[VisionEventRow],
+    *,
+    month: int,
+    year: int,
+    model: str | None = None,
+    mime: str = "image/png",
+    openai_symbol: object = OpenAI,
+) -> set[date]:
+    """Cheap second pass: ask the model which of the read dates it is unsure of.
+
+    Returns the set of dates to demote to held. Best-effort -- any failure (no
+    key, bad JSON) returns the empty set so the first pass stands.
+    """
+    if not rows:
+        return set()
+    listed = ", ".join(sorted({r.event_date.isoformat() for r in rows}))
+    prompt = (
+        f"You previously read {len(rows)} events from this {_MONTH_NAMES[month - 1]} "
+        f"{year} calendar on these dates: {listed}. Re-examine the image and list "
+        f"ONLY the dates you are NOT confident are correct. Output strict JSON: "
+        f'{{"unsure_dates":["YYYY-MM-DD", ...]}} (empty list if all are correct).'
+    )
+    raw = call_vision(
+        image_bytes, system_prompt=prompt, model=model, mime=mime, openai_symbol=openai_symbol
+    )
+    if not raw:
+        return set()
+    try:
+        data = json.loads(raw)
+    except (ValueError, TypeError):
+        return set()
+    out: set[date] = set()
+    for v in (data or {}).get("unsure_dates", []) if isinstance(data, dict) else []:
+        d = _parse_date(v)
+        if d is not None:
+            out.add(d)
+    return out
+
+
+# --------------------------------------------------------------------------- #
+# Parse + orchestrate
+# --------------------------------------------------------------------------- #
+def parse_events_json(raw_text: str) -> list[dict]:
+    """Parse the model's strict-JSON reply into a list of row dicts.
+
+    Accepts ``{"events":[...]}`` or a bare ``[...]``; returns ``[]`` on any parse
+    failure or unexpected shape (honest omission).
+    """
+    if not raw_text:
+        return []
+    try:
+        data = json.loads(raw_text)
+    except (ValueError, TypeError):
+        return []
+    if isinstance(data, dict):
+        rows = data.get("events")
+    elif isinstance(data, list):
+        rows = data
+    else:
+        rows = None
+    if not isinstance(rows, list):
+        return []
+    return [r for r in rows if isinstance(r, dict)]
+
+
+@dataclass
+class ExtractionResult:
+    rows: list[VisionEventRow] = field(default_factory=list)
+    stats: ValidationStats = field(default_factory=ValidationStats)
+    raw_text: str = ""
+
+
+def extract_validated_rows(
+    image_bytes: bytes,
+    *,
+    system_prompt: str,
+    month: int,
+    year: int,
+    model: str | None = None,
+    mime: str = "image/png",
+    openai_symbol: object = OpenAI,
+    raw_text: str | None = None,
+    self_check: bool = False,
+) -> ExtractionResult:
+    """Full engine: (vision call ->) parse -> validate (-> self-check demote).
+
+    Tests pass ``raw_text`` to inject recorded model JSON and skip the live call
+    entirely. ``self_check`` enables the cheap confirm-dates second pass (live
+    only; it needs the image bytes and the key).
+    """
+    text = (
+        raw_text
+        if raw_text is not None
+        else call_vision(
+            image_bytes,
+            system_prompt=system_prompt,
+            model=model,
+            mime=mime,
+            openai_symbol=openai_symbol,
+        )
+    )
+    rows, stats = validate_rows(parse_events_json(text), month=month, year=year)
+    if self_check and rows and raw_text is None:
+        unsure = self_check_unsure_dates(
+            image_bytes, rows, month=month, year=year, model=model, mime=mime,
+            openai_symbol=openai_symbol,
+        )
+        demoted = apply_self_check_flags(rows, unsure)
+        stats.held_low_confidence += demoted
+    return ExtractionResult(rows=rows, stats=stats, raw_text=text)
+
+
+__all__ = [
+    "CONFIDENCE_THRESHOLD",
+    "DEFAULT_VISION_MODEL",
+    "ExtractionResult",
+    "MONTH_INDEX",
+    "ValidationStats",
+    "VisionEventRow",
+    "apply_self_check_flags",
+    "calendar_system_prompt",
+    "call_vision",
+    "extract_validated_rows",
+    "flyer_system_prompt",
+    "parse_date",
+    "parse_events_json",
+    "self_check_unsure_dates",
+    "validate_rows",
+    "vision_model",
+]
