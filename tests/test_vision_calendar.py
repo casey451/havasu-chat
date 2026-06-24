@@ -174,4 +174,52 @@ def test_call_vision_sends_base64_data_url(monkeypatch) -> None:
 
 def test_call_vision_no_key_returns_empty(monkeypatch) -> None:
     monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.delenv("VISION_BASE_URL", raising=False)
     assert vc.call_vision(b"x", system_prompt="p", openai_symbol=object()) == ""
+
+
+# --------------------------------------------------------------------------- #
+# Self-hosted (local) vision backend — no OpenAI key / no token spend
+# --------------------------------------------------------------------------- #
+class _CtorCapturingClient:
+    """Fake OpenAI client capturing the constructor kwargs (base_url etc.)."""
+
+    last_ctor: dict = {}
+
+    def __init__(self, **ctor) -> None:
+        _CtorCapturingClient.last_ctor = ctor
+        self._create_kwargs: dict = {}
+        self.chat = type(
+            "C", (), {"completions": type("Cc", (), {"create": self._create})()}
+        )()
+
+    def _create(self, **kwargs):
+        self._create_kwargs.update(kwargs)
+        _CtorCapturingClient.last_create = kwargs  # type: ignore[attr-defined]
+        return type("R", (), {"choices": [_FakeMessage('{"events":[]}')]})()
+
+
+def test_local_endpoint_used_when_base_url_set(monkeypatch) -> None:
+    # No OpenAI key at all -> a self-hosted endpoint still works (no token spend).
+    monkeypatch.delenv("OPENAI_API_KEY", raising=False)
+    monkeypatch.setenv("VISION_BASE_URL", "http://10.0.0.5:11434/v1")
+    monkeypatch.setenv("VISION_MODEL", "qwen2.5vl:3b")
+
+    out = vc.call_vision(b"img", system_prompt="p", openai_symbol=_CtorCapturingClient)
+
+    assert out == '{"events":[]}'
+    # The client was pointed at the local base URL with a non-empty placeholder key.
+    assert _CtorCapturingClient.last_ctor["base_url"] == "http://10.0.0.5:11434/v1"
+    assert _CtorCapturingClient.last_ctor["api_key"]  # "local" by default
+    # The served model name (VISION_MODEL) is used, not the OpenAI default.
+    assert _CtorCapturingClient.last_create["model"] == "qwen2.5vl:3b"  # type: ignore[attr-defined]
+
+
+def test_vision_model_resolution(monkeypatch) -> None:
+    monkeypatch.delenv("VISION_MODEL", raising=False)
+    monkeypatch.delenv("PARKS_REC_VISION_MODEL", raising=False)
+    assert vc.vision_model() == "gpt-4o"
+    monkeypatch.setenv("PARKS_REC_VISION_MODEL", "legacy-model")
+    assert vc.vision_model() == "legacy-model"
+    monkeypatch.setenv("VISION_MODEL", "minicpm-v")  # generic wins over legacy
+    assert vc.vision_model() == "minicpm-v"

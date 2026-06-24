@@ -70,8 +70,46 @@ MONTH_INDEX.update({m.lower()[:3]: i + 1 for i, m in enumerate(_MONTH_NAMES)})
 
 
 def vision_model() -> str:
-    """Resolved vision model; ``PARKS_REC_VISION_MODEL`` overrides the default."""
-    return (os.getenv("PARKS_REC_VISION_MODEL") or "").strip() or DEFAULT_VISION_MODEL
+    """Resolved vision model name.
+
+    ``VISION_MODEL`` (generic) then ``PARKS_REC_VISION_MODEL`` (legacy alias)
+    override the default. For a self-hosted backend set this to the served model
+    name, e.g. ``qwen2.5vl:3b`` / ``minicpm-v`` / ``llama3.2-vision`` on Ollama.
+    """
+    return (
+        (os.getenv("VISION_MODEL") or "").strip()
+        or (os.getenv("PARKS_REC_VISION_MODEL") or "").strip()
+        or DEFAULT_VISION_MODEL
+    )
+
+
+def _vision_client(openai_symbol: object):
+    """Construct the vision client, or ``None`` when no backend is configured.
+
+    Mirrors the local/openai split in :mod:`app.core.embeddings`:
+
+    * ``VISION_BASE_URL`` set -> a **self-hosted OpenAI-compatible** endpoint
+      (Ollama / vLLM / llama.cpp on your own VPS). No OpenAI key or spend; the
+      ``VISION_API_KEY`` is optional (local servers ignore it, but the client
+      needs a non-empty string). Constructed directly (not via the api_key-keyed
+      singleton) so ``base_url`` is honored.
+    * otherwise -> OpenAI, using ``OPENAI_API_KEY`` via the shared singleton.
+
+    Returns ``None`` (caller degrades to "no events") when neither a local
+    base URL nor an OpenAI key is available, or the ``openai`` package is absent.
+    """
+    if openai_symbol is None:
+        return None
+    base_url = (os.getenv("VISION_BASE_URL") or "").strip()
+    if base_url:
+        api_key = (os.getenv("VISION_API_KEY") or "").strip() or "local"
+        return openai_symbol(
+            api_key=api_key, base_url=base_url, timeout=LLM_CLIENT_READ_TIMEOUT_SEC
+        )
+    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
+    if not api_key:
+        return None
+    return get_openai_client(api_key, factory=openai_symbol, timeout=LLM_CLIENT_READ_TIMEOUT_SEC)
 
 
 # --------------------------------------------------------------------------- #
@@ -308,18 +346,18 @@ def call_vision(
 ) -> str:
     """Send one image to the vision model; return its raw text (``""`` on failure).
 
-    Graceful no-key: returns ``""`` (one log line) when ``OPENAI_API_KEY`` is
-    missing or the ``openai`` package is unavailable -- the caller treats ``""``
-    as "no events". The OpenAI symbol stays the patchable seam for tests.
+    Backend is chosen by env (see :func:`_vision_client`): a self-hosted
+    OpenAI-compatible endpoint when ``VISION_BASE_URL`` is set (no token spend),
+    else OpenAI via ``OPENAI_API_KEY``. Graceful no-op: returns ``""`` (one log
+    line) when no backend is configured or the ``openai`` package is unavailable
+    -- the caller treats ``""`` as "no events". The OpenAI symbol stays the
+    patchable seam for tests.
     """
-    api_key = (os.getenv("OPENAI_API_KEY") or "").strip()
-    if not api_key or openai_symbol is None:
-        logger.info("vision_calendar: no OPENAI_API_KEY; returning empty extraction")
+    client = _vision_client(openai_symbol)
+    if client is None:
+        logger.info("vision_calendar: no vision backend configured; returning empty extraction")
         return ""
     try:
-        client = get_openai_client(
-            api_key, factory=openai_symbol, timeout=LLM_CLIENT_READ_TIMEOUT_SEC
-        )
         resp = client.chat.completions.create(
             model=model or vision_model(),
             temperature=0,

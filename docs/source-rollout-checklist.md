@@ -101,7 +101,10 @@ the keyless EPA Envirofacts forecast — no action required for a working tile.
 | `MOVIES_WEBEDIA_API_URL` | #11 movies | Override once the real XHR endpoint is captured |
 | `LHC_NWS_ZONE_ID` | #14 nws_extras | Add `AZZ036` to catch Lake Wind Advisories |
 | `OPENAI_API_KEY` | #25/#26 parks_rec_calendar/flyers | Vision LLM call. Already set in prod; without it the source fetches 0 (graceful) |
-| `PARKS_REC_VISION_MODEL` | #25/#26 parks_rec | Override the vision model (default `gpt-4o`) |
+| `VISION_BASE_URL` | #25–#27 all vision sources | Point at a **self-hosted** OpenAI-compatible endpoint (Ollama/vLLM on your VPS) → no token spend. See `docs/scraper/LOCAL_VISION_VPS.md` |
+| `VISION_API_KEY` | #25–#27 vision (local) | Bearer token if the local endpoint is behind an auth proxy (else `"local"`) |
+| `VISION_MODEL` | #25–#27 vision | Served model name (e.g. `qwen2.5vl:3b`); supersedes `PARKS_REC_VISION_MODEL` |
+| `PARKS_REC_VISION_MODEL` | #25/#26 parks_rec | Legacy alias for `VISION_MODEL` (default `gpt-4o`) |
 | `PARKS_REC_FLYER_MAX` | #26 parks_rec_flyers | Cap flyer vision calls per run (default 8) |
 | `SENIOR_FLYER_MAX` | #27 senior_center_flyers | Cap senior flyer vision calls per run (default 12) |
 
