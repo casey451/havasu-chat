@@ -155,6 +155,7 @@ def test_call_vision_sends_base64_data_url(monkeypatch) -> None:
         return make
 
     monkeypatch.setenv("OPENAI_API_KEY", "sk-test")
+    monkeypatch.delenv("VISION_BASE_URL", raising=False)
     img = (FIXTURES / "sample_calendar.png").read_bytes()
     out = vc.call_vision(
         img,
@@ -170,6 +171,10 @@ def test_call_vision_sends_base64_data_url(monkeypatch) -> None:
     assert image_part["image_url"]["url"].startswith("data:image/png;base64,")
     assert captured["temperature"] == 0
     assert captured["response_format"] == {"type": "json_object"}
+    # Output budget is sent on both backends; the Ollama-only num_ctx option is NOT
+    # sent to OpenAI (it would 400 on the unknown `options` field).
+    assert captured["max_tokens"] == vc.VISION_MAX_TOKENS
+    assert "extra_body" not in captured
 
 
 def test_call_vision_no_key_returns_empty(monkeypatch) -> None:
@@ -213,6 +218,11 @@ def test_local_endpoint_used_when_base_url_set(monkeypatch) -> None:
     assert _CtorCapturingClient.last_ctor["api_key"]  # "local" by default
     # The served model name (VISION_MODEL) is used, not the OpenAI default.
     assert _CtorCapturingClient.last_create["model"] == "qwen2.5vl:3b"  # type: ignore[attr-defined]
+    # The bigger context window IS sent on the self-hosted path so a dense
+    # calendar's full event list doesn't truncate mid-JSON.
+    create = _CtorCapturingClient.last_create  # type: ignore[attr-defined]
+    assert create["max_tokens"] == vc.VISION_MAX_TOKENS
+    assert create["extra_body"]["options"]["num_ctx"] == vc.VISION_NUM_CTX
 
 
 def test_vision_model_resolution(monkeypatch) -> None:
@@ -223,3 +233,34 @@ def test_vision_model_resolution(monkeypatch) -> None:
     assert vc.vision_model() == "legacy-model"
     monkeypatch.setenv("VISION_MODEL", "minicpm-v")  # generic wins over legacy
     assert vc.vision_model() == "minicpm-v"
+
+
+# --------------------------------------------------------------------------- #
+# Truncation regression (the VPS bug): a full month parses; a cut-off reply
+# returns [] AND logs loudly instead of silently looking like "read nothing".
+# --------------------------------------------------------------------------- #
+def test_full_month_output_parses_all_rows() -> None:
+    raw = (FIXTURES / "calendar_full_month.json").read_text(encoding="utf-8")
+    rows = vc.parse_events_json(raw)
+    assert len(rows) == 30
+    kept, stats = vc.validate_rows(rows, month=6, year=2026)
+    assert stats.kept == 30  # nothing dropped by the guards
+
+
+def test_truncated_output_returns_empty_and_warns(caplog) -> None:
+    full = (FIXTURES / "calendar_full_month.json").read_text(encoding="utf-8")
+    # Simulate the model running out of context: a valid prefix cut mid-object
+    # (ends at `"audience":` with no closing braces), exactly the VPS failure.
+    truncated = full[:5362].rstrip()
+    assert not truncated.endswith("}")  # genuinely unterminated
+    with caplog.at_level("WARNING", logger="app.contrib.vision_calendar"):
+        rows = vc.parse_events_json(truncated)
+    assert rows == []
+    assert any("failed to parse" in rec.message for rec in caplog.records)
+
+
+def test_empty_output_does_not_warn(caplog) -> None:
+    # An empty reply (no backend / no key) is a normal no-op, not a truncation.
+    with caplog.at_level("WARNING", logger="app.contrib.vision_calendar"):
+        assert vc.parse_events_json("") == []
+    assert not any("failed to parse" in rec.message for rec in caplog.records)
