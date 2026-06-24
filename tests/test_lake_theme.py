@@ -28,9 +28,9 @@ def client() -> TestClient:
 
 # ── resolution precedence (pure) ────────────────────────────────────────────
 
-def test_default_is_desert_when_env_unset(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_default_is_lake_when_env_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.delenv("THEME_DEFAULT", raising=False)
-    assert theme_default() == "desert" == FALLBACK_THEME
+    assert theme_default() == "lake" == FALLBACK_THEME
 
 
 def test_env_default_can_flip_to_lake(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -39,8 +39,9 @@ def test_env_default_can_flip_to_lake(monkeypatch: pytest.MonkeyPatch) -> None:
 
 
 def test_env_default_rejects_garbage(monkeypatch: pytest.MonkeyPatch) -> None:
+    # Desert was retired; anything non-lake normalizes to the lake default.
     monkeypatch.setenv("THEME_DEFAULT", "neon")
-    assert theme_default() == "desert"
+    assert theme_default() == "lake"
 
 
 def test_query_overrides_cookie_overrides_default(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -49,14 +50,15 @@ def test_query_overrides_cookie_overrides_default(monkeypatch: pytest.MonkeyPatc
     assert resolve_request_theme(None, "lake") == "lake"  # cookie next
     assert resolve_request_theme("LAKE", None) == "lake"  # case-insensitive
     assert resolve_request_theme("bogus", "lake") == "lake"  # bad query falls to cookie
-    assert resolve_request_theme(None, None) == "desert"  # nothing -> default
+    assert resolve_request_theme(None, None) == "lake"  # nothing -> lake default
 
 
 def test_base_template_for() -> None:
+    # Lake is the only theme — every input resolves to the lake base.
     assert base_template_for("lake") == "base_lake.html"
-    assert base_template_for("desert") == "desert_base.html"
-    assert base_template_for(None) == "desert_base.html"
-    assert base_template_for("garbage") == "desert_base.html"
+    assert base_template_for("desert") == "base_lake.html"
+    assert base_template_for(None) == "base_lake.html"
+    assert base_template_for("garbage") == "base_lake.html"
 
 
 # ── middleware (request.state.theme + QA cookie) ────────────────────────────

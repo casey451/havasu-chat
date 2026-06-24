@@ -191,8 +191,10 @@ def test_home_has_single_search_form_to_chat() -> None:
     with TestClient(app) as client:
         h = client.get("/home")
     assert h.status_code == 200
-    assert h.text.count('id="home-ask-form"') == 1
+    assert h.text.count('id="home-ask-input"') == 1
     assert 'action="/chat"' in h.text
-    # The removed second form / CTA must not reappear.
+    # The removed second directory form / "Ask Hava instead" CTA must not reappear.
+    # (A /chat?q= urlTemplate legitimately remains in the SearchAction JSON-LD;
+    # the guard targets the old visible secondary form, not the schema.)
     assert 'action="/search"' not in h.text
-    assert "/chat?q=" not in h.text
+    assert 'class="header-search"' not in h.text

@@ -60,15 +60,14 @@ def serve_chat(
                 url=f"/categories/{leaf.department_slug}/{leaf.slug}",
                 status_code=302,
             )
-        # Lake Ink & Brass (Phase 2b): the concierge becomes an intent ROUTER —
-        # it routes, it doesn't chat. FLAG-GATED so desert keeps the current
-        # conversational fallback unchanged. Discovery ("what's happening
-        # tonight") → the /calendar surface; anything else we couldn't place →
-        # a graceful search, never Tier-3 prose.
-        if getattr(request.state, "theme", "desert") == "lake":
-            if is_discovery_query(cleaned):
-                return RedirectResponse(url=f"/calendar?q={quote(cleaned)}", status_code=302)
-            return RedirectResponse(url=f"/search?q={quote(cleaned)}", status_code=302)
+        # The concierge is an intent ROUTER — it routes, it doesn't chat (Lake is
+        # the only theme since the desert lineage was deleted 2026-06-24).
+        # Discovery ("what's happening tonight") → the /calendar surface; anything
+        # else we couldn't place → a graceful search, never Tier-3 prose.
+        if is_discovery_query(cleaned):
+            return RedirectResponse(url=f"/calendar?q={quote(cleaned)}", status_code=302)
+        return RedirectResponse(url=f"/search?q={quote(cleaned)}", status_code=302)
+    # Empty query (the "Ask" front door): the lake chat scaffold.
     return templates.TemplateResponse(
         request=request,
         name="chat.html",

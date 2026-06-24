@@ -96,12 +96,6 @@ class _FakeLeaf:
     slug = "plumbers"
 
 
-def test_chat_desert_still_chats() -> None:
-    with patch.object(leaf_query, "match_leaf_query", return_value=None):
-        r = TestClient(app).get("/chat?q=live music tonight", follow_redirects=False)
-    assert r.status_code == 200  # conversational scaffold, NOT routed
-
-
 def test_chat_lake_routes_discovery_to_calendar() -> None:
     with patch.object(leaf_query, "match_leaf_query", return_value=None):
         r = TestClient(app).get("/chat?q=live music tonight&theme=lake", follow_redirects=False)

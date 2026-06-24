@@ -102,10 +102,10 @@ _LAKE_DIR_TEMPLATES = {
 }
 
 
-def _dir_template(request: Request, desert_name: str) -> str:
-    if getattr(request.state, "theme", "desert") == "lake":
-        return _LAKE_DIR_TEMPLATES.get(desert_name, desert_name)
-    return desert_name
+def _dir_template(request: Request, name: str) -> str:
+    """Map a directory page name to its Lake template (the only theme now)."""
+    del request
+    return _LAKE_DIR_TEMPLATES.get(name, name)
 
 # Retired flat category routes -> their canonical taxonomy department. The
 # pre-taxonomy site served ~15 lumped Provider.category buckets at

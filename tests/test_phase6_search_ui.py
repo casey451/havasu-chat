@@ -18,11 +18,11 @@ def client() -> TestClient:
 def test_home_hero_composer_and_ask_hava(client: TestClient) -> None:
     r = client.get("/home")
     assert r.status_code == 200
-    assert 'class="searchbox"' in r.text
-    assert 'id="home-ask-form"' in r.text
+    # Lake hero search composer posts to the concierge.
+    assert 'class="ask"' in r.text
+    assert 'id="home-ask-input"' in r.text
     assert 'action="/chat"' in r.text
     assert 'role="search"' in r.text
-    assert 'aria-label="Ask Hava"' in r.text
     assert 'name="q"' in r.text
     assert "Ask Hava" in r.text
     assert "<!-- search-bar-include -->" not in r.text
@@ -31,9 +31,9 @@ def test_home_hero_composer_and_ask_hava(client: TestClient) -> None:
 def test_category_header_has_hava_search(client: TestClient) -> None:
     r = client.get("/lake-havasu/restaurants")
     assert r.status_code == 200
-    # Sandstone category page uses the shared editorial header (logo + nav +
-    # Explore mega); search lives on the home hero, not the category header.
-    assert 'class="cathead wrap"' in r.text
+    # Lake category page renders its own page header; search lives on the home
+    # hero, not the category header (no per-page search_bar.js).
+    assert 'class="pagehead"' in r.text
     assert "search_bar.js" not in r.text
 
 

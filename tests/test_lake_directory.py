@@ -65,13 +65,6 @@ def test_card_place_without_slug_links_out() -> None:
     assert "/provider/" not in h
 
 
-def test_desert_categories_is_the_default() -> None:
-    r = TestClient(app).get("/categories")
-    assert r.status_code == 200
-    assert 'data-theme="lake"' not in r.text
-    assert "lake_directory.css" not in r.text
-
-
 def test_lake_categories_index() -> None:
     b = TestClient(app).get("/categories?theme=lake").text
     assert 'data-theme="lake"' in b

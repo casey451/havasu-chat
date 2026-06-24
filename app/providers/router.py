@@ -87,11 +87,7 @@ def serve_provider_profile(
     )
     # THEME flag (Lake Ink & Brass, Phase 3b): the lake LocalBusiness profile
     # reskins the SAME ProviderProfileVM. Default stays desert until the flip.
-    profile_template = (
-        "provider_profile_lake.html"
-        if getattr(request.state, "theme", "desert") == "lake"
-        else "provider_profile.html"
-    )
+    profile_template = "provider_profile_lake.html"
     return templates.TemplateResponse(
         request=request,
         name=profile_template,

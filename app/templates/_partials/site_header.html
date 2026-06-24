@@ -1,8 +1,8 @@
-{#- ───── Shared Lake site header (P0 consolidation) ─────
-   The single source for the Lake theme's masthead + primary nav. Included by
-   base_lake.html so P3's nav work edits ONE file, not three. Self-contained:
-   imports its own logo macro and reads only the shared `active_tab` context.
-   Desert (desert_base.html) keeps its own header until it is retired. -#}
+{#- ───── Shared site header ─────
+   The single source for the site masthead + primary nav. Included by
+   base_lake.html (the only base since the desert lineage was deleted 2026-06-24).
+   Self-contained: imports its own logo macro and reads only the shared
+   `active_tab` context. -#}
 {% from "_partials/lake_logo.svg.html" import logo_nav %}
 <header class="hdr">
   <div class="hdr-in">

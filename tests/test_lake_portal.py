@@ -51,12 +51,6 @@ class _Placement:
 
 # ── public funnel + claim (full route, empty DB) ────────────────────────────
 
-def test_desert_portal_is_default() -> None:
-    b = TestClient(app).get("/portal").text
-    assert 'data-theme="lake"' not in b
-    assert "lake_portal.css" not in b
-
-
 def test_lake_portal_funnel() -> None:
     b = TestClient(app).get("/portal?theme=lake").text
     assert 'data-theme="lake"' in b

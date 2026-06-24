@@ -39,11 +39,11 @@ def test_chat_serves_dark_body_class() -> None:
 
 
 def test_chat_loads_chat_css() -> None:
-    """``/chat`` references the Desert Modern stylesheets (base + chat skin)."""
+    """``/chat`` references the base (lake) + chat skin stylesheets."""
     with TestClient(app) as client:
         r = client.get("/chat")
     assert r.status_code == 200
-    assert "/static/styles/desert.css" in r.text
+    assert "/static/styles/lake.css" in r.text
     assert "/static/styles/desert_chat.css" in r.text
     # Load-order contract: the chat skin must come AFTER chat_cards.css so the
     # B-01 size clamps in chat_cards.css keep winning where selectors overlap.

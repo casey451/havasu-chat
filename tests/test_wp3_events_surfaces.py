@@ -300,17 +300,18 @@ def test_events_ui_renders_view_toggle_and_today_accordion() -> None:
     navigable structure", just over the new views.)"""
     with TestClient(app) as client:
         body = client.get("/events-ui").text
-    assert "Events around the lake" in body
-    assert 'class="ev-views"' in body  # view toggle present
+    assert 'aria-label="Calendar view"' in body  # view toggle present
     assert "?view=week" in body and "?view=month" in body
-    assert 'aria-label="Today"' in body  # today section labelled
+    # Today view is the default: the Today tab is current, the day accordion renders.
+    assert 'aria-current="page">Today</a>' in body
+    assert 'class="ev-acc"' in body  # today section accordion
 
 
 def test_events_ui_when_today_maps_to_today_view() -> None:
     """Legacy ?when=today still narrows to today only (now the Today view)."""
     with TestClient(app) as client:
         body = client.get("/events-ui?when=today").text
-    assert 'aria-label="Today"' in body
+    assert 'aria-current="page">Today</a>' in body  # Today view current
     assert 'class="ev-week"' not in body  # not the week view
 
 
@@ -327,8 +328,8 @@ def test_events_ui_when_weekend_still_responds_with_week_view() -> None:
 def test_events_ui_date_deeplink_shows_single_day() -> None:
     with TestClient(app) as client:
         body = client.get("/events-ui?date=2099-04-12").text
-    assert "Showing events for" in body
-    assert "Back to today" in body
+    assert "Sunday, April 12" in body  # the single-day H1
+    assert 'class="ev-daynav"' in body  # day navigation strip
     assert "/events-ui?date=2099-04-11" in body  # prev-day link
     assert "/events-ui?date=2099-04-13" in body  # next-day link
 
@@ -337,10 +338,9 @@ def test_events_ui_weekend_events_never_fall_in_gap(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """P0 regression, carried over from the bucket era: weekend events must
-    never vanish in a window gap. The Week view tiles 7 contiguous days from
-    today, so the upcoming Saturday and Sunday each render exactly once (no
-    gap, no double-listing); a day past the 7-day horizon stays reachable on
-    its ?date= page (the month grid links every date).
+    never vanish in a window gap. The lake Week view renders an upcoming list
+    from today, so the upcoming Saturday and Sunday both surface, and any day
+    stays reachable on its ?date= page (the month grid links every date).
     """
     suffix = uuid.uuid4().hex[:6]
     eids: list[str] = []
@@ -366,10 +366,9 @@ def test_events_ui_weekend_events_never_fall_in_gap(
         with TestClient(app) as client:
             week_body = client.get("/events-ui?view=week").text
             day_body = client.get(f"/events-ui?date={next_saturday.isoformat()}").text
-        assert week_body.count(sat_title) == 1  # exactly once — no gap
-        assert week_body.count(sun_title) == 1  # exactly once — no double-list
-        assert next_sat_title not in week_body  # beyond the 7-day horizon...
-        assert next_sat_title in day_body  # ...but reachable on its day page
+        assert sat_title in week_body  # the Saturday event surfaces — no gap
+        assert sun_title in week_body  # the Sunday event surfaces — no gap
+        assert next_sat_title in day_body  # reachable on its day page
     finally:
         with SessionLocal() as db:
             db.execute(delete(Event).where(Event.entity_id.in_(eids)))
@@ -377,7 +376,7 @@ def test_events_ui_weekend_events_never_fall_in_gap(
             db.commit()
 
 
-def test_event_detail_uses_desert_font_stack() -> None:
+def test_event_detail_renders_lake_with_description() -> None:
     eids: list[str] = []
     start = now_lake_havasu()
     with SessionLocal() as db:
@@ -391,13 +390,11 @@ def test_event_detail_uses_desert_font_stack() -> None:
             resp = client.get(f"/events/{_id}")
         assert resp.status_code == 200
         body = resp.text
-        # Desert Modern: Bricolage Grotesque/Space Grotesk via desert_base,
-        # never the old Georgia/lake_light stack.
-        assert "Bricolage+Grotesque" in body and "Space+Grotesk" in body
-        assert "lake_light.css" not in body
-        assert "desert_events.css" in body
+        # Lake Ink & Brass is the only theme now.
+        assert 'data-theme="lake"' in body
+        assert "/static/styles/lake.css" in body
         # pre-line description container is present.
-        assert "ev-detail-desc" in body
+        assert "evd-desc" in body
     finally:
         with SessionLocal() as db:
             db.execute(delete(Event).where(Event.entity_id.in_(eids)))

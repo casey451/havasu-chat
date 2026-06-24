@@ -1,6 +1,8 @@
-"""UX-1: homepage above-the-fold — quick-intent chips + one-line trust strip
-inserted between the hero and the existing modules. Chips must point only at
-real, existing surfaces (anti-confabulation)."""
+"""UX-1: homepage one-line trust strip (site-wide footer row).
+
+The original above-the-fold quick-intent chips + hero/intents/explore fold-order
+were part of the desert/sandstone home and were removed in the Lake home
+redesign; only the still-true trust-strip behavior remains under test here."""
 
 from __future__ import annotations
 
@@ -9,22 +11,6 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 client = TestClient(app)
-
-
-def test_home_has_quick_intent_chips() -> None:
-    r = client.get("/home")
-    assert r.status_code == 200
-    body = r.text
-    for href in (
-        'href="/chat"',
-        '"/events-ui"',
-        "/events-ui?view=week",
-        "/categories/on-the-water",
-        '"/family"',
-    ):
-        assert href in body, href
-    for label in ("Need a service", "Tonight", "This weekend", "Lake &amp; Boating", "Kid-friendly"):
-        assert label in body, label
 
 
 def test_home_has_trust_strip_linked() -> None:
@@ -39,16 +25,3 @@ def test_home_has_trust_strip_linked() -> None:
     # "Sponsored clearly labeled" → the public /sponsor advertiser page (was the
     # auth-gated /portal/placements, which login-walled the most-linked CTA).
     assert 'href="/sponsor"' in body
-
-
-def test_fold_order_hero_then_intents_then_modules() -> None:
-    """§2.3/§2.5 + Phase 6B: chips sit AFTER the hero, then the premium sponsor
-    placard (home-marquee) sits ABOVE THE FOLD — directly under the chips and
-    above the consolidated category grid (home-explore). The placard always
-    renders (sold card or slim claim), so it's a stable anchor."""
-    body = client.get("/home").text
-    hero = body.index("home-hero")
-    intents = body.index("home-intents")
-    explore = body.index("home-explore")
-    marquee = body.index("home-marquee")
-    assert hero < intents < marquee < explore

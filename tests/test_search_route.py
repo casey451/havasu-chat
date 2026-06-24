@@ -216,8 +216,8 @@ def test_search_bar_ui_home_and_provider_templates(db: Session) -> None:
         assert h.status_code == 200
         t = h.text
         assert 'name="q"' in t
-        assert "/static/styles/desert.css" in t  # Desert Modern reskin
-        assert 'id="home-ask-form"' in t
+        assert "/static/styles/lake.css" in t  # Lake Ink & Brass
+        assert 'id="home-ask-input"' in t
 
         pr = client.get(f"/provider/{slug}")
         assert pr.status_code == 200

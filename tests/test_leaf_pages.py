@@ -404,7 +404,7 @@ def test_leaf_page_has_category_claim_slot(client: TestClient, seeded_leaves: di
     r = client.get(f"/categories/{seeded_leaves['ship_dept']}/{seeded_leaves['ship_leaf']}")
     assert r.status_code == 200
     body = r.text
-    assert "cat-claim" in body
+    assert "cat-sponsor-claim" in body
     # P4: the advertise CTA now routes to the public /sponsor storefront (the
     # clean public purchase path) rather than the auth-gated dashboard.
     assert "/sponsor" in body
@@ -552,7 +552,9 @@ def test_provider_less_places_render_and_count(
     assert "Channel Kayak Rentals" in body
     assert "Three Dunes Paddle Launch" in body
     assert "Windsor Beach Put-In" in body
-    assert "biz--place" in body
+    # Only the provider-backed card links to a /provider/ detail page (its name +
+    # "View" button = 2 links); the two provider-less places add no provider link.
+    assert body.count('href="/provider/') == 2
 
 
 def test_place_only_leaf_gate(client: TestClient, _place_cleanup: list[str]) -> None:
@@ -655,7 +657,7 @@ def test_leaf_groups_by_neighborhood_when_spread(
     r = client.get(f"/categories/{dept_slug}/{leaf_slug}")
     assert r.status_code == 200
     body = r.text
-    assert 'class="biz-group-head"' in body
+    assert 'class="also-sec"' in body  # lake neighborhood-section heading class
     assert ">Downtown</h2>" in body
     assert ">Lakeside</h2>" in body
     # Every listing landed in a named section -> no catch-all.

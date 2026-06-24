@@ -148,7 +148,9 @@ def test_events_ui_skips_class_that_is_also_an_event() -> None:
     client = TestClient(app)
     r = client.get("/events-ui?date=2026-12-10")  # a Thursday
     assert r.status_code == 200
-    assert r.text.count(title) == 1
+    # Count VISIBLE rows only (the events_lake JSON-LD ItemList also echoes the
+    # title); the dedup contract is that it renders in exactly one visible row.
+    assert r.text.count(f'class="rtitle">{title}') == 1
 
 
 def test_program_anchor_is_deterministic_and_slugged() -> None:

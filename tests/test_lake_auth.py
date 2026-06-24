@@ -42,22 +42,17 @@ class _FakeUser:
 
 # ── _tname route wiring ─────────────────────────────────────────────────────
 
-def test_tname_selects_lake_only_when_flag_set() -> None:
-    desert_req = _req("/login")
-    assert _tname(desert_req, "login.html") == "login.html"  # default unchanged
+def test_tname_always_selects_lake() -> None:
+    # Lake is the only theme — _tname always maps to the lake variant.
+    req = _req("/login")
+    assert _tname(req, "login.html") == "login_lake.html"
+    assert _tname(req, "account_favorites.html") == "account_favorites_lake.html"
     lake_req = _req("/login")
     lake_req.state.theme = "lake"
     assert _tname(lake_req, "login.html") == "login_lake.html"
-    assert _tname(lake_req, "account_favorites.html") == "account_favorites_lake.html"
 
 
 # ── /login (full route) ─────────────────────────────────────────────────────
-
-def test_desert_login_is_default() -> None:
-    b = TestClient(app).get("/login").text
-    assert 'data-theme="lake"' not in b
-    assert "lake_account.css" not in b
-
 
 def test_lake_login_form() -> None:
     b = TestClient(app).get("/login?theme=lake").text

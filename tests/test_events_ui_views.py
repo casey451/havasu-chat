@@ -116,7 +116,7 @@ def test_today_view_groups_by_category_events_first(
         # Right members + an honest count pill on the Events group.
         events_block = body[i_events:i_music]
         assert festival in events_block and stroll in events_block
-        assert 'ev-acc-count">2<' in events_block
+        assert 'class="gcount">2<' in events_block
         assert band in body[i_music:i_water]
         # Sunset Paddle is genuinely on the lake → On-the-water group.
         assert paddle in body[i_water:i_classes]
@@ -183,12 +183,18 @@ def test_family_and_pool_classes_split_out() -> None:
     try:
         with TestClient(app) as client:
             body = client.get(f"/events-ui?date={day.isoformat()}").text
-        i_events = body.index('data-group="events"')
-        i_family = body.index('data-group="family"')
-        i_classes = body.index('data-group="classes"')
-        events_block = body[i_events : body.index("</details>", i_events)]
-        family_block = body[i_family : body.index("</details>", i_family)]
-        classes_block = body[i_classes : body.index("</details>", i_classes)]
+        # Group accordions nest their own <details>, so slice each block by the
+        # next group's start marker (or end of doc) rather than the first close.
+        starts = sorted(m.start() for m in re.finditer(r'data-group="\w+"', body))
+
+        def _block(key: str) -> str:
+            i = body.index(f'data-group="{key}"')
+            after = [s for s in starts if s > i]
+            return body[i : (after[0] if after else len(body))]
+
+        events_block = _block("events")
+        family_block = _block("family")
+        classes_block = _block("classes")
         # Kids & Family collects kid occurrences. Open Swim (non-class) re-lists
         # here AND stays in its primary group (additive overlay, discoverability).
         assert karate in family_block and openswim in family_block
@@ -315,8 +321,12 @@ def test_month_grid_first_of_month_in_correct_weekday_column() -> None:
     with TestClient(app) as client:
         body = client.get("/events-ui?view=month&cal=2099-07").text
     assert "July 2099" in body
-    head = body[: body.index("date=2099-07-01")]
-    assert head.count("ev-mg-cell blank") == 3
+    # Day 1 renders with this cell label regardless of whether it carries events
+    # (an empty in-month day is a bare cell; a populated one is a "cell has" link).
+    head = body[: body.index('<span class="dn">1</span>')]
+    # Out-of-month lead cells are the aria-hidden blanks; exactly three precede
+    # a Wednesday-first month on a Sunday-anchored grid.
+    assert head.count("cell empty") == 3
     # Sunday-first weekday header.
     assert body.index("<span>Sun</span>") < body.index("<span>Mon</span>")
 
@@ -338,8 +348,8 @@ def test_month_grid_counts_oneoffs_only_with_class_badge() -> None:
         cell = body[cell_start : body.index("</a>", cell_start)]
         # One-off count stays 1 — the recurring row lands in the class badge,
         # never the event count (no titles in cells: it's a date picker).
-        assert 'ev-mg-ct">1<' in cell
-        assert "ev-mg-dot" in cell
+        assert 'cell-count" aria-hidden="true">1<' in cell
+        assert "cell-cls" in cell
         assert f"ZZ Lone Gala {suffix}" not in body
     finally:
         _cleanup(eids)
@@ -359,11 +369,12 @@ def test_date_view_renders_accordion_with_day_nav() -> None:
     try:
         with TestClient(app) as client:
             body = client.get(f"/events-ui?date={day.isoformat()}").text
-        assert "Showing events for" in body and "Saturday, July 25" in body
+        assert "Saturday, July 25" in body  # the single-day H1
         assert 'data-group="events"' in body and title in body
+        assert 'class="ev-daynav"' in body
         assert "/events-ui?date=2099-07-24" in body  # prev day
         assert "/events-ui?date=2099-07-26" in body  # next day
-        assert "Back to today" in body
+        assert '<a href="/events-ui" class="">Today</a>' in body  # back to today
     finally:
         _cleanup(eids)
 

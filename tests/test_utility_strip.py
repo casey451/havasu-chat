@@ -67,26 +67,23 @@ def test_utility_chips_combines_gas_and_conditions() -> None:
 
 
 def test_home_renders_slim_strip_and_drops_redundant_blocks() -> None:
-    sample = [
-        {
-            "kind": "gas",
-            "icon": "⛽",
-            "value": "$4.29",
-            "label": "Cheapest gas",
-            "detail": "Loves · regular, per gallon",
-            "source": None,
-            "freshness": "Updated 10m ago",
-            "is_stale": False,
-            "severity": "neutral",
-            "href": "/gas",
-        }
-    ]
-    with patch.object(home_router, "_utility_chips", return_value=sample):
+    sample = {
+        "kind": "gas",
+        "icon": "⛽",
+        "value": "$4.29",
+        "label": "Cheapest gas",
+        "detail": "Loves · regular, per gallon",
+        "source": None,
+        "freshness": "Updated 10m ago",
+        "is_stale": False,
+        "severity": "neutral",
+        "href": "/gas",
+    }
+    with patch.object(home_router, "_gas_chip", return_value=sample):
         with TestClient(app) as client:
             body = client.get("/home").text
-    # Desert Modern conditions strip present, gas tile leading with its
-    # tap-through to the full gas list...
-    assert 'class="d-conditions"' in body
+    # Lake gas line present, with its tap-through to the full gas list...
+    assert 'class="gaschip' in body
     assert "$4.29" in body
     assert 'href="/gas"' in body
     # ...and no fabricated/redundant full-width blocks.
@@ -95,11 +92,11 @@ def test_home_renders_slim_strip_and_drops_redundant_blocks() -> None:
 
 
 def test_home_ribbon_absent_without_data() -> None:
-    """No ambient/gas data -> no empty conditions-strip shell (graceful omission)."""
-    with patch.object(home_router, "_utility_chips", return_value=[]):
+    """No gas data -> no empty gas line shell (graceful omission)."""
+    with patch.object(home_router, "_gas_chip", return_value=None):
         with TestClient(app) as client:
             body = client.get("/home").text
-    assert 'class="d-conditions"' not in body
+    assert 'class="gaschip' not in body
     assert "All seven buckets" not in body
 
 

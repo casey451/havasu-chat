@@ -275,12 +275,12 @@ def test_plural_page_shows_subcategory_chips(client: TestClient) -> None:
         r = client.get("/lake-havasu/storage")
         assert r.status_code == 200
         body = r.text
-        # Sandstone: subcategory chips render in the in-place filter row, each with
-        # a data-filter token; the sort/facet bar renders below.
-        assert 'class="chips"' in body
-        assert 'data-filter="all"' in body
+        # Lake Ink & Brass: subcategory chips render in the Subcategory toolbar,
+        # each a ``chip`` anchor; the filter/sort toolbar renders below.
+        assert 'aria-label="Subcategory"' in body
+        assert 'class="chip' in body
         assert "?sub=storage" in body  # Storage subcategory chip present under Services
-        assert 'class="sortbar"' in body
+        assert 'aria-label="Filter and sort"' in body
     finally:
         with SessionLocal() as db:
             db.execute(delete(Provider).where(Provider.entity_id == eid))
