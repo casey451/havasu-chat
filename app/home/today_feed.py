@@ -337,13 +337,15 @@ def _summary(counts: dict[str, int]) -> str:
     return " · ".join(bits)
 
 
-def _movie_films(db: Session, *, day: date) -> list[dict[str, Any]]:
+def _movie_films(
+    db: Session, *, day: date, now: datetime | None = None
+) -> list[dict[str, Any]]:
     """One row per film for the "At the movies" group, per-theater showtimes in
     the expand. A film at two theaters collapses to a single row; the summary
     reads "2 theaters · next 12:40 PM" (or "Star Cinemas · next 10:00 AM")."""
     films: dict[str, dict[str, Any]] = {}
     order: list[str] = []
-    for tg in showtimes_for_day(db, day=day):
+    for tg in showtimes_for_day(db, day=day, now=now):
         for fc in tg.films:
             first = fc.showtimes[0]
             # Case/space-insensitive de-dup so the same film spelled differently
@@ -408,10 +410,9 @@ def _event_feed_row(
         "recurring": recurring,
         "type_label": event_type_label(title, tags, venue),
         "tags": tags if tags is not None else _audience_tags(title, None),
-        # Item 1: the home feed shows the FULL day; rows already over today are
-        # kept but visually muted (the template's ``frow--past``), so groups whose
-        # sessions are mornings (Fitness & sports, Classes) never empty out by
-        # afternoon. False for past/future days and when ``now`` isn't supplied.
+        # Rows that started >1h ago are dropped upstream, so survivors are never
+        # past; ``is_past`` stays in the row shape (default False) for the
+        # template's ``frow--past`` hook but is no longer set true in the feed.
         "is_past": is_past,
     }
 
@@ -429,11 +430,13 @@ def today_feed(
     DISTINCT films (Item 6) and free screenings cross-post into Things to do.
     """
     events = _live_events_by_day(db, window_start=day, window_end=day).get(day, [])
-    # Item 1: the home shows the FULL day. Unlike ``/events-ui`` (day_groups),
-    # which trims occurrences finished >1h ago, the home KEEPS them — flagged
-    # ``is_past`` so the template mutes them — so a group whose only sessions are
-    # mornings still renders in the afternoon. ``_occurrence_expired`` is reused
-    # purely to compute that flag (no-op off the current day / without ``now``).
+    # Calendar rule (2026-06-24): items + movies stop showing one hour after they
+    # start, so the home reflects what's still worth heading out for *now* — the
+    # same start-based cutoff ``/events-ui`` uses. (This replaces the older
+    # "show the full day, mute past rows" behaviour: started items are now dropped
+    # outright, so a group whose only sessions were this morning empties out by
+    # afternoon — that is the intended effect.) No-op off the current day / when
+    # ``now`` isn't supplied.
     event_keys = {
         ((ev.title or "").strip().lower(), day, ev.start_time) for ev in events
     }
@@ -446,6 +449,8 @@ def today_feed(
     }
 
     for ev in events:
+        if _occurrence_expired(day, ev.start_time, ev.end_time, now):
+            continue
         bkey = _home_group(
             ev.title or "", ev.tags, bool(ev.featured), bool(ev.is_recurring),
             ev.start_time, ev.end_time,
@@ -459,15 +464,15 @@ def today_feed(
                 end_time=ev.end_time,
                 recurring=bool(ev.is_recurring),
                 tags=_audience_tags(ev.title or "", ev.tags, ev.location_name),
-                is_past=_occurrence_expired(day, ev.start_time, ev.end_time, now),
             )
         )
 
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
     ):
-        # Item 1: keep past class occurrences (muted), don't drop them — this is
-        # what kept Fitness & sports / Classes from emptying out by afternoon.
+        # Drop class occurrences that started >1h ago (same cutoff as events).
+        if _occurrence_expired(day, occ.start_time, occ.end_time, now):
+            continue
         bkey = _home_group(
             occ.title, None, False, True, occ.start_time, occ.end_time,
             activity=occ.provider_activity,
@@ -488,7 +493,6 @@ def today_feed(
                 end_time=occ.end_time,
                 recurring=True,
                 tags=_audience_tags(occ.title, None, occ.venue),
-                is_past=_occurrence_expired(day, occ.start_time, occ.end_time, now),
             )
         )
 
@@ -512,7 +516,7 @@ def today_feed(
             }
         )
 
-    films = _movie_films(db, day=day)
+    films = _movie_films(db, day=day, now=now)
     # Free community screenings cross-post into Things to do (they also stay in
     # the movies group) — a free movie night is a thing to do today.
     for f in films:
@@ -527,8 +531,8 @@ def today_feed(
                 "url": f["url"],
                 "recurring": False,
                 "tags": list(f["tags"]),
-                # ``next_label`` is the next *upcoming* showtime (movies are out of
-                # scope for Item 1's past-muting) — treat as current.
+                # ``next_label`` is the next showtime still on (showtimes that
+                # started >1h ago are already filtered out upstream).
                 "is_past": False,
             }
         )

@@ -4,7 +4,7 @@ exclusion (movies must never appear in the general events feed)."""
 from __future__ import annotations
 
 import uuid
-from datetime import date, time
+from datetime import date, datetime, time
 
 from sqlalchemy import delete
 
@@ -65,6 +65,34 @@ def test_group_by_theater_then_film_sorted():
     assert toy.rating == "PG"
     assert toy.meta == "Drama · 2h"
     assert toy.poster == "http://p.jpg"
+
+
+def test_showtimes_drop_an_hour_after_they_start():
+    # Calendar rule (2026-06-24): a showtime stops showing 1h after it starts.
+    rows = [
+        ms("Early Bird", "star-cinemas", 11, name="Star Cinemas"),   # 11 AM — long gone
+        ms("Catch It", "star-cinemas", 14, mm=30, name="Star Cinemas"),  # 2:30 — 30 min in
+        ms("Tonight", "star-cinemas", 19, name="Star Cinemas"),      # 7 PM — upcoming
+    ]
+    now = datetime(2099, 6, 22, 15, 0)  # 3 PM on DAY
+    groups = group_showtimes(rows, day=DAY, now=now)
+    titles = {f.title for g in groups for f in g.films}
+    # 11 AM started >1h ago -> its film drops entirely.
+    assert "Early Bird" not in titles
+    # 2:30 PM is only 30 min in, and 7 PM is upcoming -> both stay.
+    assert "Catch It" in titles
+    assert "Tonight" in titles
+
+
+def test_showtime_expiry_noop_without_now_or_other_day():
+    rows = [ms("Early Bird", "star-cinemas", 11, name="Star Cinemas")]
+    # No ``now`` -> nothing trimmed (the /movies page for a chosen future day).
+    assert {f.title for g in group_showtimes(rows, day=DAY) for f in g.films} == {"Early Bird"}
+    # ``now`` on a DIFFERENT day -> nothing trimmed.
+    other = datetime(2099, 6, 23, 15, 0)
+    assert {
+        f.title for g in group_showtimes(rows, day=DAY, now=other) for f in g.films
+    } == {"Early Bird"}
 
 
 def test_films_sorted_by_earliest_and_other_days_ignored():

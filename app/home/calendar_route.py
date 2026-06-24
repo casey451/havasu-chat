@@ -45,7 +45,7 @@ def serve_calendar(
     now = now_lake_havasu()
     cal = build_calendar(
         db, q=q, aud=aud, age=age, part=part, type_=type_, days_param=days,
-        today=now.date(), now=None,
+        today=now.date(), now=now,
     )
     response = templates.TemplateResponse(
         request=request, name="calendar_lake.html", context={"cal": cal}

@@ -681,7 +681,7 @@ def serve_home(
             "service_tiles": sandstone.service_tiles(db),
             # Phase 3: the slim home directory's six high-traffic front doors.
             "directory_tiles": sandstone.directory_primary_tiles(),
-            "movies_today": movies_today(db, day=now.date()),
+            "movies_today": movies_today(db, day=now.date(), now=now),
             "active_tab": "today",
         },
     )
@@ -1008,7 +1008,7 @@ def serve_events_ui(
                 "prev_iso": (single_day - timedelta(days=1)).isoformat(),
                 "next_iso": (single_day + timedelta(days=1)).isoformat(),
                 "is_today": single_day == today,
-                "movies_today": movies_today(db, day=single_day),
+                "movies_today": movies_today(db, day=single_day, now=now),
             }
         )
     elif view_key == "week":
@@ -1050,7 +1050,7 @@ def serve_events_ui(
                     db, day=today, family=family_on, seniors=seniors_on, now=now
                 ),
                 "day_label": _long_day_label(today),
-                "movies_today": movies_today(db, day=today),
+                "movies_today": movies_today(db, day=today, now=now),
             }
         )
     events_template = "events_lake.html"
