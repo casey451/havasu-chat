@@ -33,6 +33,16 @@ def test_residue_is_named_not_silent():
     assert classify_class_subgroup("Riding Lessons") == FALLBACK_LABEL
 
 
+def test_carried_forward_residual_class_routing():
+    """Carried-forward finding: the three edge items the 'Other classes' drain
+    left behind. Pickleball Round Robin types correctly (stays in Fitness &
+    classes); Star Search and Stitchers hit the FALLBACK, so the day-view
+    re-route sends them to 'Happening today' — never a stranded 'Other classes'."""
+    assert classify_class_subgroup("Pickleball Round Robin") == "Pickleball"
+    assert classify_class_subgroup("Havasu Star Search") == FALLBACK_LABEL
+    assert classify_class_subgroup("Havasu Stitchers") == FALLBACK_LABEL
+
+
 def test_activity_slug_for_tags():
     assert activity_slug("Vinyasa Yoga") == "yoga"
     assert activity_slug("Adult MMA") == "martial-arts"

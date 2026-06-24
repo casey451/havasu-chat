@@ -50,6 +50,29 @@ def test_government_meetings_are_community(title):
     assert tier(title) == _TIER_COMMUNITY
 
 
+# --- food/novelty guard (carried-forward: "Troy's Alligator Feed" → Music) --
+
+def test_food_novelty_with_venue_music_tag_is_not_music():
+    # The live bug: a food/novelty one-off at a bar inherited the venue's coarse
+    # `music` tag and tiered to Music & nightlife. It's a "Happening today" event.
+    assert tier("Troy's Alligator Feed", ["music"]) == _TIER_OTHER
+
+
+@pytest.mark.parametrize("title", [
+    "Annual Fish Fry",
+    "Pancake Breakfast Fundraiser",
+    "Lions Club Spaghetti Dinner",
+])
+def test_food_novelty_titles_not_promoted_to_music_by_tag(title):
+    assert tier(title, ["music"]) != _TIER_MUSIC
+
+
+def test_food_novelty_guard_yields_to_real_live_music():
+    # A genuine show with a strong music signal stays in Music even with a food
+    # word in the title — the guard only demotes venue/tag-only signals.
+    assert tier("Blues Fish Fry Concert", ["music"]) == _TIER_MUSIC
+
+
 # --- substring false-positives the boundary fix kills ----------------------
 
 def test_dj_substring_no_longer_fires_inside_words():
