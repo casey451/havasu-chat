@@ -47,6 +47,15 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "ballroom", "salsa", "pointe",
     )),
     ("Gymnastics", ("gymnastics", "tumbling", "tumbler", "tumble", "cheer", "ninja", "trampoline")),
+    # Outdoor / field / court / racing sports (most of the calendar's "classes"
+    # are really sports — Casey 2026-06-24). BMX racing and the team/court sports
+    # type here instead of falling into the "Other classes" residue. Pickleball /
+    # tennis keep their own subgroup above; aquatics/martial arts already typed.
+    ("Sports & Racing", (
+        "bmx", "motocross", "pump track", "pump-track", "balance bike", "strider",
+        "basketball", "volleyball", "soccer", "baseball", "softball", "kickball",
+        "flag football", "track and field", "disc golf", "skate", "skateboard",
+    )),
     ("Strength & Cardio", (
         "strength", "weight", "crossfit", "cross fit", "bootcamp", "boot camp",
         "hiit", "cardio", "spin", "cycling", "zumba", "aerobic", "conditioning",
@@ -61,7 +70,8 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 SUBGROUP_ORDER: tuple[str, ...] = (
     "Yoga", "Pilates", "Strength & Cardio", "Mind & Body", "Aquatic fitness",
-    "Dance", "Gymnastics", "Martial Arts", "Pickleball", "Other classes",
+    "Dance", "Gymnastics", "Martial Arts", "Pickleball", "Sports & Racing",
+    "Other classes",
 )
 FALLBACK_LABEL = "Other classes"
 
@@ -77,6 +87,7 @@ SUBGROUP_SLUGS: dict[str, str] = {
     "Strength & Cardio": "strength-cardio",
     "Mind & Body": "mind-body",
     "Pickleball": "pickleball",
+    "Sports & Racing": "sports-racing",
 }
 
 # Explicit martial-arts venues whose NAME carries no discipline token, so the

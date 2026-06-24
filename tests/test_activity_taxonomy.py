@@ -33,6 +33,17 @@ def test_residue_is_named_not_silent():
     assert classify_class_subgroup("Riding Lessons") == FALLBACK_LABEL
 
 
+def test_sports_and_racing_subgroup():
+    # Sports (BMX racing, ball/court sports) type under "Sports & Racing" instead
+    # of the "Other classes" residue (Casey 2026-06-24: most "classes" are sports).
+    assert classify_class_subgroup("BMX Local Race") == "Sports & Racing"
+    assert classify_class_subgroup("BMX Clinic") == "Sports & Racing"
+    assert classify_class_subgroup("Pump Track Open Ride") == "Sports & Racing"
+    assert classify_class_subgroup("Youth Basketball League") == "Sports & Racing"
+    # Pickleball keeps its own dedicated subgroup (checked before this one).
+    assert classify_class_subgroup("Pickleball Round Robin") == "Pickleball"
+
+
 def test_carried_forward_residual_class_routing():
     """Carried-forward finding: the three edge items the 'Other classes' drain
     left behind. Pickleball Round Robin types correctly (stays in Fitness &
