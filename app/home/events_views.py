@@ -37,7 +37,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.core.timezone import occurrence_end_dt, to_lake_naive
+from app.core.timezone import to_lake_naive
 from app.db.models import Event
 from app.events.activity_taxonomy import (
     FALLBACK_LABEL,
@@ -335,36 +335,42 @@ def _occurrence_expired(
     end_time: time | None,
     now: datetime | None,
     *,
-    grace_minutes: int = 60,
-    default_minutes: int = 120,
+    minutes_after_start: int = 60,
 ) -> bool:
-    """True if an occurrence on ``day`` ended more than ``grace_minutes`` ago.
+    """True if an occurrence on ``day`` started more than ``minutes_after_start`` ago.
+
+    The calendar rule (2026-06-24): items and movies drop off the day's list one
+    hour after they *start*, not after they end — once something has been going an
+    hour it's effectively too late to head out for it, so it stops cluttering the
+    "what's on today" view. This is deliberately a START-based cutoff: a long
+    festival that began over an hour ago is hidden even though it is still running.
 
     No-op (returns False) unless ``now`` is given and ``day`` is the current day,
-    so the filter only ever trims *today's* finished items. Time-TBD occurrences
-    (no ``start_time``) never expire, and neither do all-day events
-    (``start_time`` 00:00 with no ``end_time``). End is ``end_time`` when set, else
-    ``start_time`` + ``default_minutes`` (Item 6 auto-expiry).
+    so the filter only ever trims *today's* started items (past days drop via the
+    date roll; future days are untouched). Time-TBD occurrences (no ``start_time``)
+    never expire, and neither do all-day listings, which carry the
+    ``start_time`` 00:00 / ``end_time`` None sentinel (the .ics feed and the
+    pickleball/parks-rec loaders use it for "runs all day") — they have no real
+    start moment to count an hour from. ``end_time`` is used *only* to detect that
+    sentinel; a genuine occurrence that starts at 00:00 *with* an explicit end is
+    timed normally (expires an hour after its 00:00 start).
+
+    Note this no longer mirrors the event-detail "passed" banner
+    (:func:`app.main._event_is_past`), which stays END-based — a page you open
+    directly should say "passed" only once the event has actually ended, even if
+    it already dropped off the today list.
     """
     if now is None or start_time is None:
         return False
     now_local = to_lake_naive(now)
     if now_local.date() != day:
         return False
-    # All-day events use the start=00:00 / end=None convention (the same test
-    # the .ics feed and the pickleball/parks-rec loaders use). They have no real
-    # end-of-day moment, so the ``default_minutes`` fallback below would place
-    # their end at ~2 AM and wrongly purge them from the Today view a few hours
-    # into every day — even though they run all day. Treat them like Time-TBD
-    # rows: never expire on the current day (the date roll handles them).
+    # All-day sentinel (00:00 start, no end): no real start moment, so never
+    # expire on the current day — the date roll handles it.
     if start_time == time(0, 0) and end_time is None:
         return False
-    # Shared end-moment resolution (handles the 00:00/cross-midnight convention),
-    # so the feed, /events-ui, and the detail banner never disagree on "past".
-    end_dt = occurrence_end_dt(day, start_time, end_time, default_minutes=default_minutes)
-    if end_dt is None:
-        return False
-    return now_local > end_dt + timedelta(minutes=grace_minutes)
+    start_dt = datetime.combine(day, start_time)
+    return now_local > start_dt + timedelta(minutes=minutes_after_start)
 
 
 def day_groups(
@@ -397,7 +403,7 @@ def day_groups(
         events = [ev for ev in events if is_family_event(ev.title, ev.tags, ev.location_name)]
     elif seniors:
         events = [ev for ev in events if is_senior_event(ev.title, ev.tags, ev.location_name)]
-    # Item 6 auto-expiry: on the current day, drop occurrences finished >1h ago
+    # Auto-expiry: on the current day, drop occurrences that started >1h ago
     # (no-op for past/future days or when ``now`` isn't supplied).
     events = [
         ev

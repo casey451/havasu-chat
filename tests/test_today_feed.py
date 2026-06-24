@@ -270,16 +270,16 @@ def test_kids_tag_not_applied_to_all_ages() -> None:
         _cleanup(eids, [])
 
 
-def test_feed_shows_full_day_keeping_past_items_muted() -> None:
-    """Item 1: the home reflects the WHOLE day. A morning yoga + morning cooking
-    class are already over by an afternoon ``now``, yet their groups (Fitness &
-    sports, Classes) still render and the rows are flagged ``is_past`` (muted, not
-    dropped) — the regression that emptied those groups by afternoon."""
+def test_feed_drops_items_an_hour_after_they_start() -> None:
+    """Calendar rule (2026-06-24): items stop showing one hour after they start.
+    A morning yoga (8 AM) and cooking class (9 AM) are both >1h past by a 3 PM
+    ``now``, so they drop out entirely — their groups empty and are omitted — while
+    the 7 PM evening market is still upcoming and remains."""
     s = uuid.uuid4().hex[:6]
     yoga = f"ZZ Sunrise Yoga Flow {s}"      # 8 AM physical class -> fitness
     cooking = f"ZZ Cooking Class {s}"        # 9 AM non-physical class -> classes
     evening = f"ZZ Evening Street Market {s}"  # 7 PM -> things_to_do (still upcoming)
-    afternoon = datetime(2099, 7, 13, 15, 0, tzinfo=_LHC)  # 3 PM — past the morning
+    afternoon = datetime(2099, 7, 13, 15, 0, tzinfo=_LHC)  # 3 PM — >1h past both mornings
     eids: list[str] = []
     with SessionLocal() as db:
         eids.append(_add_event(db, title=yoga, start=time(8, 0), loc="Eight Lotus", recurring=True))
@@ -289,19 +289,36 @@ def test_feed_shows_full_day_keeping_past_items_muted() -> None:
     try:
         with SessionLocal() as db:
             feed = today_feed(db, day=_DAY, now=afternoon)
-        # Morning-only groups still render in the afternoon.
-        fitness = _group(feed, "fitness")
-        classes = _group(feed, "classes")
-        assert fitness is not None and yoga in _titles(fitness)
-        assert classes is not None and cooking in _titles(classes)
-        # Past rows kept but flagged; the upcoming evening row is not.
-        rows = {r["title"]: r for g in feed["groups"] if g["key"] != "movies" for r in g["rows"]}
-        assert rows[yoga]["is_past"] is True
-        assert rows[cooking]["is_past"] is True
-        assert rows[evening]["is_past"] is False
-        # Counts reflect the whole day (past items still counted).
-        assert feed["counts"]["fitness"] == 1
-        assert feed["counts"]["classes"] == 1
+        titles = {r["title"] for g in feed["groups"] if g["key"] != "movies" for r in g["rows"]}
+        # Morning items dropped; their now-empty groups are omitted entirely.
+        assert yoga not in titles
+        assert cooking not in titles
+        assert _group(feed, "fitness") is None
+        assert _group(feed, "classes") is None
+        # The still-upcoming evening item remains.
+        assert evening in titles
+        # Counts reflect only what's still showing.
+        assert feed["counts"].get("fitness", 0) == 0
+        assert feed["counts"].get("classes", 0) == 0
+    finally:
+        _cleanup(eids, [])
+
+
+def test_feed_keeps_item_within_first_hour() -> None:
+    """An item that started less than an hour ago is still shown (the cutoff is
+    start + 1h, not the start instant)."""
+    s = uuid.uuid4().hex[:6]
+    market = f"ZZ Midday Market {s}"  # noon -> things_to_do
+    just_after_noon = datetime(2099, 7, 13, 12, 30, tzinfo=_LHC)  # 30 min in
+    eids: list[str] = []
+    with SessionLocal() as db:
+        eids.append(_add_event(db, title=market, start=time(12, 0), loc="Main St"))
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            feed = today_feed(db, day=_DAY, now=just_after_noon)
+        titles = {r["title"] for g in feed["groups"] if g["key"] != "movies" for r in g["rows"]}
+        assert market in titles
     finally:
         _cleanup(eids, [])
 

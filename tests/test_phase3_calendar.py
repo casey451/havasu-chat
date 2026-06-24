@@ -18,18 +18,19 @@ _NOW = datetime(2026, 6, 16, 16, 30)  # 4:30 PM
 
 
 def test_morning_class_expired_in_afternoon() -> None:
-    # 9 AM class, no end -> assumed 2h -> ended ~11 AM, well over 1h ago.
+    # 9 AM start; >1h ago by 4:30 PM -> expired (start-based cutoff).
     assert _occurrence_expired(_TODAY, time(9, 0), None, _NOW) is True
 
 
-def test_recent_end_within_grace_not_expired() -> None:
-    # Ended 4:00 PM; 4:30 is within the 1h grace window.
-    assert _occurrence_expired(_TODAY, time(15, 0), time(16, 0), _NOW) is False
+def test_within_first_hour_not_expired() -> None:
+    # Started 4:00 PM; 4:30 is only 30 min in, still within the first hour.
+    assert _occurrence_expired(_TODAY, time(16, 0), time(18, 0), _NOW) is False
 
 
-def test_clearly_finished_with_explicit_end_expired() -> None:
-    # Ended 3:00 PM; 4:30 is >1h past.
-    assert _occurrence_expired(_TODAY, time(14, 0), time(15, 0), _NOW) is True
+def test_started_over_an_hour_ago_expired_even_if_still_running() -> None:
+    # 3 PM start, 6 PM end: still running at 4:30, but started >1h ago, so the
+    # start-based cutoff drops it from the list anyway.
+    assert _occurrence_expired(_TODAY, time(15, 0), time(18, 0), _NOW) is True
 
 
 def test_evening_event_not_expired() -> None:

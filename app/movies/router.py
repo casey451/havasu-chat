@@ -102,7 +102,7 @@ def serve_movies(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
             "day_label": day_label,
             "is_today": is_today,
             "date_chips": _date_chips(today, selected),
-            "theaters": showtimes_for_day(db, day=selected),
+            "theaters": showtimes_for_day(db, day=selected, now=now),
             "free_kids": has_free_kids(db, day=selected),
             "primary_nav": sandstone.primary_nav(),
             "mega_columns": sandstone.mega_columns(db),

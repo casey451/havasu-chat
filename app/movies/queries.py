@@ -11,14 +11,37 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass
-from datetime import date, time
+from datetime import date, datetime, time, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.timezone import to_lake_naive
 from app.db.models import MovieShowtime
 from app.events.time_labels import short_time_label, time_sort_key
 from app.movies.posters import proxied_poster_url
+
+# A showtime drops off "today" this many minutes after it starts (the same
+# start-based cutoff the events calendar uses): once a movie has been running an
+# hour it's too late to catch it, so it stops showing.
+_SHOWTIME_GRACE_MINUTES = 60
+
+
+def _showtime_expired(
+    show_date: date, show_time: time | None, now: datetime | None
+) -> bool:
+    """True if a showtime on ``show_date`` started >1h ago relative to ``now``.
+
+    No-op (False) unless ``now`` is given and ``show_date`` is the current day, so
+    only *today's* already-started showtimes are trimmed; other days are untouched.
+    """
+    if now is None or show_time is None:
+        return False
+    now_local = to_lake_naive(now)
+    if now_local.date() != show_date:
+        return False
+    start_dt = datetime.combine(show_date, show_time)
+    return now_local > start_dt + timedelta(minutes=_SHOWTIME_GRACE_MINUTES)
 
 # Display order for known theaters; unknown theaters sort after, alphabetically.
 THEATER_ORDER = ["star-cinemas", "movies-havasu"]
@@ -171,13 +194,17 @@ def _canonical_film_meta(
 
 
 def group_showtimes(
-    rows: list[MovieShowtime], *, day: date | None = None
+    rows: list[MovieShowtime], *, day: date | None = None, now: datetime | None = None
 ) -> list[TheaterGroup]:
     """Pure grouping: showtime rows -> theater -> film -> showtimes.
 
     Films with no displayable showtime are dropped. Showtimes sort
     chronologically; films sort by their earliest showtime; theaters follow
     :data:`THEATER_ORDER` then alphabetical.
+
+    When ``now`` is given (and ``day`` is the current day), showtimes that started
+    more than an hour ago are skipped, and a film whose showtimes have all started
+    drops out entirely — the same start-based cutoff the events calendar uses.
     """
     # One canonical display spelling per film, shared across theaters, so the
     # same film never reads "X of the Y" in one section and "X Of The Y" in
@@ -190,6 +217,8 @@ def group_showtimes(
     theaters: dict[str, dict] = {}
     for r in rows:
         if day is not None and r.show_date != day:
+            continue
+        if _showtime_expired(r.show_date, r.show_time, now):
             continue
         slug = r.theater_slug or "theater"
         tg = theaters.setdefault(
@@ -254,9 +283,14 @@ def _load_day(db: Session, day: date) -> list[MovieShowtime]:
     return list(db.scalars(select(MovieShowtime).where(MovieShowtime.show_date == day)).all())
 
 
-def showtimes_for_day(db: Session, *, day: date) -> list[TheaterGroup]:
-    """Theater -> film -> showtime groups for the /movies page."""
-    return group_showtimes(_load_day(db, day), day=day)
+def showtimes_for_day(
+    db: Session, *, day: date, now: datetime | None = None
+) -> list[TheaterGroup]:
+    """Theater -> film -> showtime groups for the /movies page.
+
+    Pass ``now`` to hide showtimes that started >1h ago when ``day`` is today.
+    """
+    return group_showtimes(_load_day(db, day), day=day, now=now)
 
 
 def has_free_kids(db: Session, *, day: date) -> bool:
@@ -269,10 +303,15 @@ def has_free_kids(db: Session, *, day: date) -> bool:
     return db.scalar(stmt) is not None
 
 
-def movies_today(db: Session, *, day: date, limit: int = 6) -> list[dict]:
-    """Flat, compact list for the home "At the movies today" strip."""
+def movies_today(
+    db: Session, *, day: date, now: datetime | None = None, limit: int = 6
+) -> list[dict]:
+    """Flat, compact list for the home "At the movies today" strip.
+
+    Pass ``now`` to hide showtimes that started >1h ago when ``day`` is today.
+    """
     flat: list[dict] = []
-    for group in showtimes_for_day(db, day=day):
+    for group in showtimes_for_day(db, day=day, now=now):
         for film in group.films:
             flat.append(
                 {
