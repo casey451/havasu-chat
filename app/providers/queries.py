@@ -149,11 +149,18 @@ def effective_seasonal_hours(
     return (season_key, rows, copy)
 
 
-def category_label_for(provider: Provider) -> str:
-    """Prefer ENTITY taxonomy (``entity_categories`` → ``Category.name``), then
-    ``category_ref``, then the canonical ``primary_category`` (one of the 12,
-    WP-9), then legacy ``category`` — all mapped through
-    ``app.home.queries.CATEGORY_LABELS`` / ``LEGACY_PROVIDER_CATEGORY_LABELS``.
+def label_category_row(provider: Provider) -> Any:
+    """The ``Category`` row the breadcrumb LABEL is derived from, when that label
+    comes from a taxonomy ``Category`` (entity primary category → ``category_ref``).
+
+    Returns ``None`` when the label falls through to ``primary_category`` /
+    legacy-string mapping (the row has no taxonomy ``Category`` to link). Shared
+    by :func:`category_label_for` and
+    ``app.providers.view_models._category_url_for`` so the breadcrumb's label and
+    its href always derive from the SAME source (P2-2.1: live bug where the label
+    came from the entity category but the href came from the legacy
+    ``provider.category`` column — e.g. "Kids' Classes & Camps" linking to
+    ``/categories/health-and-medical``).
     """
     ent = getattr(provider, "entity", None)
     if ent is not None and ent.categories:
@@ -161,10 +168,22 @@ def category_label_for(provider: Provider) -> str:
         for ec in ordered:
             cr = ec.category
             if cr is not None and getattr(cr, "name", None):
-                return cr.name
+                return cr
     ref = getattr(provider, "category_ref", None)
     if ref is not None and getattr(ref, "name", None):
-        return ref.name
+        return ref
+    return None
+
+
+def category_label_for(provider: Provider) -> str:
+    """Prefer ENTITY taxonomy (``entity_categories`` → ``Category.name``), then
+    ``category_ref``, then the canonical ``primary_category`` (one of the 12,
+    WP-9), then legacy ``category`` — all mapped through
+    ``app.home.queries.CATEGORY_LABELS`` / ``LEGACY_PROVIDER_CATEGORY_LABELS``.
+    """
+    row = label_category_row(provider)
+    if row is not None:
+        return row.name
     # WP-9 (P-4): the canonical primary is one of the 12 CATEGORY_LABELS keys.
     primary = getattr(provider, "primary_category", None)
     if primary and primary in CATEGORY_LABELS:

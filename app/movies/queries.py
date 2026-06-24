@@ -106,9 +106,68 @@ def _runtime_label(minutes: int | None) -> str:
     return f"{hours}h" if hours else f"{mins}m"
 
 
-def _meta(row: MovieShowtime) -> str:
-    bits = [b for b in [(row.genre or "").strip(), _runtime_label(row.runtime_minutes)] if b]
+def _meta_str(genre: str, runtime_minutes: int | None) -> str:
+    bits = [b for b in [(genre or "").strip(), _runtime_label(runtime_minutes)] if b]
     return " · ".join(bits)
+
+
+@dataclass(frozen=True)
+class _FilmMeta:
+    rating: str
+    genre: str
+    runtime_minutes: int | None
+
+
+def _canonical_film_meta(
+    rows: list["MovieShowtime"], *, day: date | None
+) -> dict[str, _FilmMeta]:
+    """One canonical ``(rating, genre, runtime)`` per film across theaters (Item
+    2.3), keyed by :func:`normalize_film_title`.
+
+    The two sources disagree on a film's metadata — runtime "2h 3m" vs "2h 2m",
+    different genre lists — so the same film read inconsistently between the
+    per-theater sections (first row per theater won). One canonical set per film,
+    by an explicit, documented rule:
+
+      • **genre** → the LONGEST non-empty genre string (the most complete list).
+      • **runtime** → the canonical-source theater's runtime (earliest in
+        :data:`THEATER_ORDER`, then first-seen), falling back to any non-zero
+        runtime — so a film reads ONE runtime everywhere.
+      • **rating** → same priority as runtime (first non-empty by theater order).
+
+    Mirrors :func:`_canonical_titles` so a film's title and its metadata agree on
+    source spelling.
+    """
+    best_genre: dict[str, str] = {}
+    best_rt: dict[str, tuple[int, int]] = {}      # fkey -> (theater_idx, minutes)
+    best_rating: dict[str, tuple[int, str]] = {}  # fkey -> (theater_idx, rating)
+    for r in rows:
+        if day is not None and r.show_date != day:
+            continue
+        title = (r.film_title or "").strip()
+        if not title:
+            continue
+        fkey = normalize_film_title(title)
+        slug = r.theater_slug or "theater"
+        idx = THEATER_ORDER.index(slug) if slug in THEATER_ORDER else len(THEATER_ORDER)
+        genre = (r.genre or "").strip()
+        if genre and len(genre) > len(best_genre.get(fkey, "")):
+            best_genre[fkey] = genre
+        rt = int(r.runtime_minutes or 0)
+        if rt > 0 and (fkey not in best_rt or idx < best_rt[fkey][0]):
+            best_rt[fkey] = (idx, rt)
+        rating = (r.rating or "").strip()
+        if rating and (fkey not in best_rating or idx < best_rating[fkey][0]):
+            best_rating[fkey] = (idx, rating)
+    keys = set(best_genre) | set(best_rt) | set(best_rating)
+    return {
+        k: _FilmMeta(
+            rating=best_rating.get(k, (0, ""))[1],
+            genre=best_genre.get(k, ""),
+            runtime_minutes=best_rt[k][1] if k in best_rt else None,
+        )
+        for k in keys
+    }
 
 
 def group_showtimes(
@@ -124,6 +183,10 @@ def group_showtimes(
     # same film never reads "X of the Y" in one section and "X Of The Y" in
     # another (Item 1).
     canon = _canonical_titles(rows, day=day)
+    # One canonical (rating, genre, runtime) per film, shared across theaters, so
+    # the same film never reads "2h 3m · Action" in one section and "2h 2m ·
+    # Adventure" in another (Item 2.3).
+    canon_meta = _canonical_film_meta(rows, day=day)
     theaters: dict[str, dict] = {}
     for r in rows:
         if day is not None and r.show_date != day:
@@ -135,10 +198,12 @@ def group_showtimes(
         fkey = normalize_film_title(r.film_title)
         film = tg["films"].get(fkey)
         if film is None:
+            cm = canon_meta.get(fkey)
             film = {
                 "title": canon.get(fkey, r.film_title),  # canonical display spelling
-                "rating": (r.rating or "").strip(),
-                "meta": _meta(r),
+                # Canonical, theater-independent rating + meta (Item 2.3).
+                "rating": cm.rating if cm else (r.rating or "").strip(),
+                "meta": _meta_str(cm.genre, cm.runtime_minutes) if cm else "",
                 # Proxy Veezi posters through our own origin so referrer-based
                 # hotlink protection can't blank them (see app.movies.posters).
                 "poster": proxied_poster_url(r.poster_url),
