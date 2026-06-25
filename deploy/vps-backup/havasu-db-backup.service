@@ -1,0 +1,16 @@
+[Unit]
+Description=Nightly logical backup of prod Postgres to local disk (read-only dump)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# DATABASE_URL comes from the same root-only env the vision scraper uses.
+EnvironmentFile=/etc/havasu/havasu-vision.env
+Environment=BACKUP_DIR=/var/backups/havasu
+Environment=RETENTION_DAYS=14
+# Pin pg_dump to a version >= the prod server major (Ubuntu 24.04 ships 18.x).
+Environment=PG_DUMP=/usr/bin/pg_dump
+ExecStart=/opt/havasu-chat/deploy/vps-backup/havasu-db-backup.sh
+TimeoutStartSec=1800
+NoNewPrivileges=true
