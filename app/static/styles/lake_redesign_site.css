@@ -91,8 +91,9 @@ html[data-redesign="1"] .extile{background:linear-gradient(180deg,#fff,#fbf8f1)}
 /* ---- accent corrections: the havasu→teal token already recolors focus rings,
    .cb-live, etc.; brass links/crumbs/eyebrows recolor via tokens. A few spots
    used the old cyan literal indirectly — nudge the teal family explicitly. ---- */
-html[data-redesign="1"] .btn-brass{background:var(--brass)}
-html[data-redesign="1"] .btn-brass:hover{background:var(--brass-light)}
+/* white text on --brass is only 4.21:1; brass-deep clears AA, hover lifts to brass */
+html[data-redesign="1"] .btn-brass{background:var(--brass-deep)}
+html[data-redesign="1"] .btn-brass:hover{background:var(--brass)}
 html[data-redesign="1"] a:focus-visible,
 html[data-redesign="1"] button:focus-visible,
 html[data-redesign="1"] [tabindex]:focus-visible,
