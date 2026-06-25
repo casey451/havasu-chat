@@ -263,3 +263,38 @@ def test_calendar_row_matching_existing_event_is_skipped() -> None:
         + counts.skipped_existing_pending
         >= 1
     )
+
+
+# --------------------------------------------------------------------------- #
+# WebP transcode (Ollama/llama.cpp decode only PNG/JPEG; LeadConnector serves
+# the Senior Center flyers as f_webp -> 400 "Failed to load image" without this)
+# --------------------------------------------------------------------------- #
+def _png_bytes(fmt: str) -> bytes:
+    from io import BytesIO
+
+    from PIL import Image
+
+    buf = BytesIO()
+    Image.new("RGB", (8, 8), (123, 0, 0)).save(buf, format=fmt)
+    return buf.getvalue()
+
+
+def test_transcode_webp_to_png() -> None:
+    webp = _png_bytes("WEBP")
+    assert webp[:4] == b"RIFF" and webp[8:12] == b"WEBP"  # sanity: really WebP
+    out, mime = prc._transcode_to_model_readable(webp, "image/webp")
+    assert mime == "image/png"
+    assert out[:8] == b"\x89PNG\r\n\x1a\n"  # decodable by the vision model
+
+
+def test_transcode_passthrough_png_and_jpeg() -> None:
+    png = _png_bytes("PNG")
+    assert prc._transcode_to_model_readable(png, "image/png") == (png, "image/png")
+    jpeg = _png_bytes("JPEG")
+    out, mime = prc._transcode_to_model_readable(jpeg, "image/jpeg")
+    assert out == jpeg and mime == "image/jpeg"
+
+
+def test_transcode_bad_bytes_pass_through() -> None:
+    junk = b"<html>not an image</html>"
+    assert prc._transcode_to_model_readable(junk, "image/webp") == (junk, "image/webp")
