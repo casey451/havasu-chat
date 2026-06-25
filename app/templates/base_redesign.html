@@ -10,6 +10,7 @@
    active_tab; globals canonical_url, absolute_url, static_url.
 -#}
 {% from "components/redesign_icons.html" import icon, cicon %}
+{% from "_partials/lake_logo.svg.html" import logo_nav %}
 <html lang="en" data-theme="lake">
 <head>
   {% include '_partials/plausible.html' %}
@@ -61,7 +62,7 @@
             <a href="/sponsor">For business</a>
           </div>
         </details>
-        <a class="brand" href="/home" aria-label="Ask Hava home"><span class="mk" aria-hidden="true"></span><span class="wm">Ask&nbsp;Hava</span></a>
+        <a class="brand" href="/home" aria-label="Ask Hava home" style="color:var(--ink);--ac:var(--brass)">{{ logo_nav(26, cls="rdlogo") }}<span class="wm">Ask <span class="b">Hava</span></span></a>
         <span class="navlinks only-d">
           <a href="/home"{% if active_tab == 'today' %} class="active"{% endif %}>Today</a>
           <a href="/events-ui">Events</a>

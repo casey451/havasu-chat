@@ -54,10 +54,11 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
   border-bottom:1px solid var(--hair);box-shadow:0 1px 0 rgba(255,255,255,.5) inset}
 .nav-in{display:flex;align-items:center;gap:18px;padding:13px 20px}
 .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
-.brand .mk{width:30px;height:30px;border-radius:9px;position:relative;
-  background:radial-gradient(circle at 32% 28%,#ffe6a6 0 17%,transparent 18%),linear-gradient(150deg,var(--teal-br),var(--teal-deep));box-shadow:0 4px 12px rgba(12,90,96,.34)}
-.brand .mk::after{content:"";position:absolute;left:5px;right:5px;bottom:6px;height:6px;border-radius:6px;background:rgba(255,255,255,.5)}
-.brand .wm{font-family:var(--disp);font-weight:500;font-size:20px;letter-spacing:-.01em}
+/* Lake London-Bridge monoline mark (logo_nav) — the same brand the rest of the
+   site uses; color (ink) + --ac (brass) are inherited from the .brand inline style. */
+.brand .rdlogo{height:26px;width:auto;flex:0 0 auto;display:block}
+.brand .wm{font-family:var(--disp);font-weight:500;font-size:20px;letter-spacing:-.01em;color:var(--ink)}
+.brand .wm .b{color:var(--brass)}
 .navlinks{display:flex;gap:22px;margin-left:8px}
 .navlinks a{font-size:13.5px;color:var(--ink2);font-weight:500;text-decoration:none;position:relative;padding:5px 0;cursor:pointer;transition:color .2s}
 .navlinks a:hover{color:var(--ink)}.navlinks a.active{color:var(--ink)}
