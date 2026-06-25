@@ -265,11 +265,44 @@ def fetch_gallery_html(timeout: float = 60.0) -> str:
     return with_retry(_inner, max_attempts=3) or ""
 
 
+def _is_png_or_jpeg(content: bytes) -> bool:
+    return content[:8] == b"\x89PNG\r\n\x1a\n" or content[:3] == b"\xff\xd8\xff"
+
+
+def _transcode_to_model_readable(content: bytes, mime: str) -> tuple[bytes, str]:
+    """Vision models (Ollama / llama.cpp's clip) decode only PNG and JPEG.
+
+    Some sources serve other formats -- e.g. LeadConnector's CDN returns ``f_webp``
+    for the Senior Center flyers -- and the model rejects those with a 400
+    "Failed to load image or audio file". Transcode anything that isn't already
+    PNG/JPEG to PNG via Pillow so every vision source is readable.
+
+    Best-effort: if Pillow is missing or the bytes don't decode, return the
+    original unchanged (the caller's guards already fail safe on a bad read).
+    """
+    if _is_png_or_jpeg(content):
+        return content, ("image/png" if content[:8] == b"\x89PNG\r\n\x1a\n" else "image/jpeg")
+    try:
+        from io import BytesIO
+
+        from PIL import Image
+
+        with Image.open(BytesIO(content)) as im:
+            buf = BytesIO()
+            im.convert("RGB").save(buf, format="PNG")
+        logger.info("parks_rec_calendar: transcoded %s image -> PNG for the vision model", mime)
+        return buf.getvalue(), "image/png"
+    except Exception:
+        logger.warning("parks_rec_calendar: could not transcode %s image; passing through", mime)
+        return content, mime
+
+
 def fetch_image_bytes(url: str, *, timeout: float = 60.0) -> tuple[bytes, str] | None:
     """GET an image; return (bytes, mime) or ``None``. Cached by URL per run.
 
     SSRF-guarded (rejects private/reserved hosts) before connecting -- the gallery
-    URL is parsed from remote HTML.
+    URL is parsed from remote HTML. Non-PNG/JPEG payloads (e.g. WebP) are
+    transcoded to PNG so the vision model can decode them.
     """
     cache_key = url.lower()
     if cache_key in _IMAGE_CACHE:
@@ -295,7 +328,7 @@ def fetch_image_bytes(url: str, *, timeout: float = 60.0) -> tuple[bytes, str] |
             mime = (resp.headers.get("Content-Type") or "image/png").split(";")[0].strip()
             if not mime.startswith("image/"):
                 mime = "image/png"
-            return resp.content, mime
+            return _transcode_to_model_readable(resp.content, mime)
 
     from app.core.background import with_retry
 
