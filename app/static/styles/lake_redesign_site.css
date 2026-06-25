@@ -15,7 +15,9 @@
 
 html[data-redesign="1"]{
   /* ---- v4 token remap (Lake names → v4 values) ---- */
-  --ink:#13201d; --ink-soft:#10302b; --ink-2:#3d4c46; --muted:#677570;
+  /* --muted darker than v4's --ink3 (#677570 = only 4.1:1 on cream) so secondary
+     text clears WCAG AA 4.5:1 on the warm --paper background */
+  --ink:#13201d; --ink-soft:#10302b; --ink-2:#3d4c46; --muted:#5e6a63;
   --hair:rgba(19,32,29,.10); --hair-2:rgba(19,32,29,.16);
   --paper:#f1ece3; --surface:#f8f5ef; --raised:#ffffff;
   --brass:#9a7625; --brass-deep:#6f5417; --brass-light:#c9a14a;
@@ -53,7 +55,7 @@ html[data-redesign="1"] .hdr .nav a[aria-current="page"]::after{
   content:"";position:absolute;left:0;right:0;bottom:-21px;height:2px;border-radius:2px;
   background:linear-gradient(90deg,var(--brass-light),#d8b864);
 }
-html[data-redesign="1"] .hdr .nav .biz{color:var(--brass);font-weight:600}
+html[data-redesign="1"] .hdr .nav .biz{color:var(--brass-deep);font-weight:600}
 html[data-redesign="1"] .navtoggle{color:var(--ink-2)}
 html[data-redesign="1"] .navtoggle:hover{color:var(--ink)}
 /* mobile drawer → light */
