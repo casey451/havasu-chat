@@ -67,6 +67,11 @@ EVENT_SOURCE_PRIORITY: dict[str, int] = {
     "seed": 5,
     "user": 5,
     "user_submission": 5,
+    # Vision-LLM image scrapers: residue sources -- they contribute the items no
+    # richer feed carries, so on a clash they lose to WebTrac/aquatic/civic.
+    "parks_rec_calendar": 6,
+    "parks_rec_flyers": 6,
+    "senior_center_flyers": 6,
 }
 _UNKNOWN_PRIORITY = 9
 

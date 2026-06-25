@@ -41,7 +41,7 @@ import logging
 import os
 import re
 from dataclasses import dataclass, field
-from datetime import date, time
+from datetime import date, time, timedelta
 
 try:  # same guarded-import pattern as the other OpenAI call sites
     from openai import OpenAI
@@ -663,6 +663,50 @@ def extract_calendar_tiled(
     )
 
 
+# Flyers usually omit the YEAR, so the model fills a training-prior one (e.g. 2023
+# for a 2026 event). Unlike the calendar, a flyer has no title-derived year to bound
+# against. A flyer date this many days in the past is treated as a wrong-year guess
+# and rolled forward to the nearest future occurrence of its month/day.
+VISION_FLYER_PAST_GRACE_DAYS = int(os.getenv("VISION_FLYER_PAST_GRACE_DAYS", "45"))
+
+
+def _roll_year_forward(d: date, today: date) -> date:
+    """Nearest date >= ``today`` sharing ``d``'s month/day (this year or next)."""
+    for yr in (today.year, today.year + 1, today.year + 2):
+        try:
+            cand = d.replace(year=yr)
+        except ValueError:  # Feb 29 in a non-leap year
+            continue
+        if cand >= today:
+            return cand
+    return d
+
+
+def correct_flyer_years(
+    rows: list[VisionEventRow],
+    *,
+    today: date,
+    grace_days: int = VISION_FLYER_PAST_GRACE_DAYS,
+) -> int:
+    """Roll implausibly-past flyer dates forward to the nearest future year.
+
+    A flyer on the Current-Events page advertises an UPCOMING event, so a date more
+    than ``grace_days`` before ``today`` is almost certainly a missing-year guess.
+    Rewrites such rows in place to the nearest future month/day; returns the count
+    corrected. Pure. (The calendar path never calls this -- its year is authoritative
+    from the image title.)
+    """
+    cutoff = today - timedelta(days=max(0, grace_days))
+    corrected = 0
+    for r in rows:
+        if r.event_date < cutoff:
+            new = _roll_year_forward(r.event_date, today)
+            if new != r.event_date:
+                r.event_date = new
+                corrected += 1
+    return corrected
+
+
 def extract_flyer_rows(
     image_bytes: bytes,
     *,
@@ -671,13 +715,16 @@ def extract_flyer_rows(
     model: str | None = None,
     openai_symbol: object = OpenAI,
     raw_text: str | None = None,
+    today: date | None = None,
 ) -> ExtractionResult:
     """Engine entry for a single flyer image (one event, occasionally a series).
 
     A flyer has no authoritative month grid, so each row is month-bounded against
     the month/year of its OWN parsed date -- a stray hallucinated second date is
-    still dropped. Shared by every flyer adapter (Parks & Rec, senior center) so
-    the guard logic lives in one place. Tests inject ``raw_text``.
+    still dropped. Implausibly-past dates (missing-year guesses) are rolled forward
+    via :func:`correct_flyer_years`. Shared by every flyer adapter (Parks & Rec,
+    senior center) so the guard logic lives in one place. Tests inject ``raw_text``
+    and ``today``.
     """
     text = (
         raw_text
@@ -705,6 +752,7 @@ def extract_flyer_rows(
         stats.dropped_no_provenance += sub.dropped_no_provenance
         stats.dropped_bad_title += sub.dropped_bad_title
         stats.dropped_out_of_month += sub.dropped_out_of_month
+    correct_flyer_years(kept, today=today or date.today())
     return ExtractionResult(rows=kept, stats=stats, raw_text=text)
 
 
@@ -714,6 +762,8 @@ __all__ = [
     "VISION_CALENDAR_TILES",
     "VISION_MAX_TOKENS",
     "VISION_NUM_CTX",
+    "VISION_FLYER_PAST_GRACE_DAYS",
+    "correct_flyer_years",
     "extract_calendar_tiled",
     "merge_dedup_rows",
     "split_image_vertically",

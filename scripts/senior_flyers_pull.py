@@ -89,23 +89,18 @@ def main(argv: list[str] | None = None) -> int:
     result = pull_senior_flyers(max_flyers=args.max_flyers)
     records = result.records
 
-    if args.apply:
-        # senior_center_flyers is NOT in the auto-approve registry, so every row
-        # lands PENDING for admin review -- and it does NOT touch the live senior
-        # loader; this is an additive review-queue feed.
-        from app.contrib.event_ingest import ingest_event_records, print_ingest_report
+    # Always show the fetched samples + confidence/guard notes.
+    print_dry_run_report(SOURCE, records, sample_fn=event_sample, notes=_notes(result, records))
 
-        counts = ingest_event_records(records, source=SOURCE, dry_run=False)
-        print_ingest_report(SOURCE, counts, dry_run=False)
-        return 0 if counts.errors == 0 else 1
+    # Run the shared event funnel for authoritative counts + schema validation: it
+    # constructs a ContributionCreate per record, so a bad `source` surfaces in the
+    # DRY-RUN too. senior_center_flyers isn't auto-approve (rows land PENDING) and
+    # this does NOT touch the live senior loader.
+    from app.contrib.event_ingest import ingest_event_records, print_ingest_report
 
-    print_dry_run_report(
-        SOURCE,
-        records,
-        sample_fn=event_sample,
-        notes=_notes(result, records),
-    )
-    return 0
+    counts = ingest_event_records(records, source=SOURCE, dry_run=not args.apply)
+    print_ingest_report(SOURCE, counts, dry_run=not args.apply)
+    return 0 if counts.errors == 0 else 1
 
 
 if __name__ == "__main__":

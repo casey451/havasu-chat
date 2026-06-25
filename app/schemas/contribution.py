@@ -45,6 +45,12 @@ ContributionSource = Literal[
     # Captured class schedules imported from the schedule-hunt dataset
     # (scripts/import_captured_schedules.py) as draft program contributions.
     "schedule_scrape",
+    # Vision-LLM image scrapers (2026-06-24): Parks & Rec monthly calendar +
+    # event flyers, and Senior Center flyers, wired through event_ingest.py. NOT in
+    # the auto-approve registry, so every row lands PENDING for /admin review.
+    "parks_rec_calendar",
+    "parks_rec_flyers",
+    "senior_center_flyers",
 ]
 ContributionStatus = Literal["pending", "approved", "rejected", "needs_info"]
 RejectionReason = Literal["duplicate", "out_of_area", "spam", "incomplete", "unverifiable", "other"]
