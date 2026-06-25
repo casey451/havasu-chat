@@ -2231,6 +2231,14 @@ class LinkHealth(Base):
     # Set true when a previously-confirmed-broken link has been emailed, so the
     # summary only ever pages once per breakage (resets when it recovers).
     notified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    # Layer 2: a local-LLM read of the site's root domain for a confirmed-broken
+    # link -- a short human verdict ("business still present, page moved" etc.) and
+    # a suggested replacement URL, shown on the admin page to speed the fix. Never
+    # auto-applied. ``llm_checked_at`` gates re-assessment so the slow model pass
+    # only revisits links it hasn't judged.
+    llm_assessment: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    llm_suggested_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    llm_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 # Phase 4.1 ships the ``Outbox`` ORM class above this line. The provider-slug

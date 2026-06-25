@@ -243,6 +243,126 @@ def scan_links(
 CONFIRM_THRESHOLD = 2  # consecutive actionable sweeps before a link is "confirmed broken"
 
 
+# --------------------------------------------------------------------------- #
+# Layer 2: local-LLM assessment of a confirmed-broken link
+# --------------------------------------------------------------------------- #
+def root_url(url: str) -> str:
+    p = urlsplit(url)
+    return f"{p.scheme}://{p.netloc}/" if p.scheme and p.netloc else ""
+
+
+def fetch_page_text(url: str, *, timeout: float = 15.0, max_chars: int = 6000) -> str:
+    """Fetch a page and return a rough text rendering (tags stripped). '' on failure."""
+    from app.contrib.url_fetcher import is_blocked_target
+
+    blocked, _ = is_blocked_target(url)
+    if blocked:
+        return ""
+    try:
+        import re as _re
+
+        import httpx
+
+        with httpx.Client(timeout=timeout, follow_redirects=True, headers={"User-Agent": USER_AGENT}) as c:
+            resp = c.get(url)
+            if resp.status_code >= 400:
+                return ""
+            text = _re.sub(r"<(script|style)[^>]*>.*?</\1>", " ", resp.text, flags=_re.S | _re.I)
+            text = _re.sub(r"<[^>]+>", " ", text)
+            return _re.sub(r"\s+", " ", text).strip()[:max_chars]
+    except Exception:
+        return ""
+
+
+def local_chat(prompt: str, *, model: str | None = None, timeout: float = 180.0) -> str:
+    """One text completion against the local OpenAI-compatible endpoint. '' on failure."""
+    import os
+
+    base = (os.getenv("VISION_BASE_URL") or "").strip()
+    if not base:
+        return ""
+    try:
+        import httpx
+
+        payload = {
+            "model": model or os.getenv("VISION_MODEL") or "qwen2.5vl:3b",
+            "temperature": 0,
+            "max_tokens": 400,
+            "messages": [{"role": "user", "content": prompt}],
+        }
+        with httpx.Client(timeout=timeout) as c:
+            resp = c.post(f"{base.rstrip('/')}/chat/completions", json=payload)
+            resp.raise_for_status()
+            return (resp.json()["choices"][0]["message"]["content"] or "").strip()
+    except Exception:
+        logger.warning("link_health: local_chat failed", exc_info=True)
+        return ""
+
+
+_ASSESS_PROMPT = (
+    'A directory link for the business "{business}" is broken (HTTP error): {broken}\n'
+    "Below is the text of that site's homepage ({root}). Decide whether the business still "
+    "exists on this site, and if you can identify the correct working page for it, give that "
+    "URL. Reply with STRICT JSON only: "
+    '{{"present": true|false, "suggested_url": "<url or null>", "note": "<=12 words"}}.\n\n'
+    "HOMEPAGE TEXT:\n{page}"
+)
+
+
+def assess_link(
+    url: str,
+    label: str,
+    *,
+    page_fetcher: Callable[[str], str] = fetch_page_text,
+    chat: Callable[[str], str] = local_chat,
+) -> tuple[str, str | None]:
+    """Read the broken link's root domain with the local model; return (verdict, suggested_url).
+
+    Best-effort and side-effect-free: any failure yields a plain-text verdict and no
+    suggestion. Suggestions are advisory only -- a human applies them.
+    """
+    import json as _json
+
+    root = root_url(url)
+    if not root:
+        return ("could not derive a root domain", None)
+    page = page_fetcher(root)
+    if not page:
+        return (f"root domain {root} also unreachable", None)
+    raw = chat(_ASSESS_PROMPT.format(business=label or "(unknown)", broken=url, root=root, page=page))
+    if not raw:
+        return ("local model unavailable", None)
+    # Models occasionally wrap JSON in prose; grab the first {...} block if so.
+    snippet = raw
+    if not raw.lstrip().startswith("{"):
+        i, j = raw.find("{"), raw.rfind("}")
+        snippet = raw[i : j + 1] if 0 <= i < j else raw
+    try:
+        data = _json.loads(snippet)
+    except ValueError:
+        return ("model reply unparseable", None)
+    if not isinstance(data, dict):
+        return ("model reply unparseable", None)
+    present = bool(data.get("present"))
+    note = str(data.get("note") or "").strip()
+    sug = data.get("suggested_url")
+    sug = sug.strip() if isinstance(sug, str) and sug.strip().startswith("http") else None
+    verdict = ("business present on site; " if present else "business NOT found on site; ") + note
+    return (verdict.strip()[:512], sug)
+
+
+def save_assessment(db, url: str, assessment: str, suggested_url: str | None, *, now: datetime) -> None:
+    from app.db.models import LinkHealth
+
+    row = db.query(LinkHealth).filter(LinkHealth.url == url).one_or_none()
+    if row is None:
+        return
+    row.llm_assessment = assessment
+    row.llm_suggested_url = suggested_url
+    row.llm_checked_at = now
+    db.flush()
+
+
 def persist_results(db, report: ScanReport, *, now: datetime, confirm_threshold: int = CONFIRM_THRESHOLD):
     """Upsert each result into ``link_health``; return the newly-confirmed-broken rows.
 
