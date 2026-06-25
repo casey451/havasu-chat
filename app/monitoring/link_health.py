@@ -315,6 +315,7 @@ def assess_link(
     *,
     page_fetcher: Callable[[str], str] = fetch_page_text,
     chat: Callable[[str], str] = local_chat,
+    verifier: Callable[[str], tuple[str, int | None, str]] = check_one,
 ) -> tuple[str, str | None]:
     """Read the broken link's root domain with the local model; return (verdict, suggested_url).
 
@@ -347,6 +348,13 @@ def assess_link(
     note = str(data.get("note") or "").strip()
     sug = data.get("suggested_url")
     sug = sug.strip() if isinstance(sug, str) and sug.strip().startswith("http") else None
+    # Small local models often just echo the broken URL back (seen on real data),
+    # or invent one. Only keep a suggestion that is genuinely DIFFERENT and actually
+    # resolves -- otherwise it's noise, not a fix.
+    if sug:
+        same = sug.rstrip("/") == url.rstrip("/")
+        if same or verifier(sug)[0] != OK:
+            sug = None
     verdict = ("business present on site; " if present else "business NOT found on site; ") + note
     return (verdict.strip()[:512], sug)
 
