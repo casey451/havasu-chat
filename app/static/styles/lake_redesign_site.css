@@ -1,0 +1,106 @@
+/* ============================================================================
+   Ask Hava — sitewide v4 reskin overrides (home_redesign, dark rollout)
+   Loaded on EVERY page (public + portal + admin) ONLY when the flag is on, via
+   the HomeRedesignSkinMiddleware injecting `data-redesign="1"` on <html> + this
+   link. Every rule is scoped under `html[data-redesign="1"]` so flag-off renders
+   are byte-identical (instant rollback). It does NOT touch the standalone v4
+   home/calendar (those ship their own lake_redesign.css; the middleware skips them).
+
+   Strategy: the Lake design system is token-driven, so re-pointing the shared
+   tokens to the v4 palette (warm ivory / deep-teal / brass) recolors every
+   component at once; a handful of chrome rules (header, conditions ribbon,
+   footer, cool-grey placeholders) are restyled explicitly to match v4. Values
+   lifted from ask-hava-premium-v4.html / ASK_HAVA_HOME_DESIGN_SPEC.md.
+   ========================================================================== */
+
+html[data-redesign="1"]{
+  /* ---- v4 token remap (Lake names → v4 values) ---- */
+  /* --muted darker than v4's --ink3 (#677570 = only 4.1:1 on cream) so secondary
+     text clears WCAG AA 4.5:1 on the warm --paper background */
+  --ink:#13201d; --ink-soft:#10302b; --ink-2:#3d4c46; --muted:#5e6a63;
+  --hair:rgba(19,32,29,.10); --hair-2:rgba(19,32,29,.16);
+  --paper:#f1ece3; --surface:#f8f5ef; --raised:#ffffff;
+  --brass:#9a7625; --brass-deep:#6f5417; --brass-light:#c9a14a;
+  --brass-wash:#f4ecda; --brass-edge:#e4d3a6;
+  --good:#2c7551; --warn:#b4452f; --havasu:#0c5a60;
+  --sh-1:0 1px 2px rgba(19,32,29,.05),0 2px 8px rgba(19,32,29,.045);
+  --sh-card:0 2px 8px rgba(19,32,29,.05),0 16px 44px rgba(19,32,29,.09);
+  --sh-2:0 8px 22px rgba(19,32,29,.10),0 26px 64px rgba(19,32,29,.14);
+  --sh-pop:0 8px 22px rgba(19,32,29,.10),0 30px 64px rgba(19,32,29,.16);
+  /* v4 teal family for explicit chrome rules below */
+  --rd-teal:#0c5a60; --rd-teal-deep:#083f44; --rd-teal-br:#168a91;
+  --rd-teal-soft:#e7f0f0; --rd-teal-line:#cadcdc; --rd-glass:rgba(248,245,239,.82);
+  --disp:"Fraunces",Georgia,serif; --ui:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+}
+
+/* warm page wash (v4 body) */
+html[data-redesign="1"] body{
+  background:radial-gradient(130% 70% at 50% -12%,#f8f4ea 0%,var(--paper) 52%) fixed;
+}
+
+/* ---- header → v4 light glass nav (was a dark teal bar) ---- */
+html[data-redesign="1"] .hdr{
+  background:var(--rd-glass);
+  backdrop-filter:saturate(1.5) blur(16px);-webkit-backdrop-filter:saturate(1.5) blur(16px);
+  border-bottom:1px solid var(--hair);box-shadow:0 1px 0 rgba(255,255,255,.5) inset;
+}
+html[data-redesign="1"] .hdr .brand{color:var(--ink)!important}
+html[data-redesign="1"] .hdr .brand .wm{color:var(--ink)}
+html[data-redesign="1"] .hdr .brand .wm .b{color:var(--brass)}
+html[data-redesign="1"] .hdr .nav{color:var(--ink-2)}
+html[data-redesign="1"] .hdr .nav a{color:var(--ink-2);font-weight:500;position:relative}
+html[data-redesign="1"] .hdr .nav a:hover{color:var(--ink)}
+html[data-redesign="1"] .hdr .nav a[aria-current="page"]{color:var(--ink)}
+html[data-redesign="1"] .hdr .nav a[aria-current="page"]::after{
+  content:"";position:absolute;left:0;right:0;bottom:-21px;height:2px;border-radius:2px;
+  background:linear-gradient(90deg,var(--brass-light),#d8b864);
+}
+html[data-redesign="1"] .hdr .nav .biz{color:var(--brass-deep);font-weight:600}
+html[data-redesign="1"] .navtoggle{color:var(--ink-2)}
+html[data-redesign="1"] .navtoggle:hover{color:var(--ink)}
+/* mobile drawer → light */
+html[data-redesign="1"] .drawer:not([hidden]){
+  background:var(--paper2,#f8f5ef);border-top:1px solid var(--hair);
+}
+html[data-redesign="1"] .drawer a{color:var(--ink-2)}
+html[data-redesign="1"] .drawer a:hover,html[data-redesign="1"] .drawer a:focus{color:var(--ink);background:rgba(19,32,29,.04)}
+html[data-redesign="1"] .drawer .biz{color:var(--brass)}
+
+/* ---- conditions ribbon → warm glass + teal "Live" (v4 palette) ---- */
+html[data-redesign="1"] .condband{
+  background:rgba(255,255,255,.72);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);
+  border-bottom:1px solid var(--hair);
+}
+html[data-redesign="1"] .cb-loc{color:var(--ink)}
+html[data-redesign="1"] .cb-loc .cb-dot{background:var(--brass);box-shadow:0 0 0 3px rgba(154,118,37,.16)}
+html[data-redesign="1"] .cb-stat{border-left-color:var(--hair)}
+html[data-redesign="1"] .cb-stat .v{color:var(--ink)}
+html[data-redesign="1"] .cb-stat .v.sev{color:var(--warn)}
+html[data-redesign="1"] .cb-live{color:var(--rd-teal)}
+html[data-redesign="1"] .cb-live .pulse{background:var(--rd-teal)}
+
+/* ---- footer → v4 ink ---- */
+html[data-redesign="1"] .ft{background:linear-gradient(180deg,#16302a,#10201b);color:#aebcb6}
+html[data-redesign="1"] .ft .rule,html[data-redesign="1"] .ft-trust{border-color:rgba(255,255,255,.12)}
+html[data-redesign="1"] .ft-trust .tl .d{background:var(--brass-light)}
+
+/* ---- cool-grey placeholders → warm (v4) ---- */
+html[data-redesign="1"] .bizcard .ph{background:linear-gradient(160deg,#e9e2d4,#d9cfbb);border-color:var(--hair-2)}
+html[data-redesign="1"] .extile{background:linear-gradient(180deg,#fff,#fbf8f1)}
+
+/* ---- accent corrections: the havasu→teal token already recolors focus rings,
+   .cb-live, etc.; brass links/crumbs/eyebrows recolor via tokens. A few spots
+   used the old cyan literal indirectly — nudge the teal family explicitly. ---- */
+/* white text on --brass is only 4.21:1; brass-deep clears AA, hover lifts to brass */
+html[data-redesign="1"] .btn-brass{background:var(--brass-deep)}
+html[data-redesign="1"] .btn-brass:hover{background:var(--brass)}
+html[data-redesign="1"] a:focus-visible,
+html[data-redesign="1"] button:focus-visible,
+html[data-redesign="1"] [tabindex]:focus-visible,
+html[data-redesign="1"] input:focus-visible,
+html[data-redesign="1"] select:focus-visible,
+html[data-redesign="1"] textarea:focus-visible{
+  box-shadow:0 0 0 2px #fff,0 0 0 4px var(--rd-teal);
+}
+
+/* slightly warmer card radius already matches v4 (18px); keep shadows from tokens */

@@ -88,6 +88,7 @@ from app.events.recurrence import _event_is_recurring, next_occurrence
 from app.events.time_labels import is_time_tbd
 from app.events.title_clean import clean_event_title
 from app.feedback.routes import router as feedback_router
+from app.home import flags as home_redesign_flags
 from app.home.calendar_route import router as calendar_page_router
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.lake_preview import router as lake_preview_router
@@ -539,8 +540,60 @@ class AdminLakeSkinMiddleware(BaseHTTPMiddleware):
         )
 
 
+class HomeRedesignSkinMiddleware(BaseHTTPMiddleware):
+    """Sitewide v4 reskin (home_redesign, dark rollout).
+
+    When the flag resolves on, stamp ``data-redesign="1"`` on the <html> element
+    and inject the ``lake_redesign_site.css`` override link into every HTML
+    response (public + portal + admin) — the single uniform injection point, the
+    same technique :class:`AdminLakeSkinMiddleware` uses for lake_admin.css. The
+    CSS is fully scoped under ``html[data-redesign="1"]`` so a flag-off render is
+    byte-identical (instant rollback). The standalone v4 home/calendar already
+    ship their own ``lake_redesign.css`` (they extend base_redesign), so they are
+    skipped to avoid double-skinning.
+    """
+
+    _LINK = '<link rel="stylesheet" href="/static/styles/lake_redesign_site.css">'
+
+    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+        response = await call_next(request)
+        if "text/html" not in (response.headers.get("content-type") or ""):
+            return response
+        if not home_redesign_flags.home_redesign_enabled(request):
+            return response
+        body = b"".join([section async for section in response.body_iterator])
+        text = body.decode("utf-8", "replace")
+        # The standalone v4 home/calendar already carry lake_redesign.css — leave
+        # them untouched (but still rebuild the response since the iterator is
+        # consumed; also persist a preview cookie if a ?home_redesign= override
+        # was used).
+        already_v4 = "lake_redesign.css" in text
+        if not already_v4 and "data-redesign" not in text:
+            if 'data-theme="lake"' in text:
+                text = text.replace(
+                    'data-theme="lake"', 'data-theme="lake" data-redesign="1"', 1
+                )
+            else:
+                text = text.replace("<html", '<html data-redesign="1"', 1)
+            if "</head>" in text:
+                text = text.replace("</head>", self._LINK + "</head>", 1)
+        data = text.encode("utf-8")
+        keep = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+        new_response = Response(
+            content=data,
+            status_code=response.status_code,
+            headers=keep,
+            background=response.background,
+        )
+        home_redesign_flags.apply_preview_cookie(request, new_response)
+        return new_response
+
+
 app.add_middleware(AdminLakeSkinMiddleware)
 app.add_middleware(ThemeMiddleware)
+# Outermost of the skin middlewares: runs LAST on the response so it injects the
+# sitewide override after AdminLakeSkin's lake_admin.css (source order → wins).
+app.add_middleware(HomeRedesignSkinMiddleware)
 
 
 # Launch hardening (v48): minimal security headers on HTML responses. CSP is

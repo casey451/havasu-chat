@@ -96,6 +96,9 @@ jobs:
       OPENAI_API_KEY: test-placeholder-key
       DATABASE_URL: sqlite:///./test.db
       THEME_DEFAULT: desert
+      # Exercise the LIVE production state: the home_redesign flag is on, so every
+      # pa11y target renders the v4 sitewide reskin (incl. the injected overrides).
+      HOME_REDESIGN: "1"
     steps:
       - uses: actions/checkout@v5
       - uses: actions/setup-python@v6
