@@ -113,6 +113,17 @@ def test_home_redesign_conditions_bar_with_seeded_data() -> None:
     assert ">104°<" in b or "104°" in b  # temp tile, clean single value
 
 
+def test_home_redesign_sections_are_native_details() -> None:
+    # Accordion sections must work without JS — they are <details>/<summary>, and
+    # never more than one carries the default `open` (the Events bucket only).
+    import re
+
+    b = _home()
+    secs = re.findall(r"<details class=\"sec[^>]*", b)
+    opens = [s for s in secs if " open" in s or s.rstrip().endswith("open")]
+    assert len(opens) <= 1
+
+
 def test_home_redesign_no_emoji_in_conditions() -> None:
     # conditions use the inline SVG icon set, not emoji
     b = _home()
@@ -186,6 +197,9 @@ def test_conditions_and_feed_shape_on_seeded_db() -> None:
             assert {"key", "icon", "label", "value", "is_gas"} <= set(t)
         feed = redesign.feed_view_model(db, day=date(2026, 6, 25))
         assert {"buckets", "movie_bucket", "total"} <= set(feed)
+        # "only Events open" rule: no bucket is open unless it is the events bucket
+        for b in feed["buckets"]:
+            assert b["open"] == (b["key"] == "events")
         assert feed["total"] == sum(b["count"] for b in feed["buckets"]) + (
             feed["movie_bucket"]["count"] if feed["movie_bucket"] else 0
         )

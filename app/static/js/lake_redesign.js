@@ -30,27 +30,8 @@
     });
   }
 
-  /* ---- accordion sections --------------------------------------------- */
+  /* Sections are native <details> — open/close + keyboard work with no JS. */
   var sections = document.getElementById("sections");
-  function toggleSection(head) {
-    var sec = head.parentElement;
-    var open = sec.classList.toggle("open");
-    head.setAttribute("aria-expanded", open ? "true" : "false");
-  }
-  if (sections) {
-    sections.addEventListener("click", function (e) {
-      var head = e.target.closest(".sechd");
-      if (head) toggleSection(head);
-    });
-    sections.addEventListener("keydown", function (e) {
-      var head = e.target.closest(".sechd");
-      if (!head) return;
-      if (e.key === "Enter" || e.key === " " || e.key === "Spacebar") {
-        e.preventDefault();
-        toggleSection(head);
-      }
-    });
-  }
 
   /* ---- count overview filter ------------------------------------------ */
   var counts = document.getElementById("counts");
@@ -61,11 +42,7 @@
       var s = secs[i];
       var show = key === "all" || s.getAttribute("data-k") === key;
       s.classList.toggle("hidden", !show);
-      if (key !== "all" && show) {
-        s.classList.add("open");
-        var h = s.querySelector(".sechd");
-        if (h) h.setAttribute("aria-expanded", "true");
-      }
+      if (key !== "all" && show) s.open = true; // <details> open the focused bucket
     }
     // In-feed ads only read right when the full list is shown.
     var ads = sections.querySelectorAll(".adslot.infeed");
@@ -116,9 +93,7 @@
       applyFilter("all");
       var sec = document.getElementById("sec-" + key);
       if (sec) {
-        sec.classList.add("open");
-        var h = sec.querySelector(".sechd");
-        if (h) h.setAttribute("aria-expanded", "true");
+        sec.open = true;
         if (sec.scrollIntoView) sec.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     });

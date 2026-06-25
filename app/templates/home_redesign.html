@@ -128,34 +128,34 @@
     <div class="sec open"><div class="sechd"><span class="sl serif">Nothing posted for this day yet</span></div></div>
     {% endif %}
     {% for b in feed.buckets %}
-    <section class="sec{% if b.key == 'events' %} lead{% endif %}{% if b.open %} open{% endif %} rise" style="animation-delay:{{ 120 + loop.index0 * 40 }}ms" data-k="{{ b.key }}" id="sec-{{ b.key }}">
-      <div class="sechd" role="button" tabindex="0" aria-expanded="{{ 'true' if b.open else 'false' }}">
+    <details class="sec{% if b.key == 'events' %} lead{% endif %} rise" style="animation-delay:{{ 120 + loop.index0 * 40 }}ms" data-k="{{ b.key }}" id="sec-{{ b.key }}"{% if b.open %} open{% endif %}>
+      <summary class="sechd">
         <span class="si">{{ cicon(b.key, 18) }}</span>
         <span class="sl">{{ b.label }}</span>
         <span class="sc num">{{ b.count }}</span>
         <span class="sp">{{ b.peek }}</span>
         <span class="cv">{{ icon('chev', 14) }}</span>
-      </div>
+      </summary>
       <div class="secbody"><div class="host">
         {% if b.subs %}<div class="subs">{% for s in b.subs %}<span class="sub">{{ s.label }} <b class="num">{{ s.count }}</b></span>{% endfor %}</div>{% endif %}
         {% for row in b.rows %}{{ ev_row(row) }}{% endfor %}
         {% if b.count > b.rows|length %}<a class="showall" href="/events-ui?view={{ b.key }}">View all <span class="num">{{ b.count }}</span> {{ b.label|lower }} {{ icon('arrow', 15) }}</a>{% endif %}
       </div></div>
-    </section>
+    </details>
     {# In-feed buyable ad after every 2nd section (mobile only; desktop uses the rail). #}
     {% if loop.index % 2 == 0 and not loop.last %}{{ ad_placeholder(infeed=True) }}{% endif %}
     {% endfor %}
 
     {% if feed.movie_bucket %}
     {% set mb = feed.movie_bucket %}
-    <section class="sec rise" data-k="movies" id="sec-movies">
-      <div class="sechd" role="button" tabindex="0" aria-expanded="false">
+    <details class="sec rise" data-k="movies" id="sec-movies">
+      <summary class="sechd">
         <span class="si">{{ icon('film', 18) }}</span>
         <span class="sl">{{ mb.label }}</span>
         <span class="sc num">{{ mb.count }}</span>
         <span class="sp">{{ mb.peek }}</span>
         <span class="cv">{{ icon('chev', 14) }}</span>
-      </div>
+      </summary>
       <div class="secbody"><div class="host">
         {% for f in mb.films %}
         <a class="ev" href="{{ f.url or '/movies' }}">
@@ -170,7 +170,7 @@
         {% endfor %}
         <a class="showall" href="/movies">All showtimes {{ icon('arrow', 15) }}</a>
       </div></div>
-    </section>
+    </details>
     {% endif %}
   </div>
 
