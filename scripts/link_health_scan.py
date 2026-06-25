@@ -52,7 +52,7 @@ def _heavy_job_running() -> bool:
     return any(_unit_state(unit) in _RUNNING_STATES for unit in HEAVY_UNITS)
 
 
-def _persist_and_maybe_email(report: "lh.ScanReport", *, email: bool) -> None:
+def _persist_and_maybe_email(report: "lh.ScanReport", *, email: bool, catalog_urls=None) -> None:
     from datetime import UTC, datetime
 
     from app.db.database import SessionLocal
@@ -60,7 +60,11 @@ def _persist_and_maybe_email(report: "lh.ScanReport", *, email: bool) -> None:
     now = datetime.now(UTC).replace(tzinfo=None)
     with SessionLocal() as db:
         newly = lh.persist_results(db, report, now=now)
-        print(f"\npersisted {len(report.results)} results; {len(newly)} newly-confirmed broken")
+        pruned = lh.prune_orphans(db, catalog_urls) if catalog_urls is not None else 0
+        print(
+            f"\npersisted {len(report.results)} results; {len(newly)} newly-confirmed broken; "
+            f"pruned {pruned} orphaned row(s)"
+        )
         if email and newly:
             subject, text, html = lh.format_broken_link_report(newly)
             to = (os.getenv("WATCH_ALERT_EMAIL") or "").strip()
@@ -95,6 +99,9 @@ def main(argv: list[str] | None = None) -> int:
 
     with SessionLocal() as db:
         refs = lh.collect_links(db)
+    # The FULL catalog (every current link), captured before any --kind filter, so
+    # orphan-pruning never deletes rows of a kind we simply didn't scan this run.
+    catalog_urls = {r.url for r in refs}
     if args.kind:
         refs = [r for r in refs if r.kind == args.kind]
 
@@ -107,7 +114,7 @@ def main(argv: list[str] | None = None) -> int:
     )
 
     if args.apply or args.email_summary:
-        _persist_and_maybe_email(report, email=args.email_summary)
+        _persist_and_maybe_email(report, email=args.email_summary, catalog_urls=catalog_urls)
 
     counts = report.by_category()
     if args.json:

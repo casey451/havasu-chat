@@ -426,6 +426,28 @@ def format_broken_link_report(rows) -> tuple[str, str, str]:
     return subject, "\n".join(tl), "".join(hp)
 
 
+def prune_orphans(db, catalog_urls) -> int:
+    """Delete link_health rows whose URL is no longer in the catalog.
+
+    When a broken link is *fixed* (the provider's URL is changed) or a row is
+    removed, its old URL stops being collected, so its link_health row would
+    otherwise linger as ``confirmed_broken`` forever. Pruning rows not in the
+    current catalog keeps the broken list honest and lets a fix self-clear.
+    ``catalog_urls`` must be the FULL current set (every collected link), not a
+    scanned subset.
+    """
+    from app.db.models import LinkHealth
+
+    catalog = set(catalog_urls)
+    removed = 0
+    for row in db.query(LinkHealth).all():
+        if row.url not in catalog:
+            db.delete(row)
+            removed += 1
+    db.flush()
+    return removed
+
+
 def save_assessment(db, url: str, assessment: str, suggested_url: str | None, *, now: datetime) -> None:
     from app.db.models import LinkHealth
 

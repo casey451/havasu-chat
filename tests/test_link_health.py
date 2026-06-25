@@ -358,3 +358,32 @@ def test_check_one_both_attempts_fail_unreachable(monkeypatch) -> None:
     monkeypatch.setattr(lh, "_probe", boom)
     cat, code, _ = lh.check_one("https://x.example")
     assert cat == lh.UNREACHABLE and code is None
+
+
+# --- orphan pruning (a fixed URL leaves no stale "broken" row) -------------- #
+def test_prune_orphans_removes_rows_not_in_catalog() -> None:
+    from datetime import datetime
+
+    from app.db.database import SessionLocal
+    from app.db.models import LinkHealth
+
+    keep = "https://prune-keep.example/a"
+    drop = "https://prune-drop.example/b"  # simulates an old URL that was fixed
+    now = datetime(2026, 6, 25, 12, 0, 0)
+    try:
+        with SessionLocal() as db:
+            for u in (keep, drop):
+                db.add(LinkHealth(url=u, kind="provider_website", category="broken",
+                                  first_checked_at=now, last_checked_at=now, confirmed_broken=True))
+            db.commit()
+        with SessionLocal() as db:
+            removed = lh.prune_orphans(db, {keep})  # drop is no longer in the catalog
+            db.commit()
+            assert removed == 1
+            urls = {r[0] for r in db.execute(__import__("sqlalchemy").text(
+                "select url from link_health where url like 'https://prune-%'"))}
+            assert keep in urls and drop not in urls
+    finally:
+        with SessionLocal() as db:
+            db.query(LinkHealth).filter(LinkHealth.url.like("https://prune-%")).delete()
+            db.commit()
