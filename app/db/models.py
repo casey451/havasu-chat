@@ -2197,6 +2197,42 @@ class MovieShowtime(Base):
     scraped_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
 
 
+class LinkHealth(Base):
+    """One stored outbound URL's health, tracked across sweeps.
+
+    Populated by ``app.monitoring.link_health`` running on the VPS. Keyed by URL
+    (many rows can share one). ``consecutive_failures`` lets the sweep confirm a
+    link is *really* broken across multiple runs before it surfaces, filtering
+    transient blips and big-site rate-limits. Monitoring-only: nothing user-facing
+    reads it, and the sweep never edits the source provider/event rows -- a dead
+    link is *flagged* here for human review, not auto-removed.
+    """
+
+    __tablename__ = "link_health"
+
+    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
+    url: Mapped[str] = mapped_column(String(2048), nullable=False, unique=True, index=True)
+    kind: Mapped[str] = mapped_column(String(32), nullable=False)
+    entity_id: Mapped[str | None] = mapped_column(String, nullable=True)
+    label: Mapped[str | None] = mapped_column(String, nullable=True)
+    category: Mapped[str] = mapped_column(String(24), nullable=False)
+    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    detail: Mapped[str | None] = mapped_column(String(512), nullable=True)
+    consecutive_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    first_checked_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    last_checked_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    last_ok_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    # True once a link has failed on >= the confirm threshold consecutive sweeps.
+    confirmed_broken: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
+    # Set true when a previously-confirmed-broken link has been emailed, so the
+    # summary only ever pages once per breakage (resets when it recovers).
+    notified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+
+
 # Phase 4.1 ships the ``Outbox`` ORM class above this line. The provider-slug
 # listener registration below remains the canonical "leaf-module hook"
 # pattern for this codebase (not to be confused with the Phase 1D dual-write

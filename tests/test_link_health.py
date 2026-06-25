@@ -92,3 +92,96 @@ def test_scan_pauses_until_clear() -> None:
     )
     assert len(report.results) == 1
     assert calls["slept"] == 2  # slept twice while paused, then proceeded
+
+
+# --- concurrency (workers > 1) --------------------------------------------- #
+def test_scan_workers_parallel_checks_each_once() -> None:
+    refs = _refs(*(f"https://h{i}.example" for i in range(10)))
+    report = lh.scan_links(
+        refs, checker=lambda u: (lh.OK, 200, "HTTP 200"), sleeper=lambda s: None, workers=4
+    )
+    assert len(report.results) == 10
+    assert {r.ref.url for r in report.results} == {r.url for r in refs}
+
+
+# --- persistence + confirm-over-time (real test DB) ------------------------ #
+def _report(url: str, category: str, code, detail: str) -> lh.ScanReport:
+    ref = lh.LinkRef(url, "provider_website", "pX", "Test Co")
+    return lh.ScanReport(results=[lh.LinkResult(ref, category, code, detail)])
+
+
+def _persist(url, category, code, detail, now):
+    from app.db.database import SessionLocal
+
+    with SessionLocal() as db:
+        newly = lh.persist_results(db, _report(url, category, code, detail), now=now)
+        out = (len(newly), newly[0].url if newly else None)
+        db.commit()
+    return out
+
+
+def _row(url):
+    from app.db.database import SessionLocal
+    from app.db.models import LinkHealth
+
+    with SessionLocal() as db:
+        return db.query(LinkHealth).filter(LinkHealth.url == url).one_or_none() and {
+            "cf": db.query(LinkHealth).filter(LinkHealth.url == url).one().consecutive_failures,
+            "confirmed": db.query(LinkHealth).filter(LinkHealth.url == url).one().confirmed_broken,
+            "last_ok": db.query(LinkHealth).filter(LinkHealth.url == url).one().last_ok_at,
+        }
+
+
+def _cleanup(url):
+    from app.db.database import SessionLocal
+    from app.db.models import LinkHealth
+
+    with SessionLocal() as db:
+        db.query(LinkHealth).filter(LinkHealth.url == url).delete()
+        db.commit()
+
+
+def test_persist_confirms_only_after_threshold() -> None:
+    from datetime import datetime
+
+    url = "https://broken-test.example/x"
+    t = datetime(2026, 6, 25, 12, 0, 0)
+    try:
+        n1, _ = _persist(url, lh.BROKEN, 404, "HTTP 404", t)
+        assert n1 == 0 and _row(url)["cf"] == 1 and _row(url)["confirmed"] is False
+        n2, who = _persist(url, lh.BROKEN, 404, "HTTP 404", t)
+        assert n2 == 1 and who == url and _row(url)["confirmed"] is True
+        n3, _ = _persist(url, lh.BROKEN, 404, "HTTP 404", t)  # already confirmed -> not "newly"
+        assert n3 == 0
+    finally:
+        _cleanup(url)
+
+
+def test_persist_recovery_resets_streak() -> None:
+    from datetime import datetime
+
+    url = "https://recovers-test.example/y"
+    t = datetime(2026, 6, 25, 12, 0, 0)
+    try:
+        _persist(url, lh.BROKEN, 500, "HTTP 500", t)
+        _persist(url, lh.BROKEN, 500, "HTTP 500", t)
+        assert _row(url)["confirmed"] is True
+        _persist(url, lh.OK, 200, "HTTP 200", t)  # recovered
+        r = _row(url)
+        assert r["cf"] == 0 and r["confirmed"] is False and r["last_ok"] is not None
+    finally:
+        _cleanup(url)
+
+
+def test_persist_blocked_by_site_never_confirms() -> None:
+    from datetime import datetime
+
+    url = "https://wall-test.example/z"
+    t = datetime(2026, 6, 25, 12, 0, 0)
+    try:
+        _persist(url, lh.BLOCKED_BY_SITE, 403, "HTTP 403", t)
+        _persist(url, lh.BLOCKED_BY_SITE, 403, "HTTP 403", t)
+        r = _row(url)
+        assert r["cf"] == 0 and r["confirmed"] is False  # anti-bot is not "broken"
+    finally:
+        _cleanup(url)

@@ -17,6 +17,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import os
 import subprocess
 import sys
 from pathlib import Path
@@ -46,12 +47,48 @@ def _heavy_job_running() -> bool:
     return False
 
 
+def _persist_and_maybe_email(report: "lh.ScanReport", *, email: bool) -> None:
+    from datetime import UTC, datetime
+
+    from app.db.database import SessionLocal
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        newly = lh.persist_results(db, report, now=now)
+        print(f"\npersisted {len(report.results)} results; {len(newly)} newly-confirmed broken")
+        if email and newly:
+            subject = f"[Ask Hava] {len(newly)} newly broken link(s) detected"
+            lines = [f"- [{r.category}] {r.kind} | {r.label or ''} | {r.url} ({r.detail or ''})" for r in newly]
+            text = "Newly confirmed-broken links (failed multiple sweeps):\n\n" + "\n".join(lines)
+            html = "<h3>Newly confirmed-broken links</h3><ul>" + "".join(
+                f"<li><b>{r.kind}</b> — {r.label or ''}<br>{r.url}<br><i>{r.category}: {r.detail or ''}</i></li>"
+                for r in newly
+            ) + "</ul>"
+            to = (os.getenv("WATCH_ALERT_EMAIL") or "").strip()
+            if not to:
+                print("  (WATCH_ALERT_EMAIL unset — skipping email)")
+            else:
+                try:
+                    from app.auth.email_sender import send_alert_email
+
+                    send_alert_email(to_email=to, subject=subject, html_body=html, text_body=text)
+                    for r in newly:
+                        r.notified = True
+                    print(f"  emailed summary to {to}")
+                except Exception as exc:  # noqa: BLE001
+                    print(f"  email failed ({exc}); rows left un-notified for retry")
+        db.commit()
+
+
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(description=__doc__)
     p.add_argument("--limit", type=int, default=None, help="check at most N unique URLs")
     p.add_argument("--kind", choices=["provider_website", "provider_facebook", "event_url"])
     p.add_argument("--per-host-delay", type=float, default=1.0, help="min seconds between hits to one host")
+    p.add_argument("--workers", type=int, default=1, help="parallel checks (use >1 for a full sweep)")
     p.add_argument("--respect-jobs", action="store_true", help="pause while scrape/backup run")
+    p.add_argument("--apply", action="store_true", help="persist results to the link_health table")
+    p.add_argument("--email-summary", action="store_true", help="email newly-confirmed-broken links (implies --apply)")
     p.add_argument("--json", action="store_true", help="emit JSON instead of a text report")
     args = p.parse_args(argv)
 
@@ -64,10 +101,14 @@ def main(argv: list[str] | None = None) -> int:
 
     report = lh.scan_links(
         refs,
-        per_host_delay=args.per_host_delay,
+        per_host_delay=args.per_host_delay if args.workers <= 1 else 0.0,
+        workers=args.workers,
         should_pause=_heavy_job_running if args.respect_jobs else None,
         limit=args.limit,
     )
+
+    if args.apply or args.email_summary:
+        _persist_and_maybe_email(report, email=args.email_summary)
 
     counts = report.by_category()
     if args.json:
