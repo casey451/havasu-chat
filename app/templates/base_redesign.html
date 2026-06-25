@@ -1,0 +1,128 @@
+<!doctype html>
+{#- ─────────── Home + calendar redesign base (base_redesign.html) ───────────
+   The v4 reskin shell, served ONLY behind the home_redesign flag (dark rollout).
+   Standalone of base_lake.html so the v4 visual is exact (its own header /
+   conditions bar / footer). Same self-hosted fonts; no Google Fonts.
+
+   Visual source of truth: design-exploration/ask-hava-premium-v4.html.
+   Blocks: title, meta_description, og_image, head_extra, main, scripts.
+   Context (all optional — honest omission): today_label, cond_tiles, gas,
+   active_tab; globals canonical_url, absolute_url, static_url.
+-#}
+{% from "components/redesign_icons.html" import icon, cicon %}
+<html lang="en" data-theme="lake">
+<head>
+  {% include '_partials/plausible.html' %}
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <title>{% block title %}Ask Hava — Lake Havasu City{% endblock %}</title>
+  <meta name="description" content="{% block meta_description %}Ask Hava is Lake Havasu City's local concierge: what's happening today, the best local spots, events, and live conditions.{% endblock %}">
+  {% if canonical_url is defined %}
+  {% set _canonical = canonical_override|default(none) or canonical_url(request) %}
+  <link rel="canonical" href="{{ _canonical }}">
+  <meta property="og:url" content="{{ _canonical }}">
+  <meta property="og:site_name" content="Ask Hava">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="{{ self.title() }}">
+  <meta property="og:description" content="{{ self.meta_description() }}">
+  <meta property="og:image" content="{% block og_image %}{{ absolute_url('/static/img/lake/og-default.png') }}{% endblock %}">
+  <meta name="twitter:card" content="summary_large_image">
+  <meta name="twitter:title" content="{{ self.title() }}">
+  <meta name="twitter:image" content="{{ self.og_image() }}">
+  {% endif %}
+  <link rel="icon" type="image/svg+xml" href="{{ static_url('/static/img/lake/favicon.svg') }}">
+  <link rel="icon" type="image/x-icon" sizes="16x16 32x32 48x48" href="{{ static_url('/static/img/lake/favicon.ico') }}">
+  <link rel="apple-touch-icon" href="{{ static_url('/static/img/lake/apple-touch-icon.png') }}">
+  <link rel="manifest" href="{{ static_url('/static/manifest-lake.webmanifest') }}">
+  <meta name="theme-color" content="#0c5a60">
+  <link rel="preload" href="{{ static_url('/static/fonts/inter-latin-wght-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="preload" href="{{ static_url('/static/fonts/fraunces-latin-wght-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
+  <link rel="stylesheet" href="{{ static_url('/static/styles/lake_redesign.css') }}">
+  {% block head_extra %}{% endblock %}
+</head>
+<body data-theme="lake" id="rd-body">
+<a class="skip" href="#main">Skip to content</a>
+
+<div class="rd-shell">
+  <div class="head-stack">
+    <div class="util">
+      <span>Lake Havasu City</span>
+      {% if today_label %}<span class="r">{{ today_label }}</span>{% endif %}
+    </div>
+    <nav class="nav" aria-label="Primary">
+      <div class="nav-in">
+        <details class="navdrawer only-m">
+          <summary class="ico" aria-label="Menu">{{ icon('menu', 18) }}</summary>
+          <div class="navdrawer-menu">
+            <a href="/home"{% if active_tab == 'today' %} class="active"{% endif %}>Today</a>
+            <a href="/events-ui">Events</a>
+            <a href="/today">Lake report</a>
+            <a href="/categories">Explore</a>
+            <a href="/sponsor">For business</a>
+          </div>
+        </details>
+        <a class="brand" href="/home" aria-label="Ask Hava home"><span class="mk" aria-hidden="true"></span><span class="wm">Ask&nbsp;Hava</span></a>
+        <span class="navlinks only-d">
+          <a href="/home"{% if active_tab == 'today' %} class="active"{% endif %}>Today</a>
+          <a href="/events-ui">Events</a>
+          <a href="/today">Lake</a>
+          <a href="/categories">Explore</a>
+          <a href="/sponsor">For Business</a>
+        </span>
+        <span class="nav-sp"></span>
+        <span class="loc only-d">{{ icon('pin', 14) }}Lake Havasu City</span>
+        <a class="ico only-d" href="/chat" aria-label="Search">{{ icon('search', 17) }}</a>
+        <a class="btn-ghost only-d" href="/login">Sign in</a>
+        <a class="avatar only-m" href="/account" aria-label="Account"></a>
+      </div>
+    </nav>
+
+    {% if cond_tiles %}
+    <div class="cond" aria-label="Live conditions">
+      {% for t in cond_tiles %}
+      {% if t.is_gas %}
+      <button type="button" class="c gas" id="gasTile" aria-expanded="false" aria-controls="gasPanel">
+        <span class="lab">{{ icon(t.icon, 12) }}{{ t.label }}</span>
+        <span class="val">{{ t.value }}<span class="caret">{{ icon('chev', 11) }}</span></span>
+      </button>
+      {% else %}
+      <span class="c"{% if t.is_stale %} title="Updated a while ago"{% endif %}>
+        <span class="lab">{{ icon(t.icon, 12) }}{{ t.label }}</span>
+        <span class="val">{% if t.color %}<span style="color:{{ t.color }}">{{ t.value }}</span>{% else %}{{ t.value }}{% endif %}{% if t.unit %}<u>{{ t.unit }}</u>{% endif %}</span>
+      </span>
+      {% endif %}
+      {% endfor %}
+    </div>
+    {% if gas and gas.cheapest %}
+    <div class="gaspanel" id="gasPanel" role="region" aria-label="Cheapest gas near you">
+      <div class="gp">
+        <div class="gphead"><span>Cheapest gas near you</span>{% if gas.staleness_label %}<span>{{ gas.staleness_label }}</span>{% endif %}</div>
+        {% for g in gas.cheapest %}
+        <a class="gasrow" href="{{ g.directions_url }}" target="_blank" rel="noopener nofollow">
+          <span class="gr num">{{ g.price }}</span>
+          <span style="min-width:0"><span class="gn">{{ g.name }}</span>{% if g.cross_street %}<span class="gs"> · {{ g.cross_street }}</span>{% endif %}</span>
+          <span class="gd">Directions ›</span>
+        </a>
+        {% endfor %}
+      </div>
+    </div>
+    {% endif %}
+    {% endif %}
+  </div>
+
+  <main id="main" role="main" tabindex="-1">
+  {% block main %}{% endblock %}
+  </main>
+
+  <footer class="foot">
+    <div class="ft serif">Ask Hava</div>
+    <div class="fl"><a href="/home">Today</a><a href="/events-ui">Events</a><a href="/today">Lake report</a><a href="/categories">Explore</a><a href="/sponsor">For Business</a><a href="/about">About</a></div>
+    <div class="rule"></div>
+    <div class="fc">Lake Havasu City, Arizona · Live conditions, events &amp; local directory · © 2026 Ask Hava</div>
+  </footer>
+</div>
+
+<script src="{{ static_url('/static/js/lake_redesign.js') }}" defer></script>
+{% block scripts %}{% endblock %}
+</body>
+</html>

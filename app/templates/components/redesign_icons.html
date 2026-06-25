@@ -1,0 +1,43 @@
+{#- Home-redesign line-icon set — the v4 SVG paths lifted verbatim from
+   design-exploration/ask-hava-premium-v4.html (ASK_HAVA_HOME_DESIGN_SPEC.md §5).
+   Stroke width 1.7, round caps/joins is part of the look — keep it.
+
+   Usage:  {% from "components/redesign_icons.html" import icon, cicon %}
+           {{ icon('search', 18) }}      {{ cicon('events', 18) }}
+-#}
+{%- set _ICONS = {
+  'search': '<circle cx="10.5" cy="10.5" r="6.5"/><line x1="20.5" y1="20.5" x2="15.2" y2="15.2"/>',
+  'chev': '<polyline points="6 9.5 12 15.5 18 9.5"/>',
+  'cal': '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><line x1="3.5" y1="9.5" x2="20.5" y2="9.5"/><line x1="8" y1="3" x2="8" y2="6.5"/><line x1="16" y1="3" x2="16" y2="6.5"/>',
+  'pin': '<path d="M12 21c4-4.2 6.5-7.6 6.5-10.5a6.5 6.5 0 1 0-13 0C5.5 13.4 8 16.8 12 21Z"/><circle cx="12" cy="10.5" r="2.4"/>',
+  'menu': '<line x1="3.5" y1="7" x2="20.5" y2="7"/><line x1="3.5" y1="12" x2="20.5" y2="12"/><line x1="3.5" y1="17" x2="20.5" y2="17"/>',
+  'arrow': '<line x1="4" y1="12" x2="18.5" y2="12"/><polyline points="12.5 6 19 12 12.5 18"/>',
+  'back': '<line x1="20" y1="12" x2="5.5" y2="12"/><polyline points="11.5 6 5 12 11.5 18"/>',
+  'spark': '<path d="M12 3l1.7 4.6L18 9l-4.3 1.4L12 15l-1.7-4.6L6 9l4.3-1.4Z"/>',
+  'plus': '<line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/>',
+  'thermo': '<path d="M14 14.5V5.5a2 2 0 0 0-4 0v9a3.8 3.8 0 1 0 4 0Z"/>',
+  'wind': '<path d="M3.5 9h9.5a2.8 2.8 0 1 0-2.8-2.8"/><path d="M3.5 13h12a2.8 2.8 0 1 1-2.8 2.8"/>',
+  'sun': '<circle cx="12" cy="12" r="4"/><line x1="12" y1="3.5" x2="12" y2="5.5"/><line x1="12" y1="18.5" x2="12" y2="20.5"/><line x1="3.5" y1="12" x2="5.5" y2="12"/><line x1="18.5" y1="12" x2="20.5" y2="12"/><line x1="6" y1="6" x2="7.4" y2="7.4"/><line x1="16.6" y1="16.6" x2="18" y2="18"/><line x1="18" y1="6" x2="16.6" y2="7.4"/><line x1="7.4" y1="16.6" x2="6" y2="18"/>',
+  'cloud': '<path d="M7.5 18a4 4 0 0 1-.3-8 5 5 0 0 1 9.6-1A3.6 3.6 0 0 1 17.5 18Z"/>',
+  'fuel': '<rect x="4.5" y="4.5" width="8.5" height="15.5" rx="1.5"/><line x1="4.5" y1="10" x2="13" y2="10"/><path d="M13 7.5h2.6a1.8 1.8 0 0 1 1.8 1.8v6.4a1.6 1.6 0 0 0 3.1 0V9.2L18 6.3"/>',
+  'ticket': '<path d="M4 7.5h16v3a2 2 0 0 0 0 4v3H4v-3a2 2 0 0 0 0-4Z"/><line x1="12.5" y1="8" x2="12.5" y2="16.5" stroke-dasharray="1.2 2.4"/>',
+  'compass': '<circle cx="12" cy="12" r="8.5"/><polygon points="15.6 8.4 10.8 10.8 8.4 15.6 13.2 13.2"/>',
+  'music': '<circle cx="7" cy="16.8" r="2.4"/><circle cx="16.6" cy="15" r="2.4"/><path d="M9.4 16.8V6.2l9.6-2v10.8"/>',
+  'sail': '<path d="M12 3 6 12.5h6Z"/><path d="M13 5.5l4.5 7H13"/><path d="M4 15.5h16l-2 3.2H6Z"/>',
+  'balloon': '<path d="M12 3.5a4.2 4.2 0 0 1 4.2 4.2c0 3.2-4.2 6.3-4.2 6.3s-4.2-3.1-4.2-6.3A4.2 4.2 0 0 1 12 3.5Z"/><path d="M12 14v3.2"/>',
+  'person': '<circle cx="12" cy="7.5" r="3.2"/><path d="M6 20v-.5a6 6 0 0 1 12 0V20"/>',
+  'activity': '<polyline points="3 12 7.5 12 10 7 14 17 16.5 12 21 12"/>',
+  'palette': '<path d="M12 3.5a8.5 8.5 0 1 0 0 17c1.4 0 2-1 2-1.9s-.9-1.2-.9-2 .8-1.1 1.7-1.1h1.1a3.6 3.6 0 0 0 3.6-3.6c0-4.4-3.8-7.4-8.5-7.4Z"/><circle cx="8" cy="11.5" r="1"/><circle cx="12" cy="8.5" r="1"/><circle cx="16" cy="11.5" r="1"/>',
+  'film': '<rect x="3.5" y="4.5" width="17" height="15" rx="2"/><line x1="8" y1="4.5" x2="8" y2="19.5"/><line x1="16" y1="4.5" x2="16" y2="19.5"/><line x1="3.5" y1="12" x2="20.5" y2="12"/>',
+  'bank': '<path d="M3.5 9 12 4.5 20.5 9"/><line x1="5.5" y1="9.5" x2="5.5" y2="18"/><line x1="9.5" y1="9.5" x2="9.5" y2="18"/><line x1="14.5" y1="9.5" x2="14.5" y2="18"/><line x1="18.5" y1="9.5" x2="18.5" y2="18"/><line x1="3.5" y1="20.5" x2="20.5" y2="20.5"/>'
+} -%}
+{#- category → icon name (v4 CICON). -#}
+{%- set _CICON = {
+  'events': 'ticket', 'things': 'compass', 'music': 'music', 'water': 'sail',
+  'family': 'balloon', 'seniors': 'person', 'fitness': 'activity',
+  'classes': 'activity', 'movies': 'film', 'civic': 'bank'
+} -%}
+{%- macro icon(name, size=18) -%}
+<span class="ic" style="width:{{ size }}px;height:{{ size }}px"><svg width="{{ size }}" height="{{ size }}" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">{{ _ICONS.get(name, '')|safe }}</svg></span>
+{%- endmacro -%}
+{%- macro cicon(cat, size=18) -%}{{ icon(_CICON.get(cat, 'compass'), size) }}{%- endmacro -%}
