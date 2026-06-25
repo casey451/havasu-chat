@@ -25,6 +25,7 @@ from __future__ import annotations
 import logging
 from collections.abc import Callable
 from dataclasses import dataclass, field
+from datetime import datetime
 from urllib.parse import urlsplit
 
 logger = logging.getLogger(__name__)
@@ -170,13 +171,18 @@ def scan_links(
     should_pause: Callable[[], bool] | None = None,
     pause_poll: float = 30.0,
     limit: int | None = None,
+    workers: int = 1,
+    chunk_size: int = 64,
 ) -> ScanReport:
-    """Check each unique URL once, politely.
+    """Check each unique URL, politely, optionally in parallel.
 
     * de-dupes identical URLs (many rows can share one), checking each once;
-    * paces requests per host by ``per_host_delay`` so we never hammer one domain;
     * yields to heavier jobs: while ``should_pause()`` is true it sleeps
-      ``pause_poll`` seconds and re-checks before continuing.
+      ``pause_poll`` seconds and re-checks (between chunks when parallel);
+    * ``workers == 1`` (default) is the sequential, per-host-throttled path used
+      by tests; ``workers > 1`` runs a thread pool per chunk for a fast full
+      sweep (per-host pacing is relaxed — fine since stored URLs are mostly
+      distinct hosts and the pool is small).
 
     ``sleeper`` defaults to ``time.sleep`` but is injectable so tests run instantly.
     """
@@ -184,35 +190,95 @@ def scan_links(
         import time
 
         sleeper = time.sleep
-
-    report = ScanReport()
-    seen: set[str] = set()
-    last_hit: dict[str, float] = {}
-    checked = 0
     import time as _time
 
+    # De-dupe up front so every URL is checked exactly once.
+    seen: set[str] = set()
+    unique: list[LinkRef] = []
+    skipped = 0
     for ref in refs:
-        if limit is not None and checked >= limit:
-            break
         if ref.url in seen:
-            report.skipped_duplicate_urls += 1
+            skipped += 1
             continue
         seen.add(ref.url)
+        unique.append(ref)
+    if limit is not None:
+        unique = unique[:limit]
 
-        # Yield to the scrape/backup jobs.
+    report = ScanReport(skipped_duplicate_urls=skipped)
+
+    def _wait_while_paused() -> None:
         while should_pause is not None and should_pause():
             logger.info("link_health: pausing (a higher-priority job is running)")
             sleeper(pause_poll)
 
-        host = urlsplit(ref.url).hostname or ""
-        if per_host_delay and host in last_hit:
-            wait = per_host_delay - (_time.monotonic() - last_hit[host])
-            if wait > 0:
-                sleeper(wait)
+    if workers <= 1:
+        last_hit: dict[str, float] = {}
+        for ref in unique:
+            _wait_while_paused()
+            host = urlsplit(ref.url).hostname or ""
+            if per_host_delay and host in last_hit:
+                wait = per_host_delay - (_time.monotonic() - last_hit[host])
+                if wait > 0:
+                    sleeper(wait)
+            category, code, detail = checker(ref.url)
+            last_hit[host] = _time.monotonic()
+            report.results.append(LinkResult(ref, category, code, detail))
+        return report
 
-        category, code, detail = checker(ref.url)
-        last_hit[host] = _time.monotonic()
-        report.results.append(LinkResult(ref, category, code, detail))
-        checked += 1
+    from concurrent.futures import ThreadPoolExecutor
 
+    for start in range(0, len(unique), chunk_size):
+        _wait_while_paused()
+        chunk = unique[start : start + chunk_size]
+        with ThreadPoolExecutor(max_workers=workers) as pool:
+            for ref, (category, code, detail) in zip(chunk, pool.map(lambda r: checker(r.url), chunk)):
+                report.results.append(LinkResult(ref, category, code, detail))
     return report
+
+
+# --------------------------------------------------------------------------- #
+# Persistence + confirm-over-time (so transient blips don't page)
+# --------------------------------------------------------------------------- #
+CONFIRM_THRESHOLD = 2  # consecutive actionable sweeps before a link is "confirmed broken"
+
+
+def persist_results(db, report: ScanReport, *, now: datetime, confirm_threshold: int = CONFIRM_THRESHOLD):
+    """Upsert each result into ``link_health``; return the newly-confirmed-broken rows.
+
+    Actionable results increment ``consecutive_failures``; once that crosses the
+    threshold the row is ``confirmed_broken``. A non-actionable result (ok, or an
+    inconclusive anti-bot/ssrf block) clears the streak and any prior breakage.
+    Only links that *cross* the threshold this run (and weren't already notified)
+    are returned, so the email summary pages once per breakage.
+    """
+    from app.db.models import LinkHealth
+
+    newly_confirmed: list[LinkHealth] = []
+    for r in report.results:
+        row = db.query(LinkHealth).filter(LinkHealth.url == r.ref.url).one_or_none()
+        if row is None:
+            row = LinkHealth(url=r.ref.url, first_checked_at=now, consecutive_failures=0)
+            db.add(row)
+        row.kind = r.ref.kind
+        row.entity_id = r.ref.entity_id
+        row.label = r.ref.label
+        row.category = r.category
+        row.http_status = r.http_status
+        row.detail = (r.detail or "")[:512]
+        row.last_checked_at = now
+
+        if r.actionable:
+            row.consecutive_failures += 1
+            if row.consecutive_failures >= confirm_threshold:
+                if not row.confirmed_broken and not row.notified:
+                    newly_confirmed.append(row)
+                row.confirmed_broken = True
+        else:
+            if r.category == OK:
+                row.last_ok_at = now
+            row.consecutive_failures = 0
+            row.confirmed_broken = False
+            row.notified = False
+    db.flush()
+    return newly_confirmed

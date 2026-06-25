@@ -1,0 +1,23 @@
+[Unit]
+Description=Ask Hava link-health sweep (dead-link detection across stored URLs)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/havasu-chat
+# DATABASE_URL from the vision env; RESEND_* + WATCH_ALERT_EMAIL from the watch env.
+EnvironmentFile=/etc/havasu/havasu-vision.env
+EnvironmentFile=/etc/havasu/havasu-watch.env
+# Low priority so it never competes with the scraper/app: nice CPU + idle I/O.
+Nice=19
+IOSchedulingClass=idle
+CPUWeight=20
+# Full sweep, parallel, persists results, emails newly-confirmed-broken links,
+# and pauses while the vision scrape or nightly backup are running.
+ExecStart=/opt/havasu-chat/.venv/bin/python /opt/havasu-chat/scripts/link_health_scan.py \
+    --apply --email-summary --respect-jobs --workers 8 --per-host-delay 0
+TimeoutStartSec=7200
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true

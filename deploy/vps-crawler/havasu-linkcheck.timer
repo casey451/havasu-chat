@@ -1,0 +1,13 @@
+[Unit]
+Description=Run the Ask Hava link-health sweep periodically
+
+[Timer]
+# Every 6 hours, offset off the top of the hour. A full ~5k-link sweep at
+# 8 workers takes well under an hour, so this is "continuous enough" while the
+# box stays mostly idle and yields to the scrape/backup jobs.
+OnCalendar=*-*-* 02,08,14,20:40:00
+AccuracySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target
