@@ -169,7 +169,8 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .cpill{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--hair);border-radius:999px;padding:8px 13px 8px 12px;cursor:pointer;transition:.22s;white-space:nowrap;text-decoration:none}
 .cpill:hover{transform:translateY(-1px);box-shadow:var(--sh-sm);border-color:var(--teal-line)}
 .cpill .ic{color:var(--ink2)}.cpill .cl{font-size:12.5px;font-weight:600;color:var(--ink2)}
-.cpill .cb{font-size:11px;font-weight:700;color:var(--ink3);background:var(--paper);border-radius:999px;padding:1px 8px}
+/* --ink2 (not v4's --ink3) so the count badge clears WCAG AA 4.5:1 on --paper */
+.cpill .cb{font-size:11px;font-weight:700;color:var(--ink2);background:var(--paper);border-radius:999px;padding:1px 8px}
 .cpill.on{background:var(--ink);border-color:var(--ink)}.cpill.on .ic{color:#fff}.cpill.on .cl{color:#fff}.cpill.on .cb{color:#fff;background:rgba(255,255,255,.16)}
 .cpill.all.on{background:linear-gradient(150deg,var(--teal),var(--teal-deep))}.cpill.all .ic{color:var(--brass)}.cpill.all.on .ic{color:#ecd49b}
 

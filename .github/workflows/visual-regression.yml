@@ -50,7 +50,7 @@ jobs:
       - name: Install Python deps
         run: |
           python -m pip install --upgrade pip
-          python -m pip install -r requirements.txt
+          python -m pip install -r requirements.txt -r dev-requirements.txt
       - name: Install Playwright Chromium
         run: python -m playwright install --with-deps chromium
       - name: Visual gate (no-overflow @390px + drift bootstrap)
