@@ -39,10 +39,13 @@ def test_group_for_tier_never_returns_overlay_keys() -> None:
 
 
 def test_happening_today_label_and_keys() -> None:
+    # "Happening today" → "Things to Do" and the new "learn" (Classes &
+    # Workshops) top-level were added 2026-06-25. ``funzone`` stays a render-time
+    # SECTION under Things to Do (Casey's call), not a top-level bucket here.
     labels = {key: label for key, label, _icon in GROUP_DEFS}
-    assert labels["events"] == "Happening today"
+    assert labels["events"] == "Things to Do"
     assert {k for k, _l, _i in GROUP_DEFS} == {
-        "events", "family", "seniors", "civic", "music", "water", "classes"
+        "events", "family", "seniors", "civic", "music", "water", "classes", "learn"
     }
 
 

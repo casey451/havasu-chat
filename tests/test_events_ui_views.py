@@ -308,7 +308,7 @@ def test_fitness_group_label_is_sports():
     from app.home.event_buckets import GROUP_DEFS
 
     labels = {k: label for k, label, _icon in GROUP_DEFS}
-    assert labels["classes"] == "Fitness & sports"
+    assert labels["classes"] == "Fitness & Sports"
 
 
 # --- (d) Month grid: weekday alignment (B-02) + one-off-only counts ----------
