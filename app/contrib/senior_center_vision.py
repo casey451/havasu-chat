@@ -27,7 +27,12 @@ from dataclasses import dataclass, field
 
 from app.contrib.event_record import EventRecord
 from app.contrib.parks_rec_loader import _all_tags
-from app.contrib.vision_calendar import ExtractionResult, VisionEventRow, extract_flyer_rows
+from app.contrib.vision_calendar import (
+    ExtractionResult,
+    VisionEventRow,
+    extract_flyer_rows,
+    validate_flyer_image,
+)
 from app.events.senior_center import (
     CALENDAR_IMAGES,
     EVENTS_URL,
@@ -159,6 +164,8 @@ class SeniorFlyerPullResult:
     dropped_no_provenance: int = 0
     dropped_bad_title: int = 0
     dropped_bad_date: int = 0
+    # Fetched payloads that were not a supported raster image (skipped pre-call).
+    skipped_non_image: int = 0
     errors: list[str] = field(default_factory=list)
 
 
@@ -192,15 +199,26 @@ def pull_senior_flyers(
     for url in urls:
         raw_text = (raw_text_by_url or {}).get(url)
         img: tuple[bytes, str] | None = None
+        mime = "image/png"
         if raw_text is None:
             img = (image_bytes_by_url or {}).get(url) or _fetch_image(url)
             if img is None:
                 out.errors.append(f"image fetch failed: {url}")
                 continue
+            # Skip non-image payloads (the CDN proxy can return HTML/other) so we
+            # never trip the vision API's 400 "Failed to load image".
+            mime, reason = validate_flyer_image(img[0], content_type=img[1])
+            if mime is None:
+                out.skipped_non_image += 1
+                logger.warning(
+                    "senior_center_flyers: skipping non-image %s (%s, %d bytes, ct=%s)",
+                    url, reason, len(img[0]), img[1],
+                )
+                continue
         ext = extract_flyer_rows(
             img[0] if img else b"",
             context_label=CONTEXT_LABEL,
-            mime=img[1] if img else "image/png",
+            mime=mime,
             raw_text=raw_text,
         )
         if ext.rows:

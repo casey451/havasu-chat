@@ -83,6 +83,7 @@ def _notes(name: str, result: CalendarPullResult, records: list[EventRecord]) ->
             f"no_provenance={result.dropped_no_provenance} "
             f"bad_title={result.dropped_bad_title} bad_date={result.dropped_bad_date}"
         ),
+        f"skipped non-image (HTML/PDF/empty/oversize): {result.skipped_non_image}",
         *([f"fetch errors: {len(result.errors)} ({'; '.join(result.errors[:3])})"] if result.errors else []),
         "NEEDS_PROD_VERIFY: a datacenter IP may not reach lhcaz.gov/ImageRepository.",
     ]

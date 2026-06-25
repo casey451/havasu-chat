@@ -32,8 +32,16 @@ sudo -u havasu python3 -m venv .venv
 sudo -u havasu .venv/bin/pip install -r requirements.txt
 ```
 
-Keep it updated with a `git pull` (e.g. a separate daily timer, or as the first
-line of the run script if you prefer).
+**Self-update (built in).** `run_vision_scrapes.sh` does a non-fatal
+`git -C "$HAVASU_REPO_DIR" pull --ff-only` as its first step, so every timer run
+picks up the latest CI-gated `main` before scraping — a shipped fix reaches the
+live scraper on its own, no manual pull. It runs as the repo-owning `havasu` user
+(no git "dubious ownership"), is fast-forward-only (never force-moves a
+dirty/diverged checkout), and logs the resulting short SHA. A failed/blocked pull
+just runs the existing checkout. Set `HAVASU_GIT_PULL=0` to pin a checkout and
+skip the pull. **Bootstrap:** after first installing (or after the PR that added
+this) the box needs ONE manual `git pull` to pick up the self-updating script;
+from then on it updates itself.
 
 ## 3. Configure the environment
 

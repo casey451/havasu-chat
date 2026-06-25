@@ -49,6 +49,7 @@ from app.contrib.vision_calendar import (
     extract_calendar_tiled,
     extract_flyer_rows,
     extract_validated_rows,
+    validate_flyer_image,
     vision_model,
 )
 from app.utils.slug import slugify
@@ -431,6 +432,9 @@ class CalendarPullResult:
     dropped_no_provenance: int = 0
     dropped_bad_title: int = 0
     dropped_bad_date: int = 0
+    # Fetched payloads that were not a supported raster image (HTML/PDF/empty/wrong
+    # type/oversize) and so were skipped before the vision call (2026-06-25).
+    skipped_non_image: int = 0
     errors: list[str] = None  # type: ignore[assignment]
 
     def __post_init__(self) -> None:
@@ -540,16 +544,28 @@ def pull_flyers(
     for ref in refs:
         raw_text = (raw_text_by_url or {}).get(ref.url)
         img: tuple[bytes, str] | None = None
+        mime = "image/png"
         if raw_text is None:
             img = (image_bytes_by_url or {}).get(ref.url) or fetch_image_bytes(ref.url)
             if img is None:
                 out.errors.append(f"image fetch failed: {ref.url}")
                 continue
+            # Some gallery documentIDs are not raster images (HTML/PDF/empty/wrong
+            # type). Validate by magic bytes and skip non-images so we never send a
+            # payload the vision API rejects with a 400 "Failed to load image".
+            mime, reason = validate_flyer_image(img[0], content_type=img[1])
+            if mime is None:
+                out.skipped_non_image += 1
+                logger.warning(
+                    "parks_rec_flyers: skipping non-image flyer %s (%s, %d bytes, ct=%s)",
+                    ref.url, reason, len(img[0]), img[1],
+                )
+                continue
         # A flyer is bounded against the month of whatever date the model reads;
         # run the validate pass per parsed-month so each row self-bounds.
         ext = _extract_flyer(
             img[0] if img else b"",
-            mime=img[1] if img else "image/png",
+            mime=mime,
             ref=ref,
             raw_text=raw_text,
         )
