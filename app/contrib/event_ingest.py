@@ -54,6 +54,7 @@ from app.contrib.event_record import (
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
 from app.db.models import Contribution, Event
+from app.events.activity_taxonomy import event_activity_tags
 from app.events.description_clean import (
     clean_event_description,
     normalize_location_text,
@@ -268,7 +269,11 @@ _KEYWORD_TAGS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
     (("ballroom", "ballet", "dance class", "line dancing"), ("dance", _CLASSES)),
     (("concert", "live music", "band", "karaoke", "open mic", " dj "), ("music",)),
     (("kids", "family", "youth", "children", "toddler", "story time", "story hour"), ("family",)),
-    (("art walk", "paint ", "pottery", "art class", "craft"), ("arts",)),
+    # Calendar reorg Phase 1: the canonical activity signal is the namespaced
+    # ``activity:arts`` tag stamped by ``event_activity_tags``; this coarse "arts"
+    # tag mirrors it for search and is inert to the bare-word tier classifier.
+    (("art walk", "paint ", "paint &", "pottery", "art class", "craft", "stained glass",
+      "polymer clay", "terrarium", "windchime", "wind chime"), ("arts",)),
     (("farmers market", "swap meet", "craft fair"), ("market",)),
     (("city council", "planning and zoning", "board of", "commission"), ("civic",)),
     # Fix 2.5 — automotive route so car shows / cruise-ins / "Motor Madness" land
@@ -449,6 +454,15 @@ def _tags(rec: EventRecord) -> list[str]:
             organizer=organizer if isinstance(organizer, str) else "",
         )
     ):
+        if t not in merged:
+            merged.append(t)
+    # Calendar reorg Phase 1 (Casey 2026-06-25): stamp the canonical, namespaced
+    # activity/facet/audience tags ONCE at ingest, so every surface is a pure read
+    # (Phase 2). ``activity:<slug>`` is the single source of truth for which bucket
+    # a row belongs to; ``facet:special`` keeps a themed session (Cosmic Bowling,
+    # Glow in the Park) from collapsing into a venue's hours line. These are inert
+    # to the bare-word tier classifier, so they add no surface change here.
+    for t in event_activity_tags(rec.title, rec.venue_name, merged):
         if t not in merged:
             merged.append(t)
     return merged or ["events"]
