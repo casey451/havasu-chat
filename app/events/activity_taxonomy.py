@@ -198,6 +198,184 @@ def split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+# ── Unified activity classifier (calendar reorg, Casey 2026-06-25) ────────────
+# Phase 1 promotes this module to THE single classifier for *every* calendar
+# activity — not just the Fitness & Sports subgroups. The new non-fitness
+# activities route to OTHER top-level buckets:
+#   • arts / cooking / maker / learning → "learn"   (Classes & Workshops)
+#   • theater                            → "music"   (Theater & Performing Arts)
+#   • games / bowling / billiards /      → "events"  (Things to Do — the
+#     trampoline / family-fun                          Games & Social and the
+#                                                       Bowling/Billiards/Family
+#                                                       Fun sections)
+# These are stamped ONCE, at ingest, as a single ``activity:<slug>`` tag (plus
+# facet/audience tags) so every surface is a pure read (the render side is wired
+# in Phase 2). The slugs are namespaced (``activity:games``) so they are inert to
+# the bare-word tier classifier in :mod:`app.home.sandstone` until Phase 2 reads
+# them explicitly — which is why this phase changes no surface.
+
+# Specific non-fitness activity keywords, in specificity order. Checked BEFORE the
+# fitness classifier so an unambiguous craft/game/venue word wins over a fitness
+# keyword ("Paint & Sip" is arts, never a workout; "Mexican Train Dominoes" is a
+# game). Generic learning words ("workshop", "seminar") are deliberately NOT here
+# — they are too broad to outrank fitness ("Yoga Workshop" must stay yoga), so
+# they are a fallback below (:data:`_LEARNING_GENERIC`).
+NONFITNESS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("theater", (
+        "theater", "theatre", "musical", "performing arts", "improv",
+        "playhouse", "matinee", "drama club",
+    )),
+    ("games", (
+        "party bridge", "duplicate bridge", "bridge club", "pinochle",
+        "mexican train", "dominoes", "domino", "hand & foot", "hand and foot",
+        "bingo", "ping pong", "table tennis", "canasta", "mahjong", "mah jongg",
+        "euchre", "cribbage", "bunco", "board game", "card game",
+    )),
+    ("cooking", (
+        "cooking class", "cooking", "culinary", "baking class", "cake decorating",
+    )),
+    ("arts", (
+        "paint & sip", "paint and sip", "sip & paint", "sip and paint",
+        "stained glass", "polymer clay", "terrarium", "pottery", "ceramics",
+        "art class", "art walk", "arts & crafts", "arts and crafts", "open art",
+        "windchime", "wind chime", "jewelry making", "watercolor", "mosaic",
+        "quilting", "sewing class", "knitting", "crochet", "scrapbook",
+    )),
+    ("maker", ("maker", "cake pop", "slime", "robotics", "stem workshop", "3d print")),
+    ("bowling", (
+        "bowling", "cosmic bowl", "glow bowl", "rock & bowl", "rock and bowl", "keglers",
+    )),
+    ("billiards", (
+        "billiards", "pool hall", "pool league", "8-ball", "9-ball",
+        "8 ball", "9 ball", "snooker", "dart league",
+    )),
+    ("trampoline", ("trampoline", "jump time", "glow in the park")),
+    ("family-fun", ("arcade", "laser tag", "mini golf", "go kart", "go-kart", "bounce house")),
+)
+# Generic instruction words → "learning" (Classes & Workshops). Fallback ONLY,
+# after the fitness classifier, so a "Yoga Workshop" stays yoga and only a
+# genuinely non-fitness workshop/seminar lands in learning.
+_LEARNING_GENERIC: tuple[str, ...] = (
+    "seminar", "lecture", "workshop", "lifelong learning", "genealogy",
+    "computer class", "book club", "language class", "financial literacy",
+)
+
+# Every activity slug → its top-level calendar bucket key. The fitness slugs (the
+# values of :data:`SUBGROUP_SLUGS`) all map to "classes"; the new non-fitness
+# slugs map to "learn" / "events" / "music". (Golf is added in Phase 3 → classes.)
+ACTIVITY_BUCKET: dict[str, str] = {
+    **{slug: "classes" for slug in SUBGROUP_SLUGS.values()},
+    "arts": "learn",
+    "cooking": "learn",
+    "maker": "learn",
+    "learning": "learn",
+    "theater": "music",
+    "games": "events",
+    "bowling": "events",
+    "billiards": "events",
+    "trampoline": "events",
+    "family-fun": "events",
+}
+
+# Themed recurring sessions that are destination events in their own right
+# (Cosmic Bowling, Glow in the Park) → facet:special, so they render as distinct
+# dated events rather than collapsing into a venue's hours line (plan §4.6).
+_SPECIAL_RE = re.compile(
+    r"\b(cosmic|glow(?:\s+in\s+the\s+park)?|neon|blacklight|black light|"
+    r"dive[- ]in|after dark|rock\s*[&n]?\s*bowl)\b",
+    re.IGNORECASE,
+)
+# Leagues / tournaments / round-robins → facet:competition (golf leagues,
+# pickleball round-robins/PickleFest, pool/dart leagues are all this shape).
+_COMPETITION_RE = re.compile(
+    r"\b(tournament|league|round[- ]?robin|picklefest|championship|playoff)s?\b",
+    re.IGNORECASE,
+)
+# Audience facets (drive the Kids & Family / Seniors overlays in Phase 2).
+_AUDIENCE_YOUTH_RE = re.compile(
+    r"\b(kid|kids|youth|children|child|toddler|junior|teen|tween|family|families|"
+    r"mommy|story\s*time|tiny\s*tot)\b",
+    re.IGNORECASE,
+)
+
+
+def _phrase_hit(low: str, hints: tuple[str, ...]) -> bool:
+    """Word-boundary match of any hint in already-lowercased text (mirrors the
+    fitness :func:`_title_subgroup` matcher, phrases + a plural/gerund tail)."""
+    for h in hints:
+        if re.search(r"\b" + re.escape(h) + r"(?:e?s|ing)?\b", low):
+            return True
+    return False
+
+
+def classify_activity(
+    title: str,
+    venue: str | None = None,
+    tags: list[str] | None = None,
+    provider_activity: str | None = None,
+) -> str | None:
+    """The single canonical activity slug for any calendar row, or ``None``.
+
+    Precedence: (1) a specific non-fitness activity keyword (arts/cooking/maker/
+    games/theater/bowling/billiards/trampoline/family-fun) wins over fitness, so
+    a craft or social-game title is never mistaken for a workout; (2) the fitness
+    classifier (:func:`classify_class_subgroup` → its slug); (3) a generic
+    learning word ("workshop"/"seminar") as a fallback → ``learning``. Returns
+    ``None`` for non-activity rows (markets, festivals, civic) — they carry no
+    ``activity:*`` tag and route by the existing tier logic.
+    """
+    low = (title or "").lower()
+    for slug, hints in NONFITNESS_SUBGROUPS:
+        if _phrase_hit(low, hints):
+            return slug
+    fitness = SUBGROUP_SLUGS.get(classify_class_subgroup(title, venue, provider_activity))
+    if fitness:
+        return fitness
+    if _phrase_hit(low, _LEARNING_GENERIC):
+        return "learning"
+    return None
+
+
+def activity_bucket(slug: str | None) -> str | None:
+    """Top-level calendar bucket key for an activity slug, or ``None``."""
+    return ACTIVITY_BUCKET.get(slug) if slug else None
+
+
+def event_activity_tags(
+    title: str,
+    venue: str | None = None,
+    tags: list[str] | None = None,
+    provider_activity: str | None = None,
+) -> list[str]:
+    """Canonical namespaced tags to stamp on a row at ingest: one
+    ``activity:<slug>`` (when classifiable) plus ``facet:special`` /
+    ``facet:competition`` / ``audience:youth`` / ``audience:senior`` where
+    derivable. Namespaced so they are inert to the bare-word tier classifier
+    until the surfaces read them (Phase 2). Order-stable, no duplicates."""
+    out: list[str] = []
+    slug = classify_activity(title, venue, tags, provider_activity)
+    if slug:
+        out.append(f"activity:{slug}")
+    low = (title or "").lower()
+    if _SPECIAL_RE.search(low):
+        out.append("facet:special")
+    if _COMPETITION_RE.search(low):
+        out.append("facet:competition")
+    tagset = {str(t).strip().lower() for t in (tags or [])}
+    if "senior" in tagset or "seniors" in tagset:
+        out.append("audience:senior")
+    if _AUDIENCE_YOUTH_RE.search(low) or tagset & {"family", "youth", "kids"}:
+        out.append("audience:youth")
+    # De-dup while preserving order.
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for t in out:
+        if t not in seen:
+            seen.add(t)
+            deduped.append(t)
+    return deduped
+
+
 # ── Music & nightlife subsections (P2) ────────────────────────────────────────
 # The "Music & nightlife" group splits into typed subsections the same way
 # Fitness & classes does: Live Music (bands/concerts/acoustic), Comedy & Theater
