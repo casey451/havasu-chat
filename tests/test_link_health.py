@@ -215,8 +215,33 @@ def test_assess_link_present_with_suggestion() -> None:
         "Joe's Diner",
         page_fetcher=lambda u: "Welcome to Joe's Diner — now at /menu",
         chat=lambda p: '{"present": true, "suggested_url": "https://x.example/menu", "note": "page moved"}',
+        verifier=lambda u: (lh.OK, 200, "HTTP 200"),  # suggestion resolves -> kept
     )
     assert "present" in verdict and sug == "https://x.example/menu"
+
+
+def test_assess_drops_echoed_broken_url() -> None:
+    # The model just parrots the broken URL back (seen on real data) -> not a fix.
+    _, sug = lh.assess_link(
+        "https://x.example/dead",
+        "Co",
+        page_fetcher=lambda u: "page",
+        chat=lambda p: '{"present": true, "suggested_url": "https://x.example/dead/", "note": "ok"}',
+        verifier=lambda u: (lh.OK, 200, ""),
+    )
+    assert sug is None
+
+
+def test_assess_drops_nonresolving_suggestion() -> None:
+    # A different URL that doesn't actually resolve is noise, not a fix.
+    _, sug = lh.assess_link(
+        "https://x.example/dead",
+        "Co",
+        page_fetcher=lambda u: "page",
+        chat=lambda p: '{"present": true, "suggested_url": "https://x.example/guess", "note": "ok"}',
+        verifier=lambda u: (lh.BROKEN, 404, "HTTP 404"),
+    )
+    assert sug is None
 
 
 def test_assess_link_not_present() -> None:
