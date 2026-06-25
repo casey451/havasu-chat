@@ -41,7 +41,7 @@ from app.events.dedup import dedup_cross_source_event_rows
 from app.events.time_labels import TIME_TBD_LABEL, is_time_tbd, time_sort_key
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
-from app.home import events_views, sandstone, sponsor_store
+from app.home import events_views, flags, redesign, sandstone, sponsor_store
 from app.home.today_feed import today_feed
 from app.monetization import serving
 from app.movies.queries import movies_today
@@ -638,6 +638,35 @@ def serve_home(
     else:
         featured_cards = sandstone.featured_cards(spotlights)
     promoted = serving.serve_homepage_promoted(db, exclude_ids=taken) or sponsor_store.active_promoted(db)
+
+    # ── home_redesign (dark): the v4 reskin, served only when the flag resolves on
+    # (env HOME_REDESIGN, or the ?home_redesign=1 preview override). The old home
+    # stays intact below for instant rollback (flip the flag off). Same live data,
+    # re-templated; see app/home/redesign.py + flags.py.
+    if flags.home_redesign_enabled(request):
+        resp = templates.TemplateResponse(
+            request=request,
+            name="home_redesign.html",
+            context={
+                "today_label": now.strftime("%A, %B ") + str(now.day),
+                "selected_iso": feed_day.isoformat(),
+                "feed_day_label": _long_day_label(feed_day),
+                "is_today": feed_day == now.date(),
+                "cond_tiles": redesign.conditions_tiles(db, now=now),
+                "gas": redesign.gas_top5(db, now=now),
+                "week": sandstone.week_strip(db, today=now.date()),
+                "feed": redesign.feed_view_model(db, day=feed_day, now=now),
+                "marquee": marquee,
+                "promoted": promoted,
+                "featured_cards": featured_cards,
+                "directory_tiles": sandstone.directory_primary_tiles(),
+                "explore_tiles": sandstone.explore_tiles(db),
+                "active_tab": "today",
+            },
+        )
+        flags.apply_preview_cookie(request, resp)
+        return resp
+
     # Hero copy defaults to the locked prototype wording (with its italic accent);
     # owners can retune the eyebrow/headline per season via env without a redeploy.
     hero_eyebrow_override = os.getenv("HOME_HERO_EYEBROW") or None

@@ -22,6 +22,8 @@
     "http://127.0.0.1:8000/privacy?theme=lake",
     "http://127.0.0.1:8000/terms?theme=lake",
     "http://127.0.0.1:8000/gas?theme=lake",
-    "http://127.0.0.1:8000/today?theme=lake"
+    "http://127.0.0.1:8000/today?theme=lake",
+    "http://127.0.0.1:8000/home?home_redesign=1",
+    "http://127.0.0.1:8000/calendar?home_redesign=1"
   ]
 }

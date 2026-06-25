@@ -139,3 +139,8 @@ tatus
 /NEXT_SESSION_KICKOFF*.md
 /SEARCH_DEMAND_*.md
 /HAVA_AUDIT_AND_TAXONOMY_REBUILD.md
+
+# home-redesign visual gate: per-environment baselines (refs/ IS committed)
+tests/visual/baseline/
+tests/visual/diff/
+tests/visual/_cur_*.png

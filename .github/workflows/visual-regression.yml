@@ -1,0 +1,57 @@
+name: visual-regression
+
+# Home + calendar redesign (home_redesign) — Playwright visual fidelity gate.
+#
+# STATUS: ADVISORY (like redesign-a11y). Enforces the deterministic mobile-fit
+# rule (no horizontal overflow at 390px on the flagged /home and /calendar) and
+# bootstraps the pixel-drift self-baseline. The committed agreed-design refs live
+# in tests/visual/refs/ (captured from ask-hava-premium-v4.html via
+# tests/visual/capture_refs.py). Because the live page renders real, time-varying
+# data, a direct pixel-diff against the static mockup is not asserted; the drift
+# self-baseline is gitignored (per-environment) and meaningful for local dev.
+
+on:
+  workflow_dispatch:
+  pull_request:
+    branches: [main]
+    paths:
+      - "app/templates/base_redesign.html"
+      - "app/templates/home_redesign.html"
+      - "app/templates/calendar_redesign.html"
+      - "app/templates/components/redesign_icons.html"
+      - "app/static/styles/lake_redesign.css"
+      - "app/static/js/lake_redesign.js"
+      - "app/home/redesign.py"
+      - "app/home/flags.py"
+      - "app/home/router.py"
+      - "app/home/calendar_route.py"
+      - "tests/visual/**"
+      - ".github/workflows/visual-regression.yml"
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  visual:
+    name: Playwright visual gate (advisory)
+    runs-on: ubuntu-22.04
+    env:
+      ANTHROPIC_API_KEY: test-placeholder-key
+      OPENAI_API_KEY: test-placeholder-key
+      DATABASE_URL: sqlite:///./test.db
+      RUN_VISUAL: "1"
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version-file: ".python-version"
+          cache: "pip"
+      - name: Install Python deps
+        run: |
+          python -m pip install --upgrade pip
+          python -m pip install -r requirements.txt -r dev-requirements.txt
+      - name: Install Playwright Chromium
+        run: python -m playwright install --with-deps chromium
+      - name: Visual gate (no-overflow @390px + drift bootstrap)
+        run: python -m pytest tests/visual/test_home_redesign_visual.py -q
