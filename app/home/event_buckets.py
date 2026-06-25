@@ -46,9 +46,13 @@ import re
 # ``key`` is the stable CSS/JSON hook (never user-visible); ``label`` is the
 # display name shown in the events-page accordions and the home-strip legend.
 GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
-    # "Around town": the catch-all one-off group (special / untyped). Civic items
-    # used to land here; they now have their own "City & Government" bucket below.
-    ("events", "Happening today", "\U0001F39F️"),
+    # "Things to Do" (relabeled from "Happening today" — Casey 2026-06-25): the
+    # catch-all one-off group (markets / festivals / movies / community socials /
+    # untyped). Civic items used to land here; they now have their own "City &
+    # Government" bucket below. The bowling/billiards/family-fun venue cluster
+    # surfaces as a SECTION inside this bucket (Casey 2026-06-25), not a separate
+    # top-level — wired into the render split in a later phase.
+    ("events", "Things to Do", "\U0001F39F️"),
     # "Kids & Family" is a cross-cutting collector (see group_for_tier): every
     # kid/family occurrence — youth classes, Open Swim, story time — lands here
     # so a parent sees everything for kids in one place.
@@ -59,16 +63,22 @@ GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
     ("seniors", "Seniors", "\U0001F9D3"),
     # "City & Government" (P1): council/board/commission meetings, public
     # hearings, and other civic-government items — a "need to know" group, kept
-    # out of the leisure-oriented "Happening today" list. Routed by is_civic.
+    # out of the leisure-oriented "Things to Do" list. Routed by is_civic.
     ("civic", "City & Government", "\U0001F3DB️"),
-    ("music", "Music & nightlife", "\U0001F3B6"),
+    ("music", "Music & Nightlife", "\U0001F3B6"),
     ("water", "Lake & Boating", "⛵"),
     # Pool activities fold into Kids & Family (open/family swim) or Fitness &
     # classes (lap swim, water aerobics, aqua zumba) — no separate pool group.
-    # "Fitness & sports" (renamed from "Fitness & classes" — most of the calendar's
+    # "Fitness & Sports" (renamed from "Fitness & classes" — most of the calendar's
     # recurring items are sports, not instructional classes; Casey 2026-06-24).
     # Key stays "classes" so CSS hooks / rollup-noun mapping don't churn.
-    ("classes", "Fitness & sports", "\U0001F3C3"),
+    ("classes", "Fitness & Sports", "\U0001F3C3"),
+    # "Classes & Workshops" (NEW — Casey 2026-06-25): non-fitness recurring
+    # instruction — arts & crafts, paint & sip, cooking, maker, lifelong learning.
+    # The single highest-impact split: these are NOT fitness and were piling into
+    # the Fitness "Other classes" junk drawer. Rows route here once ingest stamps
+    # the activity:arts|cooking|maker|learning tags (Phase 1/2); empty until then.
+    ("learn", "Classes & Workshops", "\U0001F3A8"),
 )
 
 # Rollup nouns per bucket: (singular, plural). Several read naturally in
@@ -81,11 +91,12 @@ GROUP_NOUNS: dict[str, tuple[str, str]] = {
     "music": ("music", "music"),
     "water": ("on the water", "on the water"),
     "classes": ("class", "classes"),
+    "learn": ("workshop", "workshops"),
 }
 
 
 # All-day / drop-in recreation (Open Swim, Open Play, Open Gym, …) — NOT a
-# scheduled class and NOT a one-off event. Routes into "Happening today". Word-
+# scheduled class and NOT a one-off event. Routes into "Things to Do". Word-
 # boundary matched. "Open MAT" is excluded (that is jiu-jitsu -> Martial Arts).
 _DROPIN_REC_RE = re.compile(
     r"\b("
@@ -97,7 +108,7 @@ _DROPIN_REC_RE = re.compile(
 
 
 def is_dropin_rec(title: str | None) -> bool:
-    """True for all-day / drop-in rec — routes to "Happening today", not the
+    """True for all-day / drop-in rec — routes to "Things to Do", not the
     Fitness class list. Excludes "Open Mat" (jiu-jitsu)."""
     return bool(title) and bool(_DROPIN_REC_RE.search(title))
 
@@ -135,8 +146,12 @@ def group_for_tier(
     Kids & Family and Seniors are additive OVERLAYS built in
     :func:`app.home.events_views.day_groups` (an occurrence keeps this primary
     home AND is re-listed under the overlay), so this never returns "family" or
-    "seniors". Drop-in rec (Open Swim, Open Play) routes to "Happening today"
+    "seniors". Drop-in rec (Open Swim, Open Play) routes to "Things to Do"
     before the class/water checks so it never lands in the Fitness list.
+
+    The "learn" bucket (Classes & Workshops) is a Phase-0 display addition; rows
+    only route here once ingest stamps the non-fitness activity tags
+    (activity:arts|cooking|maker|learning), so this does not yet return "learn".
     """
     if is_dropin_rec(title):
         return "events"
@@ -150,7 +165,7 @@ def group_for_tier(
     # Red, White & Blue" and "HEAT Hotel Stars, Stripes & Splashes" landed in
     # "Other classes" because "splash" reads aquatic). Genuine classes come from
     # the class/program ingest (tags ``aquatics``/``sports``/``food``/…), never
-    # ``events``, so this routes the real one-offs to "Happening today" without
+    # ``events``, so this routes the real one-offs to "Things to Do" without
     # pulling any actual class out of the Fitness list.
     if tier in (TIER_CLASS, TIER_AQUATIC) and tags and "events" in {
         str(t).strip().lower() for t in tags
