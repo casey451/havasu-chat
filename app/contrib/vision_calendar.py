@@ -61,6 +61,16 @@ DEFAULT_VISION_MODEL = "gpt-4o"
 # model leaking the cell body into the title field and is dropped.
 TITLE_MAX_LEN = 120
 
+# A dense monthly calendar image consumes most of a small model's context window,
+# leaving too few tokens to emit the full ~30-event JSON -> the reply is truncated
+# -> unparseable -> 0 events (diagnosed on the CPU-only VPS, 2026-06-24). Give the
+# call a bigger context + output budget. ``VISION_NUM_CTX`` is the total context
+# window; it is Ollama-specific and only sent on the self-hosted path (real OpenAI
+# rejects the unknown ``options`` field). ``VISION_MAX_TOKENS`` caps the reply and
+# is sent on both paths. Larger num_ctx = more CPU time per image.
+VISION_NUM_CTX = int(os.getenv("VISION_NUM_CTX", "8192"))
+VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "4096"))
+
 _MONTH_NAMES = (
     "January February March April May June July August September October "
     "November December"
@@ -357,28 +367,35 @@ def call_vision(
     if client is None:
         logger.info("vision_calendar: no vision backend configured; returning empty extraction")
         return ""
+    create_kwargs: dict = {
+        "model": model or vision_model(),
+        "temperature": 0,
+        "response_format": {"type": "json_object"},
+        # Cap the reply so a dense calendar's full event list fits (both backends).
+        "max_tokens": VISION_MAX_TOKENS,
+        "messages": [
+            {"role": "system", "content": system_prompt},
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": (
+                            "Transcribe every event you can read. Output strict "
+                            'JSON {"events":[...]}.'
+                        ),
+                    },
+                    {"type": "image_url", "image_url": {"url": _data_url(image_bytes, mime)}},
+                ],
+            },
+        ],
+    }
+    # num_ctx is Ollama-specific -> only on the self-hosted path. The image eats
+    # most of the default window, so without this the output truncates mid-JSON.
+    if (os.getenv("VISION_BASE_URL") or "").strip():
+        create_kwargs["extra_body"] = {"options": {"num_ctx": VISION_NUM_CTX}}
     try:
-        resp = client.chat.completions.create(
-            model=model or vision_model(),
-            temperature=0,
-            response_format={"type": "json_object"},
-            messages=[
-                {"role": "system", "content": system_prompt},
-                {
-                    "role": "user",
-                    "content": [
-                        {
-                            "type": "text",
-                            "text": (
-                                "Transcribe every event you can read. Output strict "
-                                'JSON {"events":[...]}.'
-                            ),
-                        },
-                        {"type": "image_url", "image_url": {"url": _data_url(image_bytes, mime)}},
-                    ],
-                },
-            ],
-        )
+        resp = client.chat.completions.create(**create_kwargs)
         return (resp.choices[0].message.content or "").strip()
     except Exception:
         logger.exception("vision_calendar: vision call failed")
@@ -440,6 +457,15 @@ def parse_events_json(raw_text: str) -> list[dict]:
     try:
         data = json.loads(raw_text)
     except (ValueError, TypeError):
+        # Non-empty but unparseable is almost always a truncated reply (the model
+        # ran out of context emitting a long event list). Log it loudly -- a silent
+        # [] here is what made truncation look like "the model read nothing".
+        logger.warning(
+            "vision_calendar: %d chars of model output failed to parse "
+            "(likely truncated -- raise VISION_NUM_CTX/VISION_MAX_TOKENS); head=%r",
+            len(raw_text),
+            raw_text[:120],
+        )
         return []
     if isinstance(data, dict):
         rows = data.get("events")
@@ -547,6 +573,8 @@ def extract_flyer_rows(
 __all__ = [
     "CONFIDENCE_THRESHOLD",
     "DEFAULT_VISION_MODEL",
+    "VISION_MAX_TOKENS",
+    "VISION_NUM_CTX",
     "ExtractionResult",
     "MONTH_INDEX",
     "ValidationStats",
