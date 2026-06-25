@@ -62,13 +62,7 @@ def _persist_and_maybe_email(report: "lh.ScanReport", *, email: bool) -> None:
         newly = lh.persist_results(db, report, now=now)
         print(f"\npersisted {len(report.results)} results; {len(newly)} newly-confirmed broken")
         if email and newly:
-            subject = f"[Ask Hava] {len(newly)} newly broken link(s) detected"
-            lines = [f"- [{r.category}] {r.kind} | {r.label or ''} | {r.url} ({r.detail or ''})" for r in newly]
-            text = "Newly confirmed-broken links (failed multiple sweeps):\n\n" + "\n".join(lines)
-            html = "<h3>Newly confirmed-broken links</h3><ul>" + "".join(
-                f"<li><b>{r.kind}</b> — {r.label or ''}<br>{r.url}<br><i>{r.category}: {r.detail or ''}</i></li>"
-                for r in newly
-            ) + "</ul>"
+            subject, text, html = lh.format_broken_link_report(newly)
             to = (os.getenv("WATCH_ALERT_EMAIL") or "").strip()
             if not to:
                 print("  (WATCH_ALERT_EMAIL unset — skipping email)")

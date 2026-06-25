@@ -359,6 +359,49 @@ def assess_link(
     return (verdict.strip()[:512], sug)
 
 
+def format_broken_link_report(rows) -> tuple[str, str, str]:
+    """Build a paste-ready (subject, text, html) work order from broken-link rows.
+
+    Grouped by site, most-affected first, so systematic rot (e.g. a site that
+    restructured its URLs) is obvious. Each line carries what a fixer needs:
+    label, category, url, entity_id, and the local-AI verdict/suggestion if any.
+    Designed so the email can be handed straight to a follow-up fix session.
+    """
+    from collections import defaultdict
+
+    groups: dict[str, list] = defaultdict(list)
+    for r in rows:
+        host = urlsplit(r.url).hostname or "(unknown)"
+        groups[host].append(r)
+    ordered = sorted(groups.items(), key=lambda kv: (-len(kv[1]), kv[0]))
+
+    subject = f"[Ask Hava] {len(rows)} broken link(s) to fix"
+    tl = [
+        f"{len(rows)} confirmed-broken link(s), grouped by site (most-affected first).",
+        "To fix: hand this whole report to a Claude Code session and say "
+        '"fix these broken links per docs/scraper/LINK_FIX_RUNBOOK.md".',
+        "Full triage UI: /admin/link-health",
+        "",
+    ]
+    hp = ['<p>%d confirmed-broken link(s), grouped by site. Hand this to a Claude Code '
+          'session: "fix these per docs/scraper/LINK_FIX_RUNBOOK.md". '
+          'Triage UI: <a href="https://askhava.com/admin/link-health">/admin/link-health</a>.</p>' % len(rows)]
+    for host, items in ordered:
+        tl.append(f"## {host} ({len(items)})")
+        hp.append(f"<h4>{host} ({len(items)})</h4><ul>")
+        for r in items:
+            ai = f" | AI: {r.llm_assessment}" if r.llm_assessment else ""
+            sug = f" | suggested: {r.llm_suggested_url}" if r.llm_suggested_url else ""
+            tl.append(f"  - {r.label or '(?)'} | {r.category} | {r.url} | id={r.entity_id or '-'}{ai}{sug}")
+            hp.append(
+                f"<li><b>{r.label or '(?)'}</b> [{r.kind}] — {r.category}<br>{r.url}"
+                f"<br><small>id={r.entity_id or '-'}{ai}{sug}</small></li>"
+            )
+        tl.append("")
+        hp.append("</ul>")
+    return subject, "\n".join(tl), "".join(hp)
+
+
 def save_assessment(db, url: str, assessment: str, suggested_url: str | None, *, now: datetime) -> None:
     from app.db.models import LinkHealth
 

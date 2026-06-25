@@ -292,3 +292,26 @@ def test_save_assessment_updates_row() -> None:
         with SessionLocal() as db:
             db.query(LinkHealth).filter(LinkHealth.url == url).delete()
             db.commit()
+
+
+# --- email work-order formatter -------------------------------------------- #
+def test_format_broken_link_report_groups_by_site() -> None:
+    from types import SimpleNamespace
+
+    def row(url, label, **kw):
+        return SimpleNamespace(
+            url=url, label=label, kind="provider_website", category="broken",
+            entity_id="id1", llm_assessment=kw.get("ai"), llm_suggested_url=kw.get("sug"),
+        )
+
+    rows = [
+        row("https://lhcaz.gov/a", "Park A"),
+        row("https://lhcaz.gov/b", "Park B"),
+        row("https://solo.com/x", "Solo", ai="business present", sug="https://solo.com/new"),
+    ]
+    subject, text, html = lh.format_broken_link_report(rows)
+    assert "3 broken" in subject
+    # most-affected site (lhcaz.gov, 2) appears before the single-item site
+    assert text.index("lhcaz.gov (2)") < text.index("solo.com (1)")
+    assert "RUNBOOK" in text and "/admin/link-health" in text
+    assert "business present" in text and "https://solo.com/new" in text
