@@ -42,9 +42,11 @@ from app.contrib.event_record import EventRecord
 from app.contrib.parks_rec_loader import DEFAULT_PROVIDER_WEBTRAC, _all_tags
 from app.contrib.vision_calendar import (
     MONTH_INDEX,
+    VISION_CALENDAR_TILES,
     ExtractionResult,
     VisionEventRow,
     calendar_system_prompt,
+    extract_calendar_tiled,
     extract_flyer_rows,
     extract_validated_rows,
     vision_model,
@@ -451,12 +453,22 @@ def pull_calendars(
     today: date | None = None,
     self_check: bool = False,
     write_snapshot: bool = True,
+    tiles: int | None = None,
     # Test seams -- inject the gallery HTML, image bytes, and recorded model JSON
     # so the suite never makes a live HTTP/LLM call.
     image_bytes_by_url: dict[str, tuple[bytes, str]] | None = None,
     raw_text_by_url: dict[str, str] | None = None,
 ) -> CalendarPullResult:
-    """Discover + transcribe the monthly calendar image(s) into EventRecords."""
+    """Discover + transcribe the monthly calendar image(s) into EventRecords.
+
+    ``tiles`` (default ``VISION_CALENDAR_TILES``) splits each calendar image into N
+    overlapping bands so a small CPU model isn't asked to emit the whole dense
+    grid at once; rows are merged + deduped across tiles. Tiling is a live-image
+    path only -- an injected ``raw_text_by_url`` (whole-image recorded JSON) takes
+    the un-tiled path so existing fixtures still work.
+    """
+    if tiles is None:
+        tiles = VISION_CALENDAR_TILES
     out = CalendarPullResult(records=[])
     page = html if html is not None else fetch_gallery_html()
     refs = discover_calendar_images(page, today=today)
@@ -470,15 +482,26 @@ def pull_calendars(
             if img is None:
                 out.errors.append(f"image fetch failed: {ref.url}")
                 continue
-        ext = extract_validated_rows(
-            img[0] if img else b"",
-            system_prompt=calendar_system_prompt(month=ref.month, year=ref.year),
-            month=ref.month,
-            year=ref.year,
-            mime=img[1] if img else "image/png",
-            raw_text=raw_text,
-            self_check=self_check,
-        )
+        prompt = calendar_system_prompt(month=ref.month, year=ref.year)
+        if raw_text is None and tiles > 1:
+            ext = extract_calendar_tiled(
+                img[0],
+                system_prompt=prompt,
+                month=ref.month,
+                year=ref.year,
+                n_tiles=tiles,
+                mime=img[1],
+            )
+        else:
+            ext = extract_validated_rows(
+                img[0] if img else b"",
+                system_prompt=prompt,
+                month=ref.month,
+                year=ref.year,
+                mime=img[1] if img else "image/png",
+                raw_text=raw_text,
+                self_check=self_check,
+            )
         if raw_text is None and write_snapshot:
             _snapshot_raw_output(ref, ext.raw_text)
         if ext.rows:

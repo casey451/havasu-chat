@@ -12,6 +12,7 @@ from datetime import date, time
 from pathlib import Path
 
 from app.contrib import vision_calendar as vc
+from app.contrib.vision_calendar import VisionEventRow
 
 FIXTURES = Path(__file__).parent / "fixtures" / "parks_rec"
 
@@ -264,3 +265,76 @@ def test_empty_output_does_not_warn(caplog) -> None:
     with caplog.at_level("WARNING", logger="app.contrib.vision_calendar"):
         assert vc.parse_events_json("") == []
     assert not any("failed to parse" in rec.message for rec in caplog.records)
+
+
+# --------------------------------------------------------------------------- #
+# Tiling — split a dense grid so each request stays small (the VPS volume fix)
+# --------------------------------------------------------------------------- #
+def _png_bytes(w: int, h: int) -> bytes:
+    import io
+
+    from PIL import Image
+
+    buf = io.BytesIO()
+    Image.new("RGB", (w, h), (255, 255, 255)).save(buf, format="PNG")
+    return buf.getvalue()
+
+
+def test_split_image_vertically_produces_overlapping_tiles() -> None:
+    import io
+
+    from PIL import Image
+
+    img = _png_bytes(120, 400)
+    tiles = vc.split_image_vertically(img, n_tiles=2, overlap_frac=0.1)
+    assert len(tiles) == 2
+    sizes = [Image.open(io.BytesIO(t)).size for t in tiles]
+    # Same width; each tile taller than a clean half (200) because of the overlap.
+    assert all(w == 120 for w, _h in sizes)
+    assert all(h > 200 for _w, h in sizes)
+
+
+def test_split_image_noop_for_one_tile_or_tiny_image() -> None:
+    img = _png_bytes(100, 300)
+    assert vc.split_image_vertically(img, n_tiles=1) == [img]
+    tiny = _png_bytes(10, 3)
+    # Too short to split into 4 meaningful bands -> returned unchanged.
+    assert vc.split_image_vertically(tiny, n_tiles=4) == [tiny]
+
+
+def _vrow(title: str, day: int, conf: float) -> VisionEventRow:
+    return VisionEventRow(
+        title=title, event_date=date(2026, 6, day), start_time=None, end_time=None,
+        location=None, cost=None, audience=None, notes=None, confidence=conf,
+        source_cell=f"{day} {title}", should_hide=conf < vc.CONFIDENCE_THRESHOLD,
+    )
+
+
+def test_merge_dedup_rows_collapses_overlap_keeping_higher_confidence() -> None:
+    tile0 = [_vrow("Line Dancing", 1, 0.8), _vrow("Sunrise Kayak", 2, 0.9)]
+    tile1 = [_vrow("Sunrise Kayak", 2, 0.95), _vrow("Adventure Camp", 12, 0.9)]
+    merged, dups = vc.merge_dedup_rows([tile0, tile1])
+    titles = [r.title for r in merged]
+    assert titles == ["Line Dancing", "Sunrise Kayak", "Adventure Camp"]  # order preserved
+    assert dups == 1
+    kayak = next(r for r in merged if r.title == "Sunrise Kayak")
+    assert kayak.confidence == 0.95  # higher-confidence duplicate won
+
+
+def test_extract_calendar_tiled_merges_injected_tiles() -> None:
+    raw_by_tile = {
+        0: json.dumps({"events": [
+            {"title": "Line Dancing", "date": "2026-06-01", "source_cell": "1 LD", "confidence": 0.9},
+            {"title": "Sunrise Kayak", "date": "2026-06-02", "source_cell": "2 SK", "confidence": 0.8},
+        ]}),
+        1: json.dumps({"events": [
+            {"title": "Sunrise Kayak", "date": "2026-06-02", "source_cell": "2 SK", "confidence": 0.95},
+            {"title": "Adventure Camp", "date": "2026-06-12", "source_cell": "12 AC", "confidence": 0.9},
+        ]}),
+    }
+    img = _png_bytes(120, 400)
+    ext = vc.extract_calendar_tiled(
+        img, system_prompt="p", month=6, year=2026, n_tiles=2, raw_text_by_tile=raw_by_tile
+    )
+    assert {r.title for r in ext.rows} == {"Line Dancing", "Sunrise Kayak", "Adventure Camp"}
+    assert ext.stats.kept == 3  # the overlap duplicate is deduped

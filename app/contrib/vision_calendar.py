@@ -64,12 +64,28 @@ TITLE_MAX_LEN = 120
 # A dense monthly calendar image consumes most of a small model's context window,
 # leaving too few tokens to emit the full ~30-event JSON -> the reply is truncated
 # -> unparseable -> 0 events (diagnosed on the CPU-only VPS, 2026-06-24). Give the
-# call a bigger context + output budget. ``VISION_NUM_CTX`` is the total context
-# window; it is Ollama-specific and only sent on the self-hosted path (real OpenAI
-# rejects the unknown ``options`` field). ``VISION_MAX_TOKENS`` caps the reply and
-# is sent on both paths. Larger num_ctx = more CPU time per image.
+# call a bigger context + output budget. ``VISION_MAX_TOKENS`` caps the reply and is
+# a first-class OpenAI param, honored on every backend.
+#
+# ``VISION_NUM_CTX`` is sent via ``extra_body={"options": {...}}`` on the self-hosted
+# path only (real OpenAI rejects the unknown field). CAVEAT (VPS, 2026-06-24): Ollama's
+# OpenAI-compatible ``/v1/chat/completions`` endpoint IGNORES this -- the model stays
+# pinned at its built-in context (4096) regardless. Some OpenAI-compatible servers
+# (vLLM) do honor it, so it is kept, but for Ollama you must bake the window into the
+# model (Modelfile ``PARAMETER num_ctx``; see deploy/vps-vision/havasu-qwen-cal.Modelfile)
+# OR -- better on a CPU box -- split the grid into tiles (below) so each request's
+# image + output is small enough to fit the default window.
 VISION_NUM_CTX = int(os.getenv("VISION_NUM_CTX", "8192"))
 VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "4096"))
+
+# Tiling: a dense recurring-heavy month overflows even a raised budget (the full
+# event list is just too long for a small CPU model to emit in one reply). Splitting
+# the calendar image into N overlapping horizontal bands keeps each request's image
+# AND its output small, so it fits the default window and stays fast per call; the
+# rows are merged + deduped across tiles. Default 1 (off) so OpenAI / non-dense use is
+# unchanged; the self-hosted VPS sets VISION_CALENDAR_TILES=2 (or 3).
+VISION_CALENDAR_TILES = int(os.getenv("VISION_CALENDAR_TILES", "1"))
+VISION_CALENDAR_TILE_OVERLAP = float(os.getenv("VISION_CALENDAR_TILE_OVERLAP", "0.12"))
 
 _MONTH_NAMES = (
     "January February March April May June July August September October "
@@ -525,6 +541,128 @@ def extract_validated_rows(
     return ExtractionResult(rows=rows, stats=stats, raw_text=text)
 
 
+# --------------------------------------------------------------------------- #
+# Tiling -- split a dense calendar so each request stays small (CPU-friendly)
+# --------------------------------------------------------------------------- #
+def _dedup_title_key(title: str) -> str:
+    return re.sub(r"[^a-z0-9]+", " ", (title or "").lower()).strip()
+
+
+def split_image_vertically(
+    image_bytes: bytes,
+    *,
+    n_tiles: int,
+    overlap_frac: float = VISION_CALENDAR_TILE_OVERLAP,
+) -> list[bytes]:
+    """Crop ``image_bytes`` into ``n_tiles`` overlapping horizontal bands (PNG each).
+
+    Bands overlap by ``overlap_frac`` of a band so an event row straddling a tile
+    boundary still appears whole in at least one tile; :func:`merge_dedup_rows`
+    drops the overlap. Returns ``[image_bytes]`` unchanged when ``n_tiles <= 1`` or
+    Pillow / decoding is unavailable (the caller then runs the un-tiled path).
+    """
+    if n_tiles <= 1:
+        return [image_bytes]
+    try:
+        import io
+
+        from PIL import Image
+    except Exception:  # pragma: no cover -- Pillow present in prod
+        return [image_bytes]
+    try:
+        img = Image.open(io.BytesIO(image_bytes))
+        img.load()
+        img = img.convert("RGB")
+    except Exception:
+        logger.exception("vision_calendar: image decode failed; not tiling")
+        return [image_bytes]
+    w, h = img.size
+    if h < n_tiles * 2:  # too small to split meaningfully
+        return [image_bytes]
+    band = h / n_tiles
+    over = band * max(0.0, overlap_frac)
+    tiles: list[bytes] = []
+    for i in range(n_tiles):
+        top = max(0, int(i * band - over))
+        bottom = min(h, int((i + 1) * band + over))
+        buf = io.BytesIO()
+        img.crop((0, top, w, bottom)).save(buf, format="PNG")
+        tiles.append(buf.getvalue())
+    return tiles
+
+
+def merge_dedup_rows(row_lists: list[list[VisionEventRow]]) -> tuple[list[VisionEventRow], int]:
+    """Flatten tile results and dedup by ``(date, normalized title)``.
+
+    Keeps the higher-confidence row of a duplicate pair (the overlap band sees the
+    same event twice). Returns ``(rows, num_duplicates_dropped)``; input order is
+    otherwise preserved.
+    """
+    best: dict[tuple[date, str], VisionEventRow] = {}
+    order: list[tuple[date, str]] = []
+    dups = 0
+    for rows in row_lists:
+        for r in rows:
+            key = (r.event_date, _dedup_title_key(r.title))
+            cur = best.get(key)
+            if cur is None:
+                best[key] = r
+                order.append(key)
+            else:
+                dups += 1
+                if r.confidence > cur.confidence:
+                    best[key] = r
+    return [best[k] for k in order], dups
+
+
+def extract_calendar_tiled(
+    image_bytes: bytes,
+    *,
+    system_prompt: str,
+    month: int,
+    year: int,
+    n_tiles: int,
+    model: str | None = None,
+    mime: str = "image/png",
+    openai_symbol: object = OpenAI,
+    raw_text_by_tile: dict[int, str] | None = None,
+) -> ExtractionResult:
+    """Tiled calendar extraction: split -> validate each tile -> merge + dedup.
+
+    The calendar's title-derived ``month``/``year`` bounds every tile (same grid).
+    Tests inject ``raw_text_by_tile`` (tile index -> recorded JSON) to skip the live
+    call. Stats are aggregated across tiles; ``kept`` is the post-dedup count.
+    """
+    tiles = split_image_vertically(image_bytes, n_tiles=n_tiles)
+    agg = ValidationStats()
+    per_tile: list[list[VisionEventRow]] = []
+    raw_parts: list[str] = []
+    for idx, tile in enumerate(tiles):
+        rt = (raw_text_by_tile or {}).get(idx) if raw_text_by_tile is not None else None
+        text = (
+            rt
+            if rt is not None
+            else call_vision(
+                tile, system_prompt=system_prompt, model=model, mime="image/png",
+                openai_symbol=openai_symbol,
+            )
+        )
+        raw_parts.append(text)
+        rows, stats = validate_rows(parse_events_json(text), month=month, year=year)
+        per_tile.append(rows)
+        agg.raw += stats.raw
+        agg.dropped_out_of_month += stats.dropped_out_of_month
+        agg.dropped_no_provenance += stats.dropped_no_provenance
+        agg.dropped_bad_title += stats.dropped_bad_title
+        agg.dropped_bad_date += stats.dropped_bad_date
+    merged, _dups = merge_dedup_rows(per_tile)
+    agg.kept = len(merged)
+    agg.held_low_confidence = sum(1 for r in merged if r.should_hide)
+    return ExtractionResult(
+        rows=merged, stats=agg, raw_text="\n---TILE---\n".join(raw_parts)
+    )
+
+
 def extract_flyer_rows(
     image_bytes: bytes,
     *,
@@ -573,8 +711,12 @@ def extract_flyer_rows(
 __all__ = [
     "CONFIDENCE_THRESHOLD",
     "DEFAULT_VISION_MODEL",
+    "VISION_CALENDAR_TILES",
     "VISION_MAX_TOKENS",
     "VISION_NUM_CTX",
+    "extract_calendar_tiled",
+    "merge_dedup_rows",
+    "split_image_vertically",
     "ExtractionResult",
     "MONTH_INDEX",
     "ValidationStats",
