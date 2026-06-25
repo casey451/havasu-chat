@@ -53,7 +53,7 @@ from app.contrib.event_record import (
 )
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
-from app.db.models import Event
+from app.db.models import Contribution, Event
 from app.events.description_clean import (
     clean_event_description,
     normalize_location_text,
@@ -575,6 +575,134 @@ def _would_auto_approve_dry_run(
     )
 
 
+def vision_record_should_hold(rec: EventRecord, *, source: str) -> bool:
+    """The #514 auto-approve gate as a single predicate, for the one-time backfill.
+
+    True when a vision row must stay PENDING: the engine held it
+    (``raw['should_hide']`` — confidence below threshold / self-check demotion) OR
+    its listed weekday contradicts its body. This is exactly
+    ``_vision_auto_approve_blocked`` with the weekday signal computed here, so the
+    backfill reuses the production gate rather than reimplementing it. (The
+    ambiguous / cross-source-duplicate cases are the caller's reconcile step,
+    mirroring ingest.)"""
+    return _vision_auto_approve_blocked(
+        rec, source=source, weekday_mismatch=weekday_contradiction(rec)
+    )
+
+
+# Original venue was not persisted on the contribution; fall back to each source's
+# default — the same value the adapter uses when a row carries no explicit
+# location (the common case). When the model DID read a specific location it is
+# preserved inside the stored description, so no user-facing info is lost.
+# (Mirrors lhc_parks_rec_calendar.DEFAULT_VENUE / senior_center.VENUE_NAME.)
+_VISION_SOURCE_DEFAULT_VENUE: dict[str, str] = {
+    "parks_rec_calendar": "Lake Havasu City Parks & Recreation",
+    "parks_rec_flyers": "Lake Havasu City Parks & Recreation",
+    "senior_center_flyers": "Lake Havasu Senior Center",
+}
+
+
+def _record_from_pending_contribution(c: Contribution) -> EventRecord:
+    """Reconstruct the canonical EventRecord from a stored vision contribution.
+
+    Fidelity: title / dates / times / description / url / source round-trip
+    exactly. Three fields were never persisted on the contribution and so cannot
+    be recovered — venue (-> source default; the specific location, when read,
+    survives in the description), ``should_hide`` (-> the engine-hold guard is
+    effectively off for the backfill; tonight's batch had no ingest-level
+    confidence holds), and image_url (-> none). Tags are re-derived from the
+    title+description by ``_tags`` (the adapter's tag list was not stored)."""
+    venue = _VISION_SOURCE_DEFAULT_VENUE.get(c.source, "Lake Havasu City")
+    return EventRecord(
+        source=c.source,
+        title=c.submission_name,
+        start_date=c.event_date,
+        start_time=c.event_time_start,
+        end_date=c.event_end_date,
+        end_time=c.event_time_end,
+        venue_name=venue,
+        venue_address=None,
+        url=c.source_url or c.submission_url or "",
+        description=c.submission_notes or "",
+        tags=[],
+        image_url=None,
+        raw={},
+    )
+
+
+@dataclass
+class VisionBackfillResult:
+    """Outcome of evaluating one already-pending vision contribution."""
+
+    action: str  # "approve" | "hold"
+    reason: str
+    contribution_id: int | None = None
+    title: str | None = None
+    event_id: str | None = None
+
+
+def backfill_pending_vision_contribution(
+    db: Session,
+    c: Contribution,
+    *,
+    dry_run: bool,
+    today: date | None = None,
+) -> VisionBackfillResult:
+    """Apply the #514 auto-approve gate to one ALREADY-PENDING vision contribution.
+
+    Makes the same decision ingest would for a fresh row, but against the stored
+    contribution: reconstruct the record, then HOLD if it now reconciles as a
+    duplicate / ambiguous against live events, if the vision gate trips
+    (weekday-mismatch — the confidence hold is unrecoverable post-hoc, see
+    :func:`_record_from_pending_contribution`), or if it is not registry-eligible;
+    otherwise APPROVE through :func:`approve_event_contribution` so the row is
+    identical to one auto-published on ingest.
+
+    Idempotent: a non-pending / non-vision contribution is a no-op hold. ``dry_run``
+    performs reads only (reconcile is read-only) and returns the would-be action."""
+
+    def _hold(reason: str) -> VisionBackfillResult:
+        return VisionBackfillResult(
+            action="hold", reason=reason, contribution_id=c.id, title=c.submission_name
+        )
+
+    if c.status != "pending":
+        return _hold("not pending (idempotent skip)")
+    if c.entity_type != "event" or c.source not in VISION_EVENT_SOURCES:
+        return _hold("not a vision event")
+
+    rec = _record_from_pending_contribution(c)
+    payload = _to_event_payload(rec, source=c.source)
+    result = reconcile_event(db, payload, today=today or date.today())
+    if result.action != "insert":
+        # ambiguous / duplicate / update -> ingest holds (or merges) these; the
+        # backfill leaves them pending so it never publishes a possible double-book.
+        return _hold(f"reconcile:{result.action}")
+
+    if vision_record_should_hold(rec, source=c.source):
+        return _hold("weekday_mismatch" if weekday_contradiction(rec) else "engine_hold")
+
+    if not should_auto_approve_event(c):
+        return _hold("not registry-eligible")
+
+    if dry_run:
+        return VisionBackfillResult(
+            action="approve",
+            reason="would_auto_approve",
+            contribution_id=c.id,
+            title=c.submission_name,
+        )
+
+    ev = approve_event_contribution(db, c.id, rec, end_date=payload.end_date)
+    return VisionBackfillResult(
+        action="approve",
+        reason="approved",
+        contribution_id=c.id,
+        title=c.submission_name,
+        event_id=ev.id,
+    )
+
+
 def _existing_open_contribution(db: Session, *, source: str, title: str, start_date: date | None) -> bool:
     """True when a pending/approved contribution for the same source+title+date
     already exists — re-running a scrape must not re-insert review-queue rows
@@ -657,6 +785,38 @@ def _apply_structured_fields(db: Session, ev: Event, rec: EventRecord) -> None:
     if changed:
         db.add(ev)
         db.commit()
+
+
+def approve_event_contribution(
+    db: Session,
+    contribution_id: int,
+    rec: EventRecord,
+    *,
+    end_date: date | None,
+) -> Event:
+    """Approve a pending event contribution via the canonical auto-approve path.
+
+    Extracted so the ingest auto-approve flow and the one-time pending-vision
+    backfill (``scripts/backfill_vision_auto_approve.py``) construct the
+    EventApprovalFields, run ``approve_contribution_as_event``, and store the
+    structured fields (cost/host/image_url) through the SAME code — a backfilled
+    row is then byte-for-byte the row ingest would have auto-published."""
+    approve_fields = EventApprovalFields(
+        title=rec.title.strip(),
+        description=_description(rec),
+        date=rec.start_date,
+        end_date=end_date,
+        start_time=rec.start_time or time(0, 0),
+        end_time=rec.end_time,
+        location_name=_location_name(rec),
+        event_url=_http_url_or_none(rec.url) or "https://askhava.com/events-ui",
+        source_url=rec.url,
+    )
+    ev = approve_contribution_as_event(db, contribution_id, approve_fields, _tags(rec))
+    # Fix 2.2 / 3.2 / 4.3 — store the new structured fields the approval schema
+    # doesn't carry (cost / host / image_url).
+    _apply_structured_fields(db, ev, rec)
+    return ev
 
 
 def ingest_event_records(
@@ -774,24 +934,9 @@ def ingest_event_records(
                     rec, source=source, weekday_mismatch=weekday_mismatch
                 ):
                     try:
-                        approve_fields = EventApprovalFields(
-                            title=rec.title.strip(),
-                            description=_description(rec),
-                            date=rec.start_date,
-                            end_date=payload.end_date,
-                            start_time=rec.start_time or time(0, 0),
-                            end_time=rec.end_time,
-                            location_name=_location_name(rec),
-                            event_url=_http_url_or_none(rec.url)
-                            or "https://askhava.com/events-ui",
-                            source_url=rec.url,
+                        ev = approve_event_contribution(
+                            db, created.id, rec, end_date=payload.end_date
                         )
-                        ev = approve_contribution_as_event(
-                            db, created.id, approve_fields, _tags(rec)
-                        )
-                        # Fix 2.2 / 3.2 / 4.3 — store the new structured fields the
-                        # approval schema doesn't carry (cost / host / image_url).
-                        _apply_structured_fields(db, ev, rec)
                         counts.auto_approved += 1
                         if verbose:
                             print(f"info: auto-approved {source} contribution "
