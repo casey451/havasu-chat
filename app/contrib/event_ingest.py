@@ -8,14 +8,22 @@ trust-tiered approval) is identical across every source:
 
     EventRecord -> EventPayload -> reconcile_event(db, payload):
         insert     -> create_contribution -> (auto-approve if the source is in
-                      the auto-approve registry AND the payload is complete,
-                      else leave PENDING for human review)
+                      the auto-approve registry AND the payload is complete AND,
+                      for vision sources, the per-row guards pass; else leave
+                      PENDING for human review)
         update/dup -> merge mergeable fields onto the existing event
         ambiguous  -> create contribution, leave PENDING, log
 
 Trust tier is NOT decided here — it is the ``should_auto_approve_event`` registry
 in ``approval_service`` (civic/official feeds auto-approve; aggregators land
 pending). This keeps one source of truth for the go/no-go policy.
+
+Vision sources (parks_rec_calendar / parks_rec_flyers / senior_center_flyers) are
+in that registry but auto-publish only their CLEAN rows: ``_vision_auto_approve_blocked``
+keeps a row the vision engine HELD (confidence below the §6 threshold or a
+self-check demotion, stamped on ``raw['should_hide']``) or whose listed weekday
+contradicts its body PENDING for /admin review (ambiguous + cross-source dups are
+already held upstream).
 
 No network here: callers pass already-fetched records. ``dry_run=True`` performs
 no writes (mirrors the inert dry-run drivers).
@@ -33,6 +41,7 @@ from sqlalchemy.orm import Session
 
 from app.contrib.approval_service import (
     approve_contribution_as_event,
+    auto_approve_event_sources,
     should_auto_approve_event,
 )
 from app.contrib.event_min_info import event_missing_info
@@ -509,6 +518,63 @@ def _blocked_organizer(rec: EventRecord) -> str | None:
     return None
 
 
+# --------------------------------------------------------------------------- #
+# Vision-source auto-approve gate (2026-06-24).
+#
+# The Parks & Rec calendar/flyer + senior-center flyer vision scrapers should
+# auto-publish the CLEAN, guard-passing rows straight to the live calendar but
+# keep the uncertain ones PENDING for /admin review. Registry membership (in
+# ``approval_service``) makes a vision row *eligible*; these helpers add the
+# per-row gate so a held / weekday-mismatched row is NOT auto-approved. Ambiguous
+# reconciles and cross-source duplicates are already held earlier in the loop, so
+# they never reach the auto-approve decision.
+# --------------------------------------------------------------------------- #
+VISION_EVENT_SOURCES = frozenset(
+    {"parks_rec_calendar", "parks_rec_flyers", "senior_center_flyers"}
+)
+
+
+def _vision_row_held(rec: EventRecord) -> bool:
+    """True when the vision engine marked this row to hold (confidence below the
+    §6 threshold or a self-check demotion). The vision adapters stamp this onto
+    ``EventRecord.raw['should_hide']``; non-vision records lack the key -> False."""
+    raw = rec.raw if isinstance(rec.raw, dict) else {}
+    return bool(raw.get("should_hide"))
+
+
+def _vision_auto_approve_blocked(
+    rec: EventRecord, *, source: str, weekday_mismatch: bool
+) -> bool:
+    """A vision-source row that tripped a hold guard must stay PENDING, not go live.
+
+    Only vision sources are gated (every other source keeps its existing
+    trust-tier behavior). The two guards added here are the engine's
+    confidence/self-check hold and a listed-weekday-vs-body contradiction; the
+    ambiguous and cross-source-duplicate cases are already held upstream."""
+    if source not in VISION_EVENT_SOURCES:
+        return False
+    return _vision_row_held(rec) or weekday_mismatch
+
+
+def _would_auto_approve_dry_run(
+    rec: EventRecord, *, source: str, weekday_mismatch: bool
+) -> bool:
+    """Dry-run preview of the auto-approve decision (no Contribution row exists).
+
+    Mirrors ``should_auto_approve_event``'s registry + completeness gate against
+    the EventRecord and applies the same vision guard, so a dry run honestly
+    reports ``auto_approved`` vs ``inserted_pending`` instead of marking every row
+    pending. ``event_time_start`` is always set by ingest (start_time or 00:00),
+    so it is not re-checked here."""
+    if source not in auto_approve_event_sources():
+        return False
+    if not (rec.title or "").strip() or rec.start_date is None:
+        return False
+    return not _vision_auto_approve_blocked(
+        rec, source=source, weekday_mismatch=weekday_mismatch
+    )
+
+
 def _existing_open_contribution(db: Session, *, source: str, title: str, start_date: date | None) -> bool:
     """True when a pending/approved contribution for the same source+title+date
     already exists — re-running a scrape must not re-insert review-queue rows
@@ -632,7 +698,9 @@ def ingest_event_records(
             continue
         # Fix 2.7 — flag (never drop) a record whose listed weekday contradicts a
         # schedule stated in its body (e.g. BMX Clinic dated Fri, body says Tue/Thu).
-        if weekday_contradiction(rec):
+        # The flag also blocks auto-approve for vision sources (held pending).
+        weekday_mismatch = weekday_contradiction(rec)
+        if weekday_mismatch:
             counts.flagged_weekday_mismatch += 1
             if verbose:
                 print(
@@ -679,10 +747,19 @@ def ingest_event_records(
                 )
 
                 if dry_run:
-                    counts.inserted_pending += 1
+                    # Honest preview: report the decision --apply would make, so a
+                    # clean vision/civic batch shows under auto_approved (not all
+                    # pending). Ambiguous rows are always held for review.
                     if result.action == "ambiguous":
                         log_ambiguous_reconcile(result, context=rec.url or rec.title)
                         counts.flagged_ambiguous += 1
+                        counts.inserted_pending += 1
+                    elif _would_auto_approve_dry_run(
+                        rec, source=source, weekday_mismatch=weekday_mismatch
+                    ):
+                        counts.auto_approved += 1
+                    else:
+                        counts.inserted_pending += 1
                     continue
 
                 created = cs.create_contribution(db, contribution)
@@ -693,7 +770,9 @@ def ingest_event_records(
                     counts.inserted_pending += 1
                     continue
 
-                if should_auto_approve_event(created):
+                if should_auto_approve_event(created) and not _vision_auto_approve_blocked(
+                    rec, source=source, weekday_mismatch=weekday_mismatch
+                ):
                     try:
                         approve_fields = EventApprovalFields(
                             title=rec.title.strip(),

@@ -278,6 +278,12 @@ _SCRAPE_EVENT_SOURCES = frozenset(
 # Trust-tier decision (2026-06-05): high-trust civic/official feeds (legistar
 # council/board agendas, lhusd school calendar) auto-approve; aggregators like
 # allevents are deliberately NOT here, so they land pending for human review.
+#
+# Vision sources (2026-06-24): the Parks & Rec calendar/flyer and senior-center
+# flyer vision scrapers auto-approve only their CLEAN rows. Registry membership is
+# necessary but NOT sufficient for them — ``event_ingest`` ANDs this with the
+# per-row vision guards (confidence/self-check hold, weekday-mismatch; ambiguous +
+# cross-source dups are already held upstream), so a guessed row never lands live.
 _DEFAULT_AUTO_APPROVE_EVENT_SOURCES = frozenset(
     {
         "chamber",
@@ -286,6 +292,9 @@ _DEFAULT_AUTO_APPROVE_EVENT_SOURCES = frozenset(
         "river_scene_import",
         "legistar",
         "lhusd",
+        "parks_rec_calendar",
+        "parks_rec_flyers",
+        "senior_center_flyers",
     }
 )
 
