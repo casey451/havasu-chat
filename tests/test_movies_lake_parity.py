@@ -9,7 +9,6 @@ renders and the movies content shows on /movies, /home, and /events-ui.
 from __future__ import annotations
 
 import uuid
-from datetime import time
 
 import pytest
 from fastapi.testclient import TestClient
@@ -25,6 +24,11 @@ _STRIP_MARKER = 'aria-label="At the movies today"'
 
 
 def _seed(film_title: str, sid: str) -> str:
+    # Seed the showtime at "now" (today) rather than a fixed 18:30. Movies are
+    # hidden ~1 hour AFTER they start (#506), so a fixed evening time made this test
+    # fail every day after ~19:30 Lake Havasu time. A start of "now" is always
+    # inside the visible window, at any time of day.
+    when = now_lake_havasu().replace(second=0, microsecond=0)
     with SessionLocal() as db:
         row = MovieShowtime(
             source="test_movies_lake",
@@ -32,8 +36,8 @@ def _seed(film_title: str, sid: str) -> str:
             theater_slug="star-cinemas",
             theater_name="Star Cinemas",
             film_title=film_title,
-            show_date=now_lake_havasu().date(),
-            show_time=time(18, 30),
+            show_date=when.date(),
+            show_time=when.time(),
             booking_url="https://example.com/book",
         )
         db.add(row)
