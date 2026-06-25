@@ -126,6 +126,12 @@ def register_link_health_html_routes(router: APIRouter) -> None:
                 if slug:
                     label = f'<a href="/provider/{_esc(slug)}" target="_blank" rel="noopener">{label}</a>'
                 status = _esc(r.detail or r.category)
+                # Layer 2: local-LLM verdict + suggested replacement URL, if assessed.
+                assess = _esc(r.llm_assessment) if r.llm_assessment else ""
+                if r.llm_suggested_url:
+                    su = _esc(r.llm_suggested_url)
+                    assess += f'<br><a class="ext" href="{su}" target="_blank" rel="noopener nofollow">→ {su}</a>'
+                assess = assess or "—"
                 body += (
                     "<tr>"
                     f"<td>{label}</td>"
@@ -134,11 +140,13 @@ def register_link_health_html_routes(router: APIRouter) -> None:
                     f'<td class="num">{r.consecutive_failures}</td>'
                     f"<td>{_esc(_fmt_dt(r.last_checked_at))}</td>"
                     f'<td><a class="ext" href="{_esc(r.url)}" target="_blank" rel="noopener nofollow">{_esc(r.url)}</a></td>'
+                    f"<td>{assess}</td>"
                     "</tr>"
                 )
             table = (
                 "<table><thead><tr>"
-                "<th>Listing</th><th>Where</th><th>Status</th><th>Fails</th><th>Last checked</th><th>URL</th>"
+                "<th>Listing</th><th>Where</th><th>Status</th><th>Fails</th><th>Last checked</th>"
+                "<th>URL</th><th>Suggested fix (local AI)</th>"
                 f"</tr></thead><tbody>{body}</tbody></table>"
             )
 

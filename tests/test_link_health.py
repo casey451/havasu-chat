@@ -201,3 +201,69 @@ def test_heavy_job_running_detects_oneshot_states(monkeypatch) -> None:
     assert cli._heavy_job_running() is False
     monkeypatch.setattr(cli, "_unit_state", lambda u: "")
     assert cli._heavy_job_running() is False
+
+
+# --- Layer 2: local-LLM assessment (injected fetcher + chat) --------------- #
+def test_root_url() -> None:
+    assert lh.root_url("https://www.x.com/a/b?c=1") == "https://www.x.com/"
+    assert lh.root_url("not a url") == ""
+
+
+def test_assess_link_present_with_suggestion() -> None:
+    verdict, sug = lh.assess_link(
+        "https://x.example/old-page",
+        "Joe's Diner",
+        page_fetcher=lambda u: "Welcome to Joe's Diner — now at /menu",
+        chat=lambda p: '{"present": true, "suggested_url": "https://x.example/menu", "note": "page moved"}',
+    )
+    assert "present" in verdict and sug == "https://x.example/menu"
+
+
+def test_assess_link_not_present() -> None:
+    verdict, sug = lh.assess_link(
+        "https://gone.example/x",
+        "Closed Co",
+        page_fetcher=lambda u: "Domain for sale",
+        chat=lambda p: '{"present": false, "suggested_url": null, "note": "domain parked"}',
+    )
+    assert "NOT found" in verdict and sug is None
+
+
+def test_assess_link_root_unreachable() -> None:
+    verdict, sug = lh.assess_link("https://x.example/p", "Co", page_fetcher=lambda u: "", chat=lambda p: "")
+    assert "unreachable" in verdict and sug is None
+
+
+def test_assess_link_rejects_nonhttp_suggestion() -> None:
+    _, sug = lh.assess_link(
+        "https://x.example/p",
+        "Co",
+        page_fetcher=lambda u: "page",
+        chat=lambda p: '{"present": true, "suggested_url": "mailto:a@b.com", "note": "x"}',
+    )
+    assert sug is None
+
+
+def test_save_assessment_updates_row() -> None:
+    from datetime import datetime
+
+    from app.db.database import SessionLocal
+    from app.db.models import LinkHealth
+
+    url = "https://assess-test.example/dead"
+    now = datetime(2026, 6, 25, 12, 0, 0)
+    try:
+        with SessionLocal() as db:
+            db.add(LinkHealth(url=url, kind="provider_website", category="broken",
+                              first_checked_at=now, last_checked_at=now, confirmed_broken=True))
+            db.commit()
+        with SessionLocal() as db:
+            lh.save_assessment(db, url, "business present; moved", "https://assess-test.example/new", now=now)
+            db.commit()
+        with SessionLocal() as db:
+            row = db.query(LinkHealth).filter(LinkHealth.url == url).one()
+            assert row.llm_suggested_url == "https://assess-test.example/new" and row.llm_checked_at is not None
+    finally:
+        with SessionLocal() as db:
+            db.query(LinkHealth).filter(LinkHealth.url == url).delete()
+            db.commit()

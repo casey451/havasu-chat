@@ -1,0 +1,19 @@
+[Unit]
+Description=Ask Hava broken-link assessment (local-LLM suggested fixes)
+After=network-online.target ollama.service
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+WorkingDirectory=/opt/havasu-chat
+# DATABASE_URL + VISION_BASE_URL/VISION_MODEL (the local model) from the vision env.
+EnvironmentFile=/etc/havasu/havasu-vision.env
+# Low priority: the local model is CPU-heavy and must never starve the app/scrape.
+Nice=19
+IOSchedulingClass=idle
+CPUWeight=20
+ExecStart=/opt/havasu-chat/.venv/bin/python /opt/havasu-chat/scripts/link_assess.py --apply --limit 40
+TimeoutStartSec=7200
+NoNewPrivileges=true
+ProtectSystem=full
+PrivateTmp=true
