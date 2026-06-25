@@ -25,6 +25,7 @@ from app.admin.contributions_html import register_contribution_html_routes
 from app.admin.events_html import register_events_html_routes
 from app.admin.feedback_html import register_feedback_html_routes
 from app.admin.jobs_html import register_jobs_html_routes
+from app.admin.link_health_html import register_link_health_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
 from app.admin.placement_analytics_html import register_placement_analytics_html_routes
 from app.admin.provider_approval import pending_provider_count
@@ -2262,5 +2263,6 @@ register_mentions_html_routes(router)
 register_placement_analytics_html_routes(router)
 register_categories_html_routes(router)
 register_category_flags_html_routes(router)
+register_link_health_html_routes(router)
 register_feedback_html_routes(router)
 register_sponsor_admin_routes(router)

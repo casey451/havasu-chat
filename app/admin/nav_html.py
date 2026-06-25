@@ -12,6 +12,7 @@ def admin_phase5_nav_html() -> str:
       <a href="/admin/mentioned-entities">Mentioned entities</a>
       <a href="/admin/categories">Categories</a>
       <a href="/admin/providers/miscategorized">Miscategorized</a>
+      <a href="/admin/link-health">Broken links</a>
       <a href="/admin/analytics">Analytics</a>
       <a href="/admin/placement-analytics">Placement analytics</a>
       <a href="/admin/feedback">Feedback</a>
