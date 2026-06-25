@@ -128,11 +128,34 @@ def categorize(http_status: int) -> str:
     return OK
 
 
+# Browser UA: many live sites block non-browser user-agents outright (returning
+# 403 or hanging), which a bot UA would mis-flag as broken.
+_BROWSER_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/124.0.0.0 Safari/537.36"
+)
+
+
+def _probe(url: str, *, timeout: float, verify: bool) -> int:
+    """HEAD (fall back to GET) once; return the HTTP status or raise httpx error."""
+    import httpx
+
+    headers = {"User-Agent": _BROWSER_UA, "Accept": "text/html,application/xhtml+xml,*/*"}
+    with httpx.Client(timeout=timeout, follow_redirects=True, headers=headers, verify=verify) as client:
+        resp = client.head(url)
+        if resp.status_code in (405, 501) or resp.status_code >= 400:
+            resp = client.get(url)  # HEAD is often unsupported or differently gated
+        return resp.status_code
+
+
 def check_one(url: str, *, timeout: float = 12.0) -> tuple[str, int | None, str]:
     """Resolve one URL to (category, http_status, detail). Never raises.
 
-    HEAD first (cheap); fall back to GET when a server rejects HEAD (405/501) or
-    errors, since many sites only answer GET. The SSRF guard runs first.
+    Browser UA + (on a transport/TLS error) a second attempt with TLS verification
+    relaxed. A site that loads only with relaxed TLS has a cert flaw but is still
+    reachable in a real browser, so it is **not** a dead link -- this is what keeps
+    expired-intermediate-cert and bot-blocked-but-live sites out of the broken list.
+    The SSRF guard runs first.
     """
     from app.contrib.url_fetcher import is_blocked_target
 
@@ -145,18 +168,19 @@ def check_one(url: str, *, timeout: float = 12.0) -> tuple[str, int | None, str]
     except Exception:  # pragma: no cover -- httpx always present in prod
         return (UNREACHABLE, None, "httpx unavailable")
 
-    headers = {"User-Agent": USER_AGENT}
     try:
-        with httpx.Client(timeout=timeout, follow_redirects=True, headers=headers) as client:
-            resp = client.head(url)
-            if resp.status_code in (405, 501) or resp.status_code >= 400:
-                # Retry with GET -- HEAD is often unsupported or differently gated.
-                resp = client.get(url)
-            code = resp.status_code
+        code = _probe(url, timeout=timeout, verify=True)
+        return (categorize(code), code, f"HTTP {code}")
     except httpx.HTTPError as exc:
-        return (UNREACHABLE, None, f"{type(exc).__name__}: {exc}".strip()[:160])
+        first = f"{type(exc).__name__}: {exc}".strip()[:160]
 
-    return (categorize(code), code, f"HTTP {code}")
+    # Second attempt: relaxed TLS (also a free retry for a transient connect/timeout).
+    try:
+        code = _probe(url, timeout=timeout, verify=False)
+    except httpx.HTTPError:
+        return (UNREACHABLE, None, first)
+    detail = f"HTTP {code}" + (" (insecure TLS)" if code < 400 else "")
+    return (categorize(code), code, detail)
 
 
 # --------------------------------------------------------------------------- #
