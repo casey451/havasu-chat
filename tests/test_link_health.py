@@ -185,3 +185,19 @@ def test_persist_blocked_by_site_never_confirms() -> None:
         assert r["cf"] == 0 and r["confirmed"] is False  # anti-bot is not "broken"
     finally:
         _cleanup(url)
+
+
+# --- the "pause for heavy jobs" check correctly reads oneshot states --------- #
+def test_heavy_job_running_detects_oneshot_states(monkeypatch) -> None:
+    import scripts.link_health_scan as cli
+
+    # A running oneshot reports "activating", NOT "active" -- must still count.
+    monkeypatch.setattr(cli, "_unit_state", lambda u: "activating")
+    assert cli._heavy_job_running() is True
+    monkeypatch.setattr(cli, "_unit_state", lambda u: "active")
+    assert cli._heavy_job_running() is True
+    # Idle/absent -> not running.
+    monkeypatch.setattr(cli, "_unit_state", lambda u: "inactive")
+    assert cli._heavy_job_running() is False
+    monkeypatch.setattr(cli, "_unit_state", lambda u: "")
+    assert cli._heavy_job_running() is False

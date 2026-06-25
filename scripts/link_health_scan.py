@@ -33,18 +33,23 @@ from app.monitoring import link_health as lh  # noqa: E402
 # Units the scan should yield to on the VPS.
 HEAVY_UNITS = ("havasu-vision-scrape.service", "havasu-db-backup.service")
 
+# A `Type=oneshot` unit sits in state "activating" the whole time its ExecStart
+# runs (it never reports "active"), so checking `is-active` exit 0 alone would
+# miss a running scrape/backup and never pause. Treat any of these as "running".
+_RUNNING_STATES = {"active", "activating", "reloading", "deactivating"}
+
+
+def _unit_state(unit: str) -> str:
+    try:
+        return subprocess.run(
+            ["systemctl", "is-active", unit], capture_output=True, text=True, timeout=10
+        ).stdout.strip()
+    except Exception:
+        return ""  # systemctl absent (e.g. dev/Windows) -> treat as not running
+
 
 def _heavy_job_running() -> bool:
-    for unit in HEAVY_UNITS:
-        try:
-            rc = subprocess.run(
-                ["systemctl", "is-active", "--quiet", unit], timeout=10
-            ).returncode
-        except Exception:
-            rc = 3  # systemctl absent (e.g. dev/Windows) -> treat as not running
-        if rc == 0:
-            return True
-    return False
+    return any(_unit_state(unit) in _RUNNING_STATES for unit in HEAVY_UNITS)
 
 
 def _persist_and_maybe_email(report: "lh.ScanReport", *, email: bool) -> None:
