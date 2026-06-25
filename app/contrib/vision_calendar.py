@@ -522,11 +522,61 @@ def self_check_unsure_dates(
 # --------------------------------------------------------------------------- #
 # Parse + orchestrate
 # --------------------------------------------------------------------------- #
+def _salvage_truncated_events(raw_text: str) -> list[dict]:
+    """Recover the complete event objects from a truncated JSON reply.
+
+    A small CPU model frequently runs out of context mid-array on a dense calendar,
+    so ``json.loads`` fails on an otherwise-good ``{"events":[ {..}, {..}, {<cut>``.
+    Rather than drop every event the model *did* read, walk the array and keep each
+    balanced, individually-parseable ``{...}`` object; stop at the first incomplete
+    one. Returns ``[]`` if there's no recognizable array to walk.
+    """
+    head = raw_text.find('"events"')
+    start = raw_text.find("[", head) if head != -1 else raw_text.find("[")
+    if start == -1:
+        return []
+    rows: list[dict] = []
+    depth = 0
+    in_str = False
+    esc = False
+    obj_start = -1
+    for j in range(start + 1, len(raw_text)):
+        c = raw_text[j]
+        if in_str:
+            if esc:
+                esc = False
+            elif c == "\\":
+                esc = True
+            elif c == '"':
+                in_str = False
+            continue
+        if c == '"':
+            in_str = True
+        elif c == "{":
+            if depth == 0:
+                obj_start = j
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0 and obj_start != -1:
+                try:
+                    d = json.loads(raw_text[obj_start : j + 1])
+                    if isinstance(d, dict):
+                        rows.append(d)
+                except ValueError:
+                    pass
+                obj_start = -1
+        elif c == "]" and depth == 0:
+            break
+    return rows
+
+
 def parse_events_json(raw_text: str) -> list[dict]:
     """Parse the model's strict-JSON reply into a list of row dicts.
 
-    Accepts ``{"events":[...]}`` or a bare ``[...]``; returns ``[]`` on any parse
-    failure or unexpected shape (honest omission).
+    Accepts ``{"events":[...]}`` or a bare ``[...]``; on a parse failure (almost
+    always a truncated reply) it salvages the complete objects read so far rather
+    than dropping the whole tile. Returns ``[]`` only on an unexpected shape.
     """
     if not raw_text:
         return []
@@ -534,15 +584,19 @@ def parse_events_json(raw_text: str) -> list[dict]:
         data = json.loads(raw_text)
     except (ValueError, TypeError):
         # Non-empty but unparseable is almost always a truncated reply (the model
-        # ran out of context emitting a long event list). Log it loudly -- a silent
-        # [] here is what made truncation look like "the model read nothing".
+        # ran out of context emitting a long event list). Salvage what completed --
+        # a silent [] here is what made truncation look like "the model read
+        # nothing" -- and log loudly so the cause stays visible.
+        salvaged = _salvage_truncated_events(raw_text)
         logger.warning(
             "vision_calendar: %d chars of model output failed to parse "
-            "(likely truncated -- raise VISION_NUM_CTX/VISION_MAX_TOKENS); head=%r",
+            "(likely truncated -- raise VISION_CALENDAR_TILES); salvaged %d complete "
+            "event(s); head=%r",
             len(raw_text),
+            len(salvaged),
             raw_text[:120],
         )
-        return []
+        return salvaged
     if isinstance(data, dict):
         rows = data.get("events")
     elif isinstance(data, list):
