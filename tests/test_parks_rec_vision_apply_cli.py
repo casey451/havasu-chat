@@ -1,8 +1,10 @@
-"""The vision-scraper CLIs ingest via the shared event funnel on --apply.
+"""The vision-scraper CLIs route records through the shared event funnel.
 
-Asserts the wiring (records -> ingest_event_records, dry_run=False, lands as
-pending because these sources aren't auto-approve) without any live HTTP/LLM:
-the pull functions and the ingest call are monkeypatched.
+Both paths call ``ingest_event_records`` -- ``--apply`` with ``dry_run=False``
+(rows land pending, since these sources aren't auto-approve) and the default
+dry-run with ``dry_run=True`` (which still constructs a ContributionCreate per
+record, so a bad ``source`` / schema mismatch is caught in the dry-run too). The
+pull functions and the ingest call are monkeypatched -- no live HTTP/LLM.
 """
 
 from __future__ import annotations
@@ -80,15 +82,16 @@ def test_senior_apply_ingests_records(monkeypatch) -> None:
     assert captured["records"] == [rec]
 
 
-def test_dry_run_default_does_not_ingest(monkeypatch) -> None:
+def test_dry_run_validates_via_ingest_dry_run(monkeypatch) -> None:
+    # The default (no --apply) still runs the funnel with dry_run=True so the
+    # ContributionCreate schema (incl. the source Literal) is validated -- it just
+    # writes nothing.
     rec = _rec("parks_rec_calendar")
     monkeypatch.setattr(pcli, "pull_calendars", lambda **kw: CalendarPullResult(records=[rec]))
-    # Avoid touching the DB classifier in this hermetic test.
-    monkeypatch.setattr(pcli, "_classify_against_db", lambda records: None)
-    called = {"ingest": False}
-    monkeypatch.setattr(ei, "ingest_event_records", lambda *a, **k: called.__setitem__("ingest", True))
+    captured = _capture_ingest(monkeypatch)
 
     rc = pcli.main([])
 
     assert rc == 0
-    assert called["ingest"] is False
+    assert captured["dry_run"] is True
+    assert captured["records"] == [rec]

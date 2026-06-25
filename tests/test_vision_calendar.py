@@ -321,6 +321,38 @@ def test_merge_dedup_rows_collapses_overlap_keeping_higher_confidence() -> None:
     assert kayak.confidence == 0.95  # higher-confidence duplicate won
 
 
+def test_correct_flyer_years_rolls_implausible_past_forward() -> None:
+    today = date(2026, 6, 24)
+    past = VisionEventRow(
+        title="America 250 Celebration", event_date=date(2023, 7, 1), start_time=None,
+        end_time=None, location=None, cost=None, audience=None, notes=None,
+        confidence=0.95, source_cell="July 1 America 250", should_hide=False,
+    )
+    near = VisionEventRow(
+        title="Summer Concert", event_date=date(2026, 7, 5), start_time=None,
+        end_time=None, location=None, cost=None, audience=None, notes=None,
+        confidence=0.9, source_cell="July 5 Concert", should_hide=False,
+    )
+    corrected = vc.correct_flyer_years([past, near], today=today)
+    assert corrected == 1
+    assert past.event_date == date(2026, 7, 1)  # rolled to nearest future year
+    assert near.event_date == date(2026, 7, 5)  # already future -> untouched
+
+
+def test_extract_flyer_rows_corrects_missing_year_guess() -> None:
+    # The model gave a flyer a training-prior 2023; with no title year to bound it,
+    # the year guard rolls it to the current/next year.
+    payload = json.dumps({"events": [
+        {"title": "Dodgeball USA", "date": "2023-07-02", "source_cell": "July 2 Dodgeball",
+         "confidence": 0.95},
+    ]})
+    ext = vc.extract_flyer_rows(
+        b"", context_label="test", raw_text=payload, today=date(2026, 6, 24)
+    )
+    assert len(ext.rows) == 1
+    assert ext.rows[0].event_date == date(2026, 7, 2)
+
+
 def test_extract_calendar_tiled_merges_injected_tiles() -> None:
     raw_by_tile = {
         0: json.dumps({"events": [

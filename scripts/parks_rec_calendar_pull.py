@@ -47,38 +47,7 @@ from app.contrib.lhc_parks_rec_calendar import (  # noqa: E402
     pull_calendars,
     pull_flyers,
 )
-from app.contrib.scrape_dryrun import INSERT, SKIP, print_dry_run_report  # noqa: E402
-
-
-def _classify_against_db(records: list[EventRecord]) -> dict[int, str] | None:
-    """Read-only insert/skip decision per record, or ``None`` if no DB reachable.
-
-    A record is a SKIP when its synthetic source_url is already loaded
-    (idempotent re-run) or an existing event already carries the same
-    (title, date, venue) -- that source (WebTrac/aquatic/civic) is richer, so the
-    calendar scraper defers (build brief §7). Otherwise it is a would-insert.
-    No writes; only reads.
-    """
-    try:
-        from app.contrib.event_ingest import _persisted_duplicate_event
-        from app.contrib.parks_rec_loader import _has_existing_source_url
-        from app.db import contribution_store as cs
-        from app.db.database import SessionLocal
-
-        decisions: dict[int, str] = {}
-        with SessionLocal() as db:
-            for rec in records:
-                normalized = cs.normalize_submission_url(rec.url)
-                if _has_existing_source_url(db, normalized):
-                    decisions[id(rec)] = SKIP
-                elif _persisted_duplicate_event(db, rec) is not None:
-                    decisions[id(rec)] = SKIP
-                else:
-                    decisions[id(rec)] = INSERT
-        return decisions
-    except Exception as e:  # noqa: BLE001 -- no DB in this env is expected
-        print(f"note: read-only dedup classification unavailable ({e}); counting all as insert")
-        return None
+from app.contrib.scrape_dryrun import print_dry_run_report  # noqa: E402
 
 
 def _confidence_histogram(records: list[EventRecord]) -> str:
@@ -140,27 +109,20 @@ def main(argv: list[str] | None = None) -> int:
 
     records = result.records
 
-    if args.apply:
-        # parks_rec_calendar / parks_rec_flyers are NOT in the auto-approve
-        # registry, so every ingested row lands as a PENDING contribution for
-        # admin review -- vision output never reaches users unreviewed.
-        from app.contrib.event_ingest import ingest_event_records, print_ingest_report
-
-        counts = ingest_event_records(records, source=name, dry_run=False)
-        print_ingest_report(name, counts, dry_run=False)
-        return 0 if counts.errors == 0 else 1
-
-    decisions = _classify_against_db(records)
-    classify = (lambda rec: decisions[id(rec)]) if decisions is not None else None
-
+    # Always show the fetched samples + confidence/guard notes.
     print_dry_run_report(
-        name,
-        records,
-        classify=classify,
-        sample_fn=event_sample,
-        notes=_notes(name, result, records),
+        name, records, sample_fn=event_sample, notes=_notes(name, result, records)
     )
-    return 0
+
+    # Run the shared event funnel for the authoritative would-insert/merge/skip
+    # counts. This constructs a ContributionCreate per record, so a bad `source` /
+    # schema mismatch surfaces in the DRY-RUN too (not only on --apply). dry_run
+    # unless --apply; these sources aren't auto-approve, so real runs land PENDING.
+    from app.contrib.event_ingest import ingest_event_records, print_ingest_report
+
+    counts = ingest_event_records(records, source=name, dry_run=not args.apply)
+    print_ingest_report(name, counts, dry_run=not args.apply)
+    return 0 if counts.errors == 0 else 1
 
 
 if __name__ == "__main__":

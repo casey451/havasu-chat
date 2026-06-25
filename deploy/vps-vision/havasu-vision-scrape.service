@@ -12,10 +12,10 @@ Group=havasu
 WorkingDirectory=/opt/havasu-chat
 EnvironmentFile=/etc/havasu/havasu-vision.env
 ExecStart=/opt/havasu-chat/deploy/vps-vision/run_vision_scrapes.sh
-# Generous timeout: small CPU vision models are slow, and a larger VISION_NUM_CTX
-# (needed so dense calendars don't truncate) makes each image slower still. A full
-# ~22-image run can exceed 30 min on a CPU box -- give it 60 min of headroom.
-TimeoutStartSec=3600
+# Generous timeout: small CPU vision models are slow, and tiling (3x per calendar)
+# plus a larger VISION_MAX_TOKENS makes a full run of all three sources long. The
+# VPS measured ~12 min for the calendar alone -- give the whole run 90 min headroom.
+TimeoutStartSec=5400
 # Light hardening.
 NoNewPrivileges=true
 ProtectSystem=full
