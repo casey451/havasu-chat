@@ -248,15 +248,19 @@ def test_full_month_output_parses_all_rows() -> None:
     assert stats.kept == 30  # nothing dropped by the guards
 
 
-def test_truncated_output_returns_empty_and_warns(caplog) -> None:
+def test_truncated_output_salvages_complete_events_and_warns(caplog) -> None:
     full = (FIXTURES / "calendar_full_month.json").read_text(encoding="utf-8")
+    full_rows = vc.parse_events_json(full)
     # Simulate the model running out of context: a valid prefix cut mid-object
     # (ends at `"audience":` with no closing braces), exactly the VPS failure.
     truncated = full[:5362].rstrip()
     assert not truncated.endswith("}")  # genuinely unterminated
     with caplog.at_level("WARNING", logger="app.contrib.vision_calendar"):
         rows = vc.parse_events_json(truncated)
-    assert rows == []
+    # The complete objects before the cut are recovered (not silently dropped),
+    # and it's strictly fewer than the full reply.
+    assert 0 < len(rows) < len(full_rows)
+    assert all(isinstance(r, dict) for r in rows)
     assert any("failed to parse" in rec.message for rec in caplog.records)
 
 
@@ -370,3 +374,39 @@ def test_extract_calendar_tiled_merges_injected_tiles() -> None:
     )
     assert {r.title for r in ext.rows} == {"Line Dancing", "Sunrise Kayak", "Adventure Camp"}
     assert ext.stats.kept == 3  # the overlap duplicate is deduped
+
+
+# --------------------------------------------------------------------------- #
+# Truncated-reply salvage (dense CPU-model calendars run out of context mid-array;
+# recover the complete event objects instead of dropping the whole tile)
+# --------------------------------------------------------------------------- #
+def test_parse_salvages_truncated_events() -> None:
+    from app.contrib.vision_calendar import parse_events_json
+
+    truncated = (
+        '{"events": ['
+        '{"title": "Concert in the Park", "date": "2026-07-04"},'
+        '{"title": "Farmers Market", "date": "2026-07-05"},'
+        '{"title": "Half Written Even'  # cut off mid-object
+    )
+    rows = parse_events_json(truncated)
+    assert [r["title"] for r in rows] == ["Concert in the Park", "Farmers Market"]
+
+
+def test_parse_salvage_handles_braces_in_strings() -> None:
+    from app.contrib.vision_calendar import parse_events_json
+
+    truncated = (
+        '{"events": ['
+        '{"title": "Taco {Tuesday}", "notes": "bring $5"},'
+        '{"title": "next one cut'
+    )
+    rows = parse_events_json(truncated)
+    assert len(rows) == 1 and rows[0]["title"] == "Taco {Tuesday}"
+
+
+def test_parse_valid_json_unaffected() -> None:
+    from app.contrib.vision_calendar import parse_events_json
+
+    assert parse_events_json('{"events": [{"title": "A"}]}') == [{"title": "A"}]
+    assert parse_events_json("not json at all") == []
