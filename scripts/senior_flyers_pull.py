@@ -70,6 +70,7 @@ def _notes(result: SeniorFlyerPullResult, records: list[EventRecord]) -> list[st
             f"no_provenance={result.dropped_no_provenance} "
             f"bad_title={result.dropped_bad_title} bad_date={result.dropped_bad_date}"
         ),
+        f"skipped non-image (HTML/PDF/empty/oversize): {result.skipped_non_image}",
         *([f"fetch errors: {len(result.errors)}"] if result.errors else []),
         "Decorative (non-event) images drop out via the provenance/date guards.",
         "Does NOT touch the live senior loader; review before retiring CURATED_SPECIAL_EVENTS.",

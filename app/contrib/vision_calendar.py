@@ -87,6 +87,66 @@ VISION_MAX_TOKENS = int(os.getenv("VISION_MAX_TOKENS", "4096"))
 VISION_CALENDAR_TILES = int(os.getenv("VISION_CALENDAR_TILES", "1"))
 VISION_CALENDAR_TILE_OVERLAP = float(os.getenv("VISION_CALENDAR_TILE_OVERLAP", "0.12"))
 
+# Image safety (2026-06-25): the gallery sometimes serves a documentID that is NOT
+# a raster image (an HTML error page, a PDF, an empty/zero-byte body, or the wrong
+# content-type). Base64-ing that into an ``image_url`` part makes the vision API
+# reject the whole call with a 400 "Failed to load image" -- a burst of those on the
+# live VPS flyers step. We sniff each fetched flyer's magic bytes and skip anything
+# that isn't one of these supported raster types, and cap absurdly large payloads so
+# one giant flyer can't blow the context/time budget.
+SUPPORTED_IMAGE_MIME = frozenset({"image/png", "image/jpeg", "image/webp", "image/gif"})
+VISION_IMAGE_MAX_BYTES = int(os.getenv("VISION_IMAGE_MAX_BYTES", str(15 * 1024 * 1024)))
+
+
+def sniff_image_mime(image_bytes: bytes) -> str | None:
+    """Return the canonical mime for a supported raster image, or ``None``.
+
+    Decides purely from the leading magic bytes (PNG ``\\x89PNG``, JPEG
+    ``\\xff\\xd8\\xff``, GIF ``GIF8`` 7a/9a, RIFF/WEBP) -- authoritative even when a
+    server mislabels the ``Content-Type``. ``None`` for HTML, PDF, empty, or any
+    unrecognised payload, so the caller skips it instead of sending a non-image to
+    the model."""
+    if not image_bytes or len(image_bytes) < 12:
+        return None
+    b = image_bytes
+    if b[:8] == b"\x89PNG\r\n\x1a\n":
+        return "image/png"
+    if b[:3] == b"\xff\xd8\xff":
+        return "image/jpeg"
+    if b[:6] in (b"GIF87a", b"GIF89a"):
+        return "image/gif"
+    if b[:4] == b"RIFF" and b[8:12] == b"WEBP":
+        return "image/webp"
+    return None
+
+
+def validate_flyer_image(
+    image_bytes: bytes,
+    *,
+    content_type: str | None = None,
+    max_bytes: int | None = None,
+) -> tuple[str | None, str]:
+    """Decide whether a fetched flyer payload is a raster image safe to send.
+
+    Returns ``(mime, reason)``. ``mime`` is the canonical type to pass to the model
+    when the payload is a supported raster image within the size cap; otherwise
+    ``mime`` is ``None`` and ``reason`` says why (``empty`` / ``unsupported_type`` /
+    ``too_large``) so the caller can log + skip rather than base64 a non-image into
+    an ``image_url`` part (which makes the vision API 400). The decision is driven by
+    magic-byte sniffing; ``content_type`` is advisory only (servers mislabel) and is
+    kept for the skip log."""
+    _ = content_type  # advisory; the magic-byte sniff is authoritative
+    cap = VISION_IMAGE_MAX_BYTES if max_bytes is None else max_bytes
+    if not image_bytes:
+        return None, "empty"
+    mime = sniff_image_mime(image_bytes)
+    if mime is None:
+        return None, "unsupported_type"
+    if cap and len(image_bytes) > cap:
+        return None, "too_large"
+    return mime, "ok"
+
+
 _MONTH_NAMES = (
     "January February March April May June July August September October "
     "November December"
@@ -769,12 +829,16 @@ __all__ = [
     "split_image_vertically",
     "ExtractionResult",
     "MONTH_INDEX",
+    "SUPPORTED_IMAGE_MIME",
+    "VISION_IMAGE_MAX_BYTES",
     "ValidationStats",
     "VisionEventRow",
     "apply_self_check_flags",
     "calendar_system_prompt",
     "call_vision",
     "extract_flyer_rows",
+    "sniff_image_mime",
+    "validate_flyer_image",
     "extract_validated_rows",
     "flyer_system_prompt",
     "parse_date",
