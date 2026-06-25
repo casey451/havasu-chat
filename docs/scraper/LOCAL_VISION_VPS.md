@@ -15,22 +15,37 @@ server, so the pattern is consistent across the codebase.
 | `VISION_BASE_URL` | Set it → use a self-hosted OpenAI-compatible endpoint instead of OpenAI. e.g. `http://127.0.0.1:11434/v1` (Ollama on the same host). **Unset → OpenAI.** |
 | `VISION_API_KEY` | Optional. Local servers ignore it; defaults to `"local"`. Set it to the bearer token if you put the endpoint behind an auth proxy. |
 | `VISION_MODEL` | The served model name, e.g. `qwen2.5vl:3b`, `minicpm-v`, `llama3.2-vision`. (Falls back to the legacy `PARKS_REC_VISION_MODEL`, then `gpt-4o`.) |
-| `VISION_NUM_CTX` | Ollama context window (default `8192`). A dense monthly calendar fills most of it; too small and the model's reply **truncates mid-JSON → 0 events**. Sent only on the self-hosted path. |
-| `VISION_MAX_TOKENS` | Max reply tokens (default `4096`, both backends). |
+| `VISION_CALENDAR_TILES` | Split each calendar image into N overlapping bands before reading (default `1` = off). **Set `2` on a CPU box** — the robust fix for dense grids (below). |
+| `VISION_MAX_TOKENS` | Max reply tokens (default `4096`, both backends; Ollama maps it to `num_predict`). |
+| `VISION_NUM_CTX` | Requested context window (default `8192`). **Ignored by Ollama's `/v1` endpoint** (see below); kept for OpenAI-compatible servers that honor it (vLLM). |
 
 No code change is needed to switch — set the vars where the scraper runs.
 
 ### If the calendar returns 0 events (truncation)
 
-A dense grid (~30 events) needs room to emit the whole JSON list. With too small a
-context the reply is cut off and unparseable — you'll now see a `WARNING` like
-`N chars of model output failed to parse (likely truncated ...)` in the logs
-(previously this looked like "fetched 0 / read nothing"). Fixes, in order:
-1. Raise `VISION_NUM_CTX` (8192 → 12288 → 16384). Each bump costs CPU time per
-   image, so raise the systemd `TimeoutStartSec` to match.
-2. If a very dense month still truncates at a large window, fall back to splitting
-   the calendar image into halves and merging the results.
-Flyers emit one short event and never hit this, so they work at any window.
+A dense, recurring-heavy grid (~30 events) is too much for a small CPU model to
+emit in one reply — the JSON gets cut off and is unparseable. You'll now see a
+`WARNING` like `N chars of model output failed to parse (likely truncated ...)` in
+the logs (previously this silently looked like "fetched 0 / read nothing").
+
+**Two distinct limits cause this, both confirmed on the VPS:**
+- *Context* — the image fills the window. **Ollama's `/v1` endpoint ignores a
+  per-request `num_ctx`**, so raising `VISION_NUM_CTX` does nothing there; the
+  model stays at its built-in 4096.
+- *Output* — the event list is simply long. Bounded by `VISION_MAX_TOKENS` /
+  Ollama's `num_predict`.
+
+**Fix, in order of preference:**
+1. **Tile it: `VISION_CALENDAR_TILES=2`** (recommended). Each band is a smaller
+   image with a shorter list, satisfying *both* limits at the default window — and
+   it's *faster* per call. Rows are merged + deduped across the overlap. Bump to
+   `3` if a single tile still truncates.
+2. **Or bake a bigger window** into a model variant (no tiling): build
+   `deploy/vps-vision/havasu-qwen-cal.Modelfile`
+   (`ollama create qwen2.5vl-cal -f ...`), then set `VISION_MODEL=qwen2.5vl-cal`
+   and `VISION_MAX_TOKENS=8192`. Slower (~15–25 min/run) — raise `TimeoutStartSec`.
+
+Flyers emit one short event and never hit this, so they work at any setting.
 
 ## Recommended setup: Ollama on the VPS
 

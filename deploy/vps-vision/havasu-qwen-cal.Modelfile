@@ -1,0 +1,20 @@
+# Optional: a qwen2.5vl variant with a bigger baked-in context + output window.
+#
+# WHY: Ollama's OpenAI-compatible /v1 endpoint IGNORES a per-request num_ctx, so
+# raising VISION_NUM_CTX in the env does nothing through it -- the model stays at
+# its built-in 4096. Baking the window into the model is the way to actually get a
+# bigger context on Ollama.
+#
+# PREFER TILING FIRST. On a CPU box, splitting the calendar (VISION_CALENDAR_TILES=2)
+# is faster and more robust than one huge context -- each request stays small. Use
+# this Modelfile only if you'd rather process the whole grid in one shot (slower:
+# ~15-25 min/run) or if a tile is still too dense.
+#
+# Build + use:
+#   ollama create qwen2.5vl-cal -f deploy/vps-vision/havasu-qwen-cal.Modelfile
+#   # then set VISION_MODEL=qwen2.5vl-cal in /etc/havasu/havasu-vision.env
+#   # and VISION_MAX_TOKENS=8192 to match num_predict.
+
+FROM qwen2.5vl:3b
+PARAMETER num_ctx 12288
+PARAMETER num_predict 8192

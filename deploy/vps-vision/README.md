@@ -58,6 +58,12 @@ You want a non-zero `fetched` count and sane sample rows. Calendar grids are the
 hard case for small models — if recall is poor, try a bigger `VISION_MODEL`
 (`minicpm-v`, `llama3.2-vision`) or rely on the flyers, which read reliably.
 
+The env template sets **`VISION_CALENDAR_TILES=2`** — it splits each calendar into
+two overlapping bands so the dense grid doesn't overflow a small CPU model's
+context/output (which otherwise truncates → `fetched: 0`). If a tile still
+truncates, raise it to `3`; see `docs/scraper/LOCAL_VISION_VPS.md` for the why
+(including the Ollama `num_ctx` caveat) and the no-tiling Modelfile alternative.
+
 Then a real run (lands pending):
 
 ```bash
