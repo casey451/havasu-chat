@@ -315,3 +315,46 @@ def test_format_broken_link_report_groups_by_site() -> None:
     assert text.index("lhcaz.gov (2)") < text.index("solo.com (1)")
     assert "RUNBOOK" in text and "/admin/link-health" in text
     assert "business present" in text and "https://solo.com/new" in text
+
+
+# --- check_one lenient TLS/bot fallback ------------------------------------ #
+def test_check_one_ok(monkeypatch) -> None:
+    monkeypatch.setattr("app.contrib.url_fetcher.is_blocked_target", lambda u: (False, ""))
+    monkeypatch.setattr(lh, "_probe", lambda url, *, timeout, verify: 200)
+    assert lh.check_one("https://x.example")[0] == lh.OK
+
+
+def test_check_one_404_is_broken(monkeypatch) -> None:
+    monkeypatch.setattr("app.contrib.url_fetcher.is_blocked_target", lambda u: (False, ""))
+    monkeypatch.setattr(lh, "_probe", lambda url, *, timeout, verify: 404)
+    assert lh.check_one("https://x.example")[0] == lh.BROKEN
+
+
+def test_check_one_relaxed_tls_fallback_counts_as_ok(monkeypatch) -> None:
+    monkeypatch.setattr("app.contrib.url_fetcher.is_blocked_target", lambda u: (False, ""))
+    import httpx
+
+    seen = []
+
+    def fake(url, *, timeout, verify):
+        seen.append(verify)
+        if verify:
+            raise httpx.ConnectError("bad cert")  # strict fails
+        return 200  # loads with relaxed TLS
+
+    monkeypatch.setattr(lh, "_probe", fake)
+    cat, code, detail = lh.check_one("https://x.example")
+    assert cat == lh.OK and code == 200 and "insecure TLS" in detail
+    assert seen == [True, False]  # tried strict, then relaxed
+
+
+def test_check_one_both_attempts_fail_unreachable(monkeypatch) -> None:
+    monkeypatch.setattr("app.contrib.url_fetcher.is_blocked_target", lambda u: (False, ""))
+    import httpx
+
+    def boom(url, *, timeout, verify):
+        raise httpx.ConnectError("dead")
+
+    monkeypatch.setattr(lh, "_probe", boom)
+    cat, code, _ = lh.check_one("https://x.example")
+    assert cat == lh.UNREACHABLE and code is None
