@@ -265,6 +265,15 @@ _KEYWORD_TAGS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
          "softball", "league night"),
         ("sports", _CLASSES),
     ),
+    # Golf (2026-06-25): course / Toptracer range / indoor simulator / lessons.
+    # "disc golf" is matched by the sports group above (and the activity classifier
+    # guards it to Sports & Racing), so the coarse golf tag here is the secondary
+    # signal; the canonical signal is the activity:golf tag.
+    (
+        ("toptracer", "top tracer", "golf simulator", "indoor golf", "driving range",
+         "tee time", "golf course", "golf club"),
+        ("golf", _CLASSES),
+    ),
     (("aqua", "lap swim", "water aerobics", "swim lesson"), ("aquatics", _CLASSES)),
     (("ballroom", "ballet", "dance class", "line dancing"), ("dance", _CLASSES)),
     (("concert", "live music", "band", "karaoke", "open mic", " dj "), ("music",)),
