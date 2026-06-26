@@ -34,6 +34,7 @@ from app.contrib.lakehavasu_pickleball import (
     REQUEST_TIMEOUT,
     USER_AGENT,
     EventSpec,
+    pickleball_event_tags,
 )
 
 logger = logging.getLogger(__name__)
@@ -128,6 +129,7 @@ def _specs_for_cell(cell: str, *, year: int, month: int) -> list[EventSpec]:
     except ValueError:
         return []
     prefix, note = _kind(c)
+    _tags = pickleball_event_tags(f"{prefix} - {AQUATIC_VENUE_NAME}", indoor=True)
     out: list[EventSpec] = []
     for start, end in ranges:
         desc = (
@@ -147,6 +149,7 @@ def _specs_for_cell(cell: str, *, year: int, month: int) -> list[EventSpec]:
                 all_day=False,
                 start_time=start,
                 end_time=end,
+                tags=list(_tags),
             )
         )
     return out
@@ -212,6 +215,7 @@ def parse_aquatic_open_gym(pdf_text: str) -> list[EventSpec]:
         except ValueError:
             continue
         prefix, note = _kind(text)
+        _tags = pickleball_event_tags(f"{prefix} - {AQUATIC_VENUE_NAME}", indoor=True)
         for start, end in ranges:
             desc = (
                 f"{note} {prefix} at {AQUATIC_VENUE_NAME} "
@@ -230,6 +234,7 @@ def parse_aquatic_open_gym(pdf_text: str) -> list[EventSpec]:
                     all_day=False,
                     start_time=start,
                     end_time=end,
+                    tags=list(_tags),
                 )
             )
     return specs

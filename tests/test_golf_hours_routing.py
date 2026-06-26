@@ -42,12 +42,24 @@ def test_golf_hours_route_to_fitness_even_when_tiered_events() -> None:
     ) == ["classes"]
 
 
-def test_drop_in_rec_with_explicit_tag_stays_things_to_do() -> None:
-    # Open play is drop-in rec, not a class — stays in Things to Do even with an
-    # explicit activity tag.
+def test_pickleball_court_hours_move_to_fitness() -> None:
+    # Phase 5 (Casey 2026-06-25): pickleball COURT HOURS carry a drop-in-rec title
+    # ("…Open Play") but a venue-hours facet (facet:open-play) now overrides the
+    # drop-in-rec exception → they move to Fitness & Sports → Pickleball.
     assert _occurrence_group_keys(
         "events", title="Pickleball Open Play – Ark Center", venue="The Ark Center",
-        activity=None, tags=["activity:pickleball", "facet:hours"],
+        activity=None, tags=["activity:pickleball", "facet:open-play", "indoor:true"],
+        is_family=False, is_senior=False,
+    ) == ["classes"]
+
+
+def test_bare_dropin_without_hours_facet_stays_things_to_do() -> None:
+    # A bare drop-in (Open Gym) with an explicit activity tag but NO court/venue-
+    # hours facet stays in Things to Do — only the venue-hours facets override the
+    # drop-in-rec exception, so generic open gym/swim is unaffected.
+    assert _occurrence_group_keys(
+        "events", title="Open Gym – Ark Center", venue="The Ark Center",
+        activity=None, tags=["activity:pickleball"],
         is_family=False, is_senior=False,
     ) == ["events"]
 
