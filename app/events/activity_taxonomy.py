@@ -47,6 +47,16 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "ballroom", "salsa", "pointe",
     )),
     ("Gymnastics", ("gymnastics", "tumbling", "tumbler", "tumble", "cheer", "ninja", "trampoline")),
+    # Golf (NEW 2026-06-25): course tee-times, Toptracer driving range, indoor
+    # simulators, lessons, tournaments. Placed BEFORE Sports & Racing so a golf
+    # title types here; "disc golf" is a FIELD sport (PDGA) — guarded in
+    # :func:`classify_class_subgroup` so it routes to Sports & Racing, not Golf
+    # (Lake Havasu Golf Club East is itself a disc-golf course: same venue, two
+    # activities).
+    ("Golf", (
+        "golf", "toptracer", "top tracer", "golf simulator", "indoor golf",
+        "driving range", "tee time",
+    )),
     # Outdoor / field / court / racing sports (most of the calendar's "classes"
     # are really sports — Casey 2026-06-24). BMX racing and the team/court sports
     # type here instead of falling into the "Other classes" residue. Pickleball /
@@ -70,7 +80,7 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 SUBGROUP_ORDER: tuple[str, ...] = (
     "Yoga", "Pilates", "Strength & Cardio", "Mind & Body", "Aquatic fitness",
-    "Dance", "Gymnastics", "Martial Arts", "Pickleball", "Sports & Racing",
+    "Dance", "Gymnastics", "Golf", "Martial Arts", "Pickleball", "Sports & Racing",
     "Other classes",
 )
 FALLBACK_LABEL = "Other classes"
@@ -84,6 +94,7 @@ SUBGROUP_SLUGS: dict[str, str] = {
     "Martial Arts": "martial-arts",
     "Dance": "dance",
     "Gymnastics": "gymnastics",
+    "Golf": "golf",
     "Strength & Cardio": "strength-cardio",
     "Mind & Body": "mind-body",
     "Pickleball": "pickleball",
@@ -168,6 +179,11 @@ def classify_class_subgroup(
     if is_martial_arts_name(venue) or any(v in vlow for v in MARTIAL_ARTS_VENUES):
         return "Martial Arts"
     by_title = _title_subgroup(title)
+    # "disc golf" matches the Golf keyword "golf" but is a FIELD sport (PDGA), not
+    # ball golf — route it to Sports & Racing instead (the negative guard the
+    # plan §5.3 calls for; same venue can host both, so this must be by title).
+    if by_title == "Golf" and re.search(r"\bdisc\s+golf\b", (title or "").lower()):
+        return "Sports & Racing"
     if by_title is not None:
         return by_title
     if provider_activity:
