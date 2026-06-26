@@ -87,7 +87,9 @@ def test_split_class_subgroups_orders_and_omits_empty() -> None:
         {"title": "Riding Lessons"},
     ]
     subs = _split_class_subgroups(rows)
-    assert [s["label"] for s in subs] == ["Yoga", "Pilates", "Martial Arts", "Other classes"]
+    # Phase 1: martial arts is wrapped under a "Martial arts" subgroup (its
+    # disciplines/youth nest as children); the others stay flat activity nodes.
+    assert [s["label"] for s in subs] == ["Yoga", "Pilates", "Martial arts", "Other classes"]
     assert all(s["count"] == 1 for s in subs)
 
 

@@ -201,11 +201,25 @@ def test_family_and_pool_classes_split_out() -> None:
         # No Kids & Family group (Casey 2026-06-26): each item appears ONCE.
         assert "family" not in by_key
         classes = by_key["classes"]
-        classes_titles = [r["title"] for sub in classes.get("subgroups", []) for r in sub["rows"]]
+
+        def _walk_rows(node: dict) -> list[dict]:
+            out = list(node.get("rows", []) or [])
+            for c in node.get("children", []) or []:
+                out += _walk_rows(c)
+            return out
+
+        def _walk_labels(node: dict) -> list[str]:
+            out = [node["label"]] if node.get("label") else []
+            for c in node.get("children", []) or []:
+                out += _walk_labels(c)
+            return out
+
+        classes_titles = [r["title"] for sub in classes.get("subgroups", []) for r in _walk_rows(sub)]
         classes_titles += [r["title"] for r in classes["rows"]]
-        sub_labels = [sub["label"] for sub in classes.get("subgroups", [])]
-        # A youth class stays in Fitness & Sports (peeled into its "Youth Martial
-        # Arts" sub). Adult pool classes list there too.
+        sub_labels = [lbl for sub in classes.get("subgroups", []) for lbl in _walk_labels(sub)]
+        # Youth nesting (Phase 1): a youth class stays in Fitness & Sports, NESTED as
+        # a "Youth Martial Arts" child under its discipline (no flat sibling). Adult
+        # pool classes list there too.
         assert any(karate in t for t in classes_titles)
         assert "Youth Martial Arts" in sub_labels
         assert any(adultlap in t for t in classes_titles)

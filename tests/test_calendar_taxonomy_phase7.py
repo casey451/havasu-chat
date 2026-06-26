@@ -48,12 +48,18 @@ def test_split_class_subgroups_pairs_adult_and_youth() -> None:
         {"title": "Ballet Beginnings", "activity": "Dance", "youth": True},
     ]
     subs = split_class_subgroups(rows)
-    labels = [s["label"] for s in subs]
-    # Adult Martial Arts immediately followed by its Youth Martial Arts pair.
-    assert "Martial Arts" in labels and "Youth Martial Arts" in labels
-    assert labels.index("Youth Martial Arts") == labels.index("Martial Arts") + 1
-    # A youth-only activity yields just the youth sub (no empty adult shell).
-    assert "Youth Dance" in labels and "Dance" not in labels
+    # Phase 1: youth NESTS as a child of its activity/discipline (no flat sibling).
+    # Martial arts → (base) Martial Arts → Youth Martial Arts.
+    ma = next(s for s in subs if s["label"] == "Martial arts")
+    base = next(c for c in ma["children"] if c["label"] == "Martial Arts")
+    assert {r["title"] for r in base["rows"]} == {"Adult BJJ"}
+    assert [c["label"] for c in base["children"]] == ["Youth Martial Arts"]
+    assert {r["title"] for r in base["children"][0]["rows"]} == {"Kids BJJ"}
+    # A youth-only activity yields the activity parent (empty adult rows) with its
+    # nested Youth child — e.g. Dance → Youth Dance.
+    dance = next(s for s in subs if s["label"] == "Dance")
+    assert dance["rows"] == []
+    assert [c["label"] for c in dance["children"]] == ["Youth Dance"]
 
 
 # ── auto-expand predicate ─────────────────────────────────────────────────────
@@ -104,11 +110,21 @@ def test_no_family_group_and_youth_bjj_under_fitness_youth_sub() -> None:
         by_key = {g["key"] for g in groups}
         assert "family" not in by_key  # no Kids & Family group exists
         classes = next(g for g in groups if g["key"] == "classes")
-        subs = {sub["label"]: {r["title"] for r in sub["rows"]} for sub in classes["subgroups"]}
-        # Both appear once, in Fitness — the kid one peeled into Youth Martial Arts.
+
+        def _collect(node: dict, acc: dict) -> None:
+            acc.setdefault(node["label"], set()).update(
+                r["title"] for r in node.get("rows", []) or []
+            )
+            for c in node.get("children", []) or []:
+                _collect(c, acc)
+
+        subs: dict = {}
+        for sub in classes["subgroups"]:
+            _collect(sub, subs)
+        # Both appear once, in Fitness — the kid one NESTED into Youth Martial Arts
+        # (Phase 1), the adult in the Martial Arts base; never duplicated.
         assert any(adult_bjj in t for t in subs.get("Martial Arts", set()))
         assert any(kid_bjj in t for t in subs.get("Youth Martial Arts", set()))
-        # The kid class is NOT duplicated into the adult Martial Arts sub.
         assert not any(kid_bjj in t for t in subs.get("Martial Arts", set()))
     finally:
         _cleanup(eids)

@@ -17,16 +17,27 @@ from app.home import events_views, sandstone
 from app.home.today_feed import today_feed
 
 
+def _node_rows(node: dict) -> list[dict]:
+    """Rows of a subgroup node plus all nested ``children`` (the youth/discipline
+    third level — Phase 1), matching the recursive template render."""
+    rows: list[dict] = list(node.get("rows") or [])
+    for child in node.get("children") or []:
+        rows += _node_rows(child)
+    return rows
+
+
 def _all_rows(groups: list[dict]) -> list[dict]:
     """Flatten a day_groups result to the rows the template actually renders: a
-    group's subgroup rows when it is split, else its flat rows (the two overlap —
-    subgroups are a split OF ``rows`` — so we never count both, matching the
-    ``{% if g.subgroups %}...{% else %}...{% endif %}`` render)."""
+    group's subgroup rows (recursing nested children) when it is split, else its
+    flat rows (the two overlap — subgroups are a split OF ``rows`` — so we never
+    count both, matching the ``{% if g.subgroups %}...{% else %}...{% endif %}``
+    render)."""
     rows: list[dict] = []
     for g in groups:
         subs = g.get("subgroups") or []
         if subs:
-            rows += [r for sub in subs for r in sub["rows"]]
+            for sub in subs:
+                rows += _node_rows(sub)
         else:
             rows += g.get("rows") or []
     return rows

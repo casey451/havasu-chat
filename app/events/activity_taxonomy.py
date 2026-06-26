@@ -285,7 +285,8 @@ def split_martial_arts_facets(
     adult_rows: list[dict[str, Any]], youth_rows: list[dict[str, Any]]
 ) -> list[dict[str, Any]]:
     """Split Martial Arts rows by discipline (BJJ / Taekwondo / flat base), each
-    with its paired Youth third level right after the adult one; empties omitted.
+    a node whose kid-specific rows are a NESTED Youth child (Phase 1, 2026-06-26)
+    — e.g. BJJ → Youth BJJ, Taekwondo → Youth Taekwondo; empties omitted.
     Undetermined-discipline rows stay in the flat base (spec §4.1)."""
     adult: dict[str, list[dict[str, Any]]] = {}
     youth: dict[str, list[dict[str, Any]]] = {}
@@ -295,12 +296,10 @@ def split_martial_arts_facets(
         youth.setdefault(classify_martial_discipline(r) or MARTIAL_BASE_LABEL, []).append(r)
     out: list[dict[str, Any]] = []
     for label in MARTIAL_DISCIPLINE_ORDER:
-        a = adult.get(label)
-        if a:
-            out.append({"label": label, "rows": a, "count": len(a)})
-        y = youth.get(label)
-        if y:
-            out.append({"label": youth_subgroup_label(label), "rows": y, "count": len(y)})
+        a = adult.get(label, [])
+        y = youth.get(label, [])
+        if a or y:
+            out.append(_activity_node(label, a, y))
     return out
 
 
@@ -345,14 +344,42 @@ def youth_subgroup_label(base: str) -> str:
     return _YOUTH_LABEL_OVERRIDES.get(base, f"Youth {base}")
 
 
+def _youth_child(label: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """A nested youth child node for an activity ``label`` (Phase 1, 2026-06-26):
+    youth is ALWAYS a nested ``children`` entry under its activity, never a flat
+    sibling. Carries ``youth=True`` so the render gives it the kid accent."""
+    return {
+        "label": youth_subgroup_label(label),
+        "rows": rows,
+        "count": len(rows),
+        "youth": True,
+    }
+
+
+def _activity_node(
+    label: str, adult_rows: list[dict[str, Any]], youth_rows: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """One activity sub-section node: the adult rows at this level plus, when any
+    kid-specific rows exist, a nested "Youth <activity>" child (Phase 1). The
+    parent ``count`` is the total of all descendants (adult + youth)."""
+    node: dict[str, Any] = {
+        "label": label, "rows": adult_rows, "count": len(adult_rows) + len(youth_rows)
+    }
+    if youth_rows:
+        node["children"] = [_youth_child(label, youth_rows)]
+    return node
+
+
 def _split_with_youth(
     rows: list[dict[str, Any]],
     order: tuple[str, ...],
     classify: Any,
 ) -> list[dict[str, Any]]:
     """Partition rows into ordered activity sub-sections, with each activity's
-    kid-specific rows peeled into a paired "Youth <activity>" sub-section right
-    after the adult one (Casey 2026-06-26). Empty sub-sections omitted."""
+    kid-specific rows peeled into a NESTED "Youth <activity>" child under that
+    activity (Phase 1, 2026-06-26) — never a flat sibling. Empty sub-sections
+    omitted; a youth-only activity renders as the activity node with empty adult
+    rows and its youth child (e.g. Gymnastics → Youth gymnastics)."""
     adult: dict[str, list[dict[str, Any]]] = {}
     youth: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
@@ -360,12 +387,10 @@ def _split_with_youth(
         (youth if row.get("youth") else adult).setdefault(label, []).append(row)
     out: list[dict[str, Any]] = []
     for label in order:
-        a = adult.get(label)
-        if a:
-            out.append({"label": label, "rows": a, "count": len(a)})
-        y = youth.get(label)
-        if y:
-            out.append({"label": youth_subgroup_label(label), "rows": y, "count": len(y)})
+        a = adult.get(label, [])
+        y = youth.get(label, [])
+        if a or y:
+            out.append(_activity_node(label, a, y))
     return out
 
 
@@ -384,20 +409,37 @@ def split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         (youth if row.get("youth") else adult).setdefault(label, []).append(row)
     out: list[dict[str, Any]] = []
     for label in SUBGROUP_ORDER:
+        a = adult.get(label, [])
+        y = youth.get(label, [])
         if label == "Martial Arts":
-            # Discipline split (BJJ / Taekwondo / flat base) handles adult AND
-            # youth together so each discipline carries its own Youth level (§4.1).
-            out.extend(split_martial_arts_facets(adult.get(label, []), youth.get(label, [])))
+            # Discipline split (BJJ / Taekwondo / flat base) nested under a single
+            # "Martial arts" subgroup; each discipline carries its own Youth child
+            # (Phase 1 + §4.1 — Martial arts → BJJ → Youth BJJ). Count = descendants.
+            disciplines = split_martial_arts_facets(a, y)
+            if disciplines:
+                out.append({
+                    "label": "Martial arts",
+                    "rows": [],
+                    "count": sum(d["count"] for d in disciplines),
+                    "children": disciplines,
+                })
             continue
-        a = adult.get(label)
-        if a:
-            if label == "Pickleball":
-                out.extend(split_pickleball_facets(a))
-            else:
-                out.append({"label": label, "rows": a, "count": len(a)})
-        y = youth.get(label)
-        if y:
-            out.append({"label": youth_subgroup_label(label), "rows": y, "count": len(y)})
+        if label == "Pickleball":
+            # Adult Pickleball keeps its flat court-hours / competition facets; any
+            # kid-specific rows nest as a Youth child of the base facet (never a
+            # flat Youth sibling — Phase 1).
+            facets = split_pickleball_facets(a) if a else []
+            if y:
+                base = next((f for f in facets if f["label"] == PB_BASE_LABEL), None)
+                if base is None:
+                    base = {"label": PB_BASE_LABEL, "rows": [], "count": 0}
+                    facets.append(base)
+                base.setdefault("children", []).append(_youth_child(PB_BASE_LABEL, y))
+                base["count"] += len(y)
+            out.extend(facets)
+            continue
+        if a or y:
+            out.append(_activity_node(label, a, y))
     return out
 
 
