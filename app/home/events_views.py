@@ -289,8 +289,11 @@ def _occurrence_group_keys(
     # pulled into Things to Do by the drop-in-rec rule below.
     if slug == "pickleball":
         return ["classes"]
+    # Classes & workshops (Phase 4c, Casey 2026-06-26): non-fitness instruction
+    # (arts/craft/cooking/maker/learning) folds into Things to Do as a "Classes &
+    # workshops" subcategory rather than its own top-level "learn" section.
     if abkt == "learn":
-        return ["learn"]
+        return ["events"]
     if slug == "theater":
         return ["music"]
     if abkt == "events" and slug:  # games / bowling / billiards / trampoline / family-fun
