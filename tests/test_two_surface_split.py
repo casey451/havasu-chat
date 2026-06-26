@@ -250,6 +250,29 @@ def test_martial_discipline_is_data_driven_not_title() -> None:
     assert at.classify_martial_discipline({"tags": ["activity:martial-arts"]}) is None
 
 
+def test_martial_discipline_from_curated_venue() -> None:
+    # Phase 5 (Casey 2026-06-26): the dojos' Schedule occurrences carry no tag, so
+    # the discipline is derived from a curated VENUE map (data-derived, not a title
+    # guess). Token-less BJJ dojo + a venue whose name says the discipline.
+    assert at.classify_martial_discipline(
+        {"title": "Adult No-Gi (Morning)", "venue": "Bridge City Combat"}
+    ) == "BJJ"
+    assert at.classify_martial_discipline(
+        {"title": "Adult Gi", "venue": "THE TAP ROOM JIU JITSU"}
+    ) == "BJJ"
+    assert at.classify_martial_discipline(
+        {"title": "Tigers", "venue": "Black Belt Academy"}
+    ) == "Taekwondo"
+    # A mixed-discipline dojo (karate / kenpo / kali) is NOT mapped → flat base.
+    assert at.classify_martial_discipline(
+        {"title": "Kenpo Karate", "venue": "Elite Martial Arts, Inc."}
+    ) is None
+    # An explicit tag still wins over the venue map.
+    assert at.classify_martial_discipline(
+        {"title": "X", "venue": "Bridge City Combat", "tags": ["discipline:taekwondo"]}
+    ) == "Taekwondo"
+
+
 def test_martial_arts_splits_by_discipline_with_youth() -> None:
     adult = [
         {"title": "Open Mat", "tags": ["discipline:bjj"]},
