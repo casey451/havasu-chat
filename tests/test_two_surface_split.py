@@ -173,14 +173,25 @@ def test_places_subcategories_collapsed_by_default(db: Session) -> None:
             assert sub["count"] > 0  # empty subsections are hidden (§5.3)
 
 
+def _nested_labels(nodes: list[dict]) -> list[str]:
+    """All labels in a subgroup/children tree, recursing the youth/discipline
+    third level (Phase 1, 2026-06-26)."""
+    out: list[str] = []
+    for n in nodes:
+        out.append(n["label"])
+        out += _nested_labels(n.get("children", []) or [])
+    return out
+
+
 def test_places_sports_fitness_splits_by_activity(db: Session) -> None:
     groups = {g["key"]: g for g in ev.places_groups(db, today=date.today())}
     sf = groups.get("sports-fitness")
     assert sf is not None
-    labels = [s["label"] for s in sf["subgroups"]]
+    labels = _nested_labels(sf["subgroups"])
     # The curated youth studios (Universal Sonics gymnastics, Black Belt taekwondo)
     # recur into every 7-day window, so these activity subsections are always
-    # present regardless of DB class-occurrence state.
+    # present. Youth nests as a child now (Phase 1): Youth Gymnastics under
+    # Gymnastics, Youth Taekwondo under Martial arts → Taekwondo.
     assert "Youth Gymnastics" in labels
     assert "Youth Taekwondo" in labels
 
@@ -245,8 +256,15 @@ def test_martial_arts_splits_by_discipline_with_youth() -> None:
         {"title": "Kids BJJ", "tags": ["discipline:bjj"]},
         {"title": "Tiny Tigers", "discipline": "taekwondo"},
     ]
-    labels = [s["label"] for s in at.split_martial_arts_facets(adult, youth)]
-    assert labels == ["BJJ", "Youth BJJ", "Taekwondo", "Youth Taekwondo", "Martial Arts"]
+    # Phase 1: youth nests as a child of its discipline (not a flat sibling).
+    facets = at.split_martial_arts_facets(adult, youth)
+    assert [f["label"] for f in facets] == ["BJJ", "Taekwondo", "Martial Arts"]
+    bjj, tkd, base = facets
+    assert [c["label"] for c in bjj["children"]] == ["Youth BJJ"]
+    assert [c["label"] for c in tkd["children"]] == ["Youth Taekwondo"]
+    assert "children" not in base  # undetermined base has no youth here
+    # Parent count = total descendants (adult + nested youth).
+    assert bjj["count"] == 2 and tkd["count"] == 2 and base["count"] == 1
 
 
 def test_untagged_martial_arts_stays_in_flat_base() -> None:
@@ -256,9 +274,11 @@ def test_untagged_martial_arts_stays_in_flat_base() -> None:
 
 def test_curated_black_belt_academy_renders_youth_taekwondo(db: Session) -> None:
     groups = {g["key"]: g for g in ev.places_groups(db, today=date.today())}
-    labels = [s["label"] for s in groups["sports-fitness"]["subgroups"]]
-    # The curated taekwondo dojo's youth classes split out under Youth Taekwondo.
+    labels = _nested_labels(groups["sports-fitness"]["subgroups"])
+    # The curated taekwondo dojo's youth classes nest under Martial arts →
+    # Taekwondo → Youth Taekwondo (Phase 1).
     assert "Youth Taekwondo" in labels
+    assert "Martial arts" in labels and "Taekwondo" in labels
 
 
 # --- Phase 6: horseback removal (§6) ------------------------------------------

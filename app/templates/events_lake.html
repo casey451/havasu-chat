@@ -82,6 +82,18 @@
 {%- endif -%}
 {%- endmacro -%}
 
+{#- A subcategory node: its rows plus any nested `children` (the youth/facet third
+   level — Phase 1). Recursive so youth nests under its activity/discipline
+   (Martial arts → BJJ → Youth BJJ); youth children carry the kid accent. Mirrors
+   the home feed's `sub_tree` macro so the two surfaces render the same tree. -#}
+{%- macro ev_sub(node, level=2) -%}
+<details class="ev-sub ev-l{{ level }}{% if node.youth %} ev-youth{% endif %}"{% if node.open %} open{% endif %}>
+  <summary><span class="sub-name">{{ node.label }}</span><span class="sc">{{ node.count }}</span><svg class="sub-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+  {% for row in node.rows %}{{ ev_row(row) }}{% endfor %}
+  {% for child in node.children %}{{ ev_sub(child, level + 1) }}{% endfor %}
+</details>
+{%- endmacro -%}
+
 {% block content %}
 <div class="wrap ev-wrap">
   <nav class="crumbs" aria-label="Breadcrumb">
@@ -155,12 +167,7 @@
             </div>
             <a class="ev-mv-all" href="/movies">All showtimes →</a>
           {% elif g.subgroups %}
-            {% for sub in g.subgroups %}
-            <details class="ev-sub"{% if sub.open %} open{% endif %}>
-              <summary><span class="sub-name">{{ sub.label }}</span><span class="sc">{{ sub.count }}</span><svg class="sub-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
-              {% for row in sub.rows %}{{ ev_row(row) }}{% endfor %}
-            </details>
-            {% endfor %}
+            {% for sub in g.subgroups %}{{ ev_sub(sub) }}{% endfor %}
           {% else %}
             {% for row in g.rows %}{{ ev_row(row) }}{% endfor %}
           {% endif %}

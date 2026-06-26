@@ -58,16 +58,20 @@ def _add(db: Session, *, title: str, tags: list[str]) -> None:
     )
 
 
+def _node_sig(node: dict) -> tuple:
+    """A subcategory node's signature, recursing the full nested ``children`` tree
+    (youth/discipline third level — Phase 1), so the parity check verifies the
+    whole depth, not just the first level."""
+    children = tuple(_node_sig(c) for c in node.get("children", []) or [])
+    return (node["label"], node["count"], children)
+
+
 def _tree_sig(sections: list[dict]) -> list:
-    """The structural signature: (key, count, [(sublabel, subcount, [(child, n)])])."""
-    out = []
-    for s in sections:
-        subs = []
-        for sub in s.get("subgroups", []) or []:
-            children = [(c["label"], c["count"]) for c in sub.get("children", []) or []]
-            subs.append((sub["label"], sub["count"], tuple(children)))
-        out.append((s["key"], s["count"], tuple(subs)))
-    return out
+    """The structural signature: (key, count, (recursive subgroup/child sigs))."""
+    return [
+        (s["key"], s["count"], tuple(_node_sig(sub) for sub in s.get("subgroups", []) or []))
+        for s in sections
+    ]
 
 
 def test_home_feed_matches_events_ui_calendar(db: Session) -> None:

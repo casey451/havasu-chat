@@ -72,6 +72,13 @@
 .ev-sub .sub-chev{margin-left:auto;color:var(--muted);transition:transform .22s var(--ease)}
 .ev-sub[open] .sub-chev{transform:rotate(180deg)}
 .ev-sub .ev-row{padding-left:30px}
+/* Phase 1: nested youth / discipline third level — indent each deeper level and
+   give youth nodes the kid (teal) accent so a parent scans them fast. */
+.ev-l3>summary{padding-left:34px}
+.ev-l4>summary{padding-left:48px}
+.ev-l3 .ev-row{padding-left:46px}
+.ev-l4 .ev-row{padding-left:60px}
+.ev-sub.ev-youth>summary .sub-name{color:#2f8f7f}
 .ev-row{display:flex;align-items:baseline;gap:14px;padding:11px 18px;border-top:1px solid var(--hair);color:inherit;transition:background .14s}
 .ev-row:first-child{border-top:0}
 .ev-row:hover{background:var(--surface)}

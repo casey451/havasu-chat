@@ -182,7 +182,17 @@ def test_kids_venue_class_lands_in_youth_sub() -> None:
         assert any(enr in t for t in by_key.get("events", set()))
         assert not any(enr in t for t in by_key.get("classes", set()))
         events = next(g for g in groups if g["key"] == "events")
-        youth = [s2 for s2 in events.get("subgroups", []) if s2["label"] == "Youth & Family"]
+
+        def _walk(nodes: list[dict]) -> list[dict]:
+            out: list[dict] = []
+            for n in nodes:
+                out.append(n)
+                out += _walk(n.get("children", []) or [])
+            return out
+
+        # Phase 1: the youth residue nests as a "Youth & Family" CHILD under its
+        # activity (Around Town), not a flat top-level sibling.
+        youth = [n for n in _walk(events.get("subgroups", [])) if n["label"] == "Youth & Family"]
         assert youth and any(enr in r["title"] for r in youth[0]["rows"])
     finally:
         _cleanup(eids)
