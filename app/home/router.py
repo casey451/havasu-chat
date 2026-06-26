@@ -685,12 +685,15 @@ def serve_home(
             "primary_nav": sandstone.primary_nav(),
             "mega_columns": sandstone.mega_columns(db),
             "week": sandstone.week_strip(db, today=now.date()),
-            # The home feed now renders the SAME organized day-group structure as
-            # /events-ui (typed subsections, Kids & Family / Seniors / City &
-            # Government groups, clean venue labels) for the selected day, so the
-            # two calendars are consistent (Casey 2026-06-23). ``now`` stays the
-            # real clock for today's auto-expiry.
-            "today_groups": events_views.day_groups(db, day=feed_day, now=now),
+            # The home feed renders the SAME organized day-group structure as the
+            # /events-ui Calendar surface, so the two stay consistent (Casey
+            # 2026-06-23). It is the Calendar surface, so it is events-only too
+            # (two-surface spec §1, 2026-06-26): only dated happenings — venue
+            # hours + recurring class rosters live on Places & Ongoing, not the
+            # home preview. ``now`` stays the real clock for today's auto-expiry.
+            "today_groups": events_views.day_groups(
+                db, day=feed_day, now=now, events_only=True
+            ),
             "today_highlights": events_views.day_highlights(db, day=now.date(), now=now, limit=3),
             # ``today_feed`` is still computed for its collapsed "At the movies"
             # group (the per-film showtime rollup), which the day-group view does
