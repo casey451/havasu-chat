@@ -243,6 +243,67 @@ def split_pickleball_facets(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     return out
 
 
+# ── Martial-arts discipline split (Phase 5, Casey 2026-06-25) ─────────────────
+# The flat "Martial Arts" subgroup splits by DISCIPLINE so BJJ and Taekwondo read
+# apart (spec §4.1), each with its own Youth third level. The discipline is
+# DATA-DRIVEN — a ``discipline:bjj`` / ``discipline:taekwondo`` tag or a row
+# ``discipline`` field — never a title keyword guess. A row with no determinable
+# discipline stays in the flat "Martial Arts" base (we never invent a tag), so
+# the split only appears where the data supports it.
+MARTIAL_BJJ_LABEL = "BJJ"
+MARTIAL_TAEKWONDO_LABEL = "Taekwondo"
+MARTIAL_BASE_LABEL = "Martial Arts"
+MARTIAL_DISCIPLINE_ORDER: tuple[str, ...] = (
+    MARTIAL_BJJ_LABEL, MARTIAL_TAEKWONDO_LABEL, MARTIAL_BASE_LABEL,
+)
+_DISCIPLINE_TO_LABEL: dict[str, str] = {
+    "bjj": MARTIAL_BJJ_LABEL,
+    "brazilian-jiu-jitsu": MARTIAL_BJJ_LABEL,
+    "jiu-jitsu": MARTIAL_BJJ_LABEL,
+    "taekwondo": MARTIAL_TAEKWONDO_LABEL,
+    "tae-kwon-do": MARTIAL_TAEKWONDO_LABEL,
+}
+
+
+def classify_martial_discipline(row: dict[str, Any]) -> str | None:
+    """The martial-arts discipline label for a row from its stamped signal — a
+    ``discipline:<x>`` tag or a ``discipline`` field — or None when undetermined
+    (stays in the flat Martial Arts base; never inferred from the title)."""
+    disc = str(row.get("discipline") or "").strip().lower()
+    if disc in _DISCIPLINE_TO_LABEL:
+        return _DISCIPLINE_TO_LABEL[disc]
+    for t in row.get("tags") or []:
+        s = str(t).strip().lower()
+        if s.startswith("discipline:"):
+            label = _DISCIPLINE_TO_LABEL.get(s.split(":", 1)[1])
+            if label:
+                return label
+    return None
+
+
+def split_martial_arts_facets(
+    adult_rows: list[dict[str, Any]], youth_rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Split Martial Arts rows by discipline (BJJ / Taekwondo / flat base), each
+    with its paired Youth third level right after the adult one; empties omitted.
+    Undetermined-discipline rows stay in the flat base (spec §4.1)."""
+    adult: dict[str, list[dict[str, Any]]] = {}
+    youth: dict[str, list[dict[str, Any]]] = {}
+    for r in adult_rows:
+        adult.setdefault(classify_martial_discipline(r) or MARTIAL_BASE_LABEL, []).append(r)
+    for r in youth_rows:
+        youth.setdefault(classify_martial_discipline(r) or MARTIAL_BASE_LABEL, []).append(r)
+    out: list[dict[str, Any]] = []
+    for label in MARTIAL_DISCIPLINE_ORDER:
+        a = adult.get(label)
+        if a:
+            out.append({"label": label, "rows": a, "count": len(a)})
+        y = youth.get(label)
+        if y:
+            out.append({"label": youth_subgroup_label(label), "rows": y, "count": len(y)})
+    return out
+
+
 # Reverse of SUBGROUP_SLUGS, so a row's explicit ``activity:<slug>`` tag picks its
 # Fitness subsection label tag-first (the Phase-2 canonical read) — e.g. a
 # "PickleFest" row carries ``activity:pickleball`` but no "pickleball" in its
@@ -323,6 +384,11 @@ def split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         (youth if row.get("youth") else adult).setdefault(label, []).append(row)
     out: list[dict[str, Any]] = []
     for label in SUBGROUP_ORDER:
+        if label == "Martial Arts":
+            # Discipline split (BJJ / Taekwondo / flat base) handles adult AND
+            # youth together so each discipline carries its own Youth level (§4.1).
+            out.extend(split_martial_arts_facets(adult.get(label, []), youth.get(label, [])))
+            continue
         a = adult.get(label)
         if a:
             if label == "Pickleball":

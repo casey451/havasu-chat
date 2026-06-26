@@ -338,6 +338,9 @@ class Studio:
     activity: str  # provider-activity hint (taxonomy fallback routing)
     url: str  # link to the studio's full schedule
     classes: tuple[StudioClass, ...] = ()
+    # Martial-arts discipline (Phase 5, spec §4.1): drives the Martial Arts →
+    # BJJ / Taekwondo split. Curated data, not a title guess; "" = undetermined.
+    discipline: str = ""
 
 
 def _c(name: str, wd: int, sh: int, sm: int, eh: int, em: int, age: str = "") -> StudioClass:
@@ -350,6 +353,7 @@ STUDIOS: tuple[Studio, ...] = (
         short="Black Belt Academy",
         section="Youth Martial Arts",
         activity="Martial Arts",
+        discipline="taekwondo",  # a taekwondo dojo (spec §4.1) — curated, not guessed
         url="https://www.lakehavasublackbeltacademy.com/schedule/",
         # Source: lakehavasublackbeltacademy.com/schedule weekly grid, read
         # Jun 2026. Adult-only blocks (Adult/Teen, Adult Self Defense, Tai Chi)
@@ -444,6 +448,12 @@ def class_today_rows(day: date) -> list[dict[str, Any]]:
                     "ongoing": False,
                     "subgroup": s.section,
                     "activity": s.activity,
+                    # Discipline drives the Martial Arts → Taekwondo/BJJ split (§4.1).
+                    "discipline": s.discipline,
+                    # Youth-studio classes are kid programming by definition (their
+                    # section is "Youth …"); the age lives in the note, not a
+                    # family keyword, so flag youth here rather than re-inferring.
+                    "youth": True,
                 }
             )
     rows.sort(key=lambda r: r["sort"])

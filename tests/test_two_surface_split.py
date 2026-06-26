@@ -23,6 +23,7 @@ from sqlalchemy.orm import Session
 
 from app.db.database import SessionLocal
 from app.db.models import Event
+from app.events import activity_taxonomy as at
 from app.home import events_views as ev
 from app.main import app
 
@@ -177,7 +178,11 @@ def test_places_sports_fitness_splits_by_activity(db: Session) -> None:
     sf = groups.get("sports-fitness")
     assert sf is not None
     labels = [s["label"] for s in sf["subgroups"]]
-    assert any(lbl in labels for lbl in ("Golf", "Martial Arts", "Yoga", "Gymnastics"))
+    # The curated youth studios (Universal Sonics gymnastics, Black Belt taekwondo)
+    # recur into every 7-day window, so these activity subsections are always
+    # present regardless of DB class-occurrence state.
+    assert "Youth Gymnastics" in labels
+    assert "Youth Taekwondo" in labels
 
 
 def test_calendar_subcategories_collapsed_by_default(db: Session) -> None:
@@ -222,6 +227,43 @@ def test_places_family_narrow_keeps_only_kid_rows(db: Session) -> None:
     for g in groups:
         for r in g["rows"]:
             assert is_family_event(r.get("title"), r.get("tags"), r.get("venue")), r.get("title")
+
+
+# --- Phase 5: martial arts discipline + youth split (§4.1) --------------------
+
+
+def test_martial_discipline_is_data_driven_not_title() -> None:
+    assert at.classify_martial_discipline({"discipline": "taekwondo"}) == "Taekwondo"
+    assert at.classify_martial_discipline({"tags": ["discipline:bjj"]}) == "BJJ"
+    # No discipline signal → undetermined (never guessed from the title).
+    assert at.classify_martial_discipline({"title": "Kids Karate", "tags": []}) is None
+    assert at.classify_martial_discipline({"tags": ["activity:martial-arts"]}) is None
+
+
+def test_martial_arts_splits_by_discipline_with_youth() -> None:
+    adult = [
+        {"title": "Open Mat", "tags": ["discipline:bjj"]},
+        {"title": "Adult Forms", "discipline": "taekwondo"},
+        {"title": "Generic Self-Defense", "tags": []},  # undetermined → flat base
+    ]
+    youth = [
+        {"title": "Kids BJJ", "tags": ["discipline:bjj"]},
+        {"title": "Tiny Tigers", "discipline": "taekwondo"},
+    ]
+    labels = [s["label"] for s in at.split_martial_arts_facets(adult, youth)]
+    assert labels == ["BJJ", "Youth BJJ", "Taekwondo", "Youth Taekwondo", "Martial Arts"]
+
+
+def test_untagged_martial_arts_stays_in_flat_base() -> None:
+    subs = at.split_martial_arts_facets([{"title": "Martial Arts", "tags": []}], [])
+    assert [s["label"] for s in subs] == ["Martial Arts"]
+
+
+def test_curated_black_belt_academy_renders_youth_taekwondo(db: Session) -> None:
+    groups = {g["key"]: g for g in ev.places_groups(db, today=date.today())}
+    labels = [s["label"] for s in groups["sports-fitness"]["subgroups"]]
+    # The curated taekwondo dojo's youth classes split out under Youth Taekwondo.
+    assert "Youth Taekwondo" in labels
 
 
 # --- Route smoke: the surface toggle + Places tab render ----------------------

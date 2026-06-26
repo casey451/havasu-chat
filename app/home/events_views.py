@@ -708,9 +708,12 @@ def places_groups(
         )[0]
         row["_pk"] = primary  # remembered for the Places subcategory split (§4)
         # Youth peels into a third-level "Youth <activity>" sub (§4); off under the
-        # family narrow (the whole view is already kids) and never for seniors.
-        if "youth" not in row:
-            row["youth"] = not family and not is_senior and is_family_event(title, tags, venue)
+        # family narrow (the whole view is already kids) and never for seniors. A
+        # row that already declares youth (youth-studio classes) keeps it.
+        if family:
+            row["youth"] = False
+        elif "youth" not in row:
+            row["youth"] = not is_senior and is_family_event(title, tags, venue)
         by_top[_places_top_key(primary)].append(row)
 
     # Curated venue-hours rows first (real "12–11 PM" times + venue-kind tags), so
