@@ -45,19 +45,21 @@ def _cleanup(eids: list[str]) -> None:
 # --- senior_filter -----------------------------------------------------------
 
 
-def test_is_senior_event_tag_and_keywords() -> None:
+def test_is_senior_event_tag_and_venue_only() -> None:
+    # Phase 4 / Q5 (Casey 2026-06-26): senior membership is by TAG or VENUE only —
+    # NEVER a title keyword. The Seniors group is the gated Senior-Center surface.
     assert is_senior_event("Exercise Class", ["senior"]) is True
-    assert is_senior_event("Tai Chi for Balance") is True       # senior-program keyword
-    assert is_senior_event("Low-Impact Aerobics") is True       # senior-program keyword
-    assert is_senior_event("Water Wellness") is True            # senior-program keyword
-    # Lake-Havasu-ambiguous terms must NOT imply seniors on their own.
+    assert is_senior_event("Generic Class", None, "Lake Havasu Senior Center") is True
+    # Title keywords no longer gate: a public Aquatic-Center class whose title
+    # merely contains arthritis / tai chi / water wellness stays OUT of Seniors.
+    assert is_senior_event("Tai Chi for Balance") is False
+    assert is_senior_event("Low-Impact Aerobics") is False
+    assert is_senior_event("Water Wellness") is False
+    assert is_senior_event("Arthritis Water Class", None, "Lake Havasu City Aquatic Center") is False
+    # Ambiguous terms still don't imply seniors.
     assert is_senior_event("London Bridge Days") is False
     assert is_senior_event("Live Music at the Brewery") is False
-    # 2026-06-23: a bare game name is no longer senior on the title alone — the
-    # Senior Center's Bunco/Pinochle carry the `senior` tag (and venue), but a
-    # general bar/community game night must not be pulled into Seniors.
     assert is_senior_event("Bunco Night") is False
-    assert is_senior_event("Uncorked Bunco", None, "Foundry Plates & Spirits") is False
 
 
 def test_is_senior_event_decided_by_venue() -> None:
