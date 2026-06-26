@@ -69,14 +69,26 @@ def test_pickleball_court_hours_move_to_fitness() -> None:
 
 
 def test_bare_dropin_without_hours_facet_stays_things_to_do() -> None:
-    # A bare drop-in (Open Gym) with an explicit activity tag but NO court/venue-
-    # hours facet stays in Things to Do — only the venue-hours facets override the
-    # drop-in-rec exception, so generic open gym/swim is unaffected.
+    # A bare drop-in (Open Gym) with a non-pickleball fitness tag but NO court/
+    # venue-hours facet stays in Things to Do — only the venue-hours facets
+    # override the drop-in-rec rule, so generic open gym/swim is unaffected.
+    # (Pickleball is the one exception → Sports & Fitness; see the pickleball test.)
     assert _occurrence_group_keys(
         "events", title="Open Gym – Ark Center", venue="The Ark Center",
-        activity=None, tags=["activity:pickleball"],
+        activity=None, tags=["activity:strength-cardio"],
         is_senior=False,
     ) == ["events"]
+
+
+def test_pickleball_open_play_stays_in_fitness() -> None:
+    # Phase 4 exception (Casey 2026-06-26): "Open Play" is pickleball's normal
+    # format, so a bare pickleball drop-in (no hours facet) still routes to Sports
+    # & Fitness → Pickleball, NOT Things to Do.
+    assert _occurrence_group_keys(
+        "events", title="Pickleball Open Play – Ark Center", venue="The Ark Center",
+        activity=None, tags=["sports", "activity:pickleball"],
+        is_senior=False,
+    ) == ["classes"]
 
 
 def test_untagged_fitness_oneoff_unchanged() -> None:

@@ -283,6 +283,12 @@ def _occurrence_group_keys(
             return ["events"]
         if vk == "course":
             return ["classes"]
+    # Pickleball is the ONE drop-in exception (Phase 4, Casey 2026-06-26): "Open
+    # Play" is pickleball's normal format, so every pickleball row stays in Sports
+    # & Fitness → Pickleball (court hours / open play / leagues) rather than being
+    # pulled into Things to Do by the drop-in-rec rule below.
+    if slug == "pickleball":
+        return ["classes"]
     if abkt == "learn":
         return ["learn"]
     if slug == "theater":
