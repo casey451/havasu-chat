@@ -42,7 +42,11 @@ _DAY_TO_INT = {
 _PAGELESS_VENUE_WEBSITES: dict[str, str] = {
     "havasu-pilates-studio": "https://havasupilates.com/",
     "desert-bloom-learning-center": "https://www.desertbloomlearningcenter.com/",
-    "havasu-horseback-rides": "https://www.havasuhorsebackrides.com/",
+    # "havasu-horseback-rides" removed (two-surface spec §6, Casey 2026-06-25):
+    # the Pony / Lead Line Rides occurrences carry no usable info, so they are
+    # pulled off both calendar surfaces. The Entity's Schedule rows are
+    # deactivated at the data layer (gated prod-data op) so the occurrences stop
+    # expanding entirely.
 }
 
 _ANCHOR_SLUG_RE = re.compile(r"[^a-z0-9]+")

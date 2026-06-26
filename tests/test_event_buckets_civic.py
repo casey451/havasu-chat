@@ -1,5 +1,6 @@
-"""P1: civic/government events route to their own "City & Government" bucket,
-not the leisure-oriented "Happening today" group."""
+"""P1: civic/government events route to their own "Local Government" bucket
+(key ``civic``; relabeled from "City & Government" 2026-06-25), not the
+leisure-oriented "Happening today" group."""
 
 from app.home.event_buckets import (
     GROUP_DEFS,
@@ -14,9 +15,16 @@ from app.home.event_buckets import (
 def test_civic_bucket_present_and_ordered():
     keys = [k for k, _label, _icon in GROUP_DEFS]
     assert "civic" in keys
-    # City & Government sits after the Seniors overlay, before leisure buckets.
+    # Local Government sits after the Seniors overlay, before leisure buckets.
     assert keys.index("civic") == keys.index("seniors") + 1
     assert keys.index("civic") < keys.index("music")
+
+
+def test_civic_label_is_local_government():
+    # Two-surface spec §2: key stays "civic" (stable hook); the display label
+    # changed "City & Government" -> "Local Government".
+    labels = {k: label for k, label, _icon in GROUP_DEFS}
+    assert labels["civic"] == "Local Government"
 
 
 def test_civic_has_rollup_nouns():

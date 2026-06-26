@@ -4,8 +4,9 @@ day-view template).
 Two things the existing pure-function civic test (test_event_buckets_civic.py)
 never exercised:
 
-1. A civic event on the day view buckets under "City & Government" — not left in
-   the chronological "Happening today" (events) group.
+1. A civic event on the day view buckets under "Local Government" (key stays
+   ``civic``; label relabeled 2026-06-25) — not left in the chronological
+   "Happening today" (events) group.
 2. The day-view rows emit NO "recurring" row badge ("Runs regularly ↻" /
    "Recurring") — that banner was retired in P1. The distinct headline
    ``recurrence_label`` (week view) is intentional and untouched here.
@@ -70,14 +71,14 @@ def _add(db: Session, *, title: str, on: date, recurring: bool = False, rrule: s
     db.commit()
 
 
-def test_civic_event_buckets_under_city_and_government_on_day_view(db: Session) -> None:
+def test_civic_event_buckets_under_local_government_on_day_view(db: Session) -> None:
     d = now_lake_havasu().date() + timedelta(days=2)
     _add(db, title="City Council Meeting", on=d)
 
     groups = events_views.day_groups(db, day=d, now=now_lake_havasu())
     by_key = {g["key"]: g for g in groups}
     assert "civic" in by_key, [g["key"] for g in groups]
-    assert by_key["civic"]["label"] == "City & Government"
+    assert by_key["civic"]["label"] == "Local Government"
     titles = [r["title"] for r in by_key["civic"]["rows"]]
     assert any("Council" in t for t in titles)
     # ...and it is NOT left in the leisure "Happening today" (events) group.
@@ -85,11 +86,11 @@ def test_civic_event_buckets_under_city_and_government_on_day_view(db: Session) 
         assert not any("Council" in r["title"] for r in by_key["events"]["rows"])
 
 
-def test_day_view_renders_city_and_government_group(db: Session) -> None:
+def test_day_view_renders_local_government_group(db: Session) -> None:
     d = now_lake_havasu().date() + timedelta(days=2)
     _add(db, title="City Council Meeting", on=d)
     body = TestClient(app).get(f"/events-ui?date={d.isoformat()}&theme=lake").text
-    assert "City &amp; Government" in body or "City & Government" in body
+    assert "Local Government" in body
 
 
 def test_day_view_rows_have_no_recurring_badge(db: Session) -> None:

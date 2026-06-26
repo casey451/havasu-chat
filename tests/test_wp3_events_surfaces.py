@@ -297,14 +297,27 @@ def test_events_ui_renders_view_toggle_and_today_accordion() -> None:
     """Default /events-ui is the TODAY view: a no-JS Today|Week|Month toggle
     plus the labelled today section. (Replaces the old ?when= chip/bucket
     assertions — the protected contract is still "the page exposes labelled,
-    navigable structure", just over the new views.)"""
-    with TestClient(app) as client:
-        body = client.get("/events-ui").text
-    assert 'aria-label="Calendar view"' in body  # view toggle present
-    assert "?view=week" in body and "?view=month" in body
-    # Today view is the default: the Today tab is current, the day accordion renders.
-    assert 'aria-current="page">Today</a>' in body
-    assert 'class="ev-acc"' in body  # today section accordion
+    navigable structure", just over the new views.) Seeds one all-day happening
+    for today so the events-only Calendar (two-surface spec §1) has a group to
+    render — without it a quiet day legitimately shows the empty state."""
+    today = now_lake_havasu().date()
+    title = f"ZZ Toggle Probe Festival {uuid.uuid4().hex[:6]}"
+    with SessionLocal() as db:
+        eid, _ent = _add_event(db, title=title, on=today, start=time(0, 0), loc="Beach",
+                               tags=["festival"])
+        db.commit()
+    try:
+        with TestClient(app) as client:
+            body = client.get("/events-ui").text
+        assert 'aria-label="Calendar view"' in body  # view toggle present
+        assert "?view=week" in body and "?view=month" in body
+        # Today view is the default: the Today tab is current, the accordion renders.
+        assert 'aria-current="page">Today</a>' in body
+        assert 'class="ev-acc"' in body  # today section accordion (seeded happening)
+    finally:
+        with SessionLocal() as db:
+            db.execute(delete(Event).where(Event.id == eid))
+            db.commit()
 
 
 def test_events_ui_when_today_maps_to_today_view() -> None:

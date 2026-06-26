@@ -26,6 +26,7 @@ from sqlalchemy import delete
 
 from app.db.database import SessionLocal
 from app.db.models import Entity, Event
+from app.home import events_views
 from app.main import app
 
 _LHC = ZoneInfo("America/Phoenix")
@@ -105,24 +106,22 @@ def test_today_view_groups_by_category_events_first(
         i_events = body.index('data-group="events"')
         i_music = body.index('data-group="music"')
         i_water = body.index('data-group="water"')
-        i_classes = body.index('data-group="classes"')
-        # Owner-approved group order; the recurring Lap Swim is a pool session →
-        # Fitness & classes (no separate Aquatic Center group).
-        assert i_events < i_music < i_water < i_classes
-        # Auto-expand (Casey 2026-06-26): every group that holds a real EVENT opens
-        # — Things to Do (festival), Music (band), On-the-water (paddle). A
-        # classes-only group (the recurring Lap Swim) stays collapsed.
+        # Two-surface split (spec §1): the Calendar is events-only. The events /
+        # music / on-the-water happenings render in owner-approved order; the
+        # recurring Lap Swim is a class → it moves to Places & Ongoing and never
+        # appears on the Calendar (no "classes" group here).
+        assert i_events < i_music < i_water
+        assert 'data-group="classes"' not in body
+        # Auto-expand (Casey 2026-06-26): every group holds a real EVENT → opens.
         for key in ("events", "music", "water"):
             assert f'data-group="{key}" open' in body
-        assert 'data-group="classes" open' not in body
-        # Right members (the events group now also carries funzone venue hours).
         events_block = body[i_events:i_music]
         assert festival in events_block and stroll in events_block
         assert band in body[i_music:i_water]
         # Sunset Paddle is genuinely on the lake → On-the-water group.
-        assert paddle in body[i_water:i_classes]
-        # Lap Swim is a pool class → Fitness & classes, not On-the-water.
-        assert swim in body[i_classes:]
+        assert paddle in body[i_water:]
+        # Lap Swim is a recurring pool class → Places, not the Calendar.
+        assert swim not in body
     finally:
         _cleanup(eids)
 
@@ -130,11 +129,14 @@ def test_today_view_groups_by_category_events_first(
 # --- (b) classes never land in the Events group ------------------------------
 
 
-def test_classes_never_appear_in_events_group() -> None:
+def test_classes_never_appear_on_calendar() -> None:
+    # Two-surface split (spec §1): the Calendar is events-only — a plain one-off
+    # renders; a recurring class and a class-tier workshop both move to Places &
+    # Ongoing and never appear on the Calendar day view.
     suffix = uuid.uuid4().hex[:6]
     day = date(2099, 7, 14)  # Tuesday after _MONDAY
     spin = f"ZZ Spin Class {suffix}"  # recurring class event (gym, not pool)
-    yoga = f"ZZ Yoga Workshop {suffix}"  # one-off, but class-tier
+    yoga = f"ZZ Yoga Workshop {suffix}"  # one-off, but class-tier (activity:yoga)
     gala = f"ZZ Quilt Gala {suffix}"  # plain one-off
     eids: list[str] = []
     with SessionLocal() as db:
@@ -147,15 +149,10 @@ def test_classes_never_appear_in_events_group() -> None:
         with TestClient(app) as client:
             body = client.get(f"/events-ui?date={day.isoformat()}").text
         i_events = body.index('data-group="events"')
-        i_classes = body.index('data-group="classes"')
-        events_block = body[i_events:i_classes]
-        assert gala in events_block
-        assert spin not in events_block and yoga not in events_block
-        classes_block = body[i_classes:]
-        assert spin in classes_block and yoga in classes_block
-        # P1: the inconsistent "recurring" row banner is removed across all views.
-        assert "Runs regularly" not in classes_block
-        assert "Recurring ↻" not in classes_block
+        assert gala in body[i_events:]
+        # Both class rows are off the Calendar entirely (they live on Places).
+        assert 'data-group="classes"' not in body
+        assert spin not in body and yoga not in body
     finally:
         _cleanup(eids)
 
@@ -182,30 +179,31 @@ def test_family_and_pool_classes_split_out() -> None:
                                recurring=True))
         db.commit()
     try:
-        with TestClient(app) as client:
-            body = client.get(f"/events-ui?date={day.isoformat()}").text
-        # Group accordions nest their own <details>, so slice each block by the
-        # next group's start marker (or end of doc) rather than the first close.
-        starts = sorted(m.start() for m in re.finditer(r'data-group="\w+"', body))
-
-        def _block(key: str) -> str:
-            i = body.index(f'data-group="{key}"')
-            after = [s for s in starts if s > i]
-            return body[i : (after[0] if after else len(body))]
-
-        events_block = _block("events")
-        classes_block = _block("classes")
+        # These are all recurring classes / drop-in rec — Places & Ongoing
+        # content under the two-surface split, not the events-only Calendar. The
+        # class-subgroup splitting (incl. the "Youth Martial Arts" peel) lives in
+        # the builder's mixed mode, which Phase 3 surfaces on the Places tab; we
+        # exercise it directly here (the live Places top-level groups land in
+        # Phase 3). Verified via day_groups(events_only=False).
+        with SessionLocal() as db:
+            groups = events_views.day_groups(db, day=day, events_only=False)
+        by_key = {g["key"]: g for g in groups}
         # No Kids & Family group (Casey 2026-06-26): each item appears ONCE.
-        assert 'data-group="family"' not in body
+        assert "family" not in by_key
+        classes = by_key["classes"]
+        classes_titles = [r["title"] for sub in classes.get("subgroups", []) for r in sub["rows"]]
+        classes_titles += [r["title"] for r in classes["rows"]]
+        sub_labels = [sub["label"] for sub in classes.get("subgroups", [])]
         # A youth class stays in Fitness & Sports (peeled into its "Youth Martial
-        # Arts" sub) — no longer pulled out into a separate group. Adult pool
-        # classes still list there too.
-        assert karate in classes_block
-        assert "Youth Martial Arts" in classes_block
-        assert adultlap in classes_block and aqua in classes_block
+        # Arts" sub). Adult pool classes list there too.
+        assert any(karate in t for t in classes_titles)
+        assert "Youth Martial Arts" in sub_labels
+        assert any(adultlap in t for t in classes_titles)
+        assert any(aqua in t for t in classes_titles)
         # Open Swim is all-day drop-in rec → Things to Do (events), not a class.
-        assert openswim in events_block
-        assert openswim not in classes_block
+        events_titles = [r["title"] for r in by_key["events"]["rows"]]
+        assert any(openswim in t for t in events_titles)
+        assert not any(openswim in t for t in classes_titles)
     finally:
         _cleanup(eids)
 
@@ -237,15 +235,13 @@ def test_week_view_rollup_counts_and_headline(monkeypatch: pytest.MonkeyPatch) -
         # Headline is the top-ranked ONE-OFF (special parade), with its time.
         assert parade in row
         assert "6 PM ·" in row
-        # Counts per group (zero groups omitted); only the headline is named. The
-        # Things-to-Do count now also includes the daily funzone venue hours, so
-        # assert counted tokens flexibly rather than an exact total.
+        # Two-surface split (spec §1): the Week view is the events-only Calendar —
+        # the rollup counts only happenings (events + music here). The recurring
+        # Spin class moves to Places & Ongoing and is NOT in the class rollup;
+        # no "class" count token appears.
         assert re.search(r"\d+ events", row)
         assert "1 music" in row
-        # Recurring spin (+ youth studio classes) lands in the class rollup, so
-        # assert a counted "N class(es)" token — a bare "class" substring would
-        # match HTML attributes.
-        assert re.search(r"\d+ class", row)
+        assert not re.search(r"\d+ class", row)
         assert quilt not in row and karaoke not in row and spin not in row
     finally:
         _cleanup(eids)

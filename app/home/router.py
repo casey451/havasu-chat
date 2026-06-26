@@ -938,6 +938,40 @@ def _long_day_label(d: dt_date) -> str:
     return d.strftime("%A, %B ") + str(d.day)
 
 
+def _with_movies_group(
+    groups: list[dict[str, Any]], movies: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Promote "At the Movies" to a first-class Calendar category (Phase 1,
+    two-surface spec §2).
+
+    Movie showtimes are not Event-table rows, so they ride in their own render
+    group flagged ``is_movies`` (the template renders the showtime tiles for it
+    instead of ``ev_row``). It slots in right after "Events" — or first when
+    there are no events that day. Returns ``groups`` unchanged when there are no
+    showtimes (honest omission: empty categories never render).
+    """
+    if not movies:
+        return groups
+    movies_group: dict[str, Any] = {
+        "key": "movies",
+        "label": "At the Movies",
+        "icon": "\U0001F3AC",
+        "count": len(movies),
+        "rows": movies,
+        "subgroups": [],
+        "is_movies": True,
+        "open": True,
+    }
+    out = list(groups)
+    # Slot "At the Movies" after Special sessions when present, else after Events
+    # (two-surface spec §2 order: Events → Special sessions → At the Movies).
+    anchor = next((i for i, g in enumerate(out) if g.get("key") == "specials"), None)
+    if anchor is None:
+        anchor = next((i for i, g in enumerate(out) if g.get("key") == "events"), -1)
+    out.insert(anchor + 1, movies_group)
+    return out
+
+
 @router.get("/events-ui", response_class=HTMLResponse)
 def serve_events_ui(
     request: Request,
@@ -968,7 +1002,10 @@ def serve_events_ui(
     single_day = _parse_iso_date(date)
 
     view_key = (view or "").strip().lower()
-    if view_key not in {key for key, _label in _EVENT_VIEWS}:
+    if view_key == "places":
+        pass  # Surface B (two-surface spec §3) — a distinct browse tab, not a
+        # Today/Week/Month zoom level; rendered via its own surface toggle below.
+    elif view_key not in {key for key, _label in _EVENT_VIEWS}:
         when_key = (when or "").strip().lower()
         view_key = "today" if when_key in ("", "today") else "week"
 
@@ -993,7 +1030,9 @@ def serve_events_ui(
         """Current page URL with the ``target`` audience flipped (the toggle's
         href). Turning one audience on clears the other (mutually exclusive)."""
         params: list[str] = []
-        if single_day is not None:
+        if view_key == "places":
+            params.append("view=places")  # the chip narrows the Places surface in place
+        elif single_day is not None:
             params.append(f"date={single_day.isoformat()}")
         elif view_key == "week":
             params.append("view=week")
@@ -1005,6 +1044,9 @@ def serve_events_ui(
             params.append(f"{target}=1")
         return "/events-ui" + ("?" + "&".join(params) if params else "")
 
+    # Surface toggle (two-surface spec §1): Calendar (Today/Week/Month) vs the
+    # Places & Ongoing browse tab. The audience narrow rides along on both.
+    on_places = view_key == "places"
     context: dict[str, Any] = {
         "active_tab": "events",
         "primary_nav": sandstone.primary_nav(),
@@ -1015,29 +1057,48 @@ def serve_events_ui(
         "family_qs": family_qs,
         "family_toggle_url": _toggle_url("family"),
         "seniors_toggle_url": _toggle_url("seniors"),
+        "on_places": on_places,
+        "calendar_url": _view_url("today"),
+        "places_url": "/events-ui?view=places" + (f"&{aud}=1" if aud else ""),
+        # Calendar zoom levels (Today/Week/Month). Suppressed/none-active while the
+        # Places surface is showing.
         "view_links": [
             {
                 "key": key,
                 "label": label,
                 "url": _view_url(key),
-                "active": single_day is None and key == view_key,
+                "active": not on_places and single_day is None and key == view_key,
             }
             for key, label in _EVENT_VIEWS
         ],
     }
 
-    if single_day is not None:
+    if view_key == "places":
+        # Surface B — Places & Ongoing (two-surface spec §3): the standing venues
+        # + weekly class schedules the events-only Calendar drops, de-duplicated
+        # and browsable. Not date-scoped — a window scan collapsed to one row per
+        # place/class.
+        context.update(
+            {
+                "mode": "places",
+                "groups": events_views.places_groups(db, today=today, family=family_on),
+            }
+        )
+    elif single_day is not None:
         context.update(
             {
                 "mode": "day",
-                "groups": events_views.day_groups(
-                    db, day=single_day, family=family_on, seniors=seniors_on, now=now
+                "groups": _with_movies_group(
+                    events_views.day_groups(
+                        db, day=single_day, family=family_on, seniors=seniors_on,
+                        now=now, events_only=True,
+                    ),
+                    movies_today(db, day=single_day, now=now),
                 ),
                 "day_label": _long_day_label(single_day),
                 "prev_iso": (single_day - timedelta(days=1)).isoformat(),
                 "next_iso": (single_day + timedelta(days=1)).isoformat(),
                 "is_today": single_day == today,
-                "movies_today": movies_today(db, day=single_day, now=now),
             }
         )
     elif view_key == "week":
@@ -1045,13 +1106,13 @@ def serve_events_ui(
             {
                 "mode": "week",
                 "week_rows": events_views.week_rows(
-                    db, start=today, family=family_on, seniors=seniors_on
+                    db, start=today, family=family_on, seniors=seniors_on, events_only=True
                 ),
                 # Item 3: consecutive weeks for the mobile swipeable calendar
                 # (lake template renders these as a swipe carousel; the desert
                 # template ignores it and keeps the flat week list).
                 "swipe_weeks": events_views.swipe_weeks(
-                    db, today=today, family=family_on, seniors=seniors_on
+                    db, today=today, family=family_on, seniors=seniors_on, events_only=True
                 ),
             }
         )
@@ -1067,7 +1128,7 @@ def serve_events_ui(
                 # Mobile falls back to the swipeable week here too (a month grid
                 # is unreadable on a phone); desktop keeps the visible grid.
                 "swipe_weeks": events_views.swipe_weeks(
-                    db, today=today, family=family_on, seniors=seniors_on
+                    db, today=today, family=family_on, seniors=seniors_on, events_only=True
                 ),
             }
         )
@@ -1075,11 +1136,14 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "today",
-                "groups": events_views.day_groups(
-                    db, day=today, family=family_on, seniors=seniors_on, now=now
+                "groups": _with_movies_group(
+                    events_views.day_groups(
+                        db, day=today, family=family_on, seniors=seniors_on,
+                        now=now, events_only=True,
+                    ),
+                    movies_today(db, day=today, now=now),
                 ),
                 "day_label": _long_day_label(today),
-                "movies_today": movies_today(db, day=today, now=now),
             }
         )
     events_template = "events_lake.html"

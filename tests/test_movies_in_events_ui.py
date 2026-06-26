@@ -1,9 +1,12 @@
-"""/events-ui surfaces the "At the movies today" strip on the today/day views.
+"""/events-ui surfaces "At the Movies" as a first-class Calendar category on the
+today/day views (two-surface spec §2; promoted 2026-06-25 from the old collapsed
+side strip).
 
-serve_events_ui adds ``movies_today`` to the today + day contexts (not week or
-month), and the events templates include ``_partials/movies_today.html`` there.
-This pins that wiring end-to-end: a showtime seeded for the mocked "today"
-renders in the strip on the today view and is absent from the week view.
+serve_events_ui inserts a ``movies`` render group (``is_movies``) into the
+today + day groups (not week or month), and the events template renders it as a
+first-class accordion (``data-group="movies"``). This pins that wiring
+end-to-end: a showtime seeded for the mocked "today" renders in the accordion on
+the today view and is absent from the week view.
 
 Mirrors tests/test_events_ui_views.py: far-future 2099 date + the
 ``app.home.router.now_lake_havasu`` monkeypatch so the view is anchored on a
@@ -26,7 +29,8 @@ from app.main import app
 
 _LHC = ZoneInfo("America/Phoenix")
 _NOW = datetime(2099, 7, 13, 9, 0, tzinfo=_LHC)
-_STRIP_MARKER = 'aria-label="At the movies today"'
+# The promoted first-class accordion (was the side-strip's aria-label marker).
+_MOVIES_MARKER = 'data-group="movies"'
 
 
 def _seed_showtime(film_title: str, sid: str) -> str:
@@ -52,7 +56,7 @@ def _cleanup(ids: list[str]) -> None:
         db.commit()
 
 
-def test_events_ui_today_shows_movies_strip_week_does_not(
+def test_events_ui_today_shows_movies_category_week_does_not(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     suffix = uuid.uuid4().hex[:6]
@@ -64,14 +68,15 @@ def test_events_ui_today_shows_movies_strip_week_does_not(
             today = client.get("/events-ui")
             week = client.get("/events-ui?view=week")
         assert today.status_code == 200
-        # The strip renders on the today view, carrying the seeded film + a
-        # /movies link.
-        assert _STRIP_MARKER in today.text
+        # The first-class "At the Movies" accordion renders on the today view,
+        # carrying the category label, the seeded film, and a /movies link.
+        assert _MOVIES_MARKER in today.text
+        assert "At the Movies" in today.text
         assert film in today.text
         assert 'href="/movies"' in today.text
-        # The week view never includes the strip (no movies_today context there).
+        # The week view has no movies group (only today/day get one).
         assert week.status_code == 200
-        assert _STRIP_MARKER not in week.text
+        assert _MOVIES_MARKER not in week.text
         assert film not in week.text
     finally:
         _cleanup(ids)
