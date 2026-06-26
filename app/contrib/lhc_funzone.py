@@ -139,13 +139,9 @@ IN_TOWN_VENUES: tuple[FunVenue, ...] = (
         hours_text="Open daily 11am–11pm — 14 tables, $5/hr, full bar; leagues and tournaments.",
         blurb="Billiards hall and pub: 14 tables, full bar, league and tournament play.",
     ),
-    FunVenue(
-        name="In the Pocket Billiard",
-        activity_slug="billiards",
-        address="2871 Indian Pipe Dr, Lake Havasu City, AZ 86406",
-        hours_text="Billiards hall — call or see Google for current hours.",
-        blurb="Lake Havasu billiards hall.",
-    ),
+    # "In the Pocket Billiard" removed 2026-06-26: it is a billiard supply shop /
+    # pool-table repair service, not a playable hall. Existing directory Provider
+    # row is deactivated via scripts/deactivate_in_the_pocket_billiard.py.
     FunVenue(
         name="Lady Lee's Billiards Hall",
         activity_slug="billiards",

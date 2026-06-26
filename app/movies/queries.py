@@ -265,6 +265,16 @@ def group_showtimes(
         for f in tg["films"].values():
             if not f["times"]:
                 continue
+            # De-duplicate identical showtimes. Some feeds (notably Movies
+            # Havasu / internet-ticketing.com) return the same start time more
+            # than once, which rendered as "10 AM, 10 AM, 12 PM". Keep one entry
+            # per time label, preferring one that carries a booking URL.
+            _seen: dict[str, Showtime] = {}
+            for _s in f["times"]:
+                _kept = _seen.get(_s.label)
+                if _kept is None or (not _kept.url and _s.url):
+                    _seen[_s.label] = _s
+            f["times"] = list(_seen.values())
             f["times"].sort(key=lambda s: s.sort)
             films.append(
                 FilmCard(
