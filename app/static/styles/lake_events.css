@@ -78,7 +78,7 @@
 .ev-l4>summary{padding-left:48px}
 .ev-l3 .ev-row{padding-left:46px}
 .ev-l4 .ev-row{padding-left:60px}
-.ev-sub.ev-youth>summary .sub-name{color:#2f8f7f}
+.ev-sub.ev-youth>summary .sub-name{color:#248474}
 .ev-row{display:flex;align-items:baseline;gap:14px;padding:11px 18px;border-top:1px solid var(--hair);color:inherit;transition:background .14s}
 .ev-row:first-child{border-top:0}
 .ev-row:hover{background:var(--surface)}
