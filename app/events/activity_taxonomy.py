@@ -53,7 +53,7 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     # :func:`classify_class_subgroup` so it routes to Sports & Racing, not Golf
     # (Lake Havasu Golf Club East is itself a disc-golf course: same venue, two
     # activities).
-    ("Golf", (
+    ("Golf — courses", (
         "golf", "toptracer", "top tracer", "golf simulator", "indoor golf",
         "driving range", "tee time",
     )),
@@ -80,8 +80,8 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
 )
 SUBGROUP_ORDER: tuple[str, ...] = (
     "Yoga", "Pilates", "Strength & Cardio", "Mind & Body", "Aquatic fitness",
-    "Dance", "Gymnastics", "Golf", "Martial Arts", "Pickleball", "Sports & Racing",
-    "Other classes",
+    "Dance", "Gymnastics", "Golf — courses", "Martial Arts", "Pickleball",
+    "Sports & Racing", "Other classes",
 )
 FALLBACK_LABEL = "Other classes"
 
@@ -94,7 +94,7 @@ SUBGROUP_SLUGS: dict[str, str] = {
     "Martial Arts": "martial-arts",
     "Dance": "dance",
     "Gymnastics": "gymnastics",
-    "Golf": "golf",
+    "Golf — courses": "golf",
     "Strength & Cardio": "strength-cardio",
     "Mind & Body": "mind-body",
     "Pickleball": "pickleball",
@@ -182,7 +182,7 @@ def classify_class_subgroup(
     # "disc golf" matches the Golf keyword "golf" but is a FIELD sport (PDGA), not
     # ball golf — route it to Sports & Racing instead (the negative guard the
     # plan §5.3 calls for; same venue can host both, so this must be by title).
-    if by_title == "Golf" and re.search(r"\bdisc\s+golf\b", (title or "").lower()):
+    if by_title == "Golf — courses" and re.search(r"\bdisc\s+golf\b", (title or "").lower()):
         return "Sports & Racing"
     if by_title is not None:
         return by_title
@@ -699,9 +699,17 @@ EVENTS_BILLIARDS_LABEL = "Billiards"
 EVENTS_BOWLING_LABEL = "Bowling"
 EVENTS_TRAMPOLINE_LABEL = "Trampoline"
 EVENTS_ARCADE_LABEL = "Arcade & Family Fun"
+# Golf — simulators & Top Tracer (Phase 2, Casey 2026-06-26): the indoor sims and
+# the Top Tracer driving range are drop-in entertainment → Things to Do (the
+# COURSES are structured play → Sports & Fitness). The subgroup splits into its
+# two venue-kind facets as children.
+EVENTS_GOLF_LABEL = "Golf — simulators & Top Tracer"
+GOLF_SIM_LABEL = "Indoor simulators"
+GOLF_RANGE_LABEL = "Top Tracer driving range"
 EVENTS_SUBGROUP_ORDER: tuple[str, ...] = (
     EVENTS_AROUND_LABEL, EVENTS_GAMES_LABEL, EVENTS_BILLIARDS_LABEL,
     EVENTS_BOWLING_LABEL, EVENTS_TRAMPOLINE_LABEL, EVENTS_ARCADE_LABEL,
+    EVENTS_GOLF_LABEL,
 )
 # Venue-type / activity slug → its Things-to-Do sub-section label. ``family-fun``
 # is the arcade/family-fun cluster; ``games`` is the social-games section.
@@ -714,16 +722,32 @@ _SLUG_TO_EVENTS_LABEL: dict[str, str] = {
 }
 
 
+def golf_venue_kind(tags: list[str] | None) -> str | None:
+    """The ``venue-kind:<course|range|simulator>`` of a golf row (stamped by the
+    golf loader, :mod:`app.contrib.lhc_golf`), or None when absent."""
+    for t in tags or []:
+        s = str(t).strip().lower()
+        if s.startswith("venue-kind:"):
+            kind = s.split(":", 1)[1]
+            if kind in ("course", "range", "simulator"):
+                return kind
+    return None
+
+
 def classify_events_subgroup(
     title: str, tags: list[str] | None = None, activity: str | None = None
 ) -> str:
     """Map a Things-to-Do row to its venue-type sub-section.
 
-    Routes by ``venue-kind:<slug>`` (curated venue-hours rows carry this) then the
-    activity slug (so an `activity:bowling` Cosmic Bowling event and a bowling
-    venue's hours both land under **Bowling**). A `facet:special` session is NOT a
+    Golf sims / Top Tracer range (``venue-kind:simulator|range``) cluster under
+    "Golf — simulators & Top Tracer" (Phase 2). Otherwise routes by
+    ``venue-kind:<slug>`` (curated venue-hours rows carry this) then the activity
+    slug (so an `activity:bowling` Cosmic Bowling event and a bowling venue's
+    hours both land under **Bowling**). A `facet:special` session is NOT a
     separate section — it nests under its venue type. Everything unmatched is the
     residual Around Town."""
+    if golf_venue_kind(tags) in ("simulator", "range"):
+        return EVENTS_GOLF_LABEL
     for t in tags or []:
         s = str(t).strip().lower()
         if s.startswith("venue-kind:"):
@@ -734,16 +758,48 @@ def classify_events_subgroup(
     return _SLUG_TO_EVENTS_LABEL.get(slug or "", EVENTS_AROUND_LABEL)
 
 
+def split_golf_facets(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Split the Things-to-Do golf rows into the two venue-kind facet children:
+    Indoor simulators (``venue-kind:simulator``) and Top Tracer driving range
+    (everything else here — only sims and ranges route to Things to Do). Empties
+    omitted; row order preserved."""
+    sim = [r for r in rows if golf_venue_kind(r.get("tags")) == "simulator"]
+    rng = [r for r in rows if golf_venue_kind(r.get("tags")) != "simulator"]
+    out: list[dict[str, Any]] = []
+    if sim:
+        out.append({"label": GOLF_SIM_LABEL, "rows": sim, "count": len(sim)})
+    if rng:
+        out.append({"label": GOLF_RANGE_LABEL, "rows": rng, "count": len(rng)})
+    return out
+
+
 def split_events_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Partition already-sorted Things-to-Do rows into ordered venue-type
     subsections, with a paired "Youth …" for kid-specific rows; empties omitted.
-    The caller only applies this when a non-residual subsection exists (so plain
-    days stay flat)."""
-    return _split_with_youth(
-        rows,
-        EVENTS_SUBGROUP_ORDER,
-        lambda r: classify_events_subgroup(r.get("title") or "", r.get("tags"), r.get("activity")),
-    )
+    The Golf subgroup further splits into its Indoor simulators / Top Tracer range
+    facet children (Phase 2). The caller only applies this when a non-residual
+    subsection exists (so plain days stay flat)."""
+    adult: dict[str, list[dict[str, Any]]] = {}
+    youth: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        label = classify_events_subgroup(row.get("title") or "", row.get("tags"), row.get("activity"))
+        (youth if row.get("youth") else adult).setdefault(label, []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in EVENTS_SUBGROUP_ORDER:
+        a = adult.get(label, [])
+        y = youth.get(label, [])
+        if label == EVENTS_GOLF_LABEL:
+            children = split_golf_facets(a)
+            if y:
+                children.append(_youth_child(label, y))
+            if children:
+                out.append({
+                    "label": label, "rows": [], "count": len(a) + len(y), "children": children
+                })
+            continue
+        if a or y:
+            out.append(_activity_node(label, a, y))
+    return out
 
 
 # ── Seniors group — internal sub-split (the gated group stays browsable) ───────

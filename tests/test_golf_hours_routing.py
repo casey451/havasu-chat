@@ -1,10 +1,12 @@
-"""Golf venue hours route to Fitness & Sports → Golf, not Things to Do.
+"""Golf routes by venue type (Phase 2, 2026-06-26).
 
-The golf-hours scraper (Phase 4) publishes all-day rows tagged
-``activity:golf`` + ``facet:hours``, but their venue-hours titles ("Golf Course
-— X", "Indoor Golf Simulators — X") don't trip the keyword tier classifier, so
-they used to fall into "Things to Do". An EXPLICIT ingest/loader-stamped
-activity tag is now authoritative for placement (drop-in rec excepted).
+The golf-hours scraper publishes all-day rows tagged ``activity:golf`` +
+``facet:hours`` + ``venue-kind:<course|range|simulator>``. The COURSES are
+structured play → Sports & Fitness → "Golf — courses"; the indoor simulators and
+the Top Tracer driving range are drop-in entertainment → Things to Do → "Golf —
+simulators & Top Tracer" (Indoor simulators / Top Tracer driving range facets).
+An explicit ingest/loader-stamped activity tag remains authoritative for the
+non-golf fitness rows (drop-in rec excepted).
 """
 
 from __future__ import annotations
@@ -32,14 +34,27 @@ def test_explicit_activity_bucket_helper() -> None:
     assert _explicit_activity_bucket(None) is None
 
 
-def test_golf_hours_route_to_fitness_even_when_tiered_events() -> None:
-    # The tier classifier doesn't know golf, so gkey="events"; the explicit
-    # activity:golf tag pulls it into Fitness & Sports.
+def test_golf_course_hours_route_to_fitness() -> None:
+    # venue-kind:course → Sports & Fitness (structured play).
     assert _occurrence_group_keys(
         "events", title="Golf Course — Lake Havasu Golf Club", venue="Lake Havasu Golf Club",
         activity=None, tags=["activity:golf", "facet:hours", "venue-kind:course"],
         is_senior=False,
     ) == ["classes"]
+
+
+def test_golf_sim_and_range_hours_route_to_things_to_do() -> None:
+    # Phase 2: venue-kind:simulator / range → Things to Do (drop-in entertainment).
+    assert _occurrence_group_keys(
+        "events", title="Indoor Golf Simulators — Back Nine", venue="Back Nine Golf",
+        activity=None, tags=["activity:golf", "facet:hours", "venue-kind:simulator", "indoor:true"],
+        is_senior=False,
+    ) == ["events"]
+    assert _occurrence_group_keys(
+        "events", title="Driving Range — Toptracer — Iron Wolf", venue="Iron Wolf Top Tracer Range",
+        activity=None, tags=["activity:golf", "facet:hours", "venue-kind:range"],
+        is_senior=False,
+    ) == ["events"]
 
 
 def test_pickleball_court_hours_move_to_fitness() -> None:
@@ -86,7 +101,9 @@ def _add(db, *, title, tags) -> str:
     return ev.entity_id
 
 
-def test_golf_hours_render_under_fitness_golf_subgroup() -> None:
+def test_golf_range_hours_render_under_things_to_do_golf_subgroup() -> None:
+    # Phase 2: a Top Tracer range row renders in Things to Do → "Golf — simulators
+    # & Top Tracer" → "Top Tracer driving range" (NOT Fitness).
     s = uuid.uuid4().hex[:6]
     title = f"Driving Range — Toptracer — Iron Wolf {s}"
     eids: list[str] = []
@@ -97,10 +114,13 @@ def test_golf_hours_render_under_fitness_golf_subgroup() -> None:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
         by_key = {g["key"]: {r["title"] for r in g["rows"]} for g in groups}
-        assert any(title in t for t in by_key.get("classes", set()))
-        assert not any(title in t for t in by_key.get("events", set()))
-        classes = next(g for g in groups if g["key"] == "classes")
-        assert any(sub["label"] == "Golf" for sub in classes.get("subgroups", []))
+        assert any(title in t for t in by_key.get("events", set()))
+        assert not any(title in t for t in by_key.get("classes", set()))
+        events = next(g for g in groups if g["key"] == "events")
+        golf = next(sub for sub in events["subgroups"]
+                    if sub["label"] == "Golf — simulators & Top Tracer")
+        rng = next(c for c in golf["children"] if c["label"] == "Top Tracer driving range")
+        assert any(title in r["title"] for r in rng["rows"])
     finally:
         with SessionLocal() as db:
             db.execute(delete(Event).where(Event.entity_id.in_(eids)))
