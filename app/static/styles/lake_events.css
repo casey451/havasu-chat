@@ -22,6 +22,10 @@
 .ev-surf a{font-family:var(--ui);font-size:13.5px;font-weight:700;color:var(--ink-2);padding:9px 16px;border-radius:999px;transition:.14s;white-space:nowrap;min-height:44px;display:inline-flex;align-items:center}
 .ev-surf a:hover{color:var(--ink)}
 .ev-surf a.on{background:linear-gradient(165deg,#b07a22,#8a5e16);color:#fff}
+/* "For kids" cross-cutting narrow chip — shown on both surfaces (spec §5.1). */
+.ev-kids{display:inline-flex;align-items:center;gap:6px;font-family:var(--ui);font-size:13.5px;font-weight:700;color:var(--ink-2);background:var(--raised);border:1px solid var(--hair-2);border-radius:999px;padding:9px 16px;min-height:44px;transition:.14s;white-space:nowrap}
+.ev-kids:hover{color:var(--ink);border-color:var(--ink)}
+.ev-kids.on{background:var(--good);border-color:var(--good);color:#fff}
 .ev-places-intro{margin:16px 0 8px;font-size:14px;color:var(--muted);max-width:62ch}
 .ev-places-intro a{color:var(--brass-deep);font-weight:600}
 .ev-fam{margin-left:auto;display:inline-flex;align-items:center;gap:7px;font-size:13.5px;font-weight:600;color:var(--ink-2);background:var(--raised);border:1px solid var(--hair-2);border-radius:999px;padding:9px 16px;box-shadow:var(--sh-1);transition:.14s;min-height:44px}

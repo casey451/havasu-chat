@@ -198,6 +198,32 @@ def test_places_top_key_mapping() -> None:
         assert ev._places_top_key(k) == "things-to-do"
 
 
+# --- Phase 4: "For kids" filter on both surfaces ------------------------------
+
+
+def test_for_kids_chip_present_and_toggles_on_both_surfaces() -> None:
+    with TestClient(app) as client:
+        cal = client.get("/events-ui").text
+        cal_on = client.get("/events-ui?family=1").text
+        places = client.get("/events-ui?view=places").text
+        places_on = client.get("/events-ui?view=places&family=1").text
+    # The chip is a cross-cutting narrow (not a category) on both surfaces.
+    assert 'class="ev-kids ' in cal and 'aria-pressed="false"' in cal
+    assert 'class="ev-kids on"' in cal_on and 'aria-pressed="true"' in cal_on
+    # On Places the chip keeps the surface (view=places) when toggled.
+    assert 'class="ev-kids ' in places
+    assert 'class="ev-kids on"' in places_on
+    assert "view=places" in places_on
+
+
+def test_places_family_narrow_keeps_only_kid_rows(db: Session) -> None:
+    groups = ev.places_groups(db, today=date.today(), family=True)
+    from app.events.family_filter import is_family_event
+    for g in groups:
+        for r in g["rows"]:
+            assert is_family_event(r.get("title"), r.get("tags"), r.get("venue")), r.get("title")
+
+
 # --- Route smoke: the surface toggle + Places tab render ----------------------
 
 

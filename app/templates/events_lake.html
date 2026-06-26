@@ -117,9 +117,13 @@
       <a href="{{ _week_link.url }}" class="{{ 'on' if mode in ('week', 'month') else '' }}"{% if mode in ('week', 'month') %} aria-current="page"{% endif %}>Full calendar</a>
     </nav>
     {% endif %}
-    {# Audience filter tabs (Kids & family / Seniors) removed — the calendar makes
-       everything browsable, so they were redundant. Chat senior intent still
-       narrows results via /calendar (server-side query parser), not a tab. #}
+    {# "For kids" filter (two-surface spec §5.1): a cross-cutting narrow, NOT a
+       category. On → only kid/family rows, on whichever surface is showing; youth
+       stays nested under each activity. Visible on both Calendar and Places. #}
+    <a class="ev-kids {{ 'on' if family_mode else '' }}" href="{{ family_toggle_url }}"
+       role="button" aria-pressed="{{ 'true' if family_mode else 'false' }}">
+      <span aria-hidden="true">🧒</span> For kids
+    </a>
   </div>
 
   {% if mode == 'day' %}

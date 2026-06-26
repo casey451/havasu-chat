@@ -1030,7 +1030,9 @@ def serve_events_ui(
         """Current page URL with the ``target`` audience flipped (the toggle's
         href). Turning one audience on clears the other (mutually exclusive)."""
         params: list[str] = []
-        if single_day is not None:
+        if view_key == "places":
+            params.append("view=places")  # the chip narrows the Places surface in place
+        elif single_day is not None:
             params.append(f"date={single_day.isoformat()}")
         elif view_key == "week":
             params.append("view=week")
