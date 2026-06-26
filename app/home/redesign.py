@@ -324,7 +324,10 @@ def feed_view_model(
 ) -> dict[str, Any]:
     """The v4 feed: a count overview + accordion buckets, only Events open, each
     row carrying a one-line blurb, Fitness exposing its activity sub-chips."""
-    groups = events_views.day_groups(db, day=day, now=now)
+    # Calendar surface (two-surface spec §1): only dated happenings — venue hours
+    # + recurring class rosters live on Places & Ongoing (/events-ui?view=places),
+    # so the home feed no longer repeats the golf/bowling/class padding.
+    groups = events_views.day_groups(db, day=day, now=now, events_only=True)
 
     # Collect every event id once so blurbs are a single query, not N.
     all_rows: list[dict[str, Any]] = []
@@ -468,7 +471,9 @@ def calendar_month_view(
 
 
 def _agenda(db: Session, day: date, *, now: datetime | None = None) -> dict[str, Any]:
-    groups = events_views.day_groups(db, day=day, now=now)
+    # Calendar surface (two-surface spec §1): events-only agenda — classes/hours
+    # browse on Places & Ongoing (/events-ui?view=places), not the calendar grid.
+    groups = events_views.day_groups(db, day=day, now=now, events_only=True)
     rows: list[dict[str, Any]] = []
     for g in groups:
         key = g["key"]

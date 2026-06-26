@@ -205,8 +205,10 @@ def build_calendar(
     columns: list[dict[str, Any]] = []
     total = 0
     for col in selected:
+        # Calendar surface (two-surface spec §1): events-only — venue hours +
+        # recurring class rosters live on Places & Ongoing (/events-ui?view=places).
         groups = events_views.day_groups(
-            db, day=col["date"], family=family, seniors=seniors, now=now
+            db, day=col["date"], family=family, seniors=seniors, now=now, events_only=True
         )
         items: list[dict[str, Any]] = []
         for g in groups:
