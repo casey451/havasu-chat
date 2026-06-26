@@ -407,12 +407,12 @@ def day_groups(
     overlays and the family-venue "open today" rows are suppressed — the whole
     view is already that audience. ``family`` wins if both are passed.
 
-    ``events_only=True`` renders the **Calendar** surface (two-surface spec §1):
-    only dated happenings (``_row_is_event`` True) — venue hours and recurring
-    class rosters are skipped here (they live on the Places & Ongoing surface,
-    :func:`places_groups`). Themed ``facet:special`` / ``facet:competition`` rows
-    are pulled into a top-level **"Special sessions"** group (§2), except
-    senior-gated specials, which stay under the gated Seniors group (§5.2).
+    ``events_only=True`` keeps only dated happenings (``_row_is_event`` True) —
+    venue hours and recurring class rosters are skipped. Used by the legacy month
+    grid and the week rollups; the unified calendar (:func:`calendar_day_view_model`)
+    passes ``events_only=False`` so hours + classes render inline. Themed
+    ``facet:special`` / ``facet:competition`` rows are NOT split into a separate
+    group (Phase 3, 2026-06-26) — they render inline under their venue subcategory.
     """
     if family:
         seniors = False
@@ -520,20 +520,15 @@ def day_groups(
     if overlay_ok and not events_only:
         rows_by_group["events"].extend(funzone_hours_rows(day))
 
-    # Calendar surface (two-surface spec §1–§2): keep only dated happenings, then
-    # peel themed specials/competitions into their own top-level "Special
-    # sessions" group — except senior-gated specials, which stay under the gated
-    # Seniors group (§5.2). Default (Places & Ongoing builds separately) is off.
-    specials_rows: list[dict[str, Any]] = []
+    # Events-only mode (legacy month grid / week rollups): keep only dated
+    # happenings — venue hours and recurring class rosters are filtered out.
+    # Phase 3 (Casey 2026-06-26): themed specials / competitions are NO LONGER
+    # peeled into a separate "Special sessions" group; they render INLINE under
+    # their venue subcategory (a Cosmic / Glow / Rock & Bowl night sits beside
+    # Bowling's hours), so a no-special day simply shows the hours.
     if events_only:
         for key in list(rows_by_group):
-            kept = [r for r in rows_by_group[key] if _row_is_event(r)]
-            if key != "seniors":
-                special = [r for r in kept if _row_has_special(r)]
-                if special:
-                    kept = [r for r in kept if not _row_has_special(r)]
-                    specials_rows.extend(special)
-            rows_by_group[key] = kept
+            rows_by_group[key] = [r for r in rows_by_group[key] if _row_is_event(r)]
 
     groups: list[dict[str, Any]] = []
     for key, label, icon in GROUP_DEFS:
@@ -570,23 +565,6 @@ def day_groups(
             # Meals / Special) so it stays browsable.
             group["subgroups"] = split_senior_subgroups(rows)
         groups.append(group)
-    # Special sessions (two-surface spec §2): a top-level Calendar group of dated
-    # themed specials / competitions (Cosmic / Rock & Bowl, Glow in the Park,
-    # Family Night Golf), rendered right after Events. Built only on the
-    # events-only Calendar surface; senior specials are excluded above (§5.2).
-    if specials_rows:
-        specials_rows.sort(key=lambda r: r["sort"])
-        idx = next((i for i, g in enumerate(groups) if g["key"] == "events"), -1)
-        groups.insert(
-            idx + 1,
-            {
-                "key": "specials",
-                "label": "Special sessions",
-                "icon": "✨",
-                "count": len(specials_rows),
-                "rows": specials_rows,
-            },
-        )
     # Default expand/collapse (Casey 2026-06-26): a group — and each of its
     # sub-sections — opens by default ONLY when it contains a real EVENT (a
     # one-off happening, a themed special, or a competition). Classes-and-hours-
@@ -829,9 +807,7 @@ def calendar_day_view_model(
             "is_movies": True,
             "open": False,
         }
-        anchor = next((i for i, s in enumerate(sections) if s["key"] == "specials"), None)
-        if anchor is None:
-            anchor = next((i for i, s in enumerate(sections) if s["key"] == "events"), -1)
+        anchor = next((i for i, s in enumerate(sections) if s["key"] == "events"), -1)
         sections.insert(anchor + 1, movies_section)
     return {"sections": sections, "total": sum(int(s.get("count") or 0) for s in sections)}
 
@@ -872,11 +848,10 @@ def week_rows(
     as :func:`day_groups`, so the week rollups agree with the day view.
     ``family`` wins if both are passed.
 
-    ``events_only=True`` is the Calendar surface (two-surface spec §1): venue
-    Schedule classes and curated venue-hours rows are not counted — the rollup
-    reflects only dated happenings (``_row_is_event`` True), matching the
-    events-only day view. Special-session rows still count under their routed
-    group here (the distinct "Special sessions" group is a day-view affordance).
+    ``events_only=True`` counts only dated happenings (``_row_is_event`` True):
+    venue Schedule classes and curated venue-hours rows are not counted. Themed
+    special / competition rows count under their routed group (they render inline
+    there — there is no separate "Special sessions" group; Phase 3, 2026-06-26).
     """
     if family:
         seniors = False

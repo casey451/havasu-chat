@@ -6,9 +6,10 @@ happenings + themed specials + showtimes + civic), False → Places & Ongoing
 worked examples on both surfaces.
 
 * Calendar (``day_groups(events_only=True)``): a golf-course-hours row and a
-  recurring class do NOT appear; a themed special (Cosmic / Rock & Bowl) lands
-  in the new "Special sessions" group; a one-off market lands in Events; a civic
-  meeting lands in Local Government; a senior special stays gated under Seniors.
+  recurring class do NOT appear; a themed special (Cosmic / Rock & Bowl) renders
+  INLINE under its venue subcategory in Things to Do (no separate "Special
+  sessions" group — Phase 3); a one-off market lands in Events; a civic meeting
+  lands in Local Government; a senior special stays gated under Seniors.
 * Places (``places_groups``): every row is ``_row_is_event`` False, de-duplicated
   to one per venue, grouped into Things to Do / Sports & Fitness / Seniors.
 """
@@ -101,14 +102,15 @@ def test_recurring_class_absent_from_calendar(db: Session) -> None:
     assert not any("Yoga" in t for t in all_titles), all_titles
 
 
-def test_cosmic_bowling_special_lands_in_special_sessions(db: Session) -> None:
+def test_cosmic_bowling_special_renders_inline_under_events(db: Session) -> None:
+    # Phase 3 (Casey 2026-06-26): no standalone "Special sessions" group — a themed
+    # bowling special renders INLINE in Things to Do (events), under its Bowling
+    # venue subcategory, beside the venue's hours.
     _add(db, title="Rock & Bowl Black-Light Night", tags=["activity:bowling", "facet:special"])
     groups = ev.day_groups(db, day=_DAY, events_only=True)
     by_key = _calendar_titles(groups)
-    assert "specials" in by_key, list(by_key)
-    assert any("Rock & Bowl" in t for t in by_key["specials"])
-    # ...and it is NOT left in the leisure Things-to-Do (events) group.
-    assert not any("Rock & Bowl" in t for t in by_key.get("events", []))
+    assert "specials" not in by_key, list(by_key)
+    assert any("Rock & Bowl" in t for t in by_key.get("events", []))
 
 
 def test_oneoff_market_lands_in_events(db: Session) -> None:
@@ -130,8 +132,10 @@ def test_senior_special_stays_gated_under_seniors(db: Session) -> None:
     groups = ev.day_groups(db, day=_DAY, events_only=True)
     by_key = _calendar_titles(groups)
     assert any("Luncheon" in t for t in by_key.get("seniors", [])), by_key
-    # Gated: never cross-listed into Special sessions (spec §5.2).
-    assert not any("Luncheon" in t for t in by_key.get("specials", []))
+    # Gated: stays under Seniors only — and there is no "Special sessions" group
+    # any more (Phase 3); senior specials never leak out of the gated group.
+    assert "specials" not in by_key
+    assert not any("Luncheon" in t for t in by_key.get("events", []))
 
 
 # --- Places & Ongoing surface ------------------------------------------------
