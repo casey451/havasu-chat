@@ -191,7 +191,7 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .sechd .si{width:34px;height:34px;border-radius:10px;background:linear-gradient(160deg,#eef4f4,var(--teal-soft));display:flex;align-items:center;justify-content:center;color:var(--teal);flex:0 0 auto}
 .sec.lead .sechd .si{background:linear-gradient(160deg,#faf3e2,var(--brass-soft));color:var(--brass)}
 .sechd .sl{font-family:var(--disp);font-weight:500;font-size:16.5px;letter-spacing:-.01em}
-.sechd .sc{font-size:11px;font-weight:600;color:var(--teal);background:var(--teal-soft);border-radius:999px;padding:3px 9px}
+.sechd .sc{font-size:11px;font-weight:600;color:var(--teal-deep);background:var(--teal-soft);border-radius:999px;padding:3px 9px}  /* --teal-deep on --teal-soft ≥4.5:1 (was --teal 3.58:1) */
 .sec.lead .sechd .sc{color:var(--brass);background:var(--brass-soft)}
 .sechd .sp{font-size:12px;color:var(--ink3);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38%}
 .sec[open] .sechd .sp{display:none}
