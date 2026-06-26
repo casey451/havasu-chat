@@ -45,6 +45,7 @@ from app.events.activity_taxonomy import (
     SUBGROUP_ORDER,
     activity_bucket,
     classify_class_subgroup,
+    golf_venue_kind,
     resolve_activity,
     split_class_subgroups,
     split_events_subgroups,
@@ -271,6 +272,17 @@ def _occurrence_group_keys(
         return ["seniors"]
     slug = resolve_activity(title, venue, tags, activity)
     abkt = activity_bucket(slug)
+    # Golf splits by venue type (Phase 2, Casey 2026-06-26): the Top Tracer range
+    # and indoor simulators are drop-in entertainment → Things to Do; the courses
+    # are structured play → Sports & Fitness. ``venue-kind:*`` is stamped by the
+    # golf loader (app.contrib.lhc_golf). Untagged golf falls through to the
+    # default fitness routing below (so it stays in Sports & Fitness for now).
+    if slug == "golf":
+        vk = golf_venue_kind(tags)
+        if vk in ("simulator", "range"):
+            return ["events"]
+        if vk == "course":
+            return ["classes"]
     if abkt == "learn":
         return ["learn"]
     if slug == "theater":

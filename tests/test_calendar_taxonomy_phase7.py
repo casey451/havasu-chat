@@ -160,7 +160,7 @@ def test_golf_hours_read_hours_vary_not_time_tbd() -> None:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
         classes = next(g for g in groups if g["key"] == "classes")
-        golf_rows = [r for sub in classes.get("subgroups", []) if sub["label"] == "Golf"
+        golf_rows = [r for sub in classes.get("subgroups", []) if sub["label"] == "Golf — courses"
                      for r in sub["rows"]]
         row = next(r for r in golf_rows if title in r["title"])
         assert row["time_label"] == "Hours vary"  # never "Time TBD"

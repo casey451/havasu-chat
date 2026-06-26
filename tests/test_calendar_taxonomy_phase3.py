@@ -32,13 +32,13 @@ def test_golf_titles_classify_to_golf() -> None:
         "Tee Time Special",
         "Golf Lessons & Clinics",
     ):
-        assert classify_class_subgroup(title) == "Golf", title
+        assert classify_class_subgroup(title) == "Golf — courses", title
         assert activity_slug(title) == "golf", title
 
 
 def test_golf_in_taxonomy_structures() -> None:
-    assert "Golf" in SUBGROUP_ORDER
-    assert SUBGROUP_SLUGS["Golf"] == "golf"
+    assert "Golf — courses" in SUBGROUP_ORDER
+    assert SUBGROUP_SLUGS["Golf — courses"] == "golf"
     assert activity_bucket("golf") == "classes"
 
 

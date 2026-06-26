@@ -69,7 +69,7 @@ def test_hours_specs_carry_canonical_tags_and_window() -> None:
 
 def test_hours_titles_route_to_golf_subgroup() -> None:
     for s in golf_hours_event_specs(today=date(2026, 7, 1), window_days=1):
-        assert classify_class_subgroup(s.title) == "Golf", s.title
+        assert classify_class_subgroup(s.title) == "Golf — courses", s.title
 
 
 def test_parse_toptracer_open_days() -> None:
