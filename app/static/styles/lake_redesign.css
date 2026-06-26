@@ -198,6 +198,22 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .sechd .cv{margin-left:10px;color:var(--ink3);transition:transform .3s cubic-bezier(.4,0,.2,1);flex:0 0 auto}
 .sec[open] .sechd .cv{transform:rotate(180deg)}
 .secbody>.host{padding:0 16px 14px}
+/* Nested subcategory tree (parity Rule 0) — the SAME structure /events-ui renders:
+   section → subgroup → (youth/facet l3 child) → rows; collapse-by-default. */
+.subg,.l3{border-top:1px solid var(--hair)}
+.subg>summary,.l3>summary{list-style:none}
+.subg>summary::-webkit-details-marker,.l3>summary::-webkit-details-marker{display:none}
+.subhd{display:flex;align-items:center;gap:9px;cursor:pointer;user-select:none;font-family:var(--ui)}
+.subg>summary.subhd{padding:9px 4px 9px 18px;font-size:13.5px;font-weight:600;color:var(--ink2)}
+.l3>summary.subhd{padding:8px 4px 8px 32px;font-size:13px;font-weight:600;color:var(--ink3)}
+.l3.youth>summary.subhd .subl{color:var(--teal)}
+.subhd:hover .subl{color:var(--ink)}
+.subl{min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.subc{margin-left:auto;font-size:11px;font-weight:600;color:var(--ink3);background:var(--paper);border-radius:999px;padding:2px 8px}
+.subhd .cv{color:var(--ink3);transition:transform .25s;flex:0 0 auto}
+.subg[open]>summary.subhd .cv,.l3[open]>summary.subhd .cv{transform:rotate(180deg)}
+.subbody{padding:0 4px 6px 22px}
+.l3 .subbody{padding-left:38px}
 /* subtle reveal on open (works with native <details>, no JS needed) */
 .sec[open] .secbody{animation:rise .3s ease both}
 @media (prefers-reduced-motion:reduce){.sec[open] .secbody{animation:none}}

@@ -74,6 +74,7 @@ from app.home.sandstone import (
     _live_events_by_day,
     event_recurrence_label,
 )
+from app.movies.queries import movies_today
 
 # Private aliases for the shared bucket definitions (the canonical names live in
 # app.home.event_buckets — Slice C). Plain assignment instead of ``import ... as``
@@ -769,6 +770,50 @@ def places_groups(
             }
         )
     return groups
+
+
+def calendar_day_view_model(
+    db: Session,
+    *,
+    day: date,
+    now: datetime | None = None,
+    family: bool = False,
+    seniors: bool = False,
+) -> dict[str, Any]:
+    """THE single Calendar-surface builder (parity refactor, Rule 0 2026-06-26).
+
+    Returns the one canonical nested tree that **every** Calendar surface renders
+    identically — ``/events-ui`` (``serve_events_ui``), the v4 home feed
+    (``redesign.feed_view_model``), and the month agenda (``redesign._agenda``) —
+    so they can never drift again. The tree is the events-only ``day_groups``
+    output (sections → subgroups → rows) plus a first-class **At the Movies**
+    section (showtimes aren't Event-table rows, so they ride in their own
+    ``is_movies`` section, slotted after Special sessions / Events).
+
+    ``sections`` is the ordered list; ``total`` is the summed count. Consumers
+    style rows in their own theme but MUST keep this structure (the parity test
+    ``tests/test_home_calendar_parity.py`` asserts the (section, subgroup, count,
+    order) tuples match across surfaces).
+    """
+    sections = day_groups(
+        db, day=day, family=family, seniors=seniors, now=now, events_only=True
+    )
+    movies = movies_today(db, day=day, now=now)
+    if movies:
+        movies_section: dict[str, Any] = {
+            "key": "movies",
+            "label": "At the Movies",
+            "icon": "\U0001F3AC",
+            "count": len(movies),
+            "rows": movies,
+            "is_movies": True,
+            "open": False,
+        }
+        anchor = next((i for i, s in enumerate(sections) if s["key"] == "specials"), None)
+        if anchor is None:
+            anchor = next((i for i, s in enumerate(sections) if s["key"] == "events"), -1)
+        sections.insert(anchor + 1, movies_section)
+    return {"sections": sections, "total": sum(int(s.get("count") or 0) for s in sections)}
 
 
 def rollup_summary(counts: dict[str, int]) -> str:
