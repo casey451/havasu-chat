@@ -264,11 +264,27 @@ _DISCIPLINE_TO_LABEL: dict[str, str] = {
     "tae-kwon-do": MARTIAL_TAEKWONDO_LABEL,
 }
 
+# Curated VENUE → discipline (Phase 5, Casey 2026-06-26). The dojos' Schedule
+# occurrences carry no ``discipline:`` tag (they're render-time expansions, not
+# Event rows), so the discipline is derived from the venue — data-derived (a
+# curated dojo list / an unambiguous venue-name token), never a title-keyword
+# guess. A token-less BJJ dojo (Bridge City Combat) needs an explicit entry; a
+# venue whose NAME already says the discipline ("…Jiu Jitsu") is caught by token.
+# Substring matched, lower-cased. Mixed-discipline dojos (Elite Martial Arts —
+# karate / kenpo / kali) are deliberately absent → they stay in the flat base.
+_VENUE_DISCIPLINE: tuple[tuple[str, str], ...] = (
+    ("bridge city combat", MARTIAL_BJJ_LABEL),
+    ("black belt academy", MARTIAL_TAEKWONDO_LABEL),
+    ("jiu jitsu", MARTIAL_BJJ_LABEL),
+    ("jiu-jitsu", MARTIAL_BJJ_LABEL),
+)
+
 
 def classify_martial_discipline(row: dict[str, Any]) -> str | None:
     """The martial-arts discipline label for a row from its stamped signal — a
-    ``discipline:<x>`` tag or a ``discipline`` field — or None when undetermined
-    (stays in the flat Martial Arts base; never inferred from the title)."""
+    ``discipline:<x>`` tag, a ``discipline`` field, or a curated VENUE (Phase 5) —
+    or None when undetermined (stays in the flat Martial Arts base; never inferred
+    from the title)."""
     disc = str(row.get("discipline") or "").strip().lower()
     if disc in _DISCIPLINE_TO_LABEL:
         return _DISCIPLINE_TO_LABEL[disc]
@@ -278,6 +294,10 @@ def classify_martial_discipline(row: dict[str, Any]) -> str | None:
             label = _DISCIPLINE_TO_LABEL.get(s.split(":", 1)[1])
             if label:
                 return label
+    vlow = str(row.get("venue") or "").lower()
+    for needle, label in _VENUE_DISCIPLINE:
+        if needle in vlow:
+            return label
     return None
 
 
