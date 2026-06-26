@@ -116,8 +116,6 @@
       {% for s in feed.sections %}
       <a role="menuitem" href="{{ '/movies' if s.is_movies else '/events-ui?view=' ~ s.key }}" data-k="{{ s.key }}"><span class="l">{{ cicon(s.key, 16) }} {{ s.label }}</span><span class="c num">{{ s.count }}</span></a>
       {% endfor %}
-      {# Places & Ongoing: the other surface — venues + standing classes. #}
-      <a role="menuitem" href="/events-ui?view=places" data-k="places"><span class="l">{{ icon('arrow', 16) }} Places &amp; Ongoing</span></a>
     </div>
   </div>
 </div>
@@ -128,8 +126,6 @@
   {% for s in feed.sections %}
   <a class="cpill" data-k="{{ s.key }}" href="{{ '/movies' if s.is_movies else '/events-ui?view=' ~ s.key }}">{{ cicon(s.key, 15) }}<span class="cl">{{ s.label }}</span><span class="cb num">{{ s.count }}</span></a>
   {% endfor %}
-  {# Places & Ongoing surface — open venues + standing weekly classes (not dated). #}
-  <a class="cpill places" data-k="places" href="/events-ui?view=places"><span class="cl">Places &amp; Ongoing</span>{{ icon('arrow', 15) }}</a>
 </div>
 
 {# ── Sections (accordion; only Events open) + ad placements ───────────── #}

@@ -973,10 +973,10 @@ def serve_events_ui(
     single_day = _parse_iso_date(date)
 
     view_key = (view or "").strip().lower()
-    if view_key == "places":
-        pass  # Surface B (two-surface spec §3) — a distinct browse tab, not a
-        # Today/Week/Month zoom level; rendered via its own surface toggle below.
-    elif view_key not in {key for key, _label in _EVENT_VIEWS}:
+    # UNIFY (Rule 0b 2026-06-26): the ?view=places surface is retired — one calendar
+    # now shows the full tree (hours + classes inline, collapsed). A legacy
+    # ?view=places link falls through to Today like any other unknown view.
+    if view_key not in {key for key, _label in _EVENT_VIEWS}:
         when_key = (when or "").strip().lower()
         view_key = "today" if when_key in ("", "today") else "week"
 
@@ -1001,9 +1001,7 @@ def serve_events_ui(
         """Current page URL with the ``target`` audience flipped (the toggle's
         href). Turning one audience on clears the other (mutually exclusive)."""
         params: list[str] = []
-        if view_key == "places":
-            params.append("view=places")  # the chip narrows the Places surface in place
-        elif single_day is not None:
+        if single_day is not None:
             params.append(f"date={single_day.isoformat()}")
         elif view_key == "week":
             params.append("view=week")
@@ -1015,9 +1013,8 @@ def serve_events_ui(
             params.append(f"{target}=1")
         return "/events-ui" + ("?" + "&".join(params) if params else "")
 
-    # Surface toggle (two-surface spec §1): Calendar (Today/Week/Month) vs the
-    # Places & Ongoing browse tab. The audience narrow rides along on both.
-    on_places = view_key == "places"
+    # UNIFY (Rule 0b 2026-06-26): one calendar, no Calendar⇄Places toggle. Just the
+    # Today/Week/Month zoom levels over the single unified tree.
     context: dict[str, Any] = {
         "active_tab": "events",
         "primary_nav": sandstone.primary_nav(),
@@ -1028,34 +1025,19 @@ def serve_events_ui(
         "family_qs": family_qs,
         "family_toggle_url": _toggle_url("family"),
         "seniors_toggle_url": _toggle_url("seniors"),
-        "on_places": on_places,
-        "calendar_url": _view_url("today"),
-        "places_url": "/events-ui?view=places" + (f"&{aud}=1" if aud else ""),
-        # Calendar zoom levels (Today/Week/Month). Suppressed/none-active while the
-        # Places surface is showing.
+        # Calendar zoom levels (Today/Week/Month).
         "view_links": [
             {
                 "key": key,
                 "label": label,
                 "url": _view_url(key),
-                "active": not on_places and single_day is None and key == view_key,
+                "active": single_day is None and key == view_key,
             }
             for key, label in _EVENT_VIEWS
         ],
     }
 
-    if view_key == "places":
-        # Surface B — Places & Ongoing (two-surface spec §3): the standing venues
-        # + weekly class schedules the events-only Calendar drops, de-duplicated
-        # and browsable. Not date-scoped — a window scan collapsed to one row per
-        # place/class.
-        context.update(
-            {
-                "mode": "places",
-                "groups": events_views.places_groups(db, today=today, family=family_on),
-            }
-        )
-    elif single_day is not None:
+    if single_day is not None:
         context.update(
             {
                 "mode": "day",

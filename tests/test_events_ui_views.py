@@ -106,13 +106,13 @@ def test_today_view_groups_by_category_events_first(
         i_events = body.index('data-group="events"')
         i_music = body.index('data-group="music"')
         i_water = body.index('data-group="water"')
-        # Two-surface split (spec §1): the Calendar is events-only. The events /
-        # music / on-the-water happenings render in owner-approved order; the
-        # recurring Lap Swim is a class → it moves to Places & Ongoing and never
-        # appears on the Calendar (no "classes" group here).
+        # UNIFY (Rule 0b 2026-06-26): one calendar shows the FULL tree — the
+        # events / music / on-the-water happenings render in owner-approved order,
+        # and the recurring Lap Swim class now renders inline too (the old
+        # ?view=places tab is retired). Cleanliness comes from collapse, not a
+        # second surface.
         assert i_events < i_music < i_water
-        assert 'data-group="classes"' not in body
-        # Auto-expand (Casey 2026-06-26): every group holds a real EVENT → opens.
+        # Auto-expand (Casey 2026-06-26): a group holds a real EVENT → opens.
         for key in ("events", "music", "water"):
             assert f'data-group="{key}" open' in body
         events_block = body[i_events:i_music]
@@ -120,8 +120,12 @@ def test_today_view_groups_by_category_events_first(
         assert band in body[i_music:i_water]
         # Sunset Paddle is genuinely on the lake → On-the-water group.
         assert paddle in body[i_water:]
-        # Lap Swim is a recurring pool class → Places, not the Calendar.
-        assert swim not in body
+        # Lap Swim is a recurring pool class → now ON the unified Calendar, in the
+        # Fitness & Sports group, which is COLLAPSED standing content (no real
+        # happening in it → no `open`).
+        assert swim in body
+        assert 'data-group="classes"' in body
+        assert 'data-group="classes" open' not in body
     finally:
         _cleanup(eids)
 
@@ -129,10 +133,12 @@ def test_today_view_groups_by_category_events_first(
 # --- (b) classes never land in the Events group ------------------------------
 
 
-def test_classes_never_appear_on_calendar() -> None:
-    # Two-surface split (spec §1): the Calendar is events-only — a plain one-off
-    # renders; a recurring class and a class-tier workshop both move to Places &
-    # Ongoing and never appear on the Calendar day view.
+def test_classes_appear_collapsed_on_unified_calendar() -> None:
+    # UNIFY (Rule 0b 2026-06-26): the calendar shows the FULL tree — recurring
+    # classes / class-tier workshops render inline (the ?view=places tab is
+    # retired), but in COLLAPSED standing-content sections. A plain happening
+    # leads (its group opens); the class rows sit in a collapsed Fitness & Sports
+    # group so the day still reads "what's on first".
     suffix = uuid.uuid4().hex[:6]
     day = date(2099, 7, 14)  # Tuesday after _MONDAY
     spin = f"ZZ Spin Class {suffix}"  # recurring class event (gym, not pool)
@@ -150,9 +156,13 @@ def test_classes_never_appear_on_calendar() -> None:
             body = client.get(f"/events-ui?date={day.isoformat()}").text
         i_events = body.index('data-group="events"')
         assert gala in body[i_events:]
-        # Both class rows are off the Calendar entirely (they live on Places).
-        assert 'data-group="classes"' not in body
-        assert spin not in body and yoga not in body
+        # The class rows are now ON the unified Calendar, under a collapsed
+        # Fitness & Sports group (standing content never auto-opens).
+        assert spin in body and yoga in body
+        assert 'data-group="classes"' in body
+        assert 'data-group="classes" open' not in body
+        # The happening's group leads and is open.
+        assert 'data-group="events" open' in body
     finally:
         _cleanup(eids)
 
