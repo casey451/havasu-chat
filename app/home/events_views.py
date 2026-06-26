@@ -780,15 +780,23 @@ def calendar_day_view_model(
     family: bool = False,
     seniors: bool = False,
 ) -> dict[str, Any]:
-    """THE single Calendar-surface builder (parity refactor, Rule 0 2026-06-26).
+    """THE single Calendar-surface builder (parity refactor, Rule 0 2026-06-26;
+    UNIFY flip, Rule 0b 2026-06-26).
 
     Returns the one canonical nested tree that **every** Calendar surface renders
     identically — ``/events-ui`` (``serve_events_ui``), the v4 home feed
     (``redesign.feed_view_model``), and the month agenda (``redesign._agenda``) —
-    so they can never drift again. The tree is the events-only ``day_groups``
-    output (sections → subgroups → rows) plus a first-class **At the Movies**
-    section (showtimes aren't Event-table rows, so they ride in their own
-    ``is_movies`` section, slotted after Special sessions / Events).
+    so they can never drift again. The tree is the **full** ``day_groups`` output
+    (``events_only`` OFF — Rule 0b unifies the old two-surface split: venue hours
+    and recurring classes now render inline as collapsed standing-content sections
+    instead of living on a separate ``?view=places`` tab) plus a first-class
+    **At the Movies** section (showtimes aren't Event-table rows, so they ride in
+    their own ``is_movies`` section, slotted after Events).
+
+    Cleanliness comes from collapse, not a second tab: each section auto-opens only
+    when it holds a real happening (``day_groups`` sets ``open`` via
+    ``_row_is_event``), so the day leads with what's on and standing venue hours /
+    class rosters sit collapsed below.
 
     ``sections`` is the ordered list; ``total`` is the summed count. Consumers
     style rows in their own theme but MUST keep this structure (the parity test
@@ -796,7 +804,7 @@ def calendar_day_view_model(
     order) tuples match across surfaces).
     """
     sections = day_groups(
-        db, day=day, family=family, seniors=seniors, now=now, events_only=True
+        db, day=day, family=family, seniors=seniors, now=now, events_only=False
     )
     movies = movies_today(db, day=day, now=now)
     if movies:

@@ -424,8 +424,8 @@ def calendar_month_view(
 
 
 def _agenda(db: Session, day: date, *, now: datetime | None = None) -> dict[str, Any]:
-    # Calendar surface (two-surface spec §1): events-only agenda — classes/hours
-    # browse on Places & Ongoing (/events-ui?view=places), not the calendar grid.
+    # UNIFY (Rule 0b 2026-06-26): the agenda shows the full unified tree (hours +
+    # classes inline) — the same builder every calendar surface consumes.
     groups = events_views.calendar_day_view_model(db, day=day, now=now)["sections"]
     rows: list[dict[str, Any]] = []
     for g in groups:

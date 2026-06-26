@@ -3,7 +3,7 @@
    SAME real serve_events_ui context (groups / week_rows / calendar). Four modes:
    today + day (category accordions), week (day list), month (grid). -#}
 
-{% set _h1 = 'Places & Ongoing' if mode == 'places' else (day_label if mode in ('today', 'day') else ('This week in Lake Havasu' if mode == 'week' else (calendar.label ~ ' events'))) %}
+{% set _h1 = day_label if mode in ('today', 'day') else ('This week in Lake Havasu' if mode == 'week' else (calendar.label ~ ' events')) %}
 
 {% block title %}{{ _h1 }} — Ask Hava events, Lake Havasu City{% endblock %}
 {% block meta_description %}What's happening in Lake Havasu City — events, live music, family fun, lake outings, and fitness classes by day, week, and month.{% endblock %}
@@ -95,13 +95,8 @@
   </div>
 
   <div class="ev-controls">
-    {# Two-surface toggle (spec §1): Calendar (what's on) vs Places & Ongoing
-       (where to go / what to enroll in). #}
-    <nav class="ev-surf" aria-label="Calendar or Places">
-      <a href="{{ calendar_url }}" class="{{ 'on' if not on_places else '' }}"{% if not on_places %} aria-current="page"{% endif %}>Calendar</a>
-      <a href="{{ places_url }}" class="{{ 'on' if on_places else '' }}"{% if on_places %} aria-current="page"{% endif %}>Places &amp; Ongoing</a>
-    </nav>
-    {% if not on_places %}
+    {# UNIFY (Rule 0b 2026-06-26): one calendar, no Calendar⇄Places toggle — just
+       the Today / Week / Month zoom levels over the single unified tree. #}
     {# Desktop: full Today / Week / Month tabs. #}
     <nav class="ev-seg" aria-label="Calendar view">
       {% for v in view_links %}
@@ -116,7 +111,6 @@
       <a href="{{ _today_link.url }}" class="{{ 'on' if mode in ('today', 'day') else '' }}"{% if mode in ('today', 'day') %} aria-current="page"{% endif %}>Day</a>
       <a href="{{ _week_link.url }}" class="{{ 'on' if mode in ('week', 'month') else '' }}"{% if mode in ('week', 'month') %} aria-current="page"{% endif %}>Full calendar</a>
     </nav>
-    {% endif %}
     {# "For kids" filter (two-surface spec §5.1): a cross-cutting narrow, NOT a
        category. On → only kid/family rows, on whichever surface is showing; youth
        stays nested under each activity. Visible on both Calendar and Places. #}
@@ -176,39 +170,6 @@
     </div>
     {% else %}
     <div class="ev-empty"><h3>Nothing posted for {{ day_label }} yet</h3><p>Try the week or month view, or check back soon.</p></div>
-    {% endif %}
-
-  {% elif mode == 'places' %}
-    {# Surface B — Places & Ongoing (spec §3): standing venues + weekly class
-       schedules, each shown once. Subcategory tree + collapse land in Phase 3. #}
-    <p class="ev-places-intro">Where to go and what to enroll in — open venues and standing weekly classes around the lake. For dated happenings, see the <a href="{{ calendar_url }}">Calendar</a>.</p>
-    {% if groups %}
-    <div class="ev-groups">
-      {% for g in groups %}
-      <details class="ev-acc" data-group="{{ g.key }}" open>
-        <summary>
-          <span class="ev-sw {{ g.key }}" aria-hidden="true"></span>
-          <span class="gname">{{ g.label }}</span>
-          <span class="gcount">{{ g.count }}</span>
-          <svg class="gchev" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
-        </summary>
-        <div class="ev-rows">
-          {% if g.subgroups %}
-            {% for sub in g.subgroups %}
-            <details class="ev-sub"{% if sub.open %} open{% endif %}>
-              <summary><span class="sub-name">{{ sub.label }}</span><span class="sc">{{ sub.count }}</span><svg class="sub-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
-              {% for row in sub.rows %}{{ ev_row(row) }}{% endfor %}
-            </details>
-            {% endfor %}
-          {% else %}
-            {% for row in g.rows %}{{ ev_row(row) }}{% endfor %}
-          {% endif %}
-        </div>
-      </details>
-      {% endfor %}
-    </div>
-    {% else %}
-    <div class="ev-empty"><h3>No places listed yet</h3><p>Check the <a href="{{ calendar_url }}">Calendar</a> for today's happenings.</p></div>
     {% endif %}
 
   {% elif mode == 'week' %}

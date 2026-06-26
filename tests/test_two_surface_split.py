@@ -206,19 +206,14 @@ def test_places_top_key_mapping() -> None:
 # --- Phase 4: "For kids" filter on both surfaces ------------------------------
 
 
-def test_for_kids_chip_present_and_toggles_on_both_surfaces() -> None:
+def test_for_kids_chip_present_and_toggles_on_unified_calendar() -> None:
+    # UNIFY (Rule 0b 2026-06-26): one calendar, so the "For kids" chip is a single
+    # cross-cutting narrow on it (no second Places surface to mirror).
     with TestClient(app) as client:
         cal = client.get("/events-ui").text
         cal_on = client.get("/events-ui?family=1").text
-        places = client.get("/events-ui?view=places").text
-        places_on = client.get("/events-ui?view=places&family=1").text
-    # The chip is a cross-cutting narrow (not a category) on both surfaces.
     assert 'class="ev-kids ' in cal and 'aria-pressed="false"' in cal
     assert 'class="ev-kids on"' in cal_on and 'aria-pressed="true"' in cal_on
-    # On Places the chip keeps the surface (view=places) when toggled.
-    assert 'class="ev-kids ' in places
-    assert 'class="ev-kids on"' in places_on
-    assert "view=places" in places_on
 
 
 def test_places_family_narrow_keeps_only_kid_rows(db: Session) -> None:
@@ -324,12 +319,16 @@ def test_deactivating_venue_stops_its_occurrences(db: Session) -> None:
 # --- Route smoke: the surface toggle + Places tab render ----------------------
 
 
-def test_route_renders_surface_toggle_and_places_tab() -> None:
+def test_places_toggle_retired_and_route_falls_through() -> None:
+    # UNIFY (Rule 0b 2026-06-26): the Calendar⇄Places toggle and the ?view=places
+    # surface are retired. The toggle is gone, and a legacy ?view=places link falls
+    # through to the unified calendar (Today) rather than 404-ing.
     with TestClient(app) as client:
         cal = client.get("/events-ui")
-        places = client.get("/events-ui?view=places")
+        legacy = client.get("/events-ui?view=places")
     assert cal.status_code == 200
-    assert 'class="ev-surf"' in cal.text  # Calendar ⇄ Places toggle present
-    assert places.status_code == 200
-    assert "Places &amp; Ongoing" in places.text
-    assert 'data-group="things-to-do"' in places.text or "No places listed" in places.text
+    assert 'class="ev-surf"' not in cal.text  # toggle removed
+    assert "Places &amp; Ongoing" not in cal.text
+    assert legacy.status_code == 200
+    # Fell through to a normal calendar view (the Today/Week/Month tabs are shown).
+    assert 'class="ev-seg"' in legacy.text
