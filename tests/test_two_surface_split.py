@@ -266,6 +266,61 @@ def test_curated_black_belt_academy_renders_youth_taekwondo(db: Session) -> None
     assert "Youth Taekwondo" in labels
 
 
+# --- Phase 6: horseback removal (§6) ------------------------------------------
+
+
+def test_horseback_removed_from_pageless_venue_map() -> None:
+    from app.events.class_occurrences import _PAGELESS_VENUE_WEBSITES
+
+    assert "havasu-horseback-rides" not in _PAGELESS_VENUE_WEBSITES
+
+
+def test_deactivating_venue_stops_its_occurrences(db: Session) -> None:
+    # The spec §6 data-layer op: deactivating the Entity (publish flag) stops its
+    # Schedule occurrences from expanding onto either surface — without deleting.
+    import uuid
+    from datetime import UTC, datetime, time, timedelta
+
+    from app.db.models import Entity, Schedule
+    from app.events.class_occurrences import class_occurrences_in_window
+
+    suf = uuid.uuid4().hex[:8]
+    now = datetime.now(UTC).replace(tzinfo=None)
+    ent = Entity(
+        entity_type="venue", slug=f"horseback-{suf}",
+        name=f"Havasu Horseback Rides {suf}", source="test-two-surface", is_active=True,
+    )
+    db.add(ent)
+    db.commit()
+    db.add(
+        Schedule(
+            entity_id=ent.id, schedule_type="recurring", days_of_week=["wednesday"],
+            start_time=time(10, 0), end_time=time(11, 0), notes=f"Pony Rides {suf}",
+            created_at=now, updated_at=now,
+        )
+    )
+    db.commit()
+    win_start = date.today()
+    win_end = win_start + timedelta(days=13)
+    try:
+        before = [
+            o for o in class_occurrences_in_window(db, window_start=win_start, window_end=win_end)
+            if suf in o.title
+        ]
+        assert before, "an active venue's recurring schedule should expand"
+        ent.is_active = False
+        db.commit()
+        after = [
+            o for o in class_occurrences_in_window(db, window_start=win_start, window_end=win_end)
+            if suf in o.title
+        ]
+        assert after == [], "deactivated venue must produce no occurrences"
+    finally:
+        db.query(Schedule).filter(Schedule.entity_id == ent.id).delete()
+        db.query(Entity).filter(Entity.id == ent.id).delete()
+        db.commit()
+
+
 # --- Route smoke: the surface toggle + Places tab render ----------------------
 
 
