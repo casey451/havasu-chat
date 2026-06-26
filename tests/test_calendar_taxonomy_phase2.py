@@ -57,16 +57,17 @@ def _by_key(groups) -> dict[str, set[str]]:
 
 # ── routing (pure function) ───────────────────────────────────────────────────
 def test_occurrence_group_keys_reroutes_nonfitness() -> None:
-    # A craft "class" (tier=classes) leaves Fitness for Classes & Workshops.
+    # Phase 4c (Casey 2026-06-26): a craft "class" leaves Fitness for Things to Do
+    # → Classes & workshops (the folded-in learn bucket → "events" primary).
     assert _occurrence_group_keys(
         "classes", title="Stained Glass Painting", venue=None, activity=None,
         tags=["activity:arts"], is_senior=False,
-    ) == ["learn"]
+    ) == ["events"]
     # Cooking too.
     assert _occurrence_group_keys(
         "classes", title="Taco Cooking Class", venue=None, activity=None,
         tags=None, is_senior=False,
-    ) == ["learn"]
+    ) == ["events"]
     # Theater → Music & Nightlife.
     assert _occurrence_group_keys(
         "events", title="SpongeBob Musical", venue=None, activity=None,
@@ -95,12 +96,12 @@ def test_fitness_and_nonactivity_rows_unchanged() -> None:
         "events", title="Farmers Market", venue=None, activity=None,
         tags=None, is_senior=False,
     ) == ["events"]
-    # No Kids & Family overlay (Casey 2026-06-26): a kids' craft lands once in
-    # Classes & Workshops and peels into its Youth sub there.
+    # A kids' craft lands once in Things to Do → Classes & workshops (Phase 4c
+    # folded learn in) and peels into its Youth child there.
     assert _occurrence_group_keys(
         "classes", title="Kids Cake Pop Maker", venue=None, activity=None,
         tags=None, is_senior=False,
-    ) == ["learn"]
+    ) == ["events"]
 
 
 # ── learn sub-split ───────────────────────────────────────────────────────────
@@ -167,8 +168,8 @@ def test_senior_items_are_exclusive_to_seniors() -> None:
         _cleanup(eids)
 
 
-# ── integration: a craft class lands under Classes & Workshops, not Fitness ────
-def test_craft_class_routes_to_learn_not_fitness() -> None:
+# ── integration: a craft class lands under Things to Do → Classes & workshops ──
+def test_craft_class_routes_to_classes_and_workshops() -> None:
     s = uuid.uuid4().hex[:6]
     glass = f"ZZ Stained Glass {s}"
     eids: list[str] = []
@@ -180,9 +181,12 @@ def test_craft_class_routes_to_learn_not_fitness() -> None:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
         by_key = _by_key(groups)
-        assert any(glass in t for t in by_key.get("learn", set()))
+        # Phase 4c: folds into Things to Do (events), NOT Fitness, NOT a top-level
+        # "learn" group, under the "Classes & workshops" subcategory.
+        assert any(glass in t for t in by_key.get("events", set()))
         assert not any(glass in t for t in by_key.get("classes", set()))
-        learn = next(g for g in groups if g["key"] == "learn")
-        assert any(sub["label"] == "Arts & Crafts" for sub in learn.get("subgroups", []))
+        assert not by_key.get("learn")
+        events = next(g for g in groups if g["key"] == "events")
+        assert any(sub["label"] == "Classes & workshops" for sub in events.get("subgroups", []))
     finally:
         _cleanup(eids)

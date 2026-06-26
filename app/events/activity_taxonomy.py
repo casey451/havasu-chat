@@ -544,6 +544,20 @@ _AUDIENCE_YOUTH_RE = re.compile(
 )
 
 
+# Venue/provider names that ARE a theater so a youth production with no theater
+# keyword in its title ("Alice in Wonderland, Jr.") still reads as theater and
+# routes to Music & Nightlife → Theater (Phase 4c). Substring matched, lower-cased;
+# kept precise (a generic "performing arts" venue can be a dance studio, so it is
+# NOT here — only explicit theaters).
+_THEATER_VENUES: tuple[str, ...] = (
+    "gracearts",
+    "grace arts",
+    "playhouse",
+    "community theatre",
+    "community theater",
+)
+
+
 def _phrase_hit(low: str, hints: tuple[str, ...]) -> bool:
     """Word-boundary match of any hint in already-lowercased text (mirrors the
     fitness :func:`_title_subgroup` matcher, phrases + a plural/gerund tail)."""
@@ -569,6 +583,11 @@ def classify_activity(
     ``None`` for non-activity rows (markets, festivals, civic) — they carry no
     ``activity:*`` tag and route by the existing tier logic.
     """
+    # A theater VENUE wins (Phase 4c): a GraceArts youth production whose title
+    # carries no theater keyword still reads as theater.
+    vlow = (venue or "").lower()
+    if vlow and any(v in vlow for v in _THEATER_VENUES):
+        return "theater"
     low = (title or "").lower()
     for slug, hints in NONFITNESS_SUBGROUPS:
         if _phrase_hit(low, hints):
@@ -578,6 +597,12 @@ def classify_activity(
         return fitness
     if _phrase_hit(low, _LEARNING_GENERIC):
         return "learning"
+    # Bare source-category tag fallback (Phase 4c): an unambiguous ``arts`` tag
+    # with no craft keyword in the title still reads as arts (the kids "FREE
+    # Summer Craft Series" carries a bare ``arts`` tag) → Classes & workshops.
+    tagset = {str(t).strip().lower() for t in (tags or [])}
+    if "arts" in tagset:
+        return "arts"
     return None
 
 
@@ -706,10 +731,15 @@ EVENTS_ARCADE_LABEL = "Arcade & Family Fun"
 EVENTS_GOLF_LABEL = "Golf — simulators & Top Tracer"
 GOLF_SIM_LABEL = "Indoor simulators"
 GOLF_RANGE_LABEL = "Top Tracer driving range"
+# Classes & workshops (Phase 4c, Casey 2026-06-26): non-fitness instruction
+# (arts / craft / cooking / maker / lifelong learning) folds in as a Things-to-Do
+# subcategory (the old top-level "learn" bucket), with its kid rows nested as a
+# Youth child (the kids Craft Series / art camps).
+EVENTS_WORKSHOPS_LABEL = "Classes & workshops"
 EVENTS_SUBGROUP_ORDER: tuple[str, ...] = (
     EVENTS_AROUND_LABEL, EVENTS_GAMES_LABEL, EVENTS_BILLIARDS_LABEL,
     EVENTS_BOWLING_LABEL, EVENTS_TRAMPOLINE_LABEL, EVENTS_ARCADE_LABEL,
-    EVENTS_GOLF_LABEL,
+    EVENTS_GOLF_LABEL, EVENTS_WORKSHOPS_LABEL,
 )
 # Venue-type / activity slug → its Things-to-Do sub-section label. ``family-fun``
 # is the arcade/family-fun cluster; ``games`` is the social-games section.
@@ -755,6 +785,10 @@ def classify_events_subgroup(
             if label:
                 return label
     slug = resolve_activity(title, None, tags, activity)
+    # Non-fitness instruction (arts/craft/cooking/maker/learning) → Classes &
+    # workshops (Phase 4c — the folded-in "learn" bucket).
+    if activity_bucket(slug) == "learn":
+        return EVENTS_WORKSHOPS_LABEL
     return _SLUG_TO_EVENTS_LABEL.get(slug or "", EVENTS_AROUND_LABEL)
 
 
