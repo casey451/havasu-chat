@@ -1,0 +1,111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask Hava — Calendar target layout (canonical visual reference)</title>
+<style>
+  :root{color-scheme:dark}
+  body{margin:0;background:#0e1012;font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;color:#ECE7DA;display:flex;justify-content:center;padding:24px 12px}
+  .note{max-width:392px;font-size:12px;color:#8b9298;margin:0 auto 14px;line-height:1.5}
+  .note b{color:#D9A93C}
+  .scrn{width:392px;max-width:100%;background:#16191c;border:0.5px solid rgba(255,255,255,.12);border-radius:22px;overflow:hidden}
+  .top{display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:0.5px solid rgba(255,255,255,.07)}
+  .brand{font-size:19px;font-weight:600}.brand .g{color:#D9A93C}
+  .lead{padding:11px 16px 4px;font-size:13px;color:#8b9298}.lead b{color:#ECE7DA;font-weight:600;font-size:15px}
+  .wrap{padding:4px 12px 16px}
+  details{border-radius:8px}
+  summary{list-style:none;cursor:pointer}
+  summary::-webkit-details-marker{display:none}
+  .sec{border-bottom:0.5px solid rgba(255,255,255,.08)}
+  .sec>summary{display:flex;align-items:center;gap:11px;padding:12px 6px;font-size:16px;font-weight:600}
+  .chev{margin-left:auto;font-size:15px;color:#6f767c;transition:transform .15s}
+  details[open]>summary .chev{transform:rotate(90deg)}
+  .ct{font-size:11px;color:#9aa0a6;background:rgba(255,255,255,.07);border-radius:20px;padding:1px 8px;min-width:16px;text-align:center;font-weight:400}
+  .subg{border-top:0.5px solid rgba(255,255,255,.04)}
+  .subg>summary{display:flex;align-items:center;gap:9px;padding:8px 6px 8px 16px;font-size:14px;color:#E4DECF}
+  .l3>summary{display:flex;align-items:center;gap:8px;padding:6px 6px 6px 30px;font-size:13px;color:#cdd2cf}
+  .l3.youth>summary{color:#7FD8BE}
+  .body{padding:1px 6px 8px 22px}.body3{padding:1px 6px 8px 38px}
+  .ven{padding:4px 2px}.ven .nm{font-size:13px}.ven .hrs{font-size:12px;color:#9aa0a6}.ven .hrs b{color:#7FD8BE;font-weight:600}
+  .spec{display:flex;gap:7px;align-items:flex-start;margin:5px 0 2px 4px;padding:6px 8px;border-left:2px solid #D9A93C;background:rgba(217,169,60,.08);border-radius:0 8px 8px 0}
+  .spec .ss{font-size:11px;color:#C99B4A}.spec .st{font-size:12px}
+  .ev{display:flex;gap:9px;padding:4px 2px}.ev .tm{min-width:52px;font-size:12px;color:#D9A93C}.ev .x{font-size:13px;color:#E4DECF}.ev .v{font-size:11px;color:#8b9298}
+  .ton{font-size:10px;color:#16191c;background:#D9A93C;border-radius:4px;padding:0 5px;margin-left:5px;font-weight:600}
+  .kid{font-size:10px;color:#4FB89A;background:#10302a;border-radius:4px;padding:0 5px;margin-left:4px}
+  .none{font-size:11px;color:#6f767c;font-style:italic;padding:3px 2px}
+  .foot{padding:10px 16px;font-size:11px;color:#6f767c}
+</style>
+</head>
+<body>
+<div>
+<p class="note"><b>Canonical visual target</b> for the calendar reorg. This exact tree must render <b>identically on the home feed AND /events-ui</b> (and the month agenda). All subcategories collapse-by-default; youth is always a nested child, never a sibling; venue specials render inline under the venue.</p>
+<div class="scrn">
+  <div class="top"><span class="brand">Ask <span class="g">Hava</span></span><span style="margin-left:auto;color:#9aa0a6">&#9776;</span></div>
+  <div class="lead"><b>What's around</b> · Friday, June 26</div>
+  <div class="wrap">
+
+  <details class="sec"><summary>&#127881; Events<span class="ct">7</span><span class="chev">&#9656;</span></summary>
+    <details class="subg"><summary>Festivals &amp; signature<span class="ct" style="margin-left:auto">3</span></summary><div class="body"><div class="ev"><span class="tm">Jul 4</span><span class="x">4th of July Fireworks at the Beach</span></div></div></details>
+    <details class="subg"><summary>Cars &amp; motor<span class="ct" style="margin-left:auto">2</span></summary><div class="body"><div class="ev"><span class="tm">Wed 6P</span><span><span class="x">Harleyz &amp; Hot Rodz Bike Night</span><br><span class="v">weekly happening</span></span></div></div></details>
+    <details class="subg"><summary>Comedy &amp; shows<span class="ct" style="margin-left:auto">1</span></summary><div class="body"><div class="ev"><span class="x">Top Goons: Night of Comedy</span></div></div></details>
+    <details class="subg"><summary>Markets &amp; shopping<span class="ct" style="margin-left:auto">1</span></summary><div class="body"><div class="ev"><span class="tm">Sat 8A</span><span class="x">Lake Havasu Farmers Market</span></div></div></details>
+    <details class="subg"><summary>Fundraisers &amp; tournaments<span class="ct" style="margin-left:auto">1</span></summary><div class="body"><div class="ev"><span class="x">Kiwanis Krazy Bowling Tournament</span></div></div></details>
+    <details class="subg"><summary>On-water competitions<span class="ct" style="margin-left:auto">1</span></summary><div class="body"><div class="ev"><span class="x">Won Bass · IJSBA World Finals</span></div></div></details>
+  </details>
+
+  <details class="sec" open><summary>&#128205; Things to Do<span class="ct">6</span><span class="chev">&#9656;</span></summary>
+    <details class="subg" open><summary>Bowling<span class="ct" style="margin-left:auto">1</span></summary><div class="body"><div class="ven"><div class="nm">Havasu Lanes &amp; Keglers Pub</div><div class="hrs">Open today <b>12&ndash;9 PM</b> · bumper lanes &amp; arcade</div></div><div class="spec"><span><span class="st">&#10024; Cosmic / Rock &amp; Bowl<span class="ton">Tonight</span></span><br><span class="ss">6 PM&ndash;close · Fri &amp; Sat</span></span></div></div></details>
+    <details class="subg"><summary>Billiards<span class="ct" style="margin-left:auto">3</span></summary><div class="body"><div class="ven"><div class="nm">Mr. Lucky's Billiards &amp; Pub</div><div class="hrs">Open today <b>11 AM&ndash;11 PM</b></div></div></div></details>
+    <details class="subg"><summary>Trampoline<span class="ct" style="margin-left:auto">1</span></summary><div class="body"><div class="ven"><div class="nm">Altitude Trampoline Park</div><div class="hrs">Open today <b>10 AM&ndash;7 PM</b></div></div><div class="spec"><span><span class="st">&#10024; Glow in the Park<span class="kid">Kids</span></span><br><span class="ss">6&ndash;9 PM · select Sat</span></span></div></div></details>
+    <details class="subg"><summary>Arcade &amp; family fun<span class="ct" style="margin-left:auto">2</span></summary><div class="body"><div class="ven"><div class="nm">The Spot — Pizza &amp; Arcade</div><div class="hrs">Open today <b>3&ndash;9 PM</b></div></div><div class="none">No special today — just hours.</div></div></details>
+    <details class="subg"><summary>Golf — simulators &amp; Top Tracer<span class="ct" style="margin-left:auto">3</span></summary><div class="body">
+      <details class="l3"><summary>Indoor simulators<span class="ct" style="margin-left:auto">2</span></summary><div class="body3"><div class="ven"><div class="nm">Back Nine Golf · Golf n' Brews</div><div class="hrs">Open today</div></div></div></details>
+      <details class="l3"><summary>Top Tracer driving range<span class="ct" style="margin-left:auto">1</span></summary><div class="body3"><div class="ven"><div class="nm">Iron Wolf Top Tracer Range</div></div><div class="spec"><span><span class="st">&#10024; Family Night Golf<span class="kid">Kids</span></span><br><span class="ss">Sun 5 PM</span></span></div></div></details>
+    </div></details>
+    <details class="subg"><summary>Pool &amp; on the water<span class="ct" style="margin-left:auto">3</span></summary><div class="body"><div class="ven"><div class="nm">Aquatic Center — Open / Family Swim</div><div class="hrs">drop-in <span class="kid">Kids</span></div></div><div class="ven"><div class="nm">Sunrise / Beginner Kayak tours</div></div></div></details>
+  </details>
+
+  <details class="sec" open><summary>&#127939; Sports &amp; Fitness<span class="ct">7</span><span class="chev">&#9656;</span></summary>
+    <details class="subg"><summary>Golf — courses<span class="ct" style="margin-left:auto">4</span></summary><div class="body"><div class="ven"><div class="nm">Lake Havasu Golf Club · Iron Wolf G&amp;CC</div><div class="hrs">Open today · tee times</div></div><div class="ven"><div class="nm">Bridgewater Links · Havasu Island</div></div></div></details>
+    <details class="subg" open><summary>Martial arts<span class="ct" style="margin-left:auto">2</span></summary><div class="body">
+      <details class="l3"><summary>BJJ<span class="ct" style="margin-left:auto">2</span></summary><div class="body3"><div class="ev"><span class="x">Adult BJJ · Open Mat</span></div>
+        <details class="l3 youth"><summary>Youth BJJ<span class="ct" style="margin-left:auto">2</span></summary><div class="body3"><div class="ev"><span class="x">Kids BJJ (7&ndash;12) · Little Grapplers (4&ndash;6)</span><span class="kid">Kids</span></div></div></details>
+      </div></details>
+      <details class="l3"><summary>Taekwondo — Black Belt Academy<span class="ct" style="margin-left:auto">4</span></summary><div class="body3"><div class="ev"><span class="x">Sparring · Leadership</span></div>
+        <details class="l3 youth"><summary>Youth Taekwondo<span class="ct" style="margin-left:auto">2</span></summary><div class="body3"><div class="ev"><span class="x">Tiny Tigers (2&ndash;3) · Tigers (3&ndash;6)</span><span class="kid">Kids</span></div></div></details>
+      </div></details>
+    </div></details>
+    <details class="subg"><summary>Gymnastics<span class="ct" style="margin-left:auto">5</span></summary><div class="body"><details class="l3 youth"><summary>Youth gymnastics<span class="ct" style="margin-left:auto">5</span></summary><div class="body3"><div class="ev"><span class="x">Sparklers · Gym Tots · Tiny Tumblers · Rec Cheer</span><span class="kid">Kids</span></div></div></details></div></details>
+    <details class="subg"><summary>Aquatic fitness<span class="ct" style="margin-left:auto">8</span></summary><div class="body"><div class="ev"><span class="x">Lap Swim · Water Aerobics · Aqua Zumba</span></div><details class="l3 youth"><summary>Youth swim<span class="ct" style="margin-left:auto">1</span></summary><div class="body3"><div class="ev"><span class="x">Swim Lessons</span><span class="kid">Kids</span></div></div></details></div></details>
+    <details class="subg"><summary>Pickleball &amp; racquet<span class="ct" style="margin-left:auto">2</span></summary><div class="body"><div class="ev"><span class="x">Open play · Round robins</span></div></div></details>
+    <details class="subg"><summary>Yoga &amp; mind/body<span class="ct" style="margin-left:auto">26</span></summary><div class="body"><div class="ev"><span class="x">Yoga · Pilates · Sound healing · Meditation</span></div></div></details>
+    <details class="subg"><summary>Dance &amp; team sports<span class="ct" style="margin-left:auto">19</span></summary><div class="body"><div class="ev"><span class="x">Line dancing · Ballet · Dodgeball · BMX</span></div><details class="l3 youth"><summary>Youth dance<span class="ct" style="margin-left:auto">3</span></summary><div class="body3"><div class="ev"><span class="x">Ballet Havasu youth</span><span class="kid">Kids</span></div></div></details></div></details>
+  </details>
+
+  <details class="sec"><summary>&#127909; At the Movies<span class="ct">6</span><span class="chev">&#9656;</span></summary>
+    <div class="body"><div class="ev"><span class="tm">10A+</span><span><span class="x">The Death of Robin Hood</span><br><span class="v">Star Cinemas · 10 AM, 3:10, 6 PM</span></span></div></div>
+  </details>
+
+  <details class="sec"><summary>&#127925; Music &amp; Nightlife<span class="ct">2</span><span class="chev">&#9656;</span></summary>
+    <details class="subg"><summary>Live music<span class="ct" style="margin-left:auto">1</span></summary><div class="body"><div class="ev"><span class="tm">7 PM</span><span class="x">The Brew Band</span></div></div></details>
+    <details class="subg"><summary>Theater &amp; performing arts<span class="ct" style="margin-left:auto">1</span></summary><div class="body"><details class="l3 youth"><summary>Youth<span class="ct" style="margin-left:auto">1</span></summary><div class="body3"><div class="ev"><span class="tm">7:30</span><span><span class="x">GraceArts: Alice in Wonderland, Jr.</span><span class="kid">Kids</span></span></div></div></details></div></details>
+  </details>
+
+  <details class="sec"><summary>&#127963; Local Government<span class="ct">1</span><span class="chev">&#9656;</span></summary>
+    <details class="subg"><summary>Boards &amp; commissions<span class="ct" style="margin-left:auto">1</span></summary><div class="body"><div class="ev"><span class="tm">Jul 8</span><span class="x">Board of Adjustment Meeting</span></div></div></details>
+    <details class="subg"><summary>City Council<span class="ct" style="margin-left:auto">0</span></summary><div class="body"><div class="none">No council meetings this window.</div></div></details>
+  </details>
+
+  <details class="sec"><summary>&#129491; Seniors<span class="ct">9</span><span class="chev">&#9656;</span></summary>
+    <details class="subg"><summary>Games &amp; social<span class="ct" style="margin-left:auto">4</span></summary><div class="body"><div class="ev"><span><span class="x">Open Billiards · Pinochle · Party Bridge</span><br><span class="v">Senior Center · 60+</span></span></div></div></details>
+    <details class="subg"><summary>Fitness &amp; movement<span class="ct" style="margin-left:auto">7</span></summary><div class="body"><div class="ev"><span class="x">Laughing Yoga · Qigong Tai Chi · Silver Sneakers</span></div></div></details>
+    <details class="subg"><summary>Arts &amp; crafts<span class="ct" style="margin-left:auto">2</span></summary><div class="body"><div class="ev"><span class="x">Open Arts &amp; Crafts · Windchimes</span></div></div></details>
+  </details>
+
+  </div>
+  <div class="foot">&#128465; Horseback removed · &#129491; "For kids" filter shows only <span class="kid">Kids</span> rows across every section · drop-in (Open Swim/Gym) &#8594; Things to Do</div>
+</div>
+</div>
+</body>
+</html>

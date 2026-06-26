@@ -24,6 +24,19 @@
 </a>
 {%- endmacro -%}
 
+{# Recursive subcategory node — the SAME nested tree /events-ui renders (parity
+   Rule 0). A node has rows and optional nested `children` (the youth/facet third
+   level). Collapsed by default; youth children get the kid accent. #}
+{%- macro sub_tree(node, cls='subg') -%}
+<details class="{{ cls }}{% if node.youth %} youth{% endif %}"{% if node.open %} open{% endif %}>
+  <summary class="subhd"><span class="subl">{{ node.label }}</span><span class="subc num">{{ node.count }}</span><span class="cv">{{ icon('chev', 12) }}</span></summary>
+  <div class="subbody">
+    {% for row in node.rows %}{{ ev_row(row) }}{% endfor %}
+    {% for child in node.children %}{{ sub_tree(child, 'l3') }}{% endfor %}
+  </div>
+</details>
+{%- endmacro -%}
+
 {%- macro ad_placeholder(infeed=False) -%}
 <a class="adslot{% if infeed %} infeed{% endif %}" href="/sponsor" aria-label="Advertise on Ask Hava — claim this spot">
   <span class="pic" aria-hidden="true">{{ icon('plus', 22) }}</span>
@@ -100,12 +113,9 @@
   <div class="dd" id="jump">
     <button type="button" class="dd-btn" aria-haspopup="true" aria-expanded="false">Jump to <span class="cv">{{ icon('chev', 14) }}</span></button>
     <div class="dd-menu" role="menu">
-      {% for b in feed.buckets %}
-      <a role="menuitem" href="/events-ui?view={{ b.key }}" data-k="{{ b.key }}"><span class="l">{{ cicon(b.key, 16) }} {{ b.label }}</span><span class="c num">{{ b.count }}</span></a>
+      {% for s in feed.sections %}
+      <a role="menuitem" href="{{ '/movies' if s.is_movies else '/events-ui?view=' ~ s.key }}" data-k="{{ s.key }}"><span class="l">{{ cicon(s.key, 16) }} {{ s.label }}</span><span class="c num">{{ s.count }}</span></a>
       {% endfor %}
-      {% if feed.movie_bucket %}
-      <a role="menuitem" href="/movies" data-k="movies"><span class="l">{{ icon('film', 16) }} {{ feed.movie_bucket.label }}</span><span class="c num">{{ feed.movie_bucket.count }}</span></a>
-      {% endif %}
       {# Places & Ongoing: the other surface — venues + standing classes. #}
       <a role="menuitem" href="/events-ui?view=places" data-k="places"><span class="l">{{ icon('arrow', 16) }} Places &amp; Ongoing</span></a>
     </div>
@@ -115,12 +125,9 @@
 {# ── Count overview rail ─────────────────────────────────────────────── #}
 <div class="counts hscroll" id="counts">
   <a class="cpill all on" data-k="all" href="/events-ui">{{ icon('spark', 15) }}<span class="cl">All today</span><span class="cb num">{{ feed.total }}</span></a>
-  {% for b in feed.buckets %}
-  <a class="cpill" data-k="{{ b.key }}" href="/events-ui?view={{ b.key }}">{{ cicon(b.key, 15) }}<span class="cl">{{ b.label }}</span><span class="cb num">{{ b.count }}</span></a>
+  {% for s in feed.sections %}
+  <a class="cpill" data-k="{{ s.key }}" href="{{ '/movies' if s.is_movies else '/events-ui?view=' ~ s.key }}">{{ cicon(s.key, 15) }}<span class="cl">{{ s.label }}</span><span class="cb num">{{ s.count }}</span></a>
   {% endfor %}
-  {% if feed.movie_bucket %}
-  <a class="cpill" data-k="movies" href="/movies">{{ icon('film', 15) }}<span class="cl">{{ feed.movie_bucket.label }}</span><span class="cb num">{{ feed.movie_bucket.count }}</span></a>
-  {% endif %}
   {# Places & Ongoing surface — open venues + standing weekly classes (not dated). #}
   <a class="cpill places" data-k="places" href="/events-ui?view=places"><span class="cl">Places &amp; Ongoing</span>{{ icon('arrow', 15) }}</a>
 </div>
@@ -128,54 +135,37 @@
 {# ── Sections (accordion; only Events open) + ad placements ───────────── #}
 <div class="main">
   <div class="sections" id="sections">
-    {% if not feed.buckets and not feed.movie_bucket %}
+    {% if not feed.sections %}
     <div class="sec open"><div class="sechd"><span class="sl serif">Nothing posted for this day yet</span></div></div>
     {% endif %}
-    {% for b in feed.buckets %}
-    <details class="sec{% if b.key == 'events' %} lead{% endif %} rise" style="animation-delay:{{ 120 + loop.index0 * 40 }}ms" data-k="{{ b.key }}" id="sec-{{ b.key }}"{% if b.open %} open{% endif %}>
+    {% for s in feed.sections %}
+    <details class="sec{% if s.key == 'events' %} lead{% endif %} rise" style="animation-delay:{{ 120 + loop.index0 * 40 }}ms" data-k="{{ s.key }}" id="sec-{{ s.key }}"{% if s.open %} open{% endif %}>
       <summary class="sechd">
-        <span class="si">{{ cicon(b.key, 18) }}</span>
-        <span class="sl">{{ b.label }}</span>
-        <span class="sc num">{{ b.count }}</span>
-        <span class="sp">{{ b.peek }}</span>
+        <span class="si">{{ cicon(s.key, 18) }}</span>
+        <span class="sl">{{ s.label }}</span>
+        <span class="sc num">{{ s.count }}</span>
         <span class="cv">{{ icon('chev', 14) }}</span>
       </summary>
       <div class="secbody"><div class="host">
-        {% if b.subs %}<div class="subs">{% for s in b.subs %}<span class="sub">{{ s.label }} <b class="num">{{ s.count }}</b></span>{% endfor %}</div>{% endif %}
-        {% for row in b.rows %}{{ ev_row(row) }}{% endfor %}
-        {% if b.count > b.rows|length %}<a class="showall" href="/events-ui?view={{ b.key }}">View all <span class="num">{{ b.count }}</span> {{ b.label|lower }} {{ icon('arrow', 15) }}</a>{% endif %}
+        {% if s.is_movies %}
+          {% for m in s.rows %}
+          <a class="ev" href="{{ m.url or '/movies' }}">
+            <span class="ph im im-movie"><span class="glyph">{{ icon('film', 24) }}</span>{% if m.time_label %}<span class="t">{{ m.time_label }}</span>{% endif %}</span>
+            <span class="b"><span class="et">{{ m.title }}</span>{% if m.theater %}<span class="em">{{ m.theater }}{% if m.times %} · {{ m.times|join(', ') }}{% endif %}</span>{% endif %}</span>
+            <span class="det" aria-hidden="true">{{ icon('arrow', 15) }}</span>
+          </a>
+          {% endfor %}
+          <a class="showall" href="/movies">All showtimes {{ icon('arrow', 15) }}</a>
+        {% elif s.subgroups %}
+          {% for sub in s.subgroups %}{{ sub_tree(sub) }}{% endfor %}
+        {% else %}
+          {% for row in s.rows %}{{ ev_row(row) }}{% endfor %}
+        {% endif %}
       </div></div>
     </details>
     {# In-feed buyable ad after every 2nd section (mobile only; desktop uses the rail). #}
     {% if loop.index % 2 == 0 and not loop.last %}{{ ad_placeholder(infeed=True) }}{% endif %}
     {% endfor %}
-
-    {% if feed.movie_bucket %}
-    {% set mb = feed.movie_bucket %}
-    <details class="sec rise" data-k="movies" id="sec-movies">
-      <summary class="sechd">
-        <span class="si">{{ icon('film', 18) }}</span>
-        <span class="sl">{{ mb.label }}</span>
-        <span class="sc num">{{ mb.count }}</span>
-        <span class="sp">{{ mb.peek }}</span>
-        <span class="cv">{{ icon('chev', 14) }}</span>
-      </summary>
-      <div class="secbody"><div class="host">
-        {% for f in mb.films %}
-        <a class="ev" href="{{ f.url or '/movies' }}">
-          <span class="ph im im-movie"><span class="glyph">{{ icon('film', 24) }}</span></span>
-          <span class="b">
-            <span class="et">{{ f.title }}</span>
-            {% if f.summary %}<span class="em">{{ f.summary }}</span>{% endif %}
-            {% if f.theaters %}<span class="times">{% for th in f.theaters %}{% for tm in th.times[:4] %}<span class="tpill">{{ tm }}</span>{% endfor %}{% endfor %}</span>{% endif %}
-          </span>
-          <span class="det" aria-hidden="true">{{ icon('arrow', 15) }}</span>
-        </a>
-        {% endfor %}
-        <a class="showall" href="/movies">All showtimes {{ icon('arrow', 15) }}</a>
-      </div></div>
-    </details>
-    {% endif %}
   </div>
 
   {# Desktop right rail: promoted sponsor (sold) + buyable placeholders. #}

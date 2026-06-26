@@ -25,7 +25,6 @@ from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
 from app.db.models import Event
 from app.home import events_views, sandstone
-from app.home.today_feed import today_feed
 
 # ── category accents / icons (v4 CICON + CCOLOR, mapped onto the app's real
 # bucket keys). The app's "classes" bucket is Fitness & sports, so it borrows the
@@ -300,16 +299,6 @@ def _blurbs_for_rows(db: Session, rows: list[dict[str, Any]]) -> dict[str, str]:
     return out
 
 
-def _peek(rows: list[dict[str, Any]], count: int) -> str:
-    if not rows:
-        return ""
-    first = rows[0].get("title") or ""
-    extra = count - 1
-    if extra > 0:
-        return f"{first} + {extra} more"
-    return first
-
-
 def _enrich(row: dict[str, Any], blurbs: dict[str, str], cat: str) -> dict[str, Any]:
     m = _EVENT_ID_RE.match(row.get("url") or "")
     out = dict(row)
@@ -319,83 +308,47 @@ def _enrich(row: dict[str, Any], blurbs: dict[str, str], cat: str) -> dict[str, 
     return out
 
 
+def _feed_walk(node: dict[str, Any], acc: list[dict[str, Any]]) -> None:
+    """Depth-first collect of every event row in a section/subgroup/child node."""
+    acc.extend(node.get("rows") or [])
+    for sub in node.get("subgroups") or []:
+        _feed_walk(sub, acc)
+    for child in node.get("children") or []:
+        _feed_walk(child, acc)
+
+
+def _feed_enrich(node: dict[str, Any], blurbs: dict[str, str], cat: str) -> None:
+    """Enrich every row in a node tree in place (blurb + category thumb)."""
+    node["rows"] = [_enrich(r, blurbs, cat) for r in (node.get("rows") or [])]
+    for sub in node.get("subgroups") or []:
+        _feed_enrich(sub, blurbs, cat)
+    for child in node.get("children") or []:
+        _feed_enrich(child, blurbs, cat)
+
+
 def feed_view_model(
-    db: Session, *, day: date, now: datetime | None = None
+    db: Session, *, day: date, now: datetime | None = None, family: bool = False
 ) -> dict[str, Any]:
-    """The v4 feed: a count overview + accordion buckets, only Events open, each
-    row carrying a one-line blurb, Fitness exposing its activity sub-chips."""
-    # Calendar surface (two-surface spec §1): only dated happenings — venue hours
-    # + recurring class rosters live on Places & Ongoing (/events-ui?view=places),
-    # so the home feed no longer repeats the golf/bowling/class padding.
-    groups = events_views.day_groups(db, day=day, now=now, events_only=True)
+    """The v4 home feed — the SAME nested Calendar tree ``/events-ui`` renders
+    (parity Rule 0, 2026-06-26): sections → subgroups → (youth/facet children) →
+    rows. The structure comes straight from
+    :func:`events_views.calendar_day_view_model`, so the home and the main
+    calendar can't drift; the home only *enriches* each event row (a one-line
+    blurb + a category thumb) and styles it in the v4 idiom. No more chips."""
+    vm = events_views.calendar_day_view_model(db, day=day, now=now, family=family)
+    sections = vm["sections"]
 
-    # Collect every event id once so blurbs are a single query, not N.
+    # One blurb query for every event row across the tree (movies carry their own).
     all_rows: list[dict[str, Any]] = []
-    for g in groups:
-        if g.get("subgroups"):
-            for sub in g["subgroups"]:
-                all_rows.extend(sub.get("rows", []))
-        all_rows.extend(g.get("rows", []))
+    for s in sections:
+        if not s.get("is_movies"):
+            _feed_walk(s, all_rows)
     blurbs = _blurbs_for_rows(db, all_rows)
+    for s in sections:
+        if not s.get("is_movies"):
+            _feed_enrich(s, blurbs, s["key"])
 
-    buckets: list[dict[str, Any]] = []
-    total = 0
-    for g in groups:
-        key = g["key"]
-        count = int(g.get("count") or 0)
-        if count <= 0:
-            continue
-        total += count
-        rows: list[dict[str, Any]] = []
-        subs: list[dict[str, Any]] = []
-        if g.get("subgroups"):
-            for sub in g["subgroups"]:
-                subs.append({"label": sub["label"], "count": sub.get("count", 0)})
-                for r in sub.get("rows", []):
-                    rows.append(_enrich(r, blurbs, key))
-        else:
-            for r in g.get("rows", []):
-                rows.append(_enrich(r, blurbs, key))
-        buckets.append(
-            {
-                "key": key,
-                "label": g.get("label") or key.title(),
-                "icon": CAT_ICON.get(key, "compass"),
-                "color": CAT_COLOR.get(key, "var(--c-civic)"),
-                "count": count,
-                "peek": _peek(rows or [{"title": g.get("label", "")}], count),
-                "open": key == "events",
-                "rows": rows,
-                "subs": subs,
-            }
-        )
-
-    # "At the movies" — pulled from today_feed (the per-film showtime rollup the
-    # day-group view doesn't build), appended after the day buckets.
-    tf = today_feed(db, day=day, now=now)
-    movies = next((grp for grp in tf.get("groups", []) if grp.get("key") == "movies"), None)
-    movie_bucket = None
-    if movies and movies.get("films"):
-        mcount = int(movies.get("count") or len(movies["films"]))
-        total += mcount
-        movie_bucket = {
-            "key": "movies",
-            "label": movies.get("label") or "At the movies",
-            "icon": "film",
-            "color": CAT_COLOR["movies"],
-            "count": mcount,
-            "films": movies["films"],
-            "peek": _peek(
-                [{"title": f.get("title", "")} for f in movies["films"]], mcount
-            ),
-            "open": False,
-        }
-
-    return {
-        "buckets": buckets,
-        "movie_bucket": movie_bucket,
-        "total": total,
-    }
+    return {"sections": sections, "total": vm["total"]}
 
 
 # ── calendar (glanceable month grid + selected-day agenda) ─────────────────────
@@ -473,7 +426,7 @@ def calendar_month_view(
 def _agenda(db: Session, day: date, *, now: datetime | None = None) -> dict[str, Any]:
     # Calendar surface (two-surface spec §1): events-only agenda — classes/hours
     # browse on Places & Ongoing (/events-ui?view=places), not the calendar grid.
-    groups = events_views.day_groups(db, day=day, now=now, events_only=True)
+    groups = events_views.calendar_day_view_model(db, day=day, now=now)["sections"]
     rows: list[dict[str, Any]] = []
     for g in groups:
         key = g["key"]

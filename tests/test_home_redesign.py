@@ -195,14 +195,13 @@ def test_conditions_and_feed_shape_on_seeded_db() -> None:
         assert isinstance(tiles, list)
         for t in tiles:
             assert {"key", "icon", "label", "value", "is_gas"} <= set(t)
+        # Parity refactor (Rule 0): the feed now returns the SAME nested section
+        # tree /events-ui renders (sections → subgroups → rows), not chip buckets.
         feed = redesign.feed_view_model(db, day=date(2026, 6, 25))
-        assert {"buckets", "movie_bucket", "total"} <= set(feed)
-        # "only Events open" rule: no bucket is open unless it is the events bucket
-        for b in feed["buckets"]:
-            assert b["open"] == (b["key"] == "events")
-        assert feed["total"] == sum(b["count"] for b in feed["buckets"]) + (
-            feed["movie_bucket"]["count"] if feed["movie_bucket"] else 0
-        )
+        assert {"sections", "total"} <= set(feed)
+        for s in feed["sections"]:
+            assert {"key", "label", "count"} <= set(s)
+        assert feed["total"] == sum(s["count"] for s in feed["sections"])
         cal = redesign.calendar_month_view(db, year=2026, month=6, today=date(2026, 6, 25))
         assert cal["title"] == "June 2026"
         assert len(cal["weeks"]) >= 4
