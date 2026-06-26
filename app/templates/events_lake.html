@@ -133,7 +133,22 @@
           <svg class="gchev" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </summary>
         <div class="ev-rows">
-          {% if g.subgroups %}
+          {% if g.is_movies %}
+            {# At the Movies — a first-class Calendar category (two-surface spec
+               §2). Showtimes aren't Event-table rows, so they render as tiles. #}
+            <div class="ev-mv-strip" role="list">
+              {% for m in g.rows %}
+              <a class="ev-mv-tile" role="listitem" href="{{ m.url }}">
+                <span class="ev-mv-poster">{% if m.poster %}<img loading="lazy" src="{{ m.poster }}" alt="">{% endif %}</span>
+                <span class="ev-mv-body">
+                  <span class="ev-mv-title">{{ m.title }}</span>
+                  <span class="ev-mv-meta">{{ m.theater }} · {{ m.times|join(', ') }}</span>
+                </span>
+              </a>
+              {% endfor %}
+            </div>
+            <a class="ev-mv-all" href="/movies">All showtimes →</a>
+          {% elif g.subgroups %}
             {% for sub in g.subgroups %}
             <details class="ev-sub"{% if sub.open %} open{% endif %}>
               <summary><span class="sub-name">{{ sub.label }}</span><span class="sc">{{ sub.count }}</span><svg class="sub-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
@@ -150,7 +165,6 @@
     {% else %}
     <div class="ev-empty"><h3>Nothing posted for {{ day_label }} yet</h3><p>Try the week or month view, or check back soon.</p></div>
     {% endif %}
-    {% include "_partials/movies_today.html" %}
 
   {% elif mode == 'week' %}
     {# Desktop: the flat next-seven-days list. #}

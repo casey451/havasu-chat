@@ -20,7 +20,6 @@ from app.db.models import MovieShowtime
 from app.main import app
 
 _LAKE_MARKER = 'data-theme="lake"'
-_STRIP_MARKER = 'aria-label="At the movies today"'
 
 
 def _seed(film_title: str, sid: str) -> str:
@@ -76,10 +75,11 @@ def test_movies_feature_renders_under_lake_theme(monkeypatch: pytest.MonkeyPatch
         assert 'data-group="movies"' in home.text
         assert film in home.text
 
-        # /events-ui (today): lake base + the strip.
+        # /events-ui (today): lake base + the first-class "At the Movies"
+        # category accordion (two-surface spec §2; promoted from the old strip).
         assert events.status_code == 200
         assert _LAKE_MARKER in events.text
-        assert _STRIP_MARKER in events.text
+        assert 'data-group="movies"' in events.text
         assert film in events.text
     finally:
         _cleanup(ids)

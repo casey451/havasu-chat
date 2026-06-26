@@ -938,6 +938,36 @@ def _long_day_label(d: dt_date) -> str:
     return d.strftime("%A, %B ") + str(d.day)
 
 
+def _with_movies_group(
+    groups: list[dict[str, Any]], movies: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Promote "At the Movies" to a first-class Calendar category (Phase 1,
+    two-surface spec §2).
+
+    Movie showtimes are not Event-table rows, so they ride in their own render
+    group flagged ``is_movies`` (the template renders the showtime tiles for it
+    instead of ``ev_row``). It slots in right after "Events" — or first when
+    there are no events that day. Returns ``groups`` unchanged when there are no
+    showtimes (honest omission: empty categories never render).
+    """
+    if not movies:
+        return groups
+    movies_group: dict[str, Any] = {
+        "key": "movies",
+        "label": "At the Movies",
+        "icon": "\U0001F3AC",
+        "count": len(movies),
+        "rows": movies,
+        "subgroups": [],
+        "is_movies": True,
+        "open": True,
+    }
+    out = list(groups)
+    events_idx = next((i for i, g in enumerate(out) if g.get("key") == "events"), -1)
+    out.insert(events_idx + 1, movies_group)
+    return out
+
+
 @router.get("/events-ui", response_class=HTMLResponse)
 def serve_events_ui(
     request: Request,
@@ -1030,14 +1060,16 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "day",
-                "groups": events_views.day_groups(
-                    db, day=single_day, family=family_on, seniors=seniors_on, now=now
+                "groups": _with_movies_group(
+                    events_views.day_groups(
+                        db, day=single_day, family=family_on, seniors=seniors_on, now=now
+                    ),
+                    movies_today(db, day=single_day, now=now),
                 ),
                 "day_label": _long_day_label(single_day),
                 "prev_iso": (single_day - timedelta(days=1)).isoformat(),
                 "next_iso": (single_day + timedelta(days=1)).isoformat(),
                 "is_today": single_day == today,
-                "movies_today": movies_today(db, day=single_day, now=now),
             }
         )
     elif view_key == "week":
@@ -1075,11 +1107,13 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "today",
-                "groups": events_views.day_groups(
-                    db, day=today, family=family_on, seniors=seniors_on, now=now
+                "groups": _with_movies_group(
+                    events_views.day_groups(
+                        db, day=today, family=family_on, seniors=seniors_on, now=now
+                    ),
+                    movies_today(db, day=today, now=now),
                 ),
                 "day_label": _long_day_label(today),
-                "movies_today": movies_today(db, day=today, now=now),
             }
         )
     events_template = "events_lake.html"
