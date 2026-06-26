@@ -585,8 +585,10 @@ def day_groups(
             g["open"] = any(_row_has_special(r) for r in g["rows"])
         else:
             g["open"] = any(_row_is_event(r) for r in g["rows"])
+        # Subcategories stay collapsed until expanded (spec §5.3); only the
+        # top-level header auto-opens on a real event.
         for sub in g.get("subgroups", []):
-            sub["open"] = any(_row_is_event(r) for r in sub["rows"])
+            sub["open"] = False
     return groups
 
 
@@ -613,6 +615,39 @@ def _places_top_key(primary_key: str) -> str:
     if primary_key == "seniors":
         return "seniors"
     return "things-to-do"
+
+
+# Things-to-Do subcategory labels that aren't venue-type sections (spec §4).
+PLACES_ON_THE_WATER_LABEL = "On the Water"
+PLACES_WORKSHOPS_LABEL = "Classes & Workshops"
+
+
+def _places_subgroups(key: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Subcategory split for one Places top-level (spec §4). Sports & Fitness
+    splits by activity (Golf / Pickleball / Gymnastics / Martial arts / Yoga /
+    Dance, each with its Youth third level); Seniors by its internal sections;
+    Things to Do by venue type (Bowling / Billiards / Trampoline / Arcade) plus
+    On the Water and a single Classes & Workshops section. Empty subsections are
+    omitted by the shared splits (honest-omission)."""
+    if key == "sports-fitness":
+        return split_class_subgroups(rows)
+    if key == "seniors":
+        return split_senior_subgroups(rows)
+    # Things to Do: partition by primary first so lake-rental and studio-workshop
+    # rows aren't misfiled by the venue-type classifier.
+    events_rows = [r for r in rows if r.get("_pk") == "events"]
+    water_rows = [r for r in rows if r.get("_pk") == "water"]
+    learn_rows = [r for r in rows if r.get("_pk") == "learn"]
+    subs = split_events_subgroups(events_rows) if events_rows else []
+    if water_rows:
+        subs.append(
+            {"label": PLACES_ON_THE_WATER_LABEL, "rows": water_rows, "count": len(water_rows)}
+        )
+    if learn_rows:
+        subs.append(
+            {"label": PLACES_WORKSHOPS_LABEL, "rows": learn_rows, "count": len(learn_rows)}
+        )
+    return subs
 
 
 def _places_dedupe_key(row: dict[str, Any]) -> tuple[str, str]:
@@ -671,6 +706,11 @@ def places_groups(
         primary = _occurrence_group_keys(
             gkey, title=title, venue=venue, activity=activity, tags=tags, is_senior=is_senior
         )[0]
+        row["_pk"] = primary  # remembered for the Places subcategory split (§4)
+        # Youth peels into a third-level "Youth <activity>" sub (§4); off under the
+        # family narrow (the whole view is already kids) and never for seniors.
+        if "youth" not in row:
+            row["youth"] = not family and not is_senior and is_family_event(title, tags, venue)
         by_top[_places_top_key(primary)].append(row)
 
     # Curated venue-hours rows first (real "12–11 PM" times + venue-kind tags), so
@@ -711,8 +751,19 @@ def places_groups(
         rows = sorted(by_top[key], key=lambda r: (r.get("title") or "").lower())
         if not rows:
             continue  # hide empty categories (spec §5.3)
+        subs = _places_subgroups(key, rows)
+        for sub in subs:
+            sub["open"] = False  # subcategories collapsed until expanded (§5.3)
         groups.append(
-            {"key": key, "label": label, "icon": icon, "count": len(rows), "rows": rows}
+            {
+                "key": key,
+                "label": label,
+                "icon": icon,
+                "count": len(rows),
+                "rows": rows,
+                "subgroups": subs,
+                "open": True,  # top-level header expanded; subcategories collapsed
+            }
         )
     return groups
 

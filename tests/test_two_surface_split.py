@@ -160,6 +160,37 @@ def test_places_dedupes_recurring_venue_to_one_row(db: Session) -> None:
     assert len(lanes) == 1, [r["title"] for r in ttd["rows"]]
 
 
+# --- Phase 3: subcategory tree + collapse + empty-hiding ----------------------
+
+
+def test_places_subcategories_collapsed_by_default(db: Session) -> None:
+    groups = ev.places_groups(db, today=date.today())
+    for g in groups:
+        assert g.get("subgroups"), f"{g['key']} should have a subcategory split"
+        for sub in g["subgroups"]:
+            assert sub["open"] is False, (g["key"], sub["label"])
+            assert sub["count"] > 0  # empty subsections are hidden (§5.3)
+
+
+def test_places_sports_fitness_splits_by_activity(db: Session) -> None:
+    groups = {g["key"]: g for g in ev.places_groups(db, today=date.today())}
+    sf = groups.get("sports-fitness")
+    assert sf is not None
+    labels = [s["label"] for s in sf["subgroups"]]
+    assert any(lbl in labels for lbl in ("Golf", "Martial Arts", "Yoga", "Gymnastics"))
+
+
+def test_calendar_subcategories_collapsed_by_default(db: Session) -> None:
+    # Two games happenings on one day make the events group split into the
+    # "Games & Social" venue-type subsection; it must render collapsed (§5.3).
+    for i in range(2):
+        _add(db, title=f"Community Bingo Night {i} {_DAY.isoformat()}", tags=["events", "activity:games"])
+    groups = ev.day_groups(db, day=_DAY, events_only=True)
+    for g in groups:
+        for sub in g.get("subgroups", []):
+            assert sub["open"] is False, (g["key"], sub["label"])
+
+
 def test_places_top_key_mapping() -> None:
     assert ev._places_top_key("classes") == "sports-fitness"
     assert ev._places_top_key("seniors") == "seniors"

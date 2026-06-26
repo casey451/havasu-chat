@@ -189,7 +189,16 @@
           <svg class="gchev" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </summary>
         <div class="ev-rows">
-          {% for row in g.rows %}{{ ev_row(row) }}{% endfor %}
+          {% if g.subgroups %}
+            {% for sub in g.subgroups %}
+            <details class="ev-sub"{% if sub.open %} open{% endif %}>
+              <summary><span class="sub-name">{{ sub.label }}</span><span class="sc">{{ sub.count }}</span><svg class="sub-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+              {% for row in sub.rows %}{{ ev_row(row) }}{% endfor %}
+            </details>
+            {% endfor %}
+          {% else %}
+            {% for row in g.rows %}{{ ev_row(row) }}{% endfor %}
+          {% endif %}
         </div>
       </details>
       {% endfor %}
