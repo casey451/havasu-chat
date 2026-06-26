@@ -60,27 +60,27 @@ def test_occurrence_group_keys_reroutes_nonfitness() -> None:
     # A craft "class" (tier=classes) leaves Fitness for Classes & Workshops.
     assert _occurrence_group_keys(
         "classes", title="Stained Glass Painting", venue=None, activity=None,
-        tags=["activity:arts"], is_family=False, is_senior=False,
+        tags=["activity:arts"], is_senior=False,
     ) == ["learn"]
     # Cooking too.
     assert _occurrence_group_keys(
         "classes", title="Taco Cooking Class", venue=None, activity=None,
-        tags=None, is_family=False, is_senior=False,
+        tags=None, is_senior=False,
     ) == ["learn"]
     # Theater → Music & Nightlife.
     assert _occurrence_group_keys(
         "events", title="SpongeBob Musical", venue=None, activity=None,
-        tags=None, is_family=False, is_senior=False,
+        tags=None, is_senior=False,
     ) == ["music"]
     # All-ages games stay in Things to Do.
     assert _occurrence_group_keys(
         "events", title="Rowdy Bingo", venue=None, activity=None,
-        tags=None, is_family=False, is_senior=False,
+        tags=None, is_senior=False,
     ) == ["events"]
     # Senior gate wins over everything (exclusive).
     assert _occurrence_group_keys(
         "classes", title="Laughing Yoga", venue="Senior Center", activity=None,
-        tags=["senior"], is_family=False, is_senior=True,
+        tags=["senior"], is_senior=True,
     ) == ["seniors"]
 
 
@@ -88,18 +88,19 @@ def test_fitness_and_nonactivity_rows_unchanged() -> None:
     # Line Dancing is fitness dance, NOT the learn craft bucket.
     assert _occurrence_group_keys(
         "classes", title="Line Dancing", venue=None, activity=None,
-        tags=None, is_family=False, is_senior=False,
+        tags=None, is_senior=False,
     ) == ["classes"]
     # A plain market is untouched.
     assert _occurrence_group_keys(
         "events", title="Farmers Market", venue=None, activity=None,
-        tags=None, is_family=False, is_senior=False,
+        tags=None, is_senior=False,
     ) == ["events"]
-    # Non-fitness activity additively overlays Kids & Family.
+    # No Kids & Family overlay (Casey 2026-06-26): a kids' craft lands once in
+    # Classes & Workshops and peels into its Youth sub there.
     assert _occurrence_group_keys(
         "classes", title="Kids Cake Pop Maker", venue=None, activity=None,
-        tags=None, is_family=True, is_senior=False,
-    ) == ["learn", "family"]
+        tags=None, is_senior=False,
+    ) == ["learn"]
 
 
 # ── learn sub-split ───────────────────────────────────────────────────────────

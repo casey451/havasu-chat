@@ -264,25 +264,74 @@ def _row_class_label(row: dict[str, Any]) -> str:
     )
 
 
+# Youth sub-categories (Casey 2026-06-26): a kid-specific row peels into a
+# "Youth <activity>" sub-section of its own group (no separate Kids & Family
+# group). A row is flagged ``youth`` upstream (events_views). The youth label is
+# the activity label prefixed with "Youth", with a few overrides where the bare
+# prefix reads awkwardly (the residual/fallback labels become "Youth & Family").
+_YOUTH_LABEL_OVERRIDES: dict[str, str] = {
+    "Other classes": "Youth Classes",
+    "Around Town": "Youth & Family",
+    "More music & nightlife": "Youth & Family",
+    "Comedy & Theater": "Youth Theater",
+    "Aquatic fitness": "Youth Swim",
+}
+
+
+def youth_subgroup_label(base: str) -> str:
+    """The youth sub-category label for an activity sub-section ("Martial Arts" →
+    "Youth Martial Arts"; residual labels → "Youth & Family")."""
+    return _YOUTH_LABEL_OVERRIDES.get(base, f"Youth {base}")
+
+
+def _split_with_youth(
+    rows: list[dict[str, Any]],
+    order: tuple[str, ...],
+    classify: Any,
+) -> list[dict[str, Any]]:
+    """Partition rows into ordered activity sub-sections, with each activity's
+    kid-specific rows peeled into a paired "Youth <activity>" sub-section right
+    after the adult one (Casey 2026-06-26). Empty sub-sections omitted."""
+    adult: dict[str, list[dict[str, Any]]] = {}
+    youth: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        label = classify(row)
+        (youth if row.get("youth") else adult).setdefault(label, []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in order:
+        a = adult.get(label)
+        if a:
+            out.append({"label": label, "rows": a, "count": len(a)})
+        y = youth.get(label)
+        if y:
+            out.append({"label": youth_subgroup_label(label), "rows": y, "count": len(y)})
+    return out
+
+
 def split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Partition already-sorted Fitness & classes rows into ordered type
     subsections, omitting empty ones (honest-omission). Row order preserved.
 
-    The Pickleball subgroup is further split into its Court Hours (Indoor/Outdoor)
-    and Leagues & Competitions facets (Phase 5) — those facet subgroups take its
-    slot in the ordered output."""
-    buckets: dict[str, list[dict[str, Any]]] = {}
+    Each activity's kid-specific rows peel into a paired "Youth <activity>"
+    sub-section (Youth Martial Arts, Youth Dance, …) right after the adult one
+    (Casey 2026-06-26). The adult Pickleball subgroup is further split into its
+    Court Hours (Indoor/Outdoor) and Leagues & Competitions facets (Phase 5)."""
+    adult: dict[str, list[dict[str, Any]]] = {}
+    youth: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
-        buckets.setdefault(_row_class_label(row), []).append(row)
+        label = _row_class_label(row)
+        (youth if row.get("youth") else adult).setdefault(label, []).append(row)
     out: list[dict[str, Any]] = []
     for label in SUBGROUP_ORDER:
-        sub_rows = buckets.get(label)
-        if not sub_rows:
-            continue
-        if label == "Pickleball":
-            out.extend(split_pickleball_facets(sub_rows))
-        else:
-            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
+        a = adult.get(label)
+        if a:
+            if label == "Pickleball":
+                out.extend(split_pickleball_facets(a))
+            else:
+                out.append({"label": label, "rows": a, "count": len(a)})
+        y = youth.get(label)
+        if y:
+            out.append({"label": youth_subgroup_label(label), "rows": y, "count": len(y)})
     return out
 
 
@@ -517,78 +566,76 @@ def classify_learn_subgroup(
 
 def split_learn_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Partition already-sorted Classes & Workshops rows into ordered
-    subsections, omitting empty ones (honest-omission). Row order preserved."""
-    buckets: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        label = classify_learn_subgroup(
-            row.get("title") or "", row.get("tags"), row.get("activity")
-        )
-        buckets.setdefault(label, []).append(row)
-    out: list[dict[str, Any]] = []
-    for label in LEARN_SUBGROUP_ORDER:
-        sub_rows = buckets.get(label)
-        if sub_rows:
-            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
-    return out
+    subsections, each with a paired "Youth <subsection>" for kid-specific rows;
+    empty ones omitted (honest-omission). Row order preserved."""
+    return _split_with_youth(
+        rows,
+        LEARN_SUBGROUP_ORDER,
+        lambda r: classify_learn_subgroup(r.get("title") or "", r.get("tags"), r.get("activity")),
+    )
 
 
-# ── Things to Do (events) subsections — Phase 5 cluster + games + specials ─────
-# "Things to Do" used to render flat. Phase 5 splits it WHEN there is themed
-# content to separate (Casey 2026-06-25): the Bowling/Billiards/Family-Fun venue
-# cluster (their hours), an all-ages Games & Social section (public bingo/cards
-# that aren't senior-gated — senior games live under Seniors), and Special
-# Sessions (Cosmic Bowling, Glow in the Park — destination events that must read
-# as dated happenings, NOT fold into a venue's hours line). Everything else stays
-# in the residual "Around Town". The split is applied only when a specialised
-# subsection is present, so a plain market/festival day is unchanged (events_views).
+# ── Things to Do (events) subsections — venue-type cluster (Casey 2026-06-26) ──
+# "Things to Do" splits by VENUE TYPE: each bowling/billiards/trampoline/arcade
+# venue type is its own sub-section holding that venue's hours AND its events.
+# Casey 2026-06-26 (post-QA): there is NO separate "Special Sessions" silo —
+# Cosmic Bowling (activity:bowling) nests under **Bowling**, Glow in the Park
+# (activity:trampoline) under **Trampoline**, beside that venue's hours. So a
+# themed venue session routes by its venue-kind/activity, not to a generic
+# specials bucket — and future scrapes self-file the same way (venue-kind +
+# facet:special). Games & Social holds all-ages public bingo/cards (senior games
+# live under the gated Seniors group); everything else is the residual Around Town.
 EVENTS_AROUND_LABEL = "Around Town"
-EVENTS_SPECIAL_LABEL = "Special Sessions"
 EVENTS_GAMES_LABEL = "Games & Social"
-EVENTS_FUNZONE_LABEL = "Bowling, Billiards & Family Fun"
+EVENTS_BILLIARDS_LABEL = "Billiards"
+EVENTS_BOWLING_LABEL = "Bowling"
+EVENTS_TRAMPOLINE_LABEL = "Trampoline"
+EVENTS_ARCADE_LABEL = "Arcade & Family Fun"
 EVENTS_SUBGROUP_ORDER: tuple[str, ...] = (
-    EVENTS_AROUND_LABEL, EVENTS_SPECIAL_LABEL, EVENTS_GAMES_LABEL, EVENTS_FUNZONE_LABEL,
+    EVENTS_AROUND_LABEL, EVENTS_GAMES_LABEL, EVENTS_BILLIARDS_LABEL,
+    EVENTS_BOWLING_LABEL, EVENTS_TRAMPOLINE_LABEL, EVENTS_ARCADE_LABEL,
 )
-# Activity slugs that form the Bowling/Billiards/Family-Fun venue cluster.
-_FUNZONE_SLUGS: frozenset[str] = frozenset({"bowling", "billiards", "trampoline", "family-fun"})
+# Venue-type / activity slug → its Things-to-Do sub-section label. ``family-fun``
+# is the arcade/family-fun cluster; ``games`` is the social-games section.
+_SLUG_TO_EVENTS_LABEL: dict[str, str] = {
+    "billiards": EVENTS_BILLIARDS_LABEL,
+    "bowling": EVENTS_BOWLING_LABEL,
+    "trampoline": EVENTS_TRAMPOLINE_LABEL,
+    "family-fun": EVENTS_ARCADE_LABEL,
+    "games": EVENTS_GAMES_LABEL,
+}
 
 
 def classify_events_subgroup(
     title: str, tags: list[str] | None = None, activity: str | None = None
 ) -> str:
-    """Map a Things-to-Do row to its subsection.
+    """Map a Things-to-Do row to its venue-type sub-section.
 
-    A ``facet:special`` row (Cosmic Bowling, Glow in the Park) is a destination
-    event → Special Sessions, surfaced apart from the venue's regular hours. Then
-    the funzone cluster (bowling/billiards/trampoline/family-fun activity) is its
-    hours section, all-ages games (``activity:games``) are Games & Social, and
-    everything else is the residual Around Town."""
-    tagset = {str(t).strip().lower() for t in (tags or [])}
-    if "facet:special" in tagset:
-        return EVENTS_SPECIAL_LABEL
+    Routes by ``venue-kind:<slug>`` (curated venue-hours rows carry this) then the
+    activity slug (so an `activity:bowling` Cosmic Bowling event and a bowling
+    venue's hours both land under **Bowling**). A `facet:special` session is NOT a
+    separate section — it nests under its venue type. Everything unmatched is the
+    residual Around Town."""
+    for t in tags or []:
+        s = str(t).strip().lower()
+        if s.startswith("venue-kind:"):
+            label = _SLUG_TO_EVENTS_LABEL.get(s.split(":", 1)[1])
+            if label:
+                return label
     slug = resolve_activity(title, None, tags, activity)
-    if slug in _FUNZONE_SLUGS:
-        return EVENTS_FUNZONE_LABEL
-    if slug == "games":
-        return EVENTS_GAMES_LABEL
-    return EVENTS_AROUND_LABEL
+    return _SLUG_TO_EVENTS_LABEL.get(slug or "", EVENTS_AROUND_LABEL)
 
 
 def split_events_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Partition already-sorted Things-to-Do rows into ordered subsections,
-    omitting empty ones (honest-omission). Row order preserved. The caller only
-    applies this when a non-residual subsection exists (so plain days stay flat)."""
-    buckets: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        label = classify_events_subgroup(
-            row.get("title") or "", row.get("tags"), row.get("activity")
-        )
-        buckets.setdefault(label, []).append(row)
-    out: list[dict[str, Any]] = []
-    for label in EVENTS_SUBGROUP_ORDER:
-        sub_rows = buckets.get(label)
-        if sub_rows:
-            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
-    return out
+    """Partition already-sorted Things-to-Do rows into ordered venue-type
+    subsections, with a paired "Youth …" for kid-specific rows; empties omitted.
+    The caller only applies this when a non-residual subsection exists (so plain
+    days stay flat)."""
+    return _split_with_youth(
+        rows,
+        EVENTS_SUBGROUP_ORDER,
+        lambda r: classify_events_subgroup(r.get("title") or "", r.get("tags"), r.get("activity")),
+    )
 
 
 # ── Seniors group — internal sub-split (the gated group stays browsable) ───────
@@ -696,17 +743,11 @@ def classify_music_subgroup(
 
 def split_music_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Partition already-sorted Music & nightlife rows into ordered subsections,
-    omitting empty ones (honest-omission). Comedy & Theater simply doesn't render
-    on a day with none — that is the "where volume warrants" behavior."""
-    buckets: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        label = classify_music_subgroup(
-            row.get("title") or "", row.get("tags"), row.get("venue")
-        )
-        buckets.setdefault(label, []).append(row)
-    out: list[dict[str, Any]] = []
-    for label in MUSIC_SUBGROUP_ORDER:
-        sub_rows = buckets.get(label)
-        if sub_rows:
-            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
-    return out
+    with a paired "Youth Theater" for kid-specific rows; empties omitted. Comedy &
+    Theater simply doesn't render on a day with none — the "where volume warrants"
+    behavior."""
+    return _split_with_youth(
+        rows,
+        MUSIC_SUBGROUP_ORDER,
+        lambda r: classify_music_subgroup(r.get("title") or "", r.get("tags"), r.get("venue")),
+    )

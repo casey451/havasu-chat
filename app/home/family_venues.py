@@ -53,6 +53,13 @@ class FamilyVenue:
     age_note: str = ""
     hours: dict[int, list[tuple[time, time]]] = field(default_factory=dict)
     verify: bool = False  # single-sourced hours — confirm before relying
+    # Venue-type slug for the Things-to-Do "Bowling, Billiards & Family Fun"
+    # cluster (bowling / billiards / trampoline / family-fun). Empty = not a
+    # funzone venue (won't surface in that cluster). See funzone_hours_rows.
+    venue_kind: str = ""
+    # True for kid/family venues that surface in the Kids & Family "Open today
+    # for kids" overlay. Pool-hall/pub billiards are family=False (funzone only).
+    family: bool = True
 
 
 def _h(h: int, m: int = 0) -> time:
@@ -69,6 +76,7 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
         url="https://thespotlhc.com/",
         address="3612 Jamaica Blvd S",
         age_note="All ages — arcade for kids, lounge for adults",
+        venue_kind="family-fun",
         # Source: Yelp (Jun 2026), thespotlhc.com, golakehavasu.com.
         hours={
             6: [(_h(12), _h(21))],  # Sun 12–9
@@ -85,6 +93,7 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
         url="https://www.sunshineindoorplay.com/",
         address="5601 AZ-95 N, Unit H814",
         age_note="Babies, toddlers & preschoolers",
+        venue_kind="family-fun",
         # Source: sunshineindoorplay.com, Yelp (May 2026). VERIFY summer hours.
         hours={
             1: [(_h(9), _h(17))],   # Tue 9–5
@@ -102,6 +111,7 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
         url="https://www.altitudetrampolinepark.com/locations/arizona/lake-havasu-city/5601-highway-95-n/",
         address="5601 Hwy 95 N, Unit 404-D",
         age_note="All ages — dedicated toddler area",
+        venue_kind="trampoline",
         # Source: altitudetrampolinepark.com, Yelp (May 2026). VERIFY summer hours.
         hours={
             0: [(_h(11), _h(19))],  # Mon 11–7
@@ -132,6 +142,39 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
             5: [(_h(12), _h(23))],  # Sat 12–11
             6: [(_h(12), _h(19))],  # Sun 12–7
         },
+        venue_kind="bowling",
+    ),
+    # --- Billiards / pool halls (funzone cluster; not kid venues) -----------
+    # family=False so they surface ONLY in Things to Do → Billiards, never in the
+    # Kids & Family "Open today for kids" overlay.
+    FamilyVenue(
+        name="Mr. Lucky's Billiards & Pub",
+        kind="Billiards & pub",
+        url="https://mrluckysbilliardsaz.com/",
+        address="3313 Maricopa Ave",
+        age_note="14 tables · full bar · leagues & tournaments",
+        # Source: mrluckysbilliardsaz.com, golakehavasu.com (Jun 2026).
+        hours={d: [(_h(11), _h(23))] for d in range(7)},  # daily 11 AM–11 PM
+        venue_kind="billiards",
+        family=False,
+    ),
+    FamilyVenue(
+        name="In the Pocket Billiard",
+        kind="Billiards hall",
+        url="https://www.yelp.com/biz/in-the-pocket-billiard-lake-havasu-city",
+        address="2871 Indian Pipe Dr",
+        # Hours not confirmed → surfaced with a "Hours vary" label, never a
+        # fabricated time (honesty contract).
+        venue_kind="billiards",
+        family=False,
+    ),
+    FamilyVenue(
+        name="Lady Lee's Billiards Hall",
+        kind="Billiards hall",
+        url="https://www.facebook.com/people/Lady-Lees/",
+        age_note="Billiards · Monday-night dance party",
+        venue_kind="billiards",
+        family=False,
     ),
 )
 
@@ -191,6 +234,8 @@ def open_today_rows(day: date) -> list[dict[str, Any]]:
     weekday = day.weekday()
     rows: list[dict[str, Any]] = []
     for v in OPEN_VENUES:
+        if not v.family:
+            continue  # billiards/pub venues belong to the funzone cluster only
         spans = v.hours.get(weekday)
         if not spans:
             continue
@@ -206,6 +251,55 @@ def open_today_rows(day: date) -> list[dict[str, Any]]:
                 "url": v.url,
                 "recurring": False,
                 "ongoing": True,  # drop-in venue hours, not a scheduled class
+            }
+        )
+    rows.sort(key=lambda r: r["sort"])
+    return rows
+
+
+# Funzone (bowling/billiards/trampoline/arcade) venue-type cluster under Things
+# to Do. The hours rows sort BEFORE the day's timed events within their sub-
+# section (rank -1) so a venue reads "hours, then its events" (Casey 2026-06-26).
+_FUNZONE_HOURS_RANK = -1
+HOURS_VARY_LABEL = "Hours vary"
+FUNZONE_KINDS: frozenset[str] = frozenset({"bowling", "billiards", "trampoline", "family-fun"})
+
+
+def funzone_hours_rows(day: date) -> list[dict[str, Any]]:
+    """Accordion-row dicts for the Things-to-Do "Bowling, Billiards & Family Fun"
+    cluster — every funzone venue, carrying its venue-kind so the events split
+    files it under Billiards / Bowling / Trampoline / Arcade & Family Fun.
+
+    A venue with confident weekly hours shows its real "12–11 PM" window (and is
+    omitted on a day it is closed — never a fabricated "open" claim); a venue
+    whose hours we cannot confirm shows "Hours vary" rather than "Time TBD".
+    Shaped like :func:`open_today_rows` (drops straight into the day-view "events"
+    group), with ``activity:<kind>`` + ``facet:hours`` tags so the split routes it
+    and the auto-expand rule reads it as a listing (not an event)."""
+    weekday = day.weekday()
+    rows: list[dict[str, Any]] = []
+    for v in OPEN_VENUES:
+        if v.venue_kind not in FUNZONE_KINDS:
+            continue
+        if v.hours:
+            spans = v.hours.get(weekday)
+            if not spans:
+                continue  # known schedule, closed today → omit
+            time_label = _span_label(spans)
+            sort_t = spans[0][0]
+        else:
+            time_label = HOURS_VARY_LABEL  # schedule unconfirmed
+            sort_t = time(0, 0)
+        rows.append(
+            {
+                "sort": (_FUNZONE_HOURS_RANK, sort_t),
+                "time_label": time_label,
+                "title": f"{v.name} · {v.kind}",
+                "venue": v.age_note or v.address,
+                "url": v.url,
+                "recurring": False,
+                "ongoing": True,  # venue hours, not an event
+                "tags": [f"activity:{v.venue_kind}", "facet:hours"],
             }
         )
     rows.sort(key=lambda r: r["sort"])

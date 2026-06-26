@@ -50,7 +50,6 @@ from app.contrib.lhc_funzone import (  # noqa: E402
     FunVenue,
     facility_to_entity_payload,
     funzone_facilities,
-    funzone_hours_event_specs,
     funzone_special_event_specs,
 )
 from app.contrib.scraper_ingest import decide_ingest  # noqa: E402
@@ -279,7 +278,12 @@ def run(
     *, dry_run: bool, category_slug: str = DEFAULT_CATEGORY_SLUG, today: date | None = None
 ) -> dict[str, dict[str, int]]:
     venues = funzone_facilities()
-    event_specs = funzone_hours_event_specs(today=today) + funzone_special_event_specs(today=today)
+    # Venue HOURS now render from the curated registry (app/home/family_venues.py)
+    # with real per-day times, so the loader no longer publishes all-day hours
+    # Event rows (they read "Time TBD" and are superseded/render-filtered). It
+    # publishes only the dated themed sessions (Cosmic Bowling, Glow in the Park);
+    # any stale hours rows are pruned as the window ages.
+    event_specs = funzone_special_event_specs(today=today)
     results: dict[str, dict[str, int]] = {}
     with SessionLocal() as db:
         results["facilities"] = ingest_facilities(

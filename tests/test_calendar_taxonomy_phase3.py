@@ -56,11 +56,11 @@ def test_golf_routes_to_fitness_bucket() -> None:
     # one also routes to classes (as a field sport), never out to learn/events.
     assert _occurrence_group_keys(
         "classes", title="Toptracer Family Night Golf", venue="Iron Wolf",
-        activity=None, tags=None, is_family=False, is_senior=False,
+        activity=None, tags=None, is_senior=False,
     ) == ["classes"]
     assert _occurrence_group_keys(
         "classes", title="Disc Golf League", venue=None, activity=None,
-        tags=None, is_family=False, is_senior=False,
+        tags=None, is_senior=False,
     ) == ["classes"]
 
 

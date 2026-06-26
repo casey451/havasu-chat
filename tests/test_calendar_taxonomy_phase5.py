@@ -81,12 +81,18 @@ def test_split_class_subgroups_expands_pickleball() -> None:
 
 # ── Things-to-Do split (pure) ─────────────────────────────────────────────────
 def test_classify_events_subgroup() -> None:
+    # Casey 2026-06-26: no Special Sessions silo — a themed session routes by its
+    # venue type (Cosmic Bowling → Bowling, beside the bowling alley's hours).
     assert classify_events_subgroup("Cosmic Bowling", ["activity:bowling", "facet:special"]) \
-        == "Special Sessions"
+        == "Bowling"
     assert classify_events_subgroup("Bowling — Havasu Lanes", ["activity:bowling", "facet:hours"]) \
-        == "Bowling, Billiards & Family Fun"
+        == "Bowling"
     assert classify_events_subgroup("Billiards — Mr. Lucky's", ["activity:billiards", "facet:hours"]) \
-        == "Bowling, Billiards & Family Fun"
+        == "Billiards"
+    assert classify_events_subgroup("Glow in the Park", ["activity:trampoline", "facet:special"]) \
+        == "Trampoline"
+    assert classify_events_subgroup("Open Jump", ["venue-kind:family-fun", "facet:hours"]) \
+        == "Arcade & Family Fun"
     assert classify_events_subgroup("Rowdy Bingo", ["activity:games"]) == "Games & Social"
     assert classify_events_subgroup("Farmers Market", None) == "Around Town"
 
@@ -100,7 +106,12 @@ def test_split_events_subgroups_orders_and_omits_empty() -> None:
     ]
     subs = split_events_subgroups(rows)
     labels = [s["label"] for s in subs]
-    assert labels == list(EVENTS_SUBGROUP_ORDER)  # all four present, in canonical order
+    # Cosmic Bowling + the bowling hours both nest under "Bowling"; present subs,
+    # in canonical order, are Around Town · Games & Social · Bowling.
+    assert labels == ["Around Town", "Games & Social", "Bowling"]
+    bowling = next(s for s in subs if s["label"] == "Bowling")
+    assert bowling["count"] == 2  # the special and the hours sit together
+    assert set(EVENTS_SUBGROUP_ORDER) >= set(labels)
 
 
 # ── integration: pickleball indoor court hours land under Fitness → facet ──────
@@ -148,34 +159,35 @@ def test_pickleball_court_hours_render_under_fitness_indoor_facet() -> None:
         _cleanup(eids)
 
 
-def test_cosmic_bowling_is_special_not_folded_into_hours() -> None:
+def test_cosmic_bowling_nests_under_bowling_and_db_hours_filtered() -> None:
     s = uuid.uuid4().hex[:6]
     cosmic = f"Cosmic Bowling {s}"
-    hours = f"Bowling — Havasu Lanes {s}"
+    db_hours = f"Bowling — ZZ Test Alley {s}"  # a DB funzone-hours row
     eids: list[str] = []
     with SessionLocal() as db:
         eids.append(_add(db, title=cosmic, start=time(21, 0),
-                         tags=["activity:bowling", "facet:special", "family"]))
-        eids.append(_add(db, title=hours,
-                         tags=["activity:bowling", "facet:hours", "family"]))
+                         tags=["activity:bowling", "facet:special"]))
+        eids.append(_add(db, title=db_hours,
+                         tags=["activity:bowling", "facet:hours"]))
         db.commit()
     try:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
         events = next(g for g in groups if g["key"] == "events")
         subs = {sub["label"]: {r["title"] for r in sub["rows"]} for sub in events.get("subgroups", [])}
-        # The cosmic night is a Special Session; the regular hours are the funzone
-        # cluster — the two are distinct subsections, never merged.
-        assert any(cosmic in t for t in subs.get("Special Sessions", set()))
-        assert any(hours in t for t in subs.get("Bowling, Billiards & Family Fun", set()))
-        assert not any(cosmic in t for t in subs.get("Bowling, Billiards & Family Fun", set()))
+        # The cosmic night nests under Bowling (no Special Sessions silo).
+        assert any(cosmic in t for t in subs.get("Bowling", set()))
+        # The DB funzone-hours row is render-filtered (curated hours replace it).
+        all_titles = {r["title"] for r in events["rows"]}
+        assert not any(db_hours in t for t in all_titles)
     finally:
         _cleanup(eids)
 
 
-def test_plain_things_to_do_day_stays_flat() -> None:
-    # A market-only day has no themed subsection, so Things to Do renders flat
-    # (no subgroups) — the split is applied only when specialised content exists.
+def test_market_lands_in_around_town_with_real_funzone_hours() -> None:
+    # Things to Do now always sub-divides (funzone venues show hours daily): a
+    # market files under "Around Town"; the curated venue hours read a real time,
+    # never "Time TBD".
     s = uuid.uuid4().hex[:6]
     market = f"ZZ Farmers Market {s}"
     eids: list[str] = []
@@ -186,7 +198,11 @@ def test_plain_things_to_do_day_stays_flat() -> None:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
         events = next(g for g in groups if g["key"] == "events")
-        assert any(market in r["title"] for r in events["rows"])
-        assert "subgroups" not in events
+        subs = {sub["label"]: sub["rows"] for sub in events.get("subgroups", [])}
+        assert any(market in r["title"] for r in subs.get("Around Town", []))
+        # At least one funzone venue-type sub has a real hours label (no Time TBD).
+        venue_rows = [r for lbl in ("Billiards", "Bowling") for r in subs.get(lbl, [])]
+        assert venue_rows
+        assert all(r["time_label"] != "Time TBD" for r in venue_rows)
     finally:
         _cleanup(eids)

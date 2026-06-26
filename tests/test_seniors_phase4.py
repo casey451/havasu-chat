@@ -161,9 +161,11 @@ def test_nonfitness_class_routes_to_happening_today() -> None:
         _cleanup(eids)
 
 
-def test_kids_venue_class_routes_to_family_only() -> None:
-    # A generically-named class at a kids-only venue files under Kids & Family
-    # ONLY (not the adult Fitness list, not Happening today).
+def test_kids_venue_class_lands_in_youth_sub() -> None:
+    # A generically-named class at a kids-only venue is youth-flagged. With no
+    # Kids & Family group (Casey 2026-06-26) it lands ONCE in its primary group
+    # and peels into that group's Youth sub. An untyped "class" residue routes to
+    # Things to Do, so it surfaces under Things to Do → Youth & Family.
     s = uuid.uuid4().hex[:6]
     enr = f"ZZ Enrichment Lab {s}"
     eids: list[str] = []
@@ -175,9 +177,13 @@ def test_kids_venue_class_routes_to_family_only() -> None:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
         by_key = {g["key"]: {r["title"] for r in g["rows"]} for g in groups}
-        assert any(enr in t for t in by_key.get("family", set()))
+        # No "family" group exists any more.
+        assert not by_key.get("family")
+        assert any(enr in t for t in by_key.get("events", set()))
         assert not any(enr in t for t in by_key.get("classes", set()))
-        assert not any(enr in t for t in by_key.get("events", set()))
+        events = next(g for g in groups if g["key"] == "events")
+        youth = [s2 for s2 in events.get("subgroups", []) if s2["label"] == "Youth & Family"]
+        assert youth and any(enr in r["title"] for r in youth[0]["rows"])
     finally:
         _cleanup(eids)
 
