@@ -249,6 +249,19 @@ def _is_youth_sport(title: str) -> bool:
     return bool(_YOUTH_SPORT_RE.search(title or ""))
 
 
+def _explicit_activity_bucket(tags: list[str] | None) -> str | None:
+    """The top-level bucket of an EXPLICIT ``activity:<slug>`` tag (ingest/loader
+    stamped), or None when the row carries no such tag. Distinct from
+    ``resolve_activity`` (which also classifies from the title) so we can let an
+    explicitly-stamped tag be authoritative without changing classifier-only
+    inference on legacy untagged rows."""
+    for t in tags or []:
+        s = str(t)
+        if s.startswith("activity:"):
+            return activity_bucket(s.split(":", 1)[1] or None)
+    return None
+
+
 def _occurrence_group_keys(
     gkey: str,
     *,
@@ -292,6 +305,19 @@ def _occurrence_group_keys(
         return ["music", "family"] if is_family else ["music"]
     if abkt == "events" and slug:  # games / bowling / billiards / trampoline / family-fun
         return ["events", "family"] if is_family else ["events"]
+    # An EXPLICIT ingest/loader-stamped activity tag in the fitness bucket is
+    # authoritative for placement: golf/pickleball venue hours carry
+    # activity:<slug> + facet:hours but their venue-hours titles don't trip the
+    # keyword tier classifier, so without this they'd fall to "Things to Do"
+    # instead of Fitness & Sports → their subgroup. Drop-in rec (Open Play/Swim)
+    # stays in Things to Do by design (it's not a class). Scoped to an explicit
+    # tag so classifier-only inference on legacy untagged rows is unchanged.
+    if (
+        gkey != "classes"
+        and _explicit_activity_bucket(tags) == "classes"
+        and not is_dropin_rec(title)
+    ):
+        return ["classes", "family"] if is_family else ["classes"]
     # A youth-tagged *fitness class* routes to Kids & Family ONLY (kids' yoga /
     # dance don't belong in the adult Fitness list). EXCEPTION: a youth *sport*
     # (BMX racing, etc.) keeps its Fitness & sports home AND re-lists under Kids &
