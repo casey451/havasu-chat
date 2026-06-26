@@ -42,9 +42,13 @@ from app.db.models import Event
 from app.events.activity_taxonomy import (
     FALLBACK_LABEL,
     SUBGROUP_ORDER,
+    activity_bucket,
     classify_class_subgroup,
+    resolve_activity,
     split_class_subgroups,
+    split_learn_subgroups,
     split_music_subgroups,
+    split_senior_subgroups,
 )
 from app.events.class_occurrences import (
     class_occurrences_in_window,
@@ -251,6 +255,7 @@ def _occurrence_group_keys(
     title: str,
     venue: str | None,
     activity: str | None,
+    tags: list[str] | None = None,
     is_family: bool,
     is_senior: bool,
 ) -> list[str]:
@@ -262,17 +267,35 @@ def _occurrence_group_keys(
     "other class" occurrences via :func:`_route_occurrence` while the week rollup
     counted them by bare primary group — so the week strip said "14 classes" but
     the day showed fewer under Fitness & classes (the rest under Seniors / Kids &
-    Family / Happening today). Routing both through this function makes the rollup
-    counts agree with the rendered groups by construction. The rules mirror the
-    Seniors-only / youth-class-only / fallback-class re-route documented below.
+    Family / Things to Do). Routing both through this function makes the rollup
+    counts agree with the rendered groups by construction.
+
+    Phase 2 (calendar reorg, 2026-06-25) reads the canonical ``activity:<slug>``
+    tag (tag-first, classifier fallback) to route the NON-fitness activities to
+    their real bucket: arts/cooking/maker/learning → **learn** (Classes &
+    Workshops), theater → **music**, games/bowling/billiards/trampoline/family-fun
+    → **events** (Things to Do). The senior GATE is checked first (exclusive), and
+    a row with no classified non-fitness activity keeps the exact legacy routing —
+    so fitness and non-activity rows are unchanged.
     """
+    # Senior gate FIRST: Senior-Center programming is gated and lives under
+    # Seniors ONLY — never cross-listed into the public buckets.
     if is_senior:
         return ["seniors"]
-    # A youth-tagged *class* routes to Kids & Family ONLY (kids' yoga / dance don't
-    # belong in the adult Fitness list). EXCEPTION: a youth *sport* (BMX racing,
-    # etc.) keeps its Fitness & sports home AND re-lists under Kids & Family — it's
-    # a sport, not an instructional class, so it shouldn't vanish from the sports
-    # group (Casey 2026-06-24: "bmx racing should be under sports").
+    # Non-fitness activity reroute (additive Kids & Family overlay: a kids' craft
+    # is open-enrollment, so it shows under both its bucket and Kids & Family).
+    slug = resolve_activity(title, venue, tags, activity)
+    abkt = activity_bucket(slug)
+    if abkt == "learn":
+        return ["learn", "family"] if is_family else ["learn"]
+    if slug == "theater":
+        return ["music", "family"] if is_family else ["music"]
+    if abkt == "events" and slug:  # games / bowling / billiards / trampoline / family-fun
+        return ["events", "family"] if is_family else ["events"]
+    # A youth-tagged *fitness class* routes to Kids & Family ONLY (kids' yoga /
+    # dance don't belong in the adult Fitness list). EXCEPTION: a youth *sport*
+    # (BMX racing, etc.) keeps its Fitness & sports home AND re-lists under Kids &
+    # Family (Casey 2026-06-24: "bmx racing should be under sports").
     if is_family and gkey == "classes" and not _is_youth_sport(title):
         return ["family"]
     if gkey == "classes" and classify_class_subgroup(title, venue, activity) == FALLBACK_LABEL:
@@ -318,6 +341,7 @@ def _route_occurrence(
         title=row.get("title") or "",
         venue=row.get("venue"),
         activity=row.get("activity"),
+        tags=row.get("tags"),
         is_family=is_family,
         is_senior=is_senior,
     ):
@@ -514,6 +538,15 @@ def day_groups(
             # P1: always type the Fitness & classes list into activity subsections
             # so no class sits in a generic untyped bucket.
             group["subgroups"] = _split_class_subgroups(rows)
+        elif key == "learn":
+            # Phase 2 (2026-06-25): Classes & Workshops splits into Arts & Crafts /
+            # Paint & Sip / Cooking / Maker / Lifelong Learning.
+            group["subgroups"] = split_learn_subgroups(rows)
+        elif key == "seniors":
+            # Phase 2 (2026-06-25): the gated Seniors group sub-splits internally
+            # (Games & Social / Fitness & Movement / Arts & Crafts / Social-Music-
+            # Meals / Special) so it stays browsable.
+            group["subgroups"] = split_senior_subgroups(rows)
         elif key == "family" and len(rows) >= _FAMILY_SUBGROUP_MIN:
             group["subgroups"] = _split_family_subgroups(rows)
         groups.append(group)
@@ -626,6 +659,7 @@ def week_rows(
                 title=ev.title or "",
                 venue=ev.location_name,
                 activity=None,
+                tags=list(ev.tags or []),
                 is_family=overlay_ok and is_family_event(ev.title, ev.tags, ev.location_name),
                 is_senior=overlay_ok and is_senior_event(ev.title, ev.tags, ev.location_name),
             ):

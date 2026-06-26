@@ -376,6 +376,141 @@ def event_activity_tags(
     return deduped
 
 
+# ── Phase 2 render: surfaces read the activity tag (tag-first, classify back) ──
+def resolve_activity(
+    title: str,
+    venue: str | None = None,
+    tags: list[str] | None = None,
+    provider_activity: str | None = None,
+) -> str | None:
+    """The activity slug for a *rendered* row: read the canonical
+    ``activity:<slug>`` tag stamped at ingest (Phase 1) when present, else fall
+    back to the SAME classifier (:func:`classify_activity`). Tag-first means a
+    backfilled row is a pure read; the fallback keeps pre-backfill rows and
+    render-time Schedule occurrences (which carry no tag, only a provider
+    activity label) correct — one classifier, no divergent re-parsing."""
+    for t in tags or []:
+        s = str(t)
+        if s.startswith("activity:"):
+            return s.split(":", 1)[1] or None
+    return classify_activity(title, venue, tags, provider_activity)
+
+
+# ── Classes & Workshops (learn) subsections ───────────────────────────────────
+LEARN_ARTS_LABEL = "Arts & Crafts"
+LEARN_PAINT_LABEL = "Paint & Sip"
+LEARN_COOKING_LABEL = "Cooking"
+LEARN_MAKER_LABEL = "Maker"
+LEARN_LEARNING_LABEL = "Lifelong Learning"
+LEARN_SUBGROUP_ORDER: tuple[str, ...] = (
+    LEARN_ARTS_LABEL, LEARN_PAINT_LABEL, LEARN_COOKING_LABEL,
+    LEARN_MAKER_LABEL, LEARN_LEARNING_LABEL,
+)
+_PAINT_SIP_RE = re.compile(r"\b(paint\s*[&n]?\s*sip|sip\s*[&n]?\s*paint)\b", re.IGNORECASE)
+
+
+def classify_learn_subgroup(
+    title: str, tags: list[str] | None = None, activity: str | None = None
+) -> str:
+    """Map a Classes & Workshops row to its subsection. Paint & Sip splits out of
+    Arts & Crafts by title (it is the social-craft variant); otherwise the
+    activity slug picks the section, with arts as the honest default."""
+    if _PAINT_SIP_RE.search(title or ""):
+        return LEARN_PAINT_LABEL
+    slug = resolve_activity(title, None, tags, activity)
+    if slug == "cooking":
+        return LEARN_COOKING_LABEL
+    if slug == "maker":
+        return LEARN_MAKER_LABEL
+    if slug == "learning":
+        return LEARN_LEARNING_LABEL
+    return LEARN_ARTS_LABEL
+
+
+def split_learn_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition already-sorted Classes & Workshops rows into ordered
+    subsections, omitting empty ones (honest-omission). Row order preserved."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        label = classify_learn_subgroup(
+            row.get("title") or "", row.get("tags"), row.get("activity")
+        )
+        buckets.setdefault(label, []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in LEARN_SUBGROUP_ORDER:
+        sub_rows = buckets.get(label)
+        if sub_rows:
+            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
+    return out
+
+
+# ── Seniors group — internal sub-split (the gated group stays browsable) ───────
+# Senior Center programming is gated (age/membership) and grouped under Seniors
+# ONLY (never cross-listed into the public buckets — that routing lives in
+# events_views). Inside the group it sub-splits by activity so it is still
+# scannable, per the layout doc.
+SENIOR_GAMES_LABEL = "Games & Social"
+SENIOR_FITNESS_LABEL = "Fitness & Movement"
+SENIOR_ARTS_LABEL = "Arts & Crafts"
+SENIOR_SOCIAL_LABEL = "Social, Music & Meals"
+SENIOR_SPECIAL_LABEL = "Special"
+SENIOR_SUBGROUP_ORDER: tuple[str, ...] = (
+    SENIOR_GAMES_LABEL, SENIOR_FITNESS_LABEL, SENIOR_ARTS_LABEL,
+    SENIOR_SOCIAL_LABEL, SENIOR_SPECIAL_LABEL,
+)
+_SENIOR_SPECIAL_RE = re.compile(
+    r"\b(awareness|christmas|thanksgiving|halloween|holiday|new year|"
+    r"grand (?:re-?)?opening|anniversary|celebration|special event)\b",
+    re.IGNORECASE,
+)
+_SENIOR_SOCIAL_RE = re.compile(
+    r"\b(lunch|luncheon|dinner|breakfast|brunch|potluck|meal|coffee|social|"
+    r"music jam|jam session|karaoke|movie|bingo night)\b",
+    re.IGNORECASE,
+)
+
+
+def classify_senior_subgroup(
+    title: str, tags: list[str] | None = None, activity: str | None = None
+) -> str:
+    """Map a senior occurrence to its internal subsection (Games & Social,
+    Fitness & Movement, Arts & Crafts, Social/Music/Meals, Special)."""
+    low = (title or "")
+    tagset = {str(t).strip().lower() for t in (tags or [])}
+    if "facet:special" in tagset or _SENIOR_SPECIAL_RE.search(low):
+        return SENIOR_SPECIAL_LABEL
+    slug = resolve_activity(title, None, tags, activity)
+    # Cards / board games AND the Senior Center pool room read as Games & Social
+    # (the layout groups "Open Billiards" with Pinochle/Bridge under Seniors).
+    if slug in ("games", "billiards"):
+        return SENIOR_GAMES_LABEL
+    if slug in ("arts", "maker"):
+        return SENIOR_ARTS_LABEL
+    if activity_bucket(slug) == "classes":
+        return SENIOR_FITNESS_LABEL
+    if _SENIOR_SOCIAL_RE.search(low):
+        return SENIOR_SOCIAL_LABEL
+    # theater / cooking / learning / unclassified senior items read as social.
+    return SENIOR_SOCIAL_LABEL
+
+
+def split_senior_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition already-sorted Seniors rows into ordered internal subsections,
+    omitting empty ones (honest-omission). Row order preserved."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        label = classify_senior_subgroup(
+            row.get("title") or "", row.get("tags"), row.get("activity")
+        )
+        buckets.setdefault(label, []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in SENIOR_SUBGROUP_ORDER:
+        sub_rows = buckets.get(label)
+        if sub_rows:
+            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
+    return out
+
+
 # ── Music & nightlife subsections (P2) ────────────────────────────────────────
 # The "Music & nightlife" group splits into typed subsections the same way
 # Fitness & classes does: Live Music (bands/concerts/acoustic), Comedy & Theater
