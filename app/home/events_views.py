@@ -40,12 +40,14 @@ from sqlalchemy.orm import Session
 from app.core.timezone import to_lake_naive
 from app.db.models import Event
 from app.events.activity_taxonomy import (
+    EVENTS_AROUND_LABEL,
     FALLBACK_LABEL,
     SUBGROUP_ORDER,
     activity_bucket,
     classify_class_subgroup,
     resolve_activity,
     split_class_subgroups,
+    split_events_subgroups,
     split_learn_subgroups,
     split_music_subgroups,
     split_senior_subgroups,
@@ -307,17 +309,20 @@ def _occurrence_group_keys(
         return ["events", "family"] if is_family else ["events"]
     # An EXPLICIT ingest/loader-stamped activity tag in the fitness bucket is
     # authoritative for placement: golf/pickleball venue hours carry
-    # activity:<slug> + facet:hours but their venue-hours titles don't trip the
-    # keyword tier classifier, so without this they'd fall to "Things to Do"
-    # instead of Fitness & Sports → their subgroup. Drop-in rec (Open Play/Swim)
-    # stays in Things to Do by design (it's not a class). Scoped to an explicit
-    # tag so classifier-only inference on legacy untagged rows is unchanged.
-    if (
-        gkey != "classes"
-        and _explicit_activity_bucket(tags) == "classes"
-        and not is_dropin_rec(title)
-    ):
-        return ["classes", "family"] if is_family else ["classes"]
+    # activity:<slug> + facet:hours/open-play but their venue-hours titles don't
+    # trip the keyword tier classifier, so without this they'd fall to "Things to
+    # Do" instead of Fitness & Sports → their subgroup. Pickleball **court hours**
+    # carry a drop-in-rec title ("…Open Play") yet the layout wants them under
+    # Fitness → Pickleball (Casey 2026-06-25, tag-driven): a court/venue-hours
+    # facet (``facet:open-play``/``facet:hours``) overrides the drop-in-rec
+    # exception, while a bare drop-in (Open Swim/Gym with no such facet) stays in
+    # Things to Do. Scoped to an explicit tag so classifier-only inference on
+    # legacy untagged rows is unchanged.
+    if gkey != "classes" and _explicit_activity_bucket(tags) == "classes":
+        tagset = {str(t).strip().lower() for t in (tags or [])}
+        is_venue_hours = bool(tagset & {"facet:open-play", "facet:hours"})
+        if is_venue_hours or not is_dropin_rec(title):
+            return ["classes", "family"] if is_family else ["classes"]
     # A youth-tagged *fitness class* routes to Kids & Family ONLY (kids' yoga /
     # dance don't belong in the adult Fitness list). EXCEPTION: a youth *sport*
     # (BMX racing, etc.) keeps its Fitness & sports home AND re-lists under Kids &
@@ -556,7 +561,15 @@ def day_groups(
         group: dict[str, Any] = {
             "key": key, "label": label, "icon": icon, "count": len(rows), "rows": rows
         }
-        if key == "music" and len(rows) >= _MUSIC_SUBGROUP_MIN:
+        if key == "events":
+            # Phase 2 (2026-06-25): Things to Do splits into Around Town + the
+            # Bowling/Billiards/Family-Fun cluster + Games & Social + Special
+            # Sessions — but ONLY when a themed (non-residual) subsection is
+            # present, so a plain market/festival day stays a flat list.
+            subs = split_events_subgroups(rows)
+            if any(s["label"] != EVENTS_AROUND_LABEL for s in subs):
+                group["subgroups"] = subs
+        elif key == "music" and len(rows) >= _MUSIC_SUBGROUP_MIN:
             # P2: typed Live Music / Comedy & Theater subsections under Music &
             # nightlife (mirrors the class subgroups; empties omitted).
             group["subgroups"] = _split_music_subgroups(rows)

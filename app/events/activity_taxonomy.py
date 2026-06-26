@@ -197,19 +197,91 @@ def activity_slug(title: str, venue: str | None = None) -> str | None:
     return SUBGROUP_SLUGS.get(classify_class_subgroup(title, venue))
 
 
-def split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Partition already-sorted Fitness & classes rows into ordered type
-    subsections, omitting empty ones (honest-omission). Row order preserved."""
+# ── Pickleball facet split (Phase 5, Casey 2026-06-25) ────────────────────────
+# The flat "Pickleball" subgroup under Fitness & Sports splits into three facets
+# the layout doc calls for, plus an honest base for the folded-in racquet/tennis
+# and generic-lesson rows. Court hours are tag-driven: the pickleball loader
+# stamps ``facet:open-play`` + ``indoor:true|false`` on its court-hours rows and
+# ``facet:competition`` on round-robins/leagues/PickleFest, so the split reads
+# tags rather than re-parsing titles. Tennis stays folded ("Pickleball &
+# Racquet" base) per Casey — split tennis later only if its volume grows.
+PB_OUTDOOR_LABEL = "Pickleball — Court Hours (Outdoor)"
+PB_INDOOR_LABEL = "Pickleball — Court Hours (Indoor)"
+PB_COMPETITION_LABEL = "Pickleball — Leagues & Competitions"
+PB_BASE_LABEL = "Pickleball & Racquet"
+PICKLEBALL_FACET_ORDER: tuple[str, ...] = (
+    PB_OUTDOOR_LABEL, PB_INDOOR_LABEL, PB_COMPETITION_LABEL, PB_BASE_LABEL,
+)
+
+
+def classify_pickleball_facet(tags: list[str] | None) -> str:
+    """Map a Pickleball/Racquet row to its facet from the stamped tags.
+
+    Precedence: a competition tag (round-robin / league / PickleFest) wins; then
+    court-hours rows (``facet:open-play`` or ``facet:hours``) split Indoor vs
+    Outdoor by the ``indoor:true`` flag; everything else (lessons, clinics,
+    tennis, generically-named pickleball classes) is the honest base."""
+    tagset = {str(t).strip().lower() for t in (tags or [])}
+    if "facet:competition" in tagset:
+        return PB_COMPETITION_LABEL
+    if tagset & {"facet:open-play", "facet:hours"}:
+        return PB_INDOOR_LABEL if "indoor:true" in tagset else PB_OUTDOOR_LABEL
+    return PB_BASE_LABEL
+
+
+def split_pickleball_facets(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition the Pickleball subgroup's rows into its ordered facets, omitting
+    empty ones (honest-omission). Row order preserved within each facet."""
     buckets: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
-        label = classify_class_subgroup(
-            row.get("title") or "", row.get("venue"), row.get("activity")
-        )
-        buckets.setdefault(label, []).append(row)
+        buckets.setdefault(classify_pickleball_facet(row.get("tags")), []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in PICKLEBALL_FACET_ORDER:
+        sub_rows = buckets.get(label)
+        if sub_rows:
+            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
+    return out
+
+
+# Reverse of SUBGROUP_SLUGS, so a row's explicit ``activity:<slug>`` tag picks its
+# Fitness subsection label tag-first (the Phase-2 canonical read) — e.g. a
+# "PickleFest" row carries ``activity:pickleball`` but no "pickleball" in its
+# title, so the title classifier alone would mis-file it under "Other classes".
+_SLUG_TO_SUBGROUP: dict[str, str] = {slug: label for label, slug in SUBGROUP_SLUGS.items()}
+
+
+def _row_class_label(row: dict[str, Any]) -> str:
+    """The Fitness subsection label for a row: an explicit ``activity:<slug>`` tag
+    wins (tag-first), else the title/venue/provider classifier."""
+    for t in row.get("tags") or []:
+        s = str(t)
+        if s.startswith("activity:"):
+            label = _SLUG_TO_SUBGROUP.get(s.split(":", 1)[1] or "")
+            if label:
+                return label
+    return classify_class_subgroup(
+        row.get("title") or "", row.get("venue"), row.get("activity")
+    )
+
+
+def split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition already-sorted Fitness & classes rows into ordered type
+    subsections, omitting empty ones (honest-omission). Row order preserved.
+
+    The Pickleball subgroup is further split into its Court Hours (Indoor/Outdoor)
+    and Leagues & Competitions facets (Phase 5) — those facet subgroups take its
+    slot in the ordered output."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        buckets.setdefault(_row_class_label(row), []).append(row)
     out: list[dict[str, Any]] = []
     for label in SUBGROUP_ORDER:
         sub_rows = buckets.get(label)
-        if sub_rows:
+        if not sub_rows:
+            continue
+        if label == "Pickleball":
+            out.extend(split_pickleball_facets(sub_rows))
+        else:
             out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
     return out
 
@@ -454,6 +526,65 @@ def split_learn_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
         buckets.setdefault(label, []).append(row)
     out: list[dict[str, Any]] = []
     for label in LEARN_SUBGROUP_ORDER:
+        sub_rows = buckets.get(label)
+        if sub_rows:
+            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
+    return out
+
+
+# ── Things to Do (events) subsections — Phase 5 cluster + games + specials ─────
+# "Things to Do" used to render flat. Phase 5 splits it WHEN there is themed
+# content to separate (Casey 2026-06-25): the Bowling/Billiards/Family-Fun venue
+# cluster (their hours), an all-ages Games & Social section (public bingo/cards
+# that aren't senior-gated — senior games live under Seniors), and Special
+# Sessions (Cosmic Bowling, Glow in the Park — destination events that must read
+# as dated happenings, NOT fold into a venue's hours line). Everything else stays
+# in the residual "Around Town". The split is applied only when a specialised
+# subsection is present, so a plain market/festival day is unchanged (events_views).
+EVENTS_AROUND_LABEL = "Around Town"
+EVENTS_SPECIAL_LABEL = "Special Sessions"
+EVENTS_GAMES_LABEL = "Games & Social"
+EVENTS_FUNZONE_LABEL = "Bowling, Billiards & Family Fun"
+EVENTS_SUBGROUP_ORDER: tuple[str, ...] = (
+    EVENTS_AROUND_LABEL, EVENTS_SPECIAL_LABEL, EVENTS_GAMES_LABEL, EVENTS_FUNZONE_LABEL,
+)
+# Activity slugs that form the Bowling/Billiards/Family-Fun venue cluster.
+_FUNZONE_SLUGS: frozenset[str] = frozenset({"bowling", "billiards", "trampoline", "family-fun"})
+
+
+def classify_events_subgroup(
+    title: str, tags: list[str] | None = None, activity: str | None = None
+) -> str:
+    """Map a Things-to-Do row to its subsection.
+
+    A ``facet:special`` row (Cosmic Bowling, Glow in the Park) is a destination
+    event → Special Sessions, surfaced apart from the venue's regular hours. Then
+    the funzone cluster (bowling/billiards/trampoline/family-fun activity) is its
+    hours section, all-ages games (``activity:games``) are Games & Social, and
+    everything else is the residual Around Town."""
+    tagset = {str(t).strip().lower() for t in (tags or [])}
+    if "facet:special" in tagset:
+        return EVENTS_SPECIAL_LABEL
+    slug = resolve_activity(title, None, tags, activity)
+    if slug in _FUNZONE_SLUGS:
+        return EVENTS_FUNZONE_LABEL
+    if slug == "games":
+        return EVENTS_GAMES_LABEL
+    return EVENTS_AROUND_LABEL
+
+
+def split_events_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition already-sorted Things-to-Do rows into ordered subsections,
+    omitting empty ones (honest-omission). Row order preserved. The caller only
+    applies this when a non-residual subsection exists (so plain days stay flat)."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        label = classify_events_subgroup(
+            row.get("title") or "", row.get("tags"), row.get("activity")
+        )
+        buckets.setdefault(label, []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in EVENTS_SUBGROUP_ORDER:
         sub_rows = buckets.get(label)
         if sub_rows:
             out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
