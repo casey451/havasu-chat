@@ -158,16 +158,11 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
         venue_kind="billiards",
         family=False,
     ),
-    FamilyVenue(
-        name="In the Pocket Billiard",
-        kind="Billiards hall",
-        url="https://www.yelp.com/biz/in-the-pocket-billiard-lake-havasu-city",
-        address="2871 Indian Pipe Dr",
-        # Hours not confirmed → surfaced with a "Hours vary" label, never a
-        # fabricated time (honesty contract).
-        venue_kind="billiards",
-        family=False,
-    ),
+    # NOTE: "In the Pocket Billiard" (2871 Indian Pipe Dr) was removed 2026-06-26.
+    # It is a billiard SUPPLY shop / pool-table repair service, not a pool hall
+    # you can play at, so it does not belong in Things to Do → Billiards. Its
+    # directory Provider row is deactivated separately (see
+    # scripts/deactivate_in_the_pocket_billiard.py).
     FamilyVenue(
         name="Lady Lee's Billiards Hall",
         kind="Billiards hall",
