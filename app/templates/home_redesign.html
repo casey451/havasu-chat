@@ -106,6 +106,8 @@
       {% if feed.movie_bucket %}
       <a role="menuitem" href="/movies" data-k="movies"><span class="l">{{ icon('film', 16) }} {{ feed.movie_bucket.label }}</span><span class="c num">{{ feed.movie_bucket.count }}</span></a>
       {% endif %}
+      {# Places & Ongoing: the other surface — venues + standing classes. #}
+      <a role="menuitem" href="/events-ui?view=places" data-k="places"><span class="l">{{ icon('arrow', 16) }} Places &amp; Ongoing</span></a>
     </div>
   </div>
 </div>
@@ -119,6 +121,8 @@
   {% if feed.movie_bucket %}
   <a class="cpill" data-k="movies" href="/movies">{{ icon('film', 15) }}<span class="cl">{{ feed.movie_bucket.label }}</span><span class="cb num">{{ feed.movie_bucket.count }}</span></a>
   {% endif %}
+  {# Places & Ongoing surface — open venues + standing weekly classes (not dated). #}
+  <a class="cpill places" data-k="places" href="/events-ui?view=places"><span class="cl">Places &amp; Ongoing</span>{{ icon('arrow', 15) }}</a>
 </div>
 
 {# ── Sections (accordion; only Events open) + ad placements ───────────── #}
