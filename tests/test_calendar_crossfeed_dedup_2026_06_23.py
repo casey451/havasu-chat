@@ -26,7 +26,17 @@ from fastapi.testclient import TestClient
 
 from app.db.database import SessionLocal
 from app.db.models import Event, Provider, Schedule
+from app.home import events_views
 from app.main import app
+
+
+def _rendered_rows(groups: list[dict]) -> list[dict]:
+    """Rows the template renders: subgroup rows when split, else flat rows."""
+    rows: list[dict] = []
+    for g in groups:
+        subs = g.get("subgroups") or []
+        rows += [r for sub in subs for r in sub["rows"]] if subs else (g.get("rows") or [])
+    return rows
 
 
 def _now() -> datetime:
@@ -74,13 +84,14 @@ def test_parenthetical_variant_twin_renders_once_on_events_ui() -> None:
         base, when=when, weekday="friday", start=time(5, 0),
         venue="Aquatic Center Crossfeed",
     )
-    r = TestClient(app).get(f"/events-ui?date={when.isoformat()}")
-    assert r.status_code == 200
-    # Count VISIBLE rows only (the lake page also echoes the title in JSON-LD):
-    # the Event renders one row; the "(Morning)" class twin must be suppressed,
-    # so exactly ONE visible row carries the base title (2 would mean the twin
-    # survived dedup).
-    assert r.text.count(f'rtitle">{base}') == 1
+    # Two-surface split (spec §1): Lap Swim activity-classifies as a class, so
+    # the twin pair lives on Places & Ongoing. The cross-feed dedup
+    # (drop_event_duplicates) still suppresses the "(Morning)" class twin in the
+    # builder's mixed mode — exactly ONE row carries the base title.
+    with SessionLocal() as db:
+        groups = events_views.day_groups(db, day=when, events_only=False)
+    rows = _rendered_rows(groups)
+    assert sum(1 for r in rows if (r.get("title") or "") == base) == 1
 
 
 def test_senior_center_exercise_class_twin_renders_once() -> None:

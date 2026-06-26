@@ -68,7 +68,7 @@ from app.home.event_buckets import (
     group_for_tier,
     is_dropin_rec,
 )
-from app.home.family_venues import class_today_rows, funzone_hours_rows
+from app.home.family_venues import class_today_rows, funzone_hours_rows, open_today_rows
 from app.home.sandstone import (
     _event_tier,
     _live_events_by_day,
@@ -377,6 +377,7 @@ def day_groups(
     family: bool = False,
     seniors: bool = False,
     now: datetime | None = None,
+    events_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Category-accordion groups for one date. Empty groups are omitted.
 
@@ -392,6 +393,13 @@ def day_groups(
     (:func:`is_senior_event`). When either narrow is on, the Kids/Seniors
     overlays and the family-venue "open today" rows are suppressed — the whole
     view is already that audience. ``family`` wins if both are passed.
+
+    ``events_only=True`` renders the **Calendar** surface (two-surface spec §1):
+    only dated happenings (``_row_is_event`` True) — venue hours and recurring
+    class rosters are skipped here (they live on the Places & Ongoing surface,
+    :func:`places_groups`). Themed ``facet:special`` / ``facet:competition`` rows
+    are pulled into a top-level **"Special sessions"** group (§2), except
+    senior-gated specials, which stay under the gated Seniors group (§5.2).
     """
     if family:
         seniors = False
@@ -441,9 +449,16 @@ def day_groups(
         )
         _route_occurrence(row, gkey, rows_by_group, senior_overlay, is_senior=is_senior)
 
-    for occ in drop_event_duplicates(
-        class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
-    ):
+    # Venue Schedule classes are Places & Ongoing content (recurring rosters),
+    # never Calendar happenings — skip them entirely on the events-only surface.
+    _sched_occs = (
+        []
+        if events_only
+        else drop_event_duplicates(
+            class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
+        )
+    )
+    for occ in _sched_occs:
         if family and not is_family_event(occ.title, None, occ.venue):
             continue
         if seniors and not is_senior_event(occ.title, None, occ.venue):
@@ -478,7 +493,7 @@ def day_groups(
     # Fitness & Sports and peel into their "Youth Martial Arts" / "Youth
     # Gymnastics" sub via the row's provider activity. Suppressed in the seniors
     # narrow; in the family narrow the whole view is kids so no youth sub is added.
-    if not seniors:
+    if not seniors and not events_only:
         for r in class_today_rows(day):
             r["youth"] = not family
             rows_by_group["classes"].append(r)
@@ -489,8 +504,23 @@ def day_groups(
     # shows its hours alongside its events (cosmic/glow). All-ages venues, so NOT
     # youth — they sit under their venue type, never duplicated. Suppressed under a
     # narrow (the family/senior narrow is already that audience).
-    if overlay_ok:
+    if overlay_ok and not events_only:
         rows_by_group["events"].extend(funzone_hours_rows(day))
+
+    # Calendar surface (two-surface spec §1–§2): keep only dated happenings, then
+    # peel themed specials/competitions into their own top-level "Special
+    # sessions" group — except senior-gated specials, which stay under the gated
+    # Seniors group (§5.2). Default (Places & Ongoing builds separately) is off.
+    specials_rows: list[dict[str, Any]] = []
+    if events_only:
+        for key in list(rows_by_group):
+            kept = [r for r in rows_by_group[key] if _row_is_event(r)]
+            if key != "seniors":
+                special = [r for r in kept if _row_has_special(r)]
+                if special:
+                    kept = [r for r in kept if not _row_has_special(r)]
+                    specials_rows.extend(special)
+            rows_by_group[key] = kept
 
     groups: list[dict[str, Any]] = []
     for key, label, icon in GROUP_DEFS:
@@ -527,6 +557,23 @@ def day_groups(
             # Meals / Special) so it stays browsable.
             group["subgroups"] = split_senior_subgroups(rows)
         groups.append(group)
+    # Special sessions (two-surface spec §2): a top-level Calendar group of dated
+    # themed specials / competitions (Cosmic / Rock & Bowl, Glow in the Park,
+    # Family Night Golf), rendered right after Events. Built only on the
+    # events-only Calendar surface; senior specials are excluded above (§5.2).
+    if specials_rows:
+        specials_rows.sort(key=lambda r: r["sort"])
+        idx = next((i for i, g in enumerate(groups) if g["key"] == "events"), -1)
+        groups.insert(
+            idx + 1,
+            {
+                "key": "specials",
+                "label": "Special sessions",
+                "icon": "✨",
+                "count": len(specials_rows),
+                "rows": specials_rows,
+            },
+        )
     # Default expand/collapse (Casey 2026-06-26): a group — and each of its
     # sub-sections — opens by default ONLY when it contains a real EVENT (a
     # one-off happening, a themed special, or a competition). Classes-and-hours-
@@ -540,6 +587,133 @@ def day_groups(
             g["open"] = any(_row_is_event(r) for r in g["rows"])
         for sub in g.get("subgroups", []):
             sub["open"] = any(_row_is_event(r) for r in sub["rows"])
+    return groups
+
+
+# Surface B — Places & Ongoing top-level categories (two-surface spec §3), in
+# order. These are render groups for the Places browse tab only; they are NOT
+# part of the shared Calendar GROUP_DEFS. Subcategories (§4) land in Phase 3.
+PLACES_GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
+    ("things-to-do", "Things to Do", "\U0001F3B3"),   # bowling/billiards/trampoline/on-water/workshops
+    ("sports-fitness", "Sports & Fitness", "\U0001F3C3"),  # golf/pickleball/gymnastics/martial/yoga/dance
+    ("seniors", "Seniors", "\U0001F9D3"),              # gated Senior-Center programming (§5.2)
+)
+
+
+def _places_top_key(primary_key: str) -> str:
+    """Map a Calendar primary-group key to its Places & Ongoing top-level (§3).
+
+    Sports/fitness classes (``classes``) → "Sports & Fitness"; gated senior
+    programming (``seniors``) → "Seniors"; everything else (funzone venues →
+    ``events``, lake rentals → ``water``, standing studios → ``learn``) →
+    "Things to Do".
+    """
+    if primary_key == "classes":
+        return "sports-fitness"
+    if primary_key == "seniors":
+        return "seniors"
+    return "things-to-do"
+
+
+def _places_dedupe_key(row: dict[str, Any]) -> tuple[str, str]:
+    """De-dup identity for a Places row: one entry per (title, venue). Places is
+    a browse-anytime list, so a weekly class / venue-hours row that recurs every
+    day in the window collapses to a single entry (spec §3)."""
+    return (
+        (row.get("title") or "").strip().lower(),
+        (row.get("venue") or "").strip().lower(),
+    )
+
+
+def places_groups(
+    db: Session,
+    *,
+    today: date,
+    days: int = 7,
+    family: bool = False,
+) -> list[dict[str, Any]]:
+    """Surface B — Places & Ongoing: the standing venues + weekly class schedules
+    (two-surface spec §3), de-duplicated to one row per place/class across the
+    window and grouped into the three top-level Places categories.
+
+    This is the complement of the events-only Calendar (:func:`day_groups` with
+    ``events_only=True``): it collects exactly the rows the Calendar drops —
+    ``_row_is_event`` False (venue hours, curated ``ongoing`` rows, drop-in rec,
+    recurring fitness/workshop class rosters). Subcategories and collapse/empty-
+    hiding refinements are Phase 3; this builds the top-level browse groups.
+
+    De-dup keeps the FIRST row seen per ``(title, venue)``; sources are scanned
+    curated-first (funzone venue hours, then youth studio classes, then venue
+    Schedule classes, then DB rows, then family open-hours) so the richest /
+    most-specific row wins for a venue that appears in more than one source.
+    """
+    end = today + timedelta(days=days - 1)
+    by_top: dict[str, list[dict[str, Any]]] = {key: [] for key, _l, _i in PLACES_GROUP_DEFS}
+    seen: set[tuple[str, str]] = set()
+
+    def _consider(row: dict[str, Any], *, recurring: bool) -> None:
+        if not row.get("title"):
+            return
+        if _row_is_event(row):
+            return  # belongs on the Calendar surface, not Places
+        if family and not is_family_event(row.get("title"), row.get("tags"), row.get("venue")):
+            return
+        key = _places_dedupe_key(row)
+        if key in seen:
+            return
+        seen.add(key)
+        title = row.get("title") or ""
+        venue = row.get("venue")
+        tags = row.get("tags")
+        activity = row.get("activity")
+        is_senior = is_senior_event(title, tags, venue)
+        gkey = _group_for(title=title, tags=tags, featured=False, recurring=recurring)
+        primary = _occurrence_group_keys(
+            gkey, title=title, venue=venue, activity=activity, tags=tags, is_senior=is_senior
+        )[0]
+        by_top[_places_top_key(primary)].append(row)
+
+    # Curated venue-hours rows first (real "12–11 PM" times + venue-kind tags), so
+    # they win de-dup over any DB/family twin of the same venue.
+    day = today
+    while day <= end:
+        for r in funzone_hours_rows(day):
+            _consider(r, recurring=False)
+        for r in class_today_rows(day):
+            _consider(r, recurring=True)
+        day += timedelta(days=1)
+    for occ in class_occurrences_in_window(db, window_start=today, window_end=end):
+        _consider(
+            {
+                "sort": time_sort_key(occ.start_time, occ.end_time),
+                "time_label": _row_time_label(occ.title or "", occ.start_time, occ.end_time),
+                "title": clean_event_title(occ.title, location_name=occ.venue),
+                "venue": clean_venue_label(occ.venue),
+                "url": occ.url,
+                "recurring": True,
+                "activity": occ.provider_activity,
+            },
+            recurring=True,
+        )
+    for _d, evs in _live_events_by_day(db, window_start=today, window_end=end).items():
+        for ev in evs:
+            if _is_funzone_db_hours(ev.tags):
+                continue  # superseded by the curated funzone-hours rows above
+            _consider(_event_row(ev), recurring=bool(ev.is_recurring))
+    day = today
+    while day <= end:
+        for r in open_today_rows(day):
+            _consider(r, recurring=False)
+        day += timedelta(days=1)
+
+    groups: list[dict[str, Any]] = []
+    for key, label, icon in PLACES_GROUP_DEFS:
+        rows = sorted(by_top[key], key=lambda r: (r.get("title") or "").lower())
+        if not rows:
+            continue  # hide empty categories (spec §5.3)
+        groups.append(
+            {"key": key, "label": label, "icon": icon, "count": len(rows), "rows": rows}
+        )
     return groups
 
 
@@ -560,7 +734,13 @@ def rollup_summary(counts: dict[str, int]) -> str:
 
 
 def week_rows(
-    db: Session, *, start: date, days: int = 7, family: bool = False, seniors: bool = False
+    db: Session,
+    *,
+    start: date,
+    days: int = 7,
+    family: bool = False,
+    seniors: bool = False,
+    events_only: bool = False,
 ) -> list[dict[str, Any]]:
     """The next-``days`` rows for the week view (gap-free: contiguous dates).
 
@@ -572,6 +752,12 @@ def week_rows(
     ``family=True`` / ``seniors=True`` apply the same audience occurrence filter
     as :func:`day_groups`, so the week rollups agree with the day view.
     ``family`` wins if both are passed.
+
+    ``events_only=True`` is the Calendar surface (two-surface spec §1): venue
+    Schedule classes and curated venue-hours rows are not counted — the rollup
+    reflects only dated happenings (``_row_is_event`` True), matching the
+    events-only day view. Special-session rows still count under their routed
+    group here (the distinct "Special sessions" group is a day-view affordance).
     """
     if family:
         seniors = False
@@ -593,9 +779,14 @@ def week_rows(
         for ev in evs
     }
     sched_by_day: dict[date, dict[str, int]] = {}
-    for occ in drop_event_duplicates(
-        class_occurrences_in_window(db, window_start=start, window_end=end), event_keys
-    ):
+    _sched_occs = (
+        []
+        if events_only
+        else drop_event_duplicates(
+            class_occurrences_in_window(db, window_start=start, window_end=end), event_keys
+        )
+    )
+    for occ in _sched_occs:
         if family and not is_family_event(occ.title, None, occ.venue):
             continue
         if seniors and not is_senior_event(occ.title, None, occ.venue):
@@ -624,13 +815,15 @@ def week_rows(
         # Mirror the curated rows the day view injects (youth studio classes →
         # Fitness; funzone venue hours → Things to Do) so the rollup agrees with
         # the rendered group counts. Suppressed under a narrow, same as the day.
-        if not seniors:
+        if not seniors and not events_only:
             counts["classes"] += len(class_today_rows(d))
-        if not family and not seniors:
+        if not family and not seniors and not events_only:
             counts["events"] += len(funzone_hours_rows(d))
         headline: dict[str, Any] | None = None
         best_key: tuple[int, int, time] | None = None
         for ev in by_day.get(d, []):
+            if events_only and not _row_is_event(_event_row(ev)):
+                continue  # Calendar: skip recurring classes / venue-hours rows
             tier = _event_tier(
                 title=ev.title or "",
                 tags=ev.tags,
@@ -703,6 +896,7 @@ def swipe_weeks(
     num_weeks: int = 5,
     family: bool = False,
     seniors: bool = False,
+    events_only: bool = False,
 ) -> list[dict[str, Any]]:
     """Consecutive Sun–Sat weeks for the mobile swipeable calendar (Item 3).
 
@@ -717,7 +911,9 @@ def swipe_weeks(
     weeks: list[dict[str, Any]] = []
     for w in range(num_weeks):
         ws = sunday + timedelta(days=7 * w)
-        days = week_rows(db, start=ws, days=7, family=family, seniors=seniors)
+        days = week_rows(
+            db, start=ws, days=7, family=family, seniors=seniors, events_only=events_only
+        )
         for row in days:
             d = date.fromisoformat(row["iso"])
             row["is_today"] = d == today
