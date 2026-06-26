@@ -109,14 +109,15 @@ def test_today_view_groups_by_category_events_first(
         # Owner-approved group order; the recurring Lap Swim is a pool session →
         # Fitness & classes (no separate Aquatic Center group).
         assert i_events < i_music < i_water < i_classes
-        # "Events" is expanded by default; the rest load collapsed.
-        assert 'data-group="events" open' in body
-        for key in ("music", "water", "classes"):
-            assert f'data-group="{key}" open' not in body
-        # Right members + an honest count pill on the Events group.
+        # Auto-expand (Casey 2026-06-26): every group that holds a real EVENT opens
+        # — Things to Do (festival), Music (band), On-the-water (paddle). A
+        # classes-only group (the recurring Lap Swim) stays collapsed.
+        for key in ("events", "music", "water"):
+            assert f'data-group="{key}" open' in body
+        assert 'data-group="classes" open' not in body
+        # Right members (the events group now also carries funzone venue hours).
         events_block = body[i_events:i_music]
         assert festival in events_block and stroll in events_block
-        assert 'class="gcount">2<' in events_block
         assert band in body[i_music:i_water]
         # Sunset Paddle is genuinely on the lake → On-the-water group.
         assert paddle in body[i_water:i_classes]
@@ -193,17 +194,16 @@ def test_family_and_pool_classes_split_out() -> None:
             return body[i : (after[0] if after else len(body))]
 
         events_block = _block("events")
-        family_block = _block("family")
         classes_block = _block("classes")
-        # Kids & Family collects kid occurrences. Open Swim (non-class) re-lists
-        # here AND stays in its primary group (additive overlay, discoverability).
-        assert karate in family_block and openswim in family_block
-        assert adultlap not in family_block and aqua not in family_block
-        # P1 age-awareness: a YOUTH class routes to Kids & Family ONLY — it is no
-        # longer duplicated into the adult Fitness list. Adult classes still list.
-        assert karate not in classes_block
+        # No Kids & Family group (Casey 2026-06-26): each item appears ONCE.
+        assert 'data-group="family"' not in body
+        # A youth class stays in Fitness & Sports (peeled into its "Youth Martial
+        # Arts" sub) — no longer pulled out into a separate group. Adult pool
+        # classes still list there too.
+        assert karate in classes_block
+        assert "Youth Martial Arts" in classes_block
         assert adultlap in classes_block and aqua in classes_block
-        # Open Swim is all-day drop-in rec -> "Happening today" (events), not a class.
+        # Open Swim is all-day drop-in rec → Things to Do (events), not a class.
         assert openswim in events_block
         assert openswim not in classes_block
     finally:
@@ -237,12 +237,14 @@ def test_week_view_rollup_counts_and_headline(monkeypatch: pytest.MonkeyPatch) -
         # Headline is the top-ranked ONE-OFF (special parade), with its time.
         assert parade in row
         assert "6 PM ·" in row
-        # Counts per group (zero groups omitted); only the headline is named.
-        assert "2 events" in row
+        # Counts per group (zero groups omitted); only the headline is named. The
+        # Things-to-Do count now also includes the daily funzone venue hours, so
+        # assert counted tokens flexibly rather than an exact total.
+        assert re.search(r"\d+ events", row)
         assert "1 music" in row
-        # Recurring spin lands in the class rollup (+ any real venue
-        # schedules), so assert a counted "N class(es)" token — a bare
-        # "class" substring would match HTML attributes.
+        # Recurring spin (+ youth studio classes) lands in the class rollup, so
+        # assert a counted "N class(es)" token — a bare "class" substring would
+        # match HTML attributes.
         assert re.search(r"\d+ class", row)
         assert quilt not in row and karaoke not in row and spin not in row
     finally:
@@ -285,23 +287,20 @@ def test_week_rollup_counts_match_day_groups(monkeypatch: pytest.MonkeyPatch) ->
         _cleanup(eids)
 
 
-def test_youth_bmx_routes_to_fitness_sports_and_family():
-    """Casey 2026-06-24: BMX racing belongs under Fitness & sports. A youth-tagged
-    BMX race keeps its sports primary AND re-lists under Kids & Family (additive),
-    unlike a youth instructional class which routes to Kids & Family only."""
+def test_youth_classes_stay_in_fitness_single_group():
+    """No Kids & Family overlay (Casey 2026-06-26): a youth BMX race AND a youth
+    dance class both land ONCE in Fitness & Sports (peeled into their Youth sub at
+    render), never duplicated into a separate group."""
     from app.home.events_views import _occurrence_group_keys
 
     bmx = _occurrence_group_keys(
-        "classes", title="BMX Local Race", venue=None, activity=None,
-        is_family=True, is_senior=False,
+        "classes", title="BMX Local Race", venue=None, activity=None, is_senior=False,
     )
-    assert "classes" in bmx and "family" in bmx
-    # A youth instructional class is unchanged — Kids & Family only.
+    assert bmx == ["classes"]
     dance = _occurrence_group_keys(
-        "classes", title="Tiny Toes Ballet", venue=None, activity="Dance",
-        is_family=True, is_senior=False,
+        "classes", title="Tiny Toes Ballet", venue=None, activity="Dance", is_senior=False,
     )
-    assert dance == ["family"]
+    assert dance == ["classes"]
 
 
 def test_fitness_group_label_is_sports():

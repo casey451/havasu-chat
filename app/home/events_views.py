@@ -68,7 +68,7 @@ from app.home.event_buckets import (
     group_for_tier,
     is_dropin_rec,
 )
-from app.home.family_venues import class_today_rows, open_today_rows
+from app.home.family_venues import class_today_rows, funzone_hours_rows
 from app.home.sandstone import (
     _event_tier,
     _live_events_by_day,
@@ -119,81 +119,11 @@ _MUSIC_SUBGROUP_MIN = 1
 _CLASS_SUBGROUP_MIN = 1
 
 
-# Phase 3 (Item 6): nest the Kids & Family group by youth activity type, with
-# per-day counts, and collapse the always-open drop-in venues into one section.
-_FAMILY_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("Swim Lessons", ("swim",)),
-    ("Youth Gymnastics", ("gymnastics", "tumbling", "tumbler", "tumble", "cheer", "ninja")),
-    ("Youth Martial Arts", (
-        "martial", "jiu jitsu", "jiu-jitsu", "no-gi", "no gi", "bjj", "karate",
-        "taekwondo", "judo", "mma", "kickbox", "combat", "tiger", "dojo", "kali",
-    )),
-    ("Youth Dance", ("dance", "ballet", "tap", "jazz")),
-    ("Youth Racing", ("bmx", "race", "racing", "motocross", "pump track")),
-)
-_FAMILY_SUBGROUP_ORDER: tuple[str, ...] = (
-    "Swim Lessons", "Youth Gymnastics", "Youth Martial Arts", "Youth Dance",
-    "Youth Racing", "More for kids", "Open today for kids",
-)
-_FAMILY_FALLBACK_LABEL = "More for kids"
-_FAMILY_OPEN_LABEL = "Open today for kids"
-# P1: always type the Kids & Family list into youth-activity subsections (youth
-# classes route here and must resolve to a typed Youth subcategory).
-_FAMILY_SUBGROUP_MIN = 1
-
-
-# Provider-derived class activity → its Youth subsection, so a youth class with
-# a generic title ("Boys Athletics", "Elementary B") still types correctly once
-# routed to Kids & Family (the provider already told us the discipline).
-_ACTIVITY_TO_FAMILY_LABEL: dict[str, str] = {
-    "Gymnastics": "Youth Gymnastics",
-    "Dance": "Youth Dance",
-    "Martial Arts": "Youth Martial Arts",
-    "Aquatic fitness": "Swim Lessons",
-}
-
-
-def _family_subgroup(title: str, activity: str | None = None) -> str:
-    """Map a Kids & Family occurrence to a youth-activity subsection.
-
-    Title keyword wins (specific); otherwise the provider-derived ``activity``
-    (Gymnastics/Dance/…) maps to its Youth subsection; else "More for kids"."""
-    # Drop-in rec (Open Swim, Free Family Swim, Open Gym) is NOT a lesson/class —
-    # it must not file under "Swim Lessons" (or any typed youth class) on the
-    # "swim"/"gym" keyword. Route it to the general "More for kids" bucket.
-    if is_dropin_rec(title):
-        return _FAMILY_FALLBACK_LABEL
-    low = title.lower()
-    for label, hints in _FAMILY_SUBGROUPS:
-        for h in hints:
-            if re.search(r"\b" + re.escape(h) + r"(?:e?s|ing)?\b", low):
-                return label
-    if activity and activity in _ACTIVITY_TO_FAMILY_LABEL:
-        return _ACTIVITY_TO_FAMILY_LABEL[activity]
-    return _FAMILY_FALLBACK_LABEL
-
-
-def _split_family_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Partition Kids & Family rows: scheduled occurrences by youth type, with
-    the always-open drop-in venues collapsed under one "Open today for kids"
-    section (ordered last). Empty subsections omitted; row order preserved."""
-    buckets: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        # An explicit subgroup (curated studio classes) wins — it pins the row to
-        # its youth subsection without depending on title-keyword routing.
-        if row.get("subgroup"):
-            label = row["subgroup"]
-        elif row.get("ongoing"):
-            label = _FAMILY_OPEN_LABEL
-        else:
-            label = _family_subgroup(row.get("title") or "", row.get("activity"))
-        buckets.setdefault(label, []).append(row)
-    out: list[dict[str, Any]] = []
-    for label in _FAMILY_SUBGROUP_ORDER:
-        sub_rows = buckets.get(label)
-        if sub_rows:
-            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
-    return out
+# The old Kids & Family overlay + its youth-activity sub-split (_FAMILY_SUBGROUPS)
+# is retired (Casey 2026-06-26): there is no separate Kids & Family group. Youth
+# items now peel into a "Youth <activity>" sub-section of their own group, built
+# by the shared splits in app.events.activity_taxonomy (split_class_subgroups
+# etc.), keyed off the per-row ``youth`` flag stamped in day_groups.
 
 
 ALL_DAY_LABEL = "All day"
@@ -221,34 +151,79 @@ def _row_time_label(title: str, start_time: time | None, end_time: time | None) 
     return TIME_TBD_LABEL
 
 
+HOURS_VARY_LABEL = "Hours vary"
+
+
 def _event_row(ev: Event) -> dict[str, Any]:
+    tags = list(ev.tags or [])
+    label = _row_time_label(ev.title or "", ev.start_time, ev.end_time)
+    # A venue-hours row (facet:hours) with no real clock time reads "Hours vary"
+    # rather than "Time TBD" — e.g. golf course/range/simulator all-day rows
+    # (Casey 2026-06-26). Curated funzone-hours rows show real hours instead and
+    # never reach this path.
+    if label == TIME_TBD_LABEL and any(
+        str(t).strip().lower() == "facet:hours" for t in tags
+    ):
+        label = HOURS_VARY_LABEL
     return {
         "sort": time_sort_key(ev.start_time, ev.end_time),
-        "time_label": _row_time_label(ev.title or "", ev.start_time, ev.end_time),
+        "time_label": label,
         "title": clean_event_title(ev.title, location_name=ev.location_name),
         "venue": clean_venue_label(ev.location_name),
         "url": f"/events/{ev.id}",
         "recurring": bool(ev.is_recurring),
         # P2: the event TYPE folded into a scannable label ("Live Music",
         # "Comedy") + the raw tags so the music group can split into subsections.
-        "tags": list(ev.tags or []),
+        "tags": tags,
         "type_label": event_type_label(ev.title, ev.tags, ev.location_name),
     }
 
 
-# Outdoor/racing sports that belong in Fitness & sports even when youth-tagged
-# (so a kids' BMX race isn't pulled out of the sports group into Kids & Family
-# only). Word-boundary matched; deliberately specific (no bare "race"/"racing").
-_YOUTH_SPORT_RE = re.compile(
-    r"\b(bmx|motocross|pump\s*track|balance\s*bike|strider)\b", re.IGNORECASE
+# Activity slugs whose DB ``facet:hours`` rows are superseded at render time by
+# the curated funzone venue-hours rows (which carry real "12–11 PM" times instead
+# of "Time TBD"). The loader stopped emitting these all-day hours rows; any that
+# linger in the window are render-filtered so they don't double up with curated.
+_FUNZONE_HOURS_SLUGS: frozenset[str] = frozenset(
+    {"bowling", "billiards", "trampoline", "family-fun"}
 )
 
 
-def _is_youth_sport(title: str) -> bool:
-    """True for a competitive/racing sport that should stay in Fitness & sports
-    (additively re-listed under Kids & Family) rather than route to Kids & Family
-    only like a youth instructional class."""
-    return bool(_YOUTH_SPORT_RE.search(title or ""))
+def _is_funzone_db_hours(tags: list[str] | None) -> bool:
+    """True for a DB Event row that is a funzone venue's all-day hours line
+    (``activity:<bowling|billiards|trampoline|family-fun>`` + ``facet:hours``) —
+    superseded by the curated funzone-hours rows, so it is dropped at render."""
+    tagset = {str(t).strip().lower() for t in (tags or [])}
+    if "facet:hours" not in tagset:
+        return False
+    return any(f"activity:{slug}" in tagset for slug in _FUNZONE_HOURS_SLUGS)
+
+
+def _row_has_special(row: dict[str, Any]) -> bool:
+    """True when a row carries a themed-special or competition facet."""
+    tagset = {str(t).strip().lower() for t in (row.get("tags") or [])}
+    return bool(tagset & {"facet:special", "facet:competition"})
+
+
+def _row_is_event(row: dict[str, Any]) -> bool:
+    """True when a row is a real **event** for the auto-expand rule (Casey
+    2026-06-26): a one-off / dated local happening (market, festival, concert,
+    car show…) OR a themed special / competition. NOT an event (a listing →
+    never forces a section open): recurring fitness/workshop classes, venue hours
+    (``facet:hours`` / curated ``ongoing``), and drop-in / open-play rec."""
+    if _row_has_special(row):
+        return True
+    if row.get("ongoing"):
+        return False  # curated venue-hours row
+    tagset = {str(t).strip().lower() for t in (row.get("tags") or [])}
+    if "facet:hours" in tagset:
+        return False  # venue hours line
+    title = row.get("title") or ""
+    if is_dropin_rec(title):
+        return False  # open swim / open play
+    slug = resolve_activity(title, row.get("venue"), row.get("tags"), row.get("activity"))
+    if activity_bucket(slug) in ("classes", "learn"):
+        return False  # a fitness/workshop class is a listing, not an event
+    return True
 
 
 def _explicit_activity_bucket(tags: list[str] | None) -> str | None:
@@ -271,101 +246,71 @@ def _occurrence_group_keys(
     venue: str | None,
     activity: str | None,
     tags: list[str] | None = None,
-    is_family: bool,
     is_senior: bool,
 ) -> list[str]:
-    """Every group key the day view renders this occurrence under.
+    """The group key(s) the day view renders this occurrence under.
 
     The single source of truth for placement, shared by the day accordion
     (:func:`_route_occurrence`) and the week/month rollup counts
-    (:func:`week_rows`). Before this, the day view re-routed senior / youth-class /
-    "other class" occurrences via :func:`_route_occurrence` while the week rollup
-    counted them by bare primary group — so the week strip said "14 classes" but
-    the day showed fewer under Fitness & classes (the rest under Seniors / Kids &
-    Family / Things to Do). Routing both through this function makes the rollup
-    counts agree with the rendered groups by construction.
+    (:func:`week_rows`), so the two agree by construction.
 
-    Phase 2 (calendar reorg, 2026-06-25) reads the canonical ``activity:<slug>``
-    tag (tag-first, classifier fallback) to route the NON-fitness activities to
-    their real bucket: arts/cooking/maker/learning → **learn** (Classes &
-    Workshops), theater → **music**, games/bowling/billiards/trampoline/family-fun
-    → **events** (Things to Do). The senior GATE is checked first (exclusive), and
-    a row with no classified non-fitness activity keeps the exact legacy routing —
-    so fitness and non-activity rows are unchanged.
+    No-overlay model (Casey 2026-06-26): every occurrence lands in exactly ONE
+    group — there is no additive "Kids & Family" cross-list. Youth-specific items
+    stay in their primary group and are peeled into that group's "Youth & Family"
+    sub-section at render. The Seniors GATE is the one exclusive route (gated
+    programming lives under Seniors only). Otherwise the canonical
+    ``activity:<slug>`` tag routes the non-fitness activities — arts/cooking/maker/
+    learning → **learn**, theater → **music**, games/bowling/billiards/trampoline/
+    family-fun → **events** — and an explicit fitness-bucket venue-hours tag pulls
+    golf/pickleball hours into **classes**; everything else keeps its tier group.
     """
     # Senior gate FIRST: Senior-Center programming is gated and lives under
     # Seniors ONLY — never cross-listed into the public buckets.
     if is_senior:
         return ["seniors"]
-    # Non-fitness activity reroute (additive Kids & Family overlay: a kids' craft
-    # is open-enrollment, so it shows under both its bucket and Kids & Family).
     slug = resolve_activity(title, venue, tags, activity)
     abkt = activity_bucket(slug)
     if abkt == "learn":
-        return ["learn", "family"] if is_family else ["learn"]
+        return ["learn"]
     if slug == "theater":
-        return ["music", "family"] if is_family else ["music"]
+        return ["music"]
     if abkt == "events" and slug:  # games / bowling / billiards / trampoline / family-fun
-        return ["events", "family"] if is_family else ["events"]
+        return ["events"]
     # An EXPLICIT ingest/loader-stamped activity tag in the fitness bucket is
     # authoritative for placement: golf/pickleball venue hours carry
     # activity:<slug> + facet:hours/open-play but their venue-hours titles don't
     # trip the keyword tier classifier, so without this they'd fall to "Things to
-    # Do" instead of Fitness & Sports → their subgroup. Pickleball **court hours**
-    # carry a drop-in-rec title ("…Open Play") yet the layout wants them under
-    # Fitness → Pickleball (Casey 2026-06-25, tag-driven): a court/venue-hours
-    # facet (``facet:open-play``/``facet:hours``) overrides the drop-in-rec
-    # exception, while a bare drop-in (Open Swim/Gym with no such facet) stays in
-    # Things to Do. Scoped to an explicit tag so classifier-only inference on
-    # legacy untagged rows is unchanged.
+    # Do" instead of Fitness & Sports → their subgroup. A court/venue-hours facet
+    # (``facet:open-play``/``facet:hours``) overrides the drop-in-rec exception,
+    # while a bare drop-in (Open Swim/Gym with no such facet) stays in Things to Do.
     if gkey != "classes" and _explicit_activity_bucket(tags) == "classes":
         tagset = {str(t).strip().lower() for t in (tags or [])}
         is_venue_hours = bool(tagset & {"facet:open-play", "facet:hours"})
         if is_venue_hours or not is_dropin_rec(title):
-            return ["classes", "family"] if is_family else ["classes"]
-    # A youth-tagged *fitness class* routes to Kids & Family ONLY (kids' yoga /
-    # dance don't belong in the adult Fitness list). EXCEPTION: a youth *sport*
-    # (BMX racing, etc.) keeps its Fitness & sports home AND re-lists under Kids &
-    # Family (Casey 2026-06-24: "bmx racing should be under sports").
-    if is_family and gkey == "classes" and not _is_youth_sport(title):
-        return ["family"]
+            return ["classes"]
+    # A non-fitness recurring "class" with no activity type (the honest "Other
+    # classes" residue) reads as a happening, not a fitness class → Things to Do.
     if gkey == "classes" and classify_class_subgroup(title, venue, activity) == FALLBACK_LABEL:
-        return ["events", "family"] if is_family else ["events"]
-    return [gkey, "family"] if is_family else [gkey]
+        return ["events"]
+    return [gkey]
 
 
 def _route_occurrence(
     row: dict[str, Any],
     gkey: str,
     rows_by_group: dict[str, list[dict[str, Any]]],
-    family_overlay: list[dict[str, Any]],
     senior_overlay: list[dict[str, Any]],
     *,
-    is_family: bool,
     is_senior: bool,
 ) -> None:
-    """Place a day-view row into its primary group + the age overlays.
+    """Place a day-view row into its single group (no-overlay model, Casey
+    2026-06-26).
 
-    Seniors (2026-06-23 brief): EVERY senior item — senior fitness, senior social,
-    senior-center programs — renders under the top-level Seniors group and ONLY
-    there. No dual-listing into Fitness & classes (the live bug: "Water Wellness"
-    showed under both Seniors and Aquatic fitness). So a senior occurrence routes
-    to the Seniors overlay alone, never to its activity primary. (This supersedes
-    the earlier "senior fitness may *also* appear under a Fitness Seniors
-    subcategory" rule.)
-
-    P1 age-awareness (Finding 11): a YOUTH *class* routes to Kids & Family ONLY —
-    its typed Youth subsection — and is NOT duplicated into the adult Fitness
-    list. Non-class youth items (festivals, story time) keep the additive overlay
-    (they stay in their primary group AND re-list under Kids & Family for
-    discoverability).
-
-    Non-fitness recurring "classes" (dog obedience, a cooking class, a craft
-    series, homeschool enrichment) carry no fitness activity type, so they used to
-    pile up in a "Fitness & classes > Other classes" residue that read as
-    leftovers; they route to "Happening today" instead (Casey 2026-06-23). The
-    routing decision itself lives in :func:`_occurrence_group_keys` so the week
-    rollup can replay it identically.
+    Seniors is the one gated, EXCLUSIVE route: a senior occurrence renders under
+    the Seniors group ONLY, never its activity primary. Everything else lands in
+    exactly one primary group (:func:`_occurrence_group_keys`); youth-specific
+    items stay there and are peeled into that group's "Youth & Family" sub-section
+    at render — they are no longer duplicated into a separate Kids & Family group.
     """
     for key in _occurrence_group_keys(
         gkey,
@@ -373,13 +318,10 @@ def _route_occurrence(
         venue=row.get("venue"),
         activity=row.get("activity"),
         tags=row.get("tags"),
-        is_family=is_family,
         is_senior=is_senior,
     ):
         if key == "seniors":
             senior_overlay.append(row)
-        elif key == "family":
-            family_overlay.append(row)
         else:
             rows_by_group[key].append(row)
 
@@ -471,15 +413,18 @@ def day_groups(
     event_keys = {((ev.title or "").strip().lower(), day, ev.start_time) for ev in events}
 
     rows_by_group: dict[str, list[dict[str, Any]]] = {key: [] for key, _l, _i in GROUP_DEFS}
-    # Seniors is an additive overlay: every senior-tagged occurrence keeps its
-    # primary group AND is re-listed under "Seniors", so there is one place to
-    # find everything at the Senior Center. _group_for never returns "seniors",
-    # so primaries are assigned first and this overlay is layered on after.
-    # Kids & Family is an ADDITIVE overlay (2026-06-19), built the same way as
-    # Seniors: a kid occurrence keeps its primary group AND is re-listed here.
-    family_overlay: list[dict[str, Any]] = []
+    # Seniors is the one gated, EXCLUSIVE overlay: every senior-tagged occurrence
+    # renders under "Seniors" only (never its activity primary). There is no
+    # Kids & Family overlay any more (Casey 2026-06-26) — youth-specific items
+    # stay in their primary group and peel into a "Youth <activity>" sub there.
     senior_overlay: list[dict[str, Any]] = []
+    overlay_ok = not family and not seniors  # overlays/youth subs off under a narrow
     for ev in events:
+        # Funzone venue HOURS now render from the curated registry (real times),
+        # so drop any lingering DB all-day funzone hours row to avoid a duplicate.
+        # The themed funzone EVENTS (facet:special cosmic/glow) are NOT dropped.
+        if _is_funzone_db_hours(ev.tags):
+            continue
         gkey = _group_for(
             title=ev.title or "",
             tags=ev.tags,
@@ -487,17 +432,14 @@ def day_groups(
             recurring=bool(ev.is_recurring),
         )
         row = _event_row(ev)
-        _route_occurrence(
-            row, gkey, rows_by_group, family_overlay, senior_overlay,
-            is_family=(
-                not family and not seniors
-                and is_family_event(ev.title, ev.tags, ev.location_name)
-            ),
-            is_senior=(
-                not family and not seniors
-                and is_senior_event(ev.title, ev.tags, ev.location_name)
-            ),
+        is_senior = overlay_ok and is_senior_event(ev.title, ev.tags, ev.location_name)
+        # Youth-specific items are peeled into a "Youth <activity>" sub-section of
+        # their own group at render — flagged here (off under a narrow / for seniors).
+        row["youth"] = (
+            overlay_ok and not is_senior
+            and is_family_event(ev.title, ev.tags, ev.location_name)
         )
+        _route_occurrence(row, gkey, rows_by_group, senior_overlay, is_senior=is_senior)
 
     for occ in drop_event_duplicates(
         class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
@@ -526,32 +468,29 @@ def day_groups(
             # link and need no anchor.
             "anchor": occ.anchor if not occ.url else None,
         }
-        _route_occurrence(
-            row, gkey, rows_by_group, family_overlay, senior_overlay,
-            is_family=(
-                not family and not seniors
-                and is_family_event(occ.title, None, occ.venue)
-            ),
-            is_senior=(
-                not family and not seniors
-                and is_senior_event(occ.title, None, occ.venue)
-            ),
+        is_senior = overlay_ok and is_senior_event(occ.title, None, occ.venue)
+        row["youth"] = (
+            overlay_ok and not is_senior and is_family_event(occ.title, None, occ.venue)
         )
+        _route_occurrence(row, gkey, rows_by_group, senior_overlay, is_senior=is_senior)
 
-    # "What's open for kids today": recurring family-venue hours (toddler
-    # playground, pizza arcade, trampoline park, youth gym/dojo class blocks).
-    # These are always kid/family things, so they join the Kids & Family group
-    # and give a parent something to do even on a day with no scheduled events.
-    # Suppressed in the seniors narrow (kid venues aren't a senior view). They
-    # sort after timed rows.
+    # Youth studio classes (martial arts / gymnastics, real published times) join
+    # Fitness & Sports and peel into their "Youth Martial Arts" / "Youth
+    # Gymnastics" sub via the row's provider activity. Suppressed in the seniors
+    # narrow; in the family narrow the whole view is kids so no youth sub is added.
     if not seniors:
-        family_overlay.extend(open_today_rows(day))
-        # Real, published youth-studio classes — each files under its own youth
-        # subsection (Youth Gymnastics / Youth Martial Arts) via the row's
-        # explicit "subgroup", not the "Open today for kids" drop-in section.
-        family_overlay.extend(class_today_rows(day))
-    rows_by_group["family"] = family_overlay
+        for r in class_today_rows(day):
+            r["youth"] = not family
+            rows_by_group["classes"].append(r)
     rows_by_group["seniors"].extend(senior_overlay)
+
+    # Things to Do → the Bowling/Billiards/Trampoline/Arcade venue-type cluster:
+    # curated venue hours (real "12–11 PM" times) injected here so each venue type
+    # shows its hours alongside its events (cosmic/glow). All-ages venues, so NOT
+    # youth — they sit under their venue type, never duplicated. Suppressed under a
+    # narrow (the family/senior narrow is already that audience).
+    if overlay_ok:
+        rows_by_group["events"].extend(funzone_hours_rows(day))
 
     groups: list[dict[str, Any]] = []
     for key, label, icon in GROUP_DEFS:
@@ -562,10 +501,11 @@ def day_groups(
             "key": key, "label": label, "icon": icon, "count": len(rows), "rows": rows
         }
         if key == "events":
-            # Phase 2 (2026-06-25): Things to Do splits into Around Town + the
-            # Bowling/Billiards/Family-Fun cluster + Games & Social + Special
-            # Sessions — but ONLY when a themed (non-residual) subsection is
-            # present, so a plain market/festival day stays a flat list.
+            # Things to Do splits by VENUE TYPE (Casey 2026-06-26): Around Town +
+            # Games & Social + Billiards / Bowling / Trampoline / Arcade & Family
+            # Fun (each venue type holds its hours AND its events). Applied only
+            # when a non-residual subsection is present, so a bare market day stays
+            # a flat list.
             subs = split_events_subgroups(rows)
             if any(s["label"] != EVENTS_AROUND_LABEL for s in subs):
                 group["subgroups"] = subs
@@ -586,14 +526,20 @@ def day_groups(
             # (Games & Social / Fitness & Movement / Arts & Crafts / Social-Music-
             # Meals / Special) so it stays browsable.
             group["subgroups"] = split_senior_subgroups(rows)
-        elif key == "family" and len(rows) >= _FAMILY_SUBGROUP_MIN:
-            group["subgroups"] = _split_family_subgroups(rows)
         groups.append(group)
-    # "Events" opens by default; if the date has no one-off events, open the
-    # first group present so the page never loads fully collapsed.
-    has_events_group = any(g["key"] == "events" for g in groups)
-    for i, g in enumerate(groups):
-        g["open"] = (g["key"] == "events") if has_events_group else (i == 0)
+    # Default expand/collapse (Casey 2026-06-26): a group — and each of its
+    # sub-sections — opens by default ONLY when it contains a real EVENT (a
+    # one-off happening, a themed special, or a competition). Classes-and-hours-
+    # only groups stay collapsed, and an event-less day loads fully collapsed.
+    # The gated Seniors group never auto-opens on its routine weekly programming —
+    # only a genuine senior special/competition opens it.
+    for g in groups:
+        if g["key"] == "seniors":
+            g["open"] = any(_row_has_special(r) for r in g["rows"])
+        else:
+            g["open"] = any(_row_is_event(r) for r in g["rows"])
+        for sub in g.get("subgroups", []):
+            sub["open"] = any(_row_is_event(r) for r in sub["rows"])
     return groups
 
 
@@ -655,10 +601,9 @@ def week_rows(
         if seniors and not is_senior_event(occ.title, None, occ.venue):
             continue
         gkey = _group_for(title=occ.title, tags=None, featured=False, recurring=True)
-        # Count into the SAME group(s) the day view renders this under (Seniors /
-        # Kids & Family / Happening today re-routes), not the bare primary — so
-        # the week rollup can't disagree with the day. Overlays are suppressed
-        # under an explicit narrow (the whole view is already that audience).
+        # Count into the SAME group the day view renders this under (Seniors gate /
+        # Happening-today re-routes), not the bare primary — so the week rollup
+        # can't disagree with the day. The senior gate is suppressed under a narrow.
         overlay_ok = not family and not seniors
         day_counts = sched_by_day.setdefault(occ.date, {})
         for key in _occurrence_group_keys(
@@ -666,7 +611,6 @@ def week_rows(
             title=occ.title or "",
             venue=occ.venue,
             activity=occ.provider_activity,
-            is_family=overlay_ok and is_family_event(occ.title, None, occ.venue),
             is_senior=overlay_ok and is_senior_event(occ.title, None, occ.venue),
         ):
             day_counts[key] = day_counts.get(key, 0) + 1
@@ -677,6 +621,13 @@ def week_rows(
         counts = {key: 0 for key, _l, _i in GROUP_DEFS}
         for gkey, n in sched_by_day.get(d, {}).items():
             counts[gkey] = counts.get(gkey, 0) + n
+        # Mirror the curated rows the day view injects (youth studio classes →
+        # Fitness; funzone venue hours → Things to Do) so the rollup agrees with
+        # the rendered group counts. Suppressed under a narrow, same as the day.
+        if not seniors:
+            counts["classes"] += len(class_today_rows(d))
+        if not family and not seniors:
+            counts["events"] += len(funzone_hours_rows(d))
         headline: dict[str, Any] | None = None
         best_key: tuple[int, int, time] | None = None
         for ev in by_day.get(d, []):
@@ -699,7 +650,6 @@ def week_rows(
                 venue=ev.location_name,
                 activity=None,
                 tags=list(ev.tags or []),
-                is_family=overlay_ok and is_family_event(ev.title, ev.tags, ev.location_name),
                 is_senior=overlay_ok and is_senior_event(ev.title, ev.tags, ev.location_name),
             ):
                 counts[key] += 1

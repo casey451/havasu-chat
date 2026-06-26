@@ -80,14 +80,26 @@ def test_special_sessions_are_dated_and_facet_special() -> None:
     assert sat.date.weekday() == 5
 
 
-def test_special_titles_route_to_special_sessions_subsection() -> None:
-    for s in funzone_special_event_specs(today=date(2026, 6, 29), window_days=7):
-        assert classify_events_subgroup(s.title, s.tags) == "Special Sessions", s.title
+def test_special_titles_route_to_their_venue_type() -> None:
+    # Casey 2026-06-26: no Special Sessions silo — a themed session nests under its
+    # venue type (Cosmic Bowling → Bowling; Glow in the Park → Trampoline).
+    by_title = {
+        s.title: classify_events_subgroup(s.title, s.tags)
+        for s in funzone_special_event_specs(today=date(2026, 6, 29), window_days=7)
+    }
+    assert by_title.get("Cosmic Bowling") == "Bowling"
+    assert by_title.get("Family Cosmic Bowling") == "Bowling"
+    assert by_title.get("Glow in the Park") == "Trampoline"
 
 
-def test_hours_titles_route_to_funzone_subsection() -> None:
+def test_hours_titles_route_to_their_venue_type() -> None:
+    expected = {
+        "bowling": "Bowling", "billiards": "Billiards",
+        "trampoline": "Trampoline", "family-fun": "Arcade & Family Fun",
+    }
     for s in funzone_hours_event_specs(today=date(2026, 7, 1), window_days=1):
-        assert classify_events_subgroup(s.title, s.tags) == "Bowling, Billiards & Family Fun"
+        slug = next(t.split(":", 1)[1] for t in s.tags if t.startswith("activity:"))
+        assert classify_events_subgroup(s.title, s.tags) == expected[slug]
 
 
 def test_special_sessions_count_matches_weekdays_in_window() -> None:

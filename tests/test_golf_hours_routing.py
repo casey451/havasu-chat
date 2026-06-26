@@ -38,7 +38,7 @@ def test_golf_hours_route_to_fitness_even_when_tiered_events() -> None:
     assert _occurrence_group_keys(
         "events", title="Golf Course — Lake Havasu Golf Club", venue="Lake Havasu Golf Club",
         activity=None, tags=["activity:golf", "facet:hours", "venue-kind:course"],
-        is_family=False, is_senior=False,
+        is_senior=False,
     ) == ["classes"]
 
 
@@ -49,7 +49,7 @@ def test_pickleball_court_hours_move_to_fitness() -> None:
     assert _occurrence_group_keys(
         "events", title="Pickleball Open Play – Ark Center", venue="The Ark Center",
         activity=None, tags=["activity:pickleball", "facet:open-play", "indoor:true"],
-        is_family=False, is_senior=False,
+        is_senior=False,
     ) == ["classes"]
 
 
@@ -60,7 +60,7 @@ def test_bare_dropin_without_hours_facet_stays_things_to_do() -> None:
     assert _occurrence_group_keys(
         "events", title="Open Gym – Ark Center", venue="The Ark Center",
         activity=None, tags=["activity:pickleball"],
-        is_family=False, is_senior=False,
+        is_senior=False,
     ) == ["events"]
 
 
@@ -69,7 +69,7 @@ def test_untagged_fitness_oneoff_unchanged() -> None:
     # this path (classifier-only inference is unchanged).
     assert _occurrence_group_keys(
         "events", title="Yoga in the Park", venue=None, activity=None,
-        tags=["community"], is_family=False, is_senior=False,
+        tags=["community"], is_senior=False,
     ) == ["events"]
 
 

@@ -6,11 +6,9 @@ from datetime import date, datetime, time
 
 from app.home.events_views import (
     _class_subgroup,
-    _family_subgroup,
     _occurrence_expired,
     _row_time_label,
     _split_class_subgroups,
-    _split_family_subgroups,
 )
 
 _TODAY = date(2026, 6, 16)
@@ -93,29 +91,9 @@ def test_split_class_subgroups_orders_and_omits_empty() -> None:
     assert all(s["count"] == 1 for s in subs)
 
 
-def test_family_subgroup_classifier() -> None:
-    assert _family_subgroup("Swim Lessons (Station-Based)") == "Swim Lessons"
-    assert _family_subgroup("Tiny Tumblers") == "Youth Gymnastics"
-    assert _family_subgroup("Youth No-Gi") == "Youth Martial Arts"
-    assert _family_subgroup("Elite Tigers (Kids)") == "Youth Martial Arts"
-    assert _family_subgroup("BMX Local Race") == "Youth Racing"
-    assert _family_subgroup("Junior Jump Time") == "More for kids"
-
-
-def test_split_family_collapses_ongoing_venues_last() -> None:
-    rows = [
-        {"title": "Youth No-Gi"},
-        {"title": "Tiny Tumblers"},
-        {"title": "Altitude Trampoline Park", "ongoing": True},
-        {"title": "Sunshine Indoor Play", "ongoing": True},
-    ]
-    subs = _split_family_subgroups(rows)
-    assert [s["label"] for s in subs] == [
-        "Youth Gymnastics",
-        "Youth Martial Arts",
-        "Open today for kids",
-    ]
-    assert subs[-1]["count"] == 2
+# The old _family_subgroup / _split_family_subgroups vocabulary (Kids & Family
+# overlay) was retired 2026-06-26 — youth items now peel into a "Youth <activity>"
+# sub of their own group (covered by tests/test_calendar_taxonomy_phase7.py).
 
 
 def test_pickleball_gets_its_own_subgroup() -> None:

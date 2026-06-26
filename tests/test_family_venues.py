@@ -104,8 +104,11 @@ def test_rows_sort_after_timed_events_and_are_ordered() -> None:
 
 
 def test_every_open_venue_has_a_url_and_some_hours() -> None:
-    # No curated open-venue ships without a link or without any weekly hours
-    # (those belong in DIRECTORY instead).
+    # No curated FAMILY open-venue ships without a link or weekly hours (those
+    # belong in DIRECTORY instead). Non-family funzone venues (billiards halls)
+    # may lack confirmed hours — they surface in Things to Do with a "Hours vary"
+    # label, never a fabricated time.
     for v in OPEN_VENUES:
         assert v.url.startswith("http")
-        assert v.hours, f"{v.name} has no hours — move it to DIRECTORY"
+        if v.family:
+            assert v.hours, f"{v.name} has no hours — move it to DIRECTORY"
