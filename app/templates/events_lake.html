@@ -156,7 +156,7 @@
                §2). Showtimes aren't Event-table rows, so they render as tiles. #}
             <div class="ev-mv-strip" role="list">
               {% for m in g.rows %}
-              <a class="ev-mv-tile" role="listitem" href="{{ m.url }}">
+              <a class="ev-mv-tile" role="listitem" href="{{ m.url or '/movies' }}">
                 <span class="ev-mv-poster">{% if m.poster %}<img loading="lazy" src="{{ m.poster }}" alt="">{% endif %}</span>
                 <span class="ev-mv-body">
                   <span class="ev-mv-title">{{ m.title }}</span>

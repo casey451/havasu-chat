@@ -42,6 +42,16 @@ SHOWTIME_WINDOW_DAYS = 14
 STAR_CINEMAS_SOURCE = "star_cinemas"
 STAR_CINEMAS_THEATER_SLUG = "star-cinemas"
 STAR_CINEMAS_THEATER_NAME = "Star Cinemas"
+# Star Cinemas' Veezi booking landing — the site's own "Show Times" page, listing
+# every upcoming session with per-show ticket links. We fall back to it when a
+# session's per-show ``web_session_url`` is empty (Veezi leaves it blank for some
+# sessions), so a Star Cinemas showtime still links to its bookable destination
+# instead of a dead/bouncing href. The siteToken is the public token in the
+# working per-show URLs. (Confirmed 2026-06-26: title "Star Cinemas Show Times".)
+STAR_CINEMAS_SITE_TOKEN = "3vydq3bssmr057q5b2h3b8caqr"
+STAR_CINEMAS_BOOKING_LANDING = (
+    f"https://ticketing.uswest.veezi.com/sessions/?siteToken={STAR_CINEMAS_SITE_TOKEN}"
+)
 
 _SELECT = (
     "id,session_datetime,show_start,status,show_type,seating_type,is_sold_out,"
@@ -172,7 +182,13 @@ def fetch_star_cinemas(
                 synopsis=(film.get("synopsis") or "").strip() or None,
                 poster_url=(film.get("poster_url") or "").strip() or None,
                 screen=screen,
-                booking_url=(row.get("web_session_url") or "").strip() or None,
+                # Per-show Veezi URL when present, else the theater's booking
+                # landing so the showtime still links somewhere bookable (Veezi
+                # leaves ``web_session_url`` blank for some sessions). Free
+                # showings are handled by a separate loader and aren't booked
+                # here, so this feed's rows always get a real link.
+                booking_url=(row.get("web_session_url") or "").strip()
+                or STAR_CINEMAS_BOOKING_LANDING,
                 is_sold_out=bool(row.get("is_sold_out")),
                 is_free=False,
                 tags=tags,

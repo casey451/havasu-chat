@@ -99,6 +99,38 @@ def test_has_free_kids_and_movies_today():
         _cleanup()
 
 
+def test_star_cinemas_booking_url_falls_back_to_landing(monkeypatch):
+    # A Veezi session with an empty web_session_url must still get a real booking
+    # link — the theater's "Show Times" landing — never an empty url (which would
+    # render as a dead href). A session that carries its own url keeps it.
+    from app.movies import store
+
+    fake_rows = [
+        {
+            "id": "100",
+            "session_datetime": "2099-08-03T19:30:00+00:00",
+            "status": "active",
+            "web_session_url": "",  # blank — the free-show / missing case
+            "film": {"title": "Supergirl"},
+            "site": {"name": "Star Cinemas"},
+        },
+        {
+            "id": "101",
+            "session_datetime": "2099-08-03T21:00:00+00:00",
+            "status": "active",
+            "web_session_url": "https://ticketing.uswest.veezi.com/booking/?Id=abc",
+            "film": {"title": "Supergirl"},
+            "site": {"name": "Star Cinemas"},
+        },
+    ]
+    monkeypatch.setattr(store, "_fetch_json", lambda url, **kw: fake_rows)
+    recs = store.fetch_star_cinemas(today=date(2099, 8, 3))
+    by_id = {r.source_stable_id: r for r in recs}
+    assert by_id["100"].booking_url == store.STAR_CINEMAS_BOOKING_LANDING
+    assert by_id["100"].booking_url  # never empty / None
+    assert by_id["101"].booking_url == "https://ticketing.uswest.veezi.com/booking/?Id=abc"
+
+
 def test_kids_loader_records_unique_and_free():
     from scripts.load_star_cinemas_kids_series import _records
 

@@ -498,13 +498,23 @@ NONFITNESS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
     )),
     ("cooking", (
         "cooking class", "cooking", "culinary", "baking class", "cake decorating",
+        "bread",
     )),
     ("arts", (
         "paint & sip", "paint and sip", "sip & paint", "sip and paint",
         "stained glass", "polymer clay", "terrarium", "pottery", "ceramics",
         "art class", "art walk", "arts & crafts", "arts and crafts", "open art",
-        "windchime", "wind chime", "jewelry making", "watercolor", "mosaic",
-        "quilting", "sewing class", "knitting", "crochet", "scrapbook",
+        "windchime", "wind chime", "jewelry making", "watercolor", "water color",
+        "mosaic", "quilting", "sewing class", "knitting", "crochet", "scrapbook",
+    )),
+    # Pet-training instruction (dog obedience / puppy class) → Classes & workshops
+    # (Casey 2026-06-26). These carry no fitness keyword and "course" is
+    # deliberately absent from :data:`_LEARNING_GENERIC` (it collides with "golf
+    # course"), so a "Dog Obedience (8-wk course)" would otherwise fall to Around
+    # Town. Checked here, before the fitness classifier, so it's never mistaken
+    # for a workout.
+    ("learning", (
+        "dog obedience", "obedience", "dog training", "puppy class", "puppy training",
     )),
     ("maker", ("maker", "cake pop", "slime", "robotics", "stem workshop", "3d print")),
     ("bowling", (
@@ -615,6 +625,17 @@ def classify_activity(
     fitness = SUBGROUP_SLUGS.get(classify_class_subgroup(title, venue, provider_activity))
     if fitness:
         return fitness
+    # A competition (tournament / league / round-robin / PickleFest) is never a
+    # class/workshop or a craft, so it must NOT fall through to the generic
+    # learning words or the bare-``arts`` source tag below — a "Yard Games &
+    # Cornhole Tournament" carrying a stray ``arts`` source tag would otherwise
+    # mis-file under Classes & workshops instead of Around Town. A *real* sport
+    # competition already matched a sport slug above (a "Pickleball Round Robin"
+    # → pickleball, a "Bowling Tournament" → bowling), so guarding only this
+    # fallback tail leaves those untouched; an unmatched competition returns
+    # None (no activity slug → Around Town).
+    if _COMPETITION_RE.search(low):
+        return None
     if _phrase_hit(low, _LEARNING_GENERIC):
         return "learning"
     # Bare source-category tag fallback (Phase 4c): an unambiguous ``arts`` tag
