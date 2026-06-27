@@ -91,6 +91,10 @@
 /* P2: the event-type signal ("Live Music", "Comedy") — a quiet brass pill beside
    the title, on both the day rows and the week headline. */
 .rtype{font-family:var(--ui);font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--hair-2);border-radius:999px;padding:1px 7px;margin-left:8px;white-space:nowrap;flex:none}
+/* "Open" badge on a venue's open-hours row — outlined (not filled like the brass
+   event-type chip) and in the open-status green, so a place reads distinctly from
+   a dated event in the same subsection (site review §1). */
+.rkind{font-family:var(--ui);font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--good,#1e6b3d);background:transparent;border:1px solid currentColor;border-radius:999px;padding:1px 7px;margin-left:8px;white-space:nowrap;flex:none;opacity:.9}
 .ev-row .rvenue{font-size:12.5px;color:var(--muted);flex:none;max-width:34%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 /* Permalink-less program rows (no provider page) aren't links. */
 .ev-row--nolink{cursor:default}

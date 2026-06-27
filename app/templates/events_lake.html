@@ -74,11 +74,16 @@
 {#- One day-view row. A permalink-less program (no url) renders as a non-link but
    still carries its #program-… id so the home feed can deep-link to this exact
    row (Item 2); a linked row is the usual anchor. -#}
+{#- ``row.ongoing`` marks a venue's open-hours row (not a dated event). It gets an
+   "Open" badge so a place reading "12 PM–11 PM" is visually distinct from an event
+   with a start time, even though both sit under the same venue-type subsection
+   (site review §1). Events keep their type_label chip; the two are exclusive. -#}
 {%- macro ev_row(row) -%}
+{%- set kind -%}{% if row.ongoing %}<span class="rkind">Open</span>{% elif row.type_label %}<span class="rtype">{{ row.type_label }}</span>{% endif %}{%- endset -%}
 {%- if row.url -%}
-<a class="ev-row" href="{{ row.url }}"><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span>{% if row.type_label %}<span class="rtype">{{ row.type_label }}</span>{% endif %}{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</a>
+<a class="ev-row{% if row.ongoing %} ev-row--open{% endif %}" href="{{ row.url }}"><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span>{{ kind }}{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</a>
 {%- else -%}
-<div class="ev-row ev-row--nolink"{% if row.anchor %} id="{{ row.anchor }}" tabindex="-1"{% endif %}><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span>{% if row.type_label %}<span class="rtype">{{ row.type_label }}</span>{% endif %}{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</div>
+<div class="ev-row ev-row--nolink{% if row.ongoing %} ev-row--open{% endif %}"{% if row.anchor %} id="{{ row.anchor }}" tabindex="-1"{% endif %}><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span>{{ kind }}{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</div>
 {%- endif -%}
 {%- endmacro -%}
 
