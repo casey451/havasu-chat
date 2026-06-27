@@ -1,0 +1,35 @@
+name: havasu-lanes-scrape
+
+# Twice-weekly scrape of Havasu Lanes -> dated "Cosmic Bowling" calendar events,
+# so the Rock & Bowl glow nights stay fresh automatically instead of expiring
+# (see app/contrib/havasu_lanes.py + scripts/havasu_lanes_load.py). Plain
+# requests + BeautifulSoup, NO API key needed. Idempotent (source_url dedupe) +
+# self-pruning rolling window; a parse miss publishes nothing (honesty contract).
+on:
+  schedule:
+    # Mon & Thu at 14:10 UTC = 07:10 Arizona (MST/UTC-7, no DST). Staggered off
+    # the :00/:10 fleet slots. The load is idempotent so cadence is harmless.
+    - cron: "10 14 * * 1,4"
+  workflow_dispatch: {}
+
+jobs:
+  scrape-and-load:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape Havasu Lanes and load Cosmic Bowling events
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/havasu_lanes_load.py \
+            || echo "::warning::havasu_lanes load failed (last-good rows stand)"
