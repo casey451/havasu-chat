@@ -44,8 +44,8 @@
       s.classList.toggle("hidden", !show);
       if (key !== "all" && show) s.open = true; // <details> open the focused bucket
     }
-    // In-feed ads only read right when the full list is shown.
-    var ads = sections.querySelectorAll(".adslot.infeed");
+    // In-feed promo slots only read right when the full list is shown.
+    var ads = sections.querySelectorAll(".feature-slot.infeed");
     for (var j = 0; j < ads.length; j++) ads[j].style.display = key === "all" ? "" : "none";
   }
   if (counts) {

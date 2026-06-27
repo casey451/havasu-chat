@@ -38,7 +38,7 @@
 {%- endmacro -%}
 
 {%- macro ad_placeholder(infeed=False) -%}
-<a class="adslot{% if infeed %} infeed{% endif %}" href="/sponsor" aria-label="Advertise on Ask Hava — claim this spot">
+<a class="feature-slot{% if infeed %} infeed{% endif %}" href="/sponsor" aria-label="Advertise on Ask Hava — claim this spot">
   <span class="pic" aria-hidden="true">{{ icon('plus', 22) }}</span>
   <span class="ab"><span class="at">Ad space · Available</span><span class="an">Your business here</span><span class="as">Reach locals &amp; visitors every day</span></span>
   <span class="ac">Claim {{ icon('arrow', 14) }}</span>
@@ -46,7 +46,7 @@
 {%- endmacro -%}
 
 {%- macro sponsor_slot(s) -%}
-<a class="adslot" style="border-style:solid;border-color:var(--hair);background:var(--surface)" href="/sponsor/click?id={{ s.id }}&slot=promoted">
+<a class="feature-slot" style="border-style:solid;border-color:var(--hair);background:var(--surface)" href="/sponsor/click?id={{ s.id }}&slot=promoted">
   <span class="pic" style="border-style:solid;border-color:var(--teal-line);color:var(--teal)">{{ (s.headline or s.name or '·')[0]|upper }}</span>
   <span class="ab"><span class="at" style="color:var(--ink3)">Sponsored</span><span class="an">{{ s.headline or s.name }}</span>{% if s.pitch %}<span class="as">{{ s.pitch }}</span>{% endif %}</span>
   <span class="ac">{{ s.cta_label or 'Visit' }} {{ icon('arrow', 14) }}</span>
@@ -58,7 +58,7 @@
 {# ── Top marquee: sold sponsor creative, else the big buyable placeholder
    (never a fake business). ───────────────────────────────────────────── #}
 {% if marquee %}
-<a class="bigad sold rise" href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}">
+<a class="feature-marquee sold rise" href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}">
   <span class="glow"></span>
   <div class="inner"><div class="txt">
     <span class="spon-eyebrow">Sponsored</span>
@@ -68,7 +68,7 @@
   </div></div>
 </a>
 {% else %}
-<a class="bigad rise" href="/sponsor" aria-label="Advertise on Ask Hava">
+<a class="feature-marquee rise" href="/sponsor" aria-label="Advertise on Ask Hava">
   <span class="glow"></span>
   <div class="inner">
     <div class="txt">
