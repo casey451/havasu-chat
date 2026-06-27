@@ -33,7 +33,7 @@ _NOW = datetime(2099, 7, 13, 9, 0, tzinfo=_LHC)
 _MOVIES_MARKER = 'data-group="movies"'
 
 
-def _seed_showtime(film_title: str, sid: str) -> str:
+def _seed_showtime(film_title: str, sid: str, *, booking_url: str | None = "https://example.com/book") -> str:
     with SessionLocal() as db:
         row = MovieShowtime(
             source="test_movies_ui",
@@ -43,7 +43,7 @@ def _seed_showtime(film_title: str, sid: str) -> str:
             film_title=film_title,
             show_date=_NOW.date(),
             show_time=time(18, 30),
-            booking_url="https://example.com/book",
+            booking_url=booking_url,
         )
         db.add(row)
         db.commit()
@@ -78,5 +78,27 @@ def test_events_ui_today_shows_movies_category_week_does_not(
         assert week.status_code == 200
         assert _MOVIES_MARKER not in week.text
         assert film not in week.text
+    finally:
+        _cleanup(ids)
+
+
+def test_movie_tile_with_no_booking_url_is_not_a_dead_link(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    # A showtime whose booking_url is blank must NOT render a dead ``href=""`` on
+    # the movies surface — it falls back to /movies. (Star Cinemas' live feed now
+    # backfills a booking landing in the store, but the template guard is the
+    # belt-and-suspenders for any url-less row.)
+    suffix = uuid.uuid4().hex[:6]
+    film = f"ZZ Linkless Film {suffix}"
+    ids = [_seed_showtime(film, f"nolink-{suffix}", booking_url=None)]
+    try:
+        monkeypatch.setattr("app.home.router.now_lake_havasu", lambda: _NOW)
+        with TestClient(app) as client:
+            today = client.get("/events-ui")
+        assert today.status_code == 200
+        assert film in today.text
+        # No dead href anywhere on the rendered movies surface.
+        assert 'href=""' not in today.text
     finally:
         _cleanup(ids)

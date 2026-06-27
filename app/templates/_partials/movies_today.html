@@ -10,7 +10,7 @@
   </div>
   <div class="mv-strip" role="list">
     {% for m in movies_today %}
-    <a class="mv-stile" role="listitem" href="{{ m.url }}">
+    <a class="mv-stile" role="listitem" href="{{ m.url or '/movies' }}">
       <span class="mv-stile-poster">{% if m.poster %}<img loading="lazy" src="{{ m.poster }}" alt="">{% endif %}</span>
       <span class="mv-stile-body">
         <span class="mv-stile-title">{{ m.title }}</span>
