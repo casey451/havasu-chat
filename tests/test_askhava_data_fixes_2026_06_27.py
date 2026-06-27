@@ -271,6 +271,53 @@ def test_publish_gym_schedules_scopes_to_allowlist(monkeypatch) -> None:
         assert db.query(Schedule).filter(Schedule.entity_id == other_eid).count() == 0
 
 
+def test_retract_stale_schedules_deletes_only_matching_titles(monkeypatch) -> None:
+    import scripts.import_captured_schedules as imp
+    import scripts.retract_stale_class_schedules_2026_06_27 as retract
+    from app.db import contribution_store as cs
+    from app.db.models import Contribution, Offering, Schedule
+    from app.schemas.contribution import ContributionCreate
+
+    suf = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        venue = _provider(db, f"Seasonal Studio {suf}")
+        eid = venue.entity_id
+        db.commit()
+        # An approved schedule_scrape contribution + its rendered Schedule/Offering.
+        fields = imp._to_program_fields(
+            {"provider_name": f"Seasonal Studio {suf}", "location_name": f"Seasonal Studio {suf}", "tags": []},
+            {"title": f"Ballet {suf}", "days": ["monday"], "start": "16:00", "end": "17:00"},
+        )
+        row = cs.create_contribution(db, ContributionCreate(
+            entity_type="program", submission_name=f"Seasonal — Ballet {suf}",
+            source="schedule_scrape", confidence=0.6, target_entity_id=eid,
+            proposed_record=fields.model_dump(), unverified=True,
+        ))
+        row.status = "approved"
+        row.created_entity_id = eid
+        db.add(Schedule(entity_id=eid, schedule_type="recurring",
+                        days_of_week=["monday"], notes=f"Ballet {suf}"))
+        db.add(Offering(entity_id=eid, name=f"Ballet {suf}", display_order=0))
+        # A non-schedule-hunt schedule (title-less) that must NOT be touched.
+        db.add(Schedule(entity_id=eid, schedule_type="recurring",
+                        days_of_week=["tuesday"], notes=None))
+        db.commit()
+        cid = row.id
+
+    monkeypatch.setattr(retract, "STALE_VENUES", {eid: f"test {suf}"})
+    assert retract.main(["--apply"]) == 0
+
+    with SessionLocal() as db:
+        assert db.query(Schedule).filter(Schedule.entity_id == eid, Schedule.notes == f"Ballet {suf}").count() == 0
+        assert db.query(Offering).filter(Offering.entity_id == eid).count() == 0
+        # title-less schedule survives
+        assert db.query(Schedule).filter(Schedule.entity_id == eid, Schedule.notes.is_(None)).count() == 1
+        # contribution reverted to pending (re-publishable), proposed_record intact
+        c = db.get(Contribution, cid)
+        assert c.status == "pending" and c.created_entity_id is None
+        assert c.proposed_record["title"] == f"Ballet {suf}"
+
+
 def test_publish_gym_schedules_dry_run_publishes_nothing(monkeypatch) -> None:
     import scripts.import_captured_schedules as imp
     import scripts.publish_strength_gym_schedules_2026_06_27 as pub
