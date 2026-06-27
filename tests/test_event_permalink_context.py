@@ -21,6 +21,7 @@ from app.main import (
     _format_event_datetime,
     _link_domain,
     _link_label,
+    _venue_profile_url,
 )
 
 PHX = ZoneInfo("America/Phoenix")
@@ -226,3 +227,53 @@ def test_event_link_html_source_only_links_to_source():
 def test_event_link_html_empty_when_no_urls():
     assert _event_link_html(None, None) == ""
     assert _event_link_html("", "") == ""
+
+
+def test_venue_profile_url_links_event_to_provider_profile() -> None:
+    """§1: an event whose venue has a live directory page resolves to that
+    /provider/<slug> link; an event with no published venue profile resolves
+    to None (plain text)."""
+    import uuid
+
+    from app.db.database import SessionLocal
+    from app.db.models import Entity, Event, Provider
+
+    src = f"test-venue-link-{uuid.uuid4().hex[:8]}"
+    slug = f"test-lanes-{uuid.uuid4().hex[:6]}"
+    with SessionLocal() as db:
+        ent = Entity(
+            entity_type="commercial", slug=f"ent-{uuid.uuid4().hex[:8]}",
+            name="Test Lanes", source=src,
+        )
+        db.add(ent)
+        db.flush()
+        db.add(
+            Provider(
+                provider_name="Test Lanes", category="Bowling", slug=slug,
+                is_active=True, draft=False, source=src, entity_id=ent.id,
+            )
+        )
+        linked = Event(
+            title="Night", normalized_title="night", date=date(2026, 6, 18),
+            start_time=time(19, 0), end_time=None, location_name="Test Lanes",
+            location_normalized="test lanes", description="d", event_url="",
+            tags=[], status="live", source=src, created_by="seed", entity_id=ent.id,
+        )
+        db.add(linked)
+        # A second entity with NO provider -> event resolves to no link.
+        bare = Entity(
+            entity_type="commercial", slug=f"bare-{uuid.uuid4().hex[:8]}",
+            name="Nowhere", source=src,
+        )
+        db.add(bare)
+        db.flush()
+        unlinked = Event(
+            title="Pop-up", normalized_title="pop-up", date=date(2026, 6, 18),
+            start_time=time(19, 0), end_time=None, location_name="Nowhere",
+            location_normalized="nowhere", description="d", event_url="",
+            tags=[], status="live", source=src, created_by="seed", entity_id=bare.id,
+        )
+        db.add(unlinked)
+        db.commit()
+        assert _venue_profile_url(db, linked) == f"/provider/{slug}"
+        assert _venue_profile_url(db, unlinked) is None
