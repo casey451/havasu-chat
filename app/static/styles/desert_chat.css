@@ -132,6 +132,15 @@ body.ll-chat .stuck-composer {
   /* `bottom` comes from chat_cards.css via --ll-bottomnav-clear. */
 }
 
+/* Site review §7: the fixed composer (z-index 60) floats over the bottom of the
+   viewport, and its container is transparent (only the inner .composer box has a
+   background), so when the page scrolled to the footer the footer text showed
+   through/under the disclaimer + input. Reserve the composer's height below the
+   footer so its content always sits ABOVE the composer — nothing bleeds through. */
+body.ll-chat .ft {
+  margin-bottom: calc(var(--ll-bottomnav-clear, 64px) + 140px + env(safe-area-inset-bottom));
+}
+
 body.ll-chat .composer-disclaimer {
   color: rgba(23, 19, 16, 0.62);
   font-weight: 500;
