@@ -83,7 +83,7 @@
 
   <form class="ask" role="search" action="/chat" method="get">
     <svg class="ag" viewBox="0 0 40 30" aria-hidden="true" focusable="false"><g fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"><path d="M4 12 H36"/><path d="M8 24 A12 9 0 0 1 32 24"/><path d="M8 24 V28 M32 24 V28"/><path d="M6 28 H34" stroke-width="2"/></g><path class="b" d="M18 12 H22 L21.2 18 H18.8 Z"/></svg>
-    <input id="home-ask-input" name="q" type="search" aria-label="Search the Lake Havasu directory" placeholder="Search listings: boat rentals, plumber, tacos open now" autocomplete="off">
+    <input id="home-ask-input" name="q" type="search" aria-label="Search the Lake Havasu directory" placeholder="Search Lake Havasu listings" autocomplete="off" data-rotating-placeholder>
     <button class="go" type="submit" aria-label="Search"><svg viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M5 12h14M13 6l6 6-6 6" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg></button>
   </form>
 
@@ -267,19 +267,7 @@
 {% endblock %}
 
 {% block scripts %}
-<script>
-/* Rotating placeholder for the hero ask box — demonstrates what Ask Hava can
-   answer, then freezes + clears the moment the user focuses or types. */
-(function () {
-  var input = document.getElementById('home-ask-input');
-  if (!input) return;
-  var ex = ['tacos near the channel', "what's open right now", 'plumbers in Lake Havasu',
-            'boat rentals', "what's happening tonight", 'dog groomers', 'kid-friendly this weekend'];
-  var i = 0, timer = setInterval(function () { i = (i + 1) % ex.length; input.setAttribute('placeholder', ex[i]); }, 2600);
-  input.setAttribute('placeholder', ex[0]);
-  function stop() { clearInterval(timer); if (input.value === '') input.setAttribute('placeholder', ''); }
-  input.addEventListener('focus', stop, { once: true });
-  input.addEventListener('input', stop, { once: true });
-})();
-</script>
+{# Rotating example searches in the hero ask box (data-rotating-placeholder);
+   placeholder-only, clears + stops on focus. See rotating_placeholder.js. #}
+<script src="{{ static_url('/static/js/rotating_placeholder.js') }}" defer></script>
 {% endblock %}
