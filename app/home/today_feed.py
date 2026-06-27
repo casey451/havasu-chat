@@ -53,6 +53,7 @@ from app.events.class_occurrences import (
     drop_event_duplicates,
 )
 from app.events.event_type_tags import event_type_label
+from app.events.family_filter import is_youth_event
 from app.events.senior_filter import is_senior_event
 from app.events.time_labels import short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
@@ -186,62 +187,15 @@ _RECREATION_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Genuinely kid-targeted signals (Item 5 — STRICTER than is_family_event). NO
-# "all ages", NO bare "family"/"family swim"/"family night", NO bare "open swim":
-# those are all-ages and must not read as kids-only on the home feed.
-_KID_TAG_TAGS = frozenset(
-    {"youth", "kids", "kid", "children", "child", "teen", "teens", "tween",
-     "junior", "toddler", "toddlers"}
-)
-_KID_TAG_RE = re.compile(
-    r"\b("
-    r"kids?|child(?:ren)?|toddlers?|teens?|tweens?|youth|junior|jr|"
-    r"story\s*times?|story\s+hour|"
-    r"lego|minecraft|pok[eé]mon|"
-    r"tumbl(?:e|es|er|ers|ing)?|gymtots?|"
-    r"pee\s*-?\s*wee|"
-    r"littles|little\s+(?:ninjas?|dragons?|tigers?|kickers?|stars?|movers?|hawks?|gym)|"
-    r"tiny\s+(?:tots?|tumblers?|dancers?|ninjas?|hawks?)|"
-    r"pre-?k|preschool|kinder(?:garten)?|"
-    r"mommy\s*(?:&|and|n|\+)?\s*me|parent\s*(?:&|and|n|\+)?\s*tot|"
-    r"swim\s+lessons?"
-    r")\b",
-    re.IGNORECASE,
-)
-# All-ages / "everyone welcome" title markers that VETO the Kids tag even when
-# the ingest loaders tagged the row ``youth``/``family`` (parks_rec_loader tags
-# "kids"/"junior" text ``youth``; event_ingest tags "family" text ``family``).
-# Those are honest *family-mode* signals — the calendar's ?family=1 narrow is
-# their home — but on the home feed the Kids *tag* must mean genuinely
-# kid-targeted, so "Family Night Golf", "Family Glow Bowling", and "Glow in the
-# Park — All Ages" must NOT carry it. A genuine kid-only title token
-# (:data:`_KID_TAG_RE`) still wins over this veto (checked first).
-_ALL_AGES_RE = re.compile(
-    r"\ball[\s-]*ages\b|\bfamil(?:y|ies)\b|\bopen\s+swim\b",
-    re.IGNORECASE,
-)
-
-
 def _kid_targeted(title: str | None, tags: list[str] | None) -> bool:
-    """True only for genuinely kid-targeted rows (Item 5). Stricter than
-    :func:`app.events.family_filter.is_family_event`: all-ages / open-swim /
-    bare-"family" rows return False so the Kids tag stops over-applying.
-
-    A clear kid-only *title* token wins outright. Otherwise an all-ages /
-    family-as-everyone title marker vetoes the tag — even when the loaders wrote
-    a ``youth``/``family`` data tag — so "Family Night Golf" reads as everyone,
-    not kids. With no such marker, a ``youth``-class data tag still tags the row
-    (a neutrally-titled "Wrestling" the loader marked youth stays kid-targeted).
+    """True only for genuinely kid-targeted rows — the single shared
+    :func:`app.events.family_filter.is_youth_event` predicate (Item 5). Stricter
+    than ``is_family_event``: all-ages / open-swim / bare-"family" rows (by title
+    OR an ``all ages`` tag) return False so the Kids tag stops over-applying, so
+    "Family Night Golf", "Family Glow Bowling", "Glow in the Park — All Ages",
+    and "Cosmic Bowling" read as everyone, not kids.
     """
-    t = (title or "").strip()
-    if t and _KID_TAG_RE.search(t):
-        return True
-    if t and _ALL_AGES_RE.search(t):
-        return False
-    for tag in tags or []:
-        if isinstance(tag, str) and tag.strip().lower() in _KID_TAG_TAGS:
-            return True
-    return False
+    return is_youth_event(title, tags)
 
 
 def _audience_tags(

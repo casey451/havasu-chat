@@ -58,7 +58,7 @@ from app.events.class_occurrences import (
     drop_event_duplicates,
 )
 from app.events.event_type_tags import event_type_label
-from app.events.family_filter import is_family_event
+from app.events.family_filter import is_family_event, is_youth_event
 from app.events.senior_filter import is_senior_event
 from app.events.time_labels import TIME_TBD_LABEL, short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title, clean_venue_label
@@ -467,7 +467,7 @@ def day_groups(
         # their own group at render — flagged here (off under a narrow / for seniors).
         row["youth"] = (
             overlay_ok and not is_senior
-            and is_family_event(ev.title, ev.tags, ev.location_name)
+            and is_youth_event(ev.title, ev.tags, ev.location_name)
         )
         _route_occurrence(row, gkey, rows_by_group, senior_overlay, is_senior=is_senior)
 
@@ -507,7 +507,7 @@ def day_groups(
         }
         is_senior = overlay_ok and is_senior_event(occ.title, None, occ.venue)
         row["youth"] = (
-            overlay_ok and not is_senior and is_family_event(occ.title, None, occ.venue)
+            overlay_ok and not is_senior and is_youth_event(occ.title, None, occ.venue)
         )
         _route_occurrence(row, gkey, rows_by_group, senior_overlay, is_senior=is_senior)
 
@@ -713,7 +713,7 @@ def places_groups(
         if family:
             row["youth"] = False
         elif "youth" not in row:
-            row["youth"] = not is_senior and is_family_event(title, tags, venue)
+            row["youth"] = not is_senior and is_youth_event(title, tags, venue)
         by_top[_places_top_key(primary)].append(row)
 
     # Curated venue-hours rows first (real "12–11 PM" times + venue-kind tags), so

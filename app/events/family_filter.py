@@ -90,6 +90,12 @@ def is_family_event(
     Decided by, in order: an adult-only veto (wine/21+/seniors); a kid/family
     TITLE word; a kids-only VENUE/provider (so a generically-named program at a
     homeschool center or youth gym still routes to Kids & Family); a family TAG.
+
+    This is the broad ``?family=1`` predicate — it deliberately includes
+    all-ages / family-friendly things (Cosmic Bowling, "Glow in the Park — All
+    Ages", "Family Night Golf"). For the stricter "is this YOUTH-specific?"
+    question (the "Youth <activity>" sub-section flag, the home-feed Kids tag),
+    use :func:`is_youth_event`.
     """
     t = (title or "").strip()
     if t and _ADULT_TITLE_RE.search(t):
@@ -103,3 +109,61 @@ def is_family_event(
         if isinstance(tag, str) and tag.strip().lower() in _FAMILY_TAGS:
             return True
     return False
+
+
+# Genuinely YOUTH-specific signal — STRICTER than is_family_event (Casey
+# 2026-06-26: "Cosmic Bowling isn't youth bowling, it's just an event at the
+# bowling alley; Glow in the Park isn't youth trampoline"). A family-friendly /
+# all-ages event belongs in family mode but must NOT peel into a "Youth
+# <activity>" sub-section. The "all ages" / bare-"family" markers (tag OR title)
+# veto the youth read even when a loader stamped a ``kids``/``family`` tag; a
+# genuine kid-only TITLE token still wins first.
+_YOUTH_TAGS = frozenset(
+    {"youth", "kids", "kid", "children", "child", "teen", "teens", "tween",
+     "junior", "toddler", "toddlers"}
+)
+_YOUTH_TITLE_RE = re.compile(
+    r"\b("
+    r"kids?|child(?:ren)?|toddlers?|teens?|tweens?|youth|junior|jr|"
+    r"story\s*times?|story\s+hour|"
+    r"lego|minecraft|pok[eé]mon|"
+    r"tumbl(?:e|es|er|ers|ing)?|gymtots?|"
+    r"pee\s*-?\s*wee|"
+    r"littles|little\s+(?:ninjas?|dragons?|tigers?|kickers?|stars?|movers?|hawks?|gym)|"
+    r"tiny\s+(?:tots?|tumblers?|dancers?|ninjas?|hawks?)|"
+    r"pre-?k|preschool|kinder(?:garten)?|"
+    r"mommy\s*(?:&|and|n|\+)?\s*me|parent\s*(?:&|and|n|\+)?\s*tot|"
+    r"swim\s+lessons?"
+    r")\b",
+    re.IGNORECASE,
+)
+_ALL_AGES_TAGS = frozenset({"all ages", "all-ages"})
+_ALL_AGES_VETO_RE = re.compile(
+    r"\ball[\s-]*ages\b|\bfamil(?:y|ies)\b|\bopen\s+swim\b", re.IGNORECASE
+)
+
+
+def is_youth_event(
+    title: str | None, tags: list[str] | None = None, venue: str | None = None
+) -> bool:
+    """True only for genuinely youth-targeted occurrences.
+
+    Order: an adult-only veto; a kid-only TITLE token (wins outright); an
+    all-ages marker (``all ages`` tag, or an all-ages / bare-"family" / open-swim
+    TITLE word) that vetoes the youth read even when a loader tagged the row
+    ``kids``/``family``; a kids-only VENUE; finally a youth data TAG. So
+    "Cosmic Bowling" (``all ages`` tag) and "Family Night Golf" read as NOT
+    youth, while "Junior Jump Time" and a ``kids``-tagged "Wrestling" do.
+    """
+    t = (title or "").strip()
+    if t and _ADULT_TITLE_RE.search(t):
+        return False
+    if t and _YOUTH_TITLE_RE.search(t):
+        return True
+    tagset = {str(x).strip().lower() for x in (tags or [])}
+    if tagset & _ALL_AGES_TAGS or (t and _ALL_AGES_VETO_RE.search(t)):
+        return False
+    vlow = (venue or "").lower()
+    if vlow and any(h in vlow for h in _FAMILY_VENUE_HINTS):
+        return True
+    return bool(tagset & _YOUTH_TAGS)
