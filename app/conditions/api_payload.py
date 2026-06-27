@@ -13,12 +13,12 @@ from app.conditions.constants import (
     SOURCE_NWS_ALERTS,
     SOURCE_NWS_CURRENT,
     SOURCE_NWS_FORECAST,
-    SOURCE_NWS_SUNSET,
     SOURCE_OPENUV,
     SOURCE_USGS,
     SOURCE_USGS_WATER_TEMP,
 )
 from app.conditions.staleness import staleness_label
+from app.conditions.sun import sunset_utc
 from app.core.timezone import LAKE_HAVASU_TZ
 
 _COMPASS_16 = (
@@ -62,11 +62,11 @@ def degrees_to_cardinal(deg: float | int | None) -> str | None:
 
 
 def _format_sunset_local(sunset_iso: str | None) -> str | None:
-    """Render an NWS sunset ISO timestamp as Lake Havasu wall-clock, e.g. ``7:42 PM``.
+    """Render a sunset ISO timestamp as Lake Havasu wall-clock, e.g. ``7:42 PM``.
 
-    The NWS sunset source stores the tonight/evening period startTime, which is
-    an approximation of sunset rather than an astronomical value. We convert to
-    America/Phoenix and strip any leading zero from the hour (Windows-safe).
+    Source-agnostic: the ISO may be Open-UV's true sunset or the locally computed
+    astronomical sunset (:mod:`app.conditions.sun`). Converts to America/Phoenix
+    and strips any leading zero from the hour (Windows-safe).
     """
     if not sunset_iso:
         return None
@@ -216,48 +216,47 @@ def build_conditions_api_payload(db: Session, *, now: datetime | None = None) ->
 
     # Sunset: PREFER the true astronomical sunset from Open-UV
     # (sun_info.sun_times.sunset, stored on the SOURCE_OPENUV row as
-    # ``sunset_iso``). Fall back to the SOURCE_NWS_SUNSET row, whose ``sunset_iso``
-    # is the tonight/evening forecast-period startTime -- an approximation that
-    # runs ~1-2h early. We surface the raw ISO plus a Lake-Havasu-local formatted
-    # string so both the JSON API and the /today Lake Light strip can render it.
-    # Emitted only when a usable ISO is present so /api/conditions stays unchanged
-    # when both sources are absent.
+    # ``sunset_iso``). When Open-UV is absent, COMPUTE the astronomical sunset
+    # for the city's coordinates (app.conditions.sun) rather than falling back to
+    # the old NWS evening-forecast-period start, which read ~2h early ("Sunset
+    # 6:00 PM" in late June — site review §4c). The computed value is
+    # deterministic, always available, and never stale.
+    # Only trust Open-UV's sunset while the row is FRESH — a stale row carries an
+    # old day's sunset_iso, which is wrong for today, so we compute instead.
     openuv_sunset_iso = None
+    openuv_label = None
     if openuv_row is not None and isinstance(openuv_row.data, dict):
         candidate = openuv_row.data.get("sunset_iso")
         if isinstance(candidate, str) and candidate.strip():
-            openuv_sunset_iso = candidate.strip()
+            openuv_label, openuv_stale = staleness_label(openuv_row.fetched_at, now)
+            if not (openuv_stale or openuv_row.is_stale):
+                openuv_sunset_iso = candidate.strip()
 
     if openuv_sunset_iso is not None:
         sunset_local = _format_sunset_local(openuv_sunset_iso)
         if sunset_local is not None:
-            label, stale = staleness_label(openuv_row.fetched_at, now)
             payload.update(
                 {
                     "sunset_iso": openuv_sunset_iso,
                     "sunset_local": sunset_local,
                     "sunset_source": "openuv",
                     "sunset_updated_at_iso": _iso(openuv_row.fetched_at),
-                    "sunset_staleness_label": label,
-                    "sunset_is_stale": stale or openuv_row.is_stale,
+                    "sunset_staleness_label": openuv_label,
+                    "sunset_is_stale": False,
                 }
             )
     else:
-        sunset_row = read_source(db, SOURCE_NWS_SUNSET, now=now)
-        if sunset_row is not None and isinstance(sunset_row.data, dict):
-            sunset_iso = sunset_row.data.get("sunset_iso")
-            sunset_local = _format_sunset_local(sunset_iso) if sunset_iso else None
-            if sunset_local is not None:
-                label, stale = staleness_label(sunset_row.fetched_at, now)
-                payload.update(
-                    {
-                        "sunset_iso": sunset_iso,
-                        "sunset_local": sunset_local,
-                        "sunset_source": "nws_approx",
-                        "sunset_updated_at_iso": _iso(sunset_row.fetched_at),
-                        "sunset_staleness_label": label,
-                        "sunset_is_stale": stale or sunset_row.is_stale,
-                    }
-                )
+        local_date = now.replace(tzinfo=UTC).astimezone(LAKE_HAVASU_TZ).date()
+        computed_iso = _iso(sunset_utc(local_date))
+        payload.update(
+            {
+                "sunset_iso": computed_iso,
+                "sunset_local": _format_sunset_local(computed_iso),
+                "sunset_source": "computed",
+                "sunset_updated_at_iso": None,
+                "sunset_staleness_label": None,
+                "sunset_is_stale": False,
+            }
+        )
 
     return payload
