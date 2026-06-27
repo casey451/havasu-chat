@@ -59,13 +59,16 @@ def test_open_rows_show_bare_hours_not_a_verb_or_studio_classes() -> None:
             assert "Black Belt" not in r["title"]
 
 
-def test_havasu_lanes_shows_real_hours_and_the_neon_nights() -> None:
-    # Friday: open noon–11 (bowling alley hours surfaced like any other venue),
-    # with the Rock & Bowl neon nights called out in the subtitle.
+def test_havasu_lanes_hours_row_does_not_repeat_the_cosmic_night() -> None:
+    # Friday: open noon–11 (bowling alley hours surfaced like any other venue).
+    # The Rock & Bowl / Cosmic glow night is owned by the dated "Cosmic Bowling"
+    # event series, so the hours-row subtitle must NOT re-advertise it — else the
+    # glow night reads twice under Bowling (Casey, 2026-06-27).
     fri = open_today_rows(date(2026, 6, 19))
     lanes = next(r for r in fri if r["title"].startswith("Havasu Lanes"))
     assert lanes["time_label"] == "12–11 PM"
-    assert "Rock & Bowl" in lanes["venue"]
+    assert "Bumper lanes" in lanes["venue"]
+    assert "Rock & Bowl" not in lanes["venue"]
     assert lanes["url"].startswith("https://www.havasulanesaz.com")
 
 
