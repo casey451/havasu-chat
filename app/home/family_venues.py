@@ -206,12 +206,16 @@ DIRECTORY: tuple[FamilyVenue, ...] = (
 
 def _fmt_span(open_t: time, close_t: time) -> str:
     """One span: "3–9 PM" (drop the redundant first meridiem when it matches),
-    "9 AM–2 PM" when they differ."""
+    "9 AM–2 PM" when they differ.
+
+    The open meridiem is kept when the open hour is 12 (noon/midnight), so a
+    span like noon-to-11 reads "12 PM–11 PM" instead of the ambiguous
+    "12–11 PM" that looks like a 24-hour range (site review §6)."""
     o = format_short_time(open_t)
     c = format_short_time(close_t)
     o_mer = o.rsplit(" ", 1)[-1]
     c_mer = c.rsplit(" ", 1)[-1]
-    if o_mer == c_mer:
+    if o_mer == c_mer and not o.startswith("12"):
         return f"{o[: -(len(o_mer) + 1)]}–{c}"
     return f"{o}–{c}"
 
@@ -244,7 +248,10 @@ def open_today_rows(day: date) -> list[dict[str, Any]]:
                 # hours, so the prefix was redundant noise on every row.
                 "sort": (_OPEN_ROW_RANK, spans[0][0]),
                 "time_label": _span_label(spans),
-                "title": f"{v.name} · {v.kind}",
+                # Just the venue name — the "· kind" suffix repeated what the
+                # sub-section heading (Bowling / Billiards / Trampoline / Open
+                # today for kids) already says (site review §6).
+                "title": v.name,
                 "venue": v.age_note or v.address,
                 "url": v.url,
                 "recurring": False,
@@ -292,7 +299,10 @@ def funzone_hours_rows(day: date) -> list[dict[str, Any]]:
             {
                 "sort": (_FUNZONE_HOURS_RANK, sort_t),
                 "time_label": time_label,
-                "title": f"{v.name} · {v.kind}",
+                # Just the venue name — the "· kind" suffix repeated what the
+                # sub-section heading (Bowling / Billiards / Trampoline / Open
+                # today for kids) already says (site review §6).
+                "title": v.name,
                 "venue": v.age_note or v.address,
                 "url": v.url,
                 "recurring": False,

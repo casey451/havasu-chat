@@ -10,10 +10,11 @@ Weekday anchors (2026): Jun 15 = Mon, 16 = Tue, 17 = Wed, 18 = Thu, 19 = Fri,
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, time
 
 from app.home.family_venues import (
     OPEN_VENUES,
+    _fmt_span,
     class_today_rows,
     open_today_rows,
 )
@@ -66,7 +67,8 @@ def test_havasu_lanes_hours_row_does_not_repeat_the_cosmic_night() -> None:
     # glow night reads twice under Bowling (Casey, 2026-06-27).
     fri = open_today_rows(date(2026, 6, 19))
     lanes = next(r for r in fri if r["title"].startswith("Havasu Lanes"))
-    assert lanes["time_label"] == "12–11 PM"
+    # §6: noon-open span keeps the open meridiem ("12 PM–11 PM"), not "12–11 PM".
+    assert lanes["time_label"] == "12 PM–11 PM"
     assert "Bumper lanes" in lanes["venue"]
     assert "Rock & Bowl" not in lanes["venue"]
     assert lanes["url"].startswith("https://www.havasulanesaz.com")
@@ -115,3 +117,14 @@ def test_every_open_venue_has_a_url_and_some_hours() -> None:
         assert v.url.startswith("http")
         if v.family:
             assert v.hours, f"{v.name} has no hours — move it to DIRECTORY"
+
+
+def test_fmt_span_keeps_meridiem_for_noon_open() -> None:
+    """§6: a noon-open span keeps the open meridiem ("12 PM–11 PM"), never the
+    ambiguous "12–11 PM"; non-noon same-meridiem spans still collapse."""
+    assert _fmt_span(time(12, 0), time(23, 0)) == "12 PM–11 PM"
+    assert _fmt_span(time(12, 0), time(22, 0)) == "12 PM–10 PM"
+    # Non-noon, same meridiem → drop the redundant first meridiem.
+    assert _fmt_span(time(15, 0), time(21, 0)) == "3–9 PM"
+    # Different meridiems → both shown.
+    assert _fmt_span(time(9, 0), time(14, 0)) == "9 AM–2 PM"
