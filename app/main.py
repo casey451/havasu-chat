@@ -85,6 +85,7 @@ from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
 from app.events.event_type_tags import event_type_label
 from app.events.recurrence import _event_is_recurring, next_occurrence
+from app.events.tag_display import public_event_tags
 from app.events.time_labels import is_time_tbd
 from app.events.title_clean import clean_event_title
 from app.feedback.routes import router as feedback_router
@@ -1024,8 +1025,9 @@ def _render_permalink_response(
     event_link_html = _event_link_html(event.event_url, event.source_url)
 
     tags_html = ""
-    if event.tags:
-        tag_nodes = "".join(f'<span class="tag">{html.escape(tag)}</span>' for tag in event.tags)
+    display_tags = public_event_tags(event.tags)
+    if display_tags:
+        tag_nodes = "".join(f'<span class="tag">{html.escape(tag)}</span>' for tag in display_tags)
         tags_html = f'<div class="tags"><h2>Tags</h2><div class="tag-wrap">{tag_nodes}</div></div>'
 
     # Event JSON-LD (SEO audit §2.7: zero Event schema on a hyperlocal events
