@@ -101,7 +101,12 @@ def _cheapest_gas(db: Session, *, now: datetime) -> TodayField:
         return _field("cheapest_gas", "Cheapest gas", None, staleness_label=label)
     name = station.get("name") or "Station"
     brand = station.get("brand")
-    secondary = f"{brand} · {name}" if brand else str(name)
+    # GasBuddy often repeats the brand as the name ("Love's Travel Stop"); only
+    # prefix the brand when it adds something (site review §4b).
+    if brand and brand.strip().casefold() != str(name).strip().casefold():
+        secondary = f"{brand} · {name}"
+    else:
+        secondary = str(name)
     return _field(
         "cheapest_gas",
         "Cheapest gas",

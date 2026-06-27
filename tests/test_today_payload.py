@@ -82,6 +82,35 @@ def test_today_payload_all_fields_available_when_fresh() -> None:
     assert "Arco" in (gas.secondary or "")
 
 
+def test_today_payload_gas_secondary_not_duplicated_when_brand_equals_name() -> None:
+    """When GasBuddy repeats the brand as the name, don't render it twice
+    ("Love's Travel Stop · Love's Travel Stop") — site review §4b."""
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        upsert_source(
+            db,
+            SOURCE_GAS,
+            {
+                "cheapest": [
+                    {
+                        "name": "Love's Travel Stop",
+                        "brand": "love's travel stop",
+                        "prices": {"regular": "3.49"},
+                    },
+                ]
+            },
+            now=now,
+        )
+        db.commit()
+    invalidate_local_cache()
+    with SessionLocal() as db:
+        payload = build_today_payload(db, now=now)
+
+    gas = _field(payload, "cheapest_gas")
+    assert gas.secondary == "Love's Travel Stop"
+    assert " · " not in (gas.secondary or "")
+
+
 def test_today_payload_sunset_formats_local_time() -> None:
     now = datetime.now(UTC).replace(tzinfo=None)
     _seed_fresh(now)

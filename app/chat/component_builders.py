@@ -34,6 +34,7 @@ from app.chat.tier2_schema import Tier2Filters
 from app.core.provider_name import clean_name as _clean_provider_name
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
+from app.events.tag_display import public_event_tags
 from app.home.queries import _format_phone
 from app.providers.queries import is_open_status_from_structured_hours
 
@@ -629,6 +630,9 @@ def _pretty_category_from_tags(tags: list[str]) -> str | None:
     (BUILD.md mentions arts/sports/aquatics/food/fitness/recreation) when
     available. Otherwise return the first capitalized tag, or None.
     """
+    # Drop internal taxonomy keys (``activity:golf``, ``facet:special``) so they
+    # never surface as a chat category label (site review §5).
+    tags = public_event_tags(tags)
     if not tags:
         return None
     known = {
