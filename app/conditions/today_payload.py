@@ -194,14 +194,14 @@ def build_today_payload(db: Session, *, now: datetime | None = None) -> dict[str
         )
     )
 
-    # Sunset (NWS, approximated from the evening forecast period).
+    # Sunset (Open-UV's true sunset when fresh, else computed astronomically).
     sunset_local = api.get("sunset_local")
     fields.append(
         _field(
             "sunset",
             "Sunset",
             str(sunset_local) if isinstance(sunset_local, str) and sunset_local.strip() else None,
-            attribution="NWS forecast",
+            attribution="Astronomical",
             is_stale=bool(api.get("sunset_is_stale")),
             staleness_label=api.get("sunset_staleness_label"),
         )
