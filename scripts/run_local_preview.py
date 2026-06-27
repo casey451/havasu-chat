@@ -58,7 +58,7 @@ def _seed() -> None:
     from sqlalchemy import select
 
     from app.db.database import SessionLocal
-    from app.db.models import MovieShowtime, Provider
+    from app.db.models import Entity, Event, MovieShowtime, Provider
 
     weekday_hours = [{"open": "12:00", "close": "21:00"}]
     structured = {
@@ -72,6 +72,14 @@ def _seed() -> None:
     }
     with SessionLocal() as db:
         if not db.scalars(select(Provider).where(Provider.slug == PROVIDER_SLUG)).first():
+            ent = Entity(
+                entity_type="commercial",
+                slug="havasu-preview-lanes-ent",
+                name="Havasu Preview Lanes",
+                source="local-preview",
+            )
+            db.add(ent)
+            db.flush()
             db.add(
                 Provider(
                     provider_name="Havasu Preview Lanes",
@@ -83,6 +91,46 @@ def _seed() -> None:
                     is_active=True,
                     draft=False,
                     source="local-preview",
+                    entity_id=ent.id,
+                )
+            )
+            # A dated event AT that venue, so the event detail can link back to
+            # the provider profile (§1 event->venue backlink), plus a midnight /
+            # Time-TBD event for the chat-agenda check (§1 "12 am" dump).
+            db.add(
+                Event(
+                    id="preview-event-1",
+                    title="Cosmic Bowling Night",
+                    normalized_title="cosmic bowling night",
+                    date=date.today(),
+                    start_time=time(21, 0),
+                    end_time=time(23, 59),
+                    location_name="Havasu Preview Lanes",
+                    location_normalized="havasu preview lanes",
+                    description="Glow-in-the-dark bowling with music. $20 per lane.",
+                    tags=["family", "music"],
+                    status="live",
+                    source="local-preview",
+                    created_by="seed",
+                    entity_id=ent.id,
+                )
+            )
+            db.add(
+                Event(
+                    id="preview-event-tbd",
+                    title="Lake Havasu Farmers Market",
+                    normalized_title="lake havasu farmers market",
+                    date=date.today(),
+                    start_time=time(0, 0),  # unknown time -> renders "Time TBD"
+                    end_time=None,
+                    location_name="Main Street Plaza",
+                    location_normalized="main street plaza",
+                    description="Local produce and crafts.",
+                    tags=["family"],
+                    status="live",
+                    source="local-preview",
+                    created_by="seed",
+                    entity_id=ent.id,
                 )
             )
         if not db.scalars(

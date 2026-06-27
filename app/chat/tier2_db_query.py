@@ -48,6 +48,7 @@ from app.db.entity_types import (
     ENTITY_TYPE_PROGRAM,
 )
 from app.db.models import Entity, EntityCategory, Event, Location, Program, Provider
+from app.events.time_labels import is_time_tbd
 from app.providers.photo_urls import first_renderable_google_photo
 from app.providers.queries import effective_hours_structured
 from app.search import fts as search_fts
@@ -333,11 +334,15 @@ def _program_location_display(
 
 
 def _event_dict(e: Event) -> dict[str, Any]:
+    # A null/midnight placeholder start (venues, undated happenings) is NOT a real
+    # "12 am" — emit None so the chat agenda sorts it to the end and renders no
+    # bogus time instead of dumping it under MORNING at "12 am" (site review §1).
+    tbd = is_time_tbd(e.start_time, e.end_time)
     out: dict[str, Any] = {
         "type": "event",
         "name": e.title,
         "date": e.date.isoformat(),
-        "start_time": e.start_time.strftime("%H:%M") if e.start_time else None,
+        "start_time": None if tbd else (e.start_time.strftime("%H:%M") if e.start_time else None),
         "end_time": e.end_time.strftime("%H:%M") if e.end_time else None,
         "location_name": e.location_name,
         "description": _truncate(e.description, 120),

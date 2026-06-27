@@ -1014,8 +1014,23 @@ def _render_not_found_response(request: Request, *, gone: bool = False) -> HTMLR
     )
 
 
+def _venue_profile_url(db: Session, event: Event) -> str | None:
+    """Internal ``/provider/<slug>`` link for the event's venue, when that venue
+    has a live directory page — so the event detail links back to the place
+    (site review §1). Returns None when the venue has no published profile.
+    """
+    prov: Provider | None = None
+    if event.provider_id:
+        prov = db.query(Provider).filter(Provider.id == event.provider_id).first()
+    if prov is None and event.entity_id:
+        prov = db.query(Provider).filter(Provider.entity_id == event.entity_id).first()
+    if prov is None or not prov.slug or prov.draft or prov.is_active is False:
+        return None
+    return f"/provider/{prov.slug}"
+
+
 def _render_permalink_response(
-    request: Request, *, event: Event, permalink_url: str
+    request: Request, *, event: Event, permalink_url: str, venue_url: str | None = None
 ) -> HTMLResponse:
     contact_html = ""
     if event.contact_name or event.contact_phone:
@@ -1085,6 +1100,7 @@ def _render_permalink_response(
             # P2: the type folded into the detail eyebrow ("Live Music"/"Comedy").
             "type_label": event_type_label(event.title, event.tags, event.location_name),
             "location_name": event.location_name,
+            "venue_url": venue_url,
             "description": event.description,
             "cost": getattr(event, "cost", None),
             "cost_description": getattr(event, "cost_description", None),
@@ -1561,4 +1577,7 @@ def event_permalink(event_id: str, request: Request, db: Session = Depends(get_d
     # ED-5: build a canonical https URL from the configured base (request.url is
     # http behind Railway's proxy when X-Forwarded-Proto isn't honored).
     permalink_url = f"{_base_url()}/events/{event.id}"
-    return _render_permalink_response(request, event=event, permalink_url=permalink_url)
+    venue_url = _venue_profile_url(db, event)
+    return _render_permalink_response(
+        request, event=event, permalink_url=permalink_url, venue_url=venue_url
+    )

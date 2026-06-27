@@ -24,7 +24,7 @@
 
     <p class="eyebrow">{{ type_label or "Event details" }}</p>
     <h1>{{ event_title }}</h1>
-    <p class="evd-meta">{{ formatted_datetime }} · {{ (location_name | clean_name) or "Location TBD" }}</p>
+    <p class="evd-meta">{{ formatted_datetime }} · {% if venue_url %}<a class="evd-venue" href="{{ venue_url }}">{{ (location_name | clean_name) or "Location TBD" }}</a>{% else %}{{ (location_name | clean_name) or "Location TBD" }}{% endif %}</p>
 
     <div class="evd-tags">
       {% if cost %}
