@@ -89,9 +89,12 @@ def _seed() -> None:
             select(MovieShowtime).where(MovieShowtime.source == "local-preview")
         ).first():
             today = date.today()
+            # "Toy Story 5" deliberately plays at BOTH theaters so the home-strip
+            # dedup (§4e) is exercised — it must appear once, not twice.
             films = [
                 ("Star Cinemas", "star-cinemas", "Disclosure Day", time(19, 0)),
                 ("Movies Havasu", "movies-havasu", "Toy Story 5", time(18, 30)),
+                ("Star Cinemas", "star-cinemas", "Toy Story 5", time(20, 0)),
             ]
             for i, (theater, tslug, film, t) in enumerate(films):
                 db.add(

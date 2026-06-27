@@ -318,20 +318,31 @@ def movies_today(
 ) -> list[dict]:
     """Flat, compact list for the home "At the movies today" strip.
 
-    Pass ``now`` to hide showtimes that started >1h ago when ``day`` is today.
+    One row per film, deduped by normalized title across theaters (mirroring the
+    /events-ui feed's ``_movie_films``) so a film playing at two theaters is not
+    listed twice — the home strip previously flattened theater→film and showed
+    the same title once per theater (site review §4e). The earliest-showtime
+    instance supplies the displayed theater + times; the strip's "All showtimes
+    →" link covers the rest. Pass ``now`` to hide showtimes that started >1h ago
+    when ``day`` is today.
     """
-    flat: list[dict] = []
+    by_film: dict[str, dict] = {}
     for group in showtimes_for_day(db, day=day, now=now):
         for film in group.films:
-            flat.append(
-                {
+            fkey = normalize_film_title(film.title)
+            first = film.showtimes[0]
+            existing = by_film.get(fkey)
+            if existing is None or first.sort < existing["sort"]:
+                poster = film.poster or (existing or {}).get("poster")
+                by_film[fkey] = {
                     "title": film.title,
-                    "poster": film.poster,
+                    "poster": poster,
                     "theater": group.name,
                     "times": [s.label for s in film.showtimes[:3]],
-                    "url": film.showtimes[0].url,
-                    "sort": film.showtimes[0].sort,
+                    "url": first.url,
+                    "sort": first.sort,
                 }
-            )
-    flat.sort(key=lambda x: x["sort"])
+            elif not existing.get("poster") and film.poster:
+                existing["poster"] = film.poster
+    flat = sorted(by_film.values(), key=lambda x: x["sort"])
     return flat[:limit]
