@@ -286,6 +286,80 @@
       "classes": [
         {"title": "Firearms Self Defense", "days": ["thursday"], "start": "18:00", "end": "19:00"}
       ]
+    },
+    {
+      "provider_name": "Havasu CrossFit",
+      "location_name": "Havasu CrossFit",
+      "location_address": "2876 Sweetwater Ave, Lake Havasu City, AZ 86406",
+      "entity_id": "a08914b6-f3d8-4046-bf79-327d050f06a8",
+      "contact_phone": "(928) 680-9348",
+      "contact_url": "https://havasucrossfit.com/",
+      "source_url": "https://havasucrossfit.com/",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["crossfit", "strength", "fitness", "classes-sports-recreation"],
+      "confidence": 0.85,
+      "captured": "2026-06-03 schedule-hunt (live RxGym schedule); re-affirmed in the 2026-06-27 audit (docs/ASKHAVA_DATA_FIXES_2026-06-27.md §4). Titles carry 'CrossFit' so they classify into Strength & Cardio.",
+      "classes": [
+        {"title": "CrossFit WOD (5:00 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "05:00", "end": "06:00"},
+        {"title": "CrossFit WOD (6:10 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "06:10", "end": "07:10"},
+        {"title": "CrossFit WOD (7:20 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "07:20", "end": "08:20"},
+        {"title": "CrossFit WOD (8:30 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "08:30", "end": "09:30"},
+        {"title": "CrossFit WOD (3:20 PM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "15:20", "end": "16:20"},
+        {"title": "CrossFit WOD (4:30 PM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "16:30", "end": "17:30"},
+        {"title": "CrossFit WOD (5:40 PM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "17:40", "end": "18:40"},
+        {"title": "CrossFit WOD (Sat 7:30 AM)", "days": ["saturday"], "start": "07:30", "end": "08:30"},
+        {"title": "CrossFit WOD (Sat 8:30 AM)", "days": ["saturday"], "start": "08:30", "end": "09:30"}
+      ]
+    },
+    {
+      "provider_name": "Fit Lab 928",
+      "location_name": "Fit Lab 928",
+      "location_address": "537 N Lake Havasu Ave #101, Lake Havasu City, AZ 86403",
+      "entity_id": "70ee0292-abdc-4796-9f76-be9879e6579f",
+      "contact_phone": "(928) 900-7989",
+      "contact_url": "https://fitlab928.com/",
+      "source_url": "https://fitlab928.com/",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["strength", "conditioning", "fitness", "classes-sports-recreation"],
+      "confidence": 0.85,
+      "cost": "$20/class",
+      "captured": "2026-06-03 schedule-hunt (adult Function/Sweat/Mixed-Modality blocks; youth Teens/Kids slots excluded). Titles carry a strength/cardio/conditioning keyword so they classify into Strength & Cardio.",
+      "classes": [
+        {"title": "Functional Strength (5:00 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "05:00", "end": "06:00"},
+        {"title": "Sweat Cardio (5:30 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "05:30", "end": "06:30"},
+        {"title": "Functional Strength (6:15 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "06:15", "end": "07:15"},
+        {"title": "Sweat Cardio (8:30 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "08:30", "end": "09:30"},
+        {"title": "Functional Strength (3:05 PM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "15:05", "end": "16:05"},
+        {"title": "Mixed Modality Conditioning (4:15 PM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "16:15", "end": "17:15"},
+        {"title": "Sweat Cardio (5:15 PM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "17:15", "end": "18:15"},
+        {"title": "Functional Strength (5:30 PM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "17:30", "end": "18:30"},
+        {"title": "Functional Strength (Sat 8 AM)", "days": ["saturday"], "start": "08:00", "end": "09:00"}
+      ]
+    },
+    {
+      "provider_name": "Feelin' Good Fitness",
+      "location_name": "Feelin' Good Fitness",
+      "location_address": "1850 McCulloch Blvd N, Lake Havasu City, AZ 86403",
+      "entity_id": "6caa04c2-e6d1-4567-963f-a25e4f3c05a0",
+      "contact_url": "https://feelingoodfitness.com/",
+      "source_url": "https://feelingoodfitness.com/",
+      "activity_category": "classes-sports-recreation",
+      "tags": ["hiit", "strength", "fitness", "classes-sports-recreation"],
+      "confidence": 0.85,
+      "captured": "2026-06-03 schedule-hunt (HIIT/Strength group training; same time slots run M-F, Sun closed). Titles carry HIIT/Strength so they classify into Strength & Cardio.",
+      "classes": [
+        {"title": "HIIT & Strength (5:00 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "05:00", "end": "06:00"},
+        {"title": "HIIT & Strength (6:15 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "06:15", "end": "07:15"},
+        {"title": "HIIT & Strength (8:00 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "08:00", "end": "09:00"},
+        {"title": "HIIT & Strength (9:45 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "09:45", "end": "10:45"},
+        {"title": "HIIT & Strength (11:00 AM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "11:00", "end": "12:00"},
+        {"title": "HIIT & Strength (4:00 PM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "16:00", "end": "17:00"},
+        {"title": "HIIT & Strength (5:15 PM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "17:15", "end": "18:15"},
+        {"title": "HIIT & Strength (6:30 PM)", "days": ["monday", "tuesday", "wednesday", "thursday", "friday"], "start": "18:30", "end": "19:30"},
+        {"title": "HIIT & Strength (Sat 7:00 AM)", "days": ["saturday"], "start": "07:00", "end": "08:00"},
+        {"title": "HIIT & Strength (Sat 8:15 AM)", "days": ["saturday"], "start": "08:15", "end": "09:15"},
+        {"title": "HIIT & Strength (Sat 9:45 AM)", "days": ["saturday"], "start": "09:45", "end": "10:45"}
+      ]
     }
   ]
 }
