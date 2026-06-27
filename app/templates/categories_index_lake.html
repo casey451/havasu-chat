@@ -42,7 +42,7 @@
      #search so the field is focused on arrival (see the inline script below). #}
   <form class="dirsearch" id="dirsearch" role="search" action="/search" method="get">
     <svg class="ds-ic" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
-    <input id="dir-q" name="q" type="search" aria-label="Search the Lake Havasu directory" placeholder="Search listings: plumber, tacos open now, vet" autocomplete="off">
+    <input id="dir-q" name="q" type="search" aria-label="Search the Lake Havasu directory" placeholder="Search Lake Havasu listings" autocomplete="off" data-rotating-placeholder>
     <button class="ds-go" type="submit">Search</button>
   </form>
 
@@ -64,4 +64,9 @@
   if (el) { el.focus(); el.scrollIntoView({ block: "center" }); }
 })();
 </script>
+{% endblock %}
+
+{% block scripts %}
+{# Rotating example searches in the directory search box (data-rotating-placeholder). #}
+<script src="{{ static_url('/static/js/rotating_placeholder.js') }}" defer></script>
 {% endblock %}

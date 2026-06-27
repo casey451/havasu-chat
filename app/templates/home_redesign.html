@@ -87,7 +87,7 @@
 <div class="searchwrap rise" style="animation-delay:40ms">
   <form class="search" role="search" action="/chat" method="get">
     <span class="mag">{{ icon('search', 18) }}</span>
-    <input id="rd-search" name="q" type="search" aria-label="Search events, places, food, or the lake" placeholder="Search events, places, food, or the lake…" autocomplete="off">
+    <input id="rd-search" name="q" type="search" aria-label="Search events, places, food, or the lake" placeholder="Search Lake Havasu listings" autocomplete="off" data-rotating-placeholder>
     <button class="go" type="submit" aria-label="Search">{{ icon('arrow', 18) }}</button>
   </form>
 </div>
@@ -172,4 +172,10 @@
   </aside>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+{# Rotating example searches in the hero box (data-rotating-placeholder);
+   placeholder-only, clears + stops on focus. See rotating_placeholder.js. #}
+<script src="{{ static_url('/static/js/rotating_placeholder.js') }}" defer></script>
 {% endblock %}
