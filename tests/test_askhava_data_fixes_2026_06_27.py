@@ -225,3 +225,77 @@ def test_merge_aborts_on_missing_keeper() -> None:
     import scripts.merge_havasu_lanes_2026_06_27 as merge
 
     assert merge.main(["--keep-slug", f"nonexistent-{uuid.uuid4().hex}"]) == 2
+
+
+# --------------------------------------------------------------------------- #
+# Publish captured gym schedules to the calendar (allowlist-scoped)            #
+# --------------------------------------------------------------------------- #
+def test_publish_gym_schedules_scopes_to_allowlist(monkeypatch) -> None:
+    import scripts.import_captured_schedules as imp
+    import scripts.publish_strength_gym_schedules_2026_06_27 as pub
+    from app.db import contribution_store as cs
+    from app.db.models import Contribution, Schedule
+    from app.schemas.contribution import ContributionCreate
+
+    suf = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        gym = _provider(db, f"Test Gym {suf}")
+        other = _provider(db, f"Other Venue {suf}")
+        gym_eid, other_eid = gym.entity_id, other.entity_id
+        db.commit()
+
+        def _pending(name: str, eid: str, title: str) -> str:
+            fields = imp._to_program_fields(
+                {"provider_name": name, "location_name": name, "tags": []},
+                {"title": title, "days": ["monday"], "start": "05:00", "end": "06:00"},
+            )
+            row = cs.create_contribution(db, ContributionCreate(
+                entity_type="program", submission_name=f"{name} — {title}",
+                source="schedule_scrape", confidence=0.85, target_entity_id=eid,
+                proposed_record=fields.model_dump(), unverified=True,
+            ))
+            db.commit()
+            return row.id
+
+        gym_cid = _pending(f"Test Gym {suf}", gym_eid, "CrossFit WOD")
+        other_cid = _pending(f"Other Venue {suf}", other_eid, "Yoga Flow")
+
+    # Only the allowlisted gym entity is published; the other stays pending.
+    monkeypatch.setattr(pub, "GYM_ENTITY_IDS", {gym_eid: f"Test Gym {suf}"})
+    assert pub.main(["--apply"]) == 0
+
+    with SessionLocal() as db:
+        assert db.get(Contribution, gym_cid).status == "approved"
+        assert db.get(Contribution, other_cid).status == "pending"
+        assert db.query(Schedule).filter(Schedule.entity_id == gym_eid).count() >= 1
+        assert db.query(Schedule).filter(Schedule.entity_id == other_eid).count() == 0
+
+
+def test_publish_gym_schedules_dry_run_publishes_nothing(monkeypatch) -> None:
+    import scripts.import_captured_schedules as imp
+    import scripts.publish_strength_gym_schedules_2026_06_27 as pub
+    from app.db import contribution_store as cs
+    from app.db.models import Contribution
+    from app.schemas.contribution import ContributionCreate
+
+    suf = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        gym = _provider(db, f"Test Gym {suf}")
+        gym_eid = gym.entity_id
+        db.commit()
+        fields = imp._to_program_fields(
+            {"provider_name": f"Test Gym {suf}", "location_name": f"Test Gym {suf}", "tags": []},
+            {"title": "WOD", "days": ["monday"], "start": "05:00", "end": "06:00"},
+        )
+        row = cs.create_contribution(db, ContributionCreate(
+            entity_type="program", submission_name=f"Test Gym {suf} — WOD",
+            source="schedule_scrape", confidence=0.85, target_entity_id=gym_eid,
+            proposed_record=fields.model_dump(), unverified=True,
+        ))
+        db.commit()
+        cid = row.id
+
+    monkeypatch.setattr(pub, "GYM_ENTITY_IDS", {gym_eid: f"Test Gym {suf}"})
+    assert pub.main([]) == 0
+    with SessionLocal() as db:
+        assert db.get(Contribution, cid).status == "pending"
