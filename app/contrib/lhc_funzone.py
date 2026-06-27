@@ -152,34 +152,23 @@ IN_TOWN_VENUES: tuple[FunVenue, ...] = (
 )
 
 
-# Themed recurring sessions (Appendix A). Cosmic Bowling splits into the Friday
-# family night and the late Saturday session; Glow in the Park is Altitude's
-# Saturday glow event. Each is published as a distinct dated, timed event with
+# Themed recurring sessions (Appendix A). Glow in the Park is Altitude's
+# Saturday glow event, published as a distinct dated, timed event with
 # ``facet:special`` so it never collapses into the venue's hours.
+#
+# Havasu Lanes' glow-bowling sessions used to live here too ("Family Cosmic
+# Bowling" Fri + "Cosmic Bowling" Sat). They were removed on 2026-06-26: the
+# Havasu Lanes glow-bowling night is now owned by the dated "Cosmic Bowling"
+# series (the former "Rock & Bowl — Family Glow Bowling" rows, Fri+Sat 6pm,
+# carrying real pricing + future dates). Emitting them here too produced a
+# same-place/same-time duplicate (Casey's rule). Havasu Lanes still gets its
+# venue-hours rows via ``funzone_hours_event_specs``; only the special-session
+# duplicate is gone.
 def _venue(name: str) -> FunVenue:
     return next(v for v in IN_TOWN_VENUES if v.name == name)
 
 
 SPECIAL_SESSIONS: tuple[SpecialSession, ...] = (
-    SpecialSession(
-        title="Family Cosmic Bowling",
-        venue=_venue("Havasu Lanes & Keglers Pub"),
-        weekday=4,  # Friday
-        start_time="18:00",
-        end_time="21:00",
-        description="Family Cosmic Bowling at Havasu Lanes — lights-down glow bowling with "
-                    "music, every Friday 6–9pm. See havasulanesaz.com/SPECIALS.",
-        family_friendly=True,
-    ),
-    SpecialSession(
-        title="Cosmic Bowling",
-        venue=_venue("Havasu Lanes & Keglers Pub"),
-        weekday=5,  # Saturday
-        start_time="21:00",
-        end_time=None,  # 9pm–midnight (open-ended to avoid a 24:00 end)
-        description="Late-night Cosmic Bowling at Havasu Lanes — glow bowling with music, "
-                    "every Saturday 9pm–midnight. See havasulanesaz.com/SPECIALS.",
-    ),
     SpecialSession(
         title="Glow in the Park",
         venue=_venue("Altitude Trampoline Park"),

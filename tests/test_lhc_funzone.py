@@ -73,22 +73,22 @@ def test_special_sessions_are_dated_and_facet_special() -> None:
         assert s.start_time  # timed destination event
         assert s.source_anchor.startswith("funspecial|")
     titles = {s.title for s in specs}
-    assert "Cosmic Bowling" in titles or "Family Cosmic Bowling" in titles
     assert "Glow in the Park" in titles
-    # Cosmic Bowling (Sat) lands only on a Saturday.
-    sat = next(s for s in specs if s.title == "Cosmic Bowling")
+    # Glow in the Park (Sat) lands only on a Saturday.
+    sat = next(s for s in specs if s.title == "Glow in the Park")
     assert sat.date.weekday() == 5
 
 
 def test_special_titles_route_to_their_venue_type() -> None:
     # Casey 2026-06-26: no Special Sessions silo — a themed session nests under its
-    # venue type (Cosmic Bowling → Bowling; Glow in the Park → Trampoline).
+    # venue type (Glow in the Park → Trampoline). The Havasu Lanes Cosmic Bowling
+    # sessions were removed from this loader on 2026-06-26 (the dated "Cosmic
+    # Bowling" series owns that listing now), so Glow in the Park is the lone
+    # special session here.
     by_title = {
         s.title: classify_events_subgroup(s.title, s.tags)
         for s in funzone_special_event_specs(today=date(2026, 6, 29), window_days=7)
     }
-    assert by_title.get("Cosmic Bowling") == "Bowling"
-    assert by_title.get("Family Cosmic Bowling") == "Bowling"
     assert by_title.get("Glow in the Park") == "Trampoline"
 
 
@@ -103,7 +103,7 @@ def test_hours_titles_route_to_their_venue_type() -> None:
 
 
 def test_special_sessions_count_matches_weekdays_in_window() -> None:
-    # Over exactly 7 days from a Monday: Friday family cosmic ×1, Saturday cosmic
-    # ×1, Saturday glow ×1 = 3 specials.
+    # Over exactly 7 days from a Monday: Saturday glow ×1 = 1 special (the lone
+    # remaining session after the Cosmic Bowling sessions were removed 2026-06-26).
     specs = funzone_special_event_specs(today=date(2026, 6, 29), window_days=7)
     assert len(specs) == len(SPECIAL_SESSIONS)
