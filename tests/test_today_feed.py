@@ -465,7 +465,7 @@ def test_feed_empty_day_has_no_groups() -> None:
 
 def test_open_venue_rows_have_no_open_prefix() -> None:
     """FIX_DAYPICKER item 5: open-all-day venue rows read as a bare hours range
-    ("12–10 PM"), not "Open 12–10 PM" — uniform with every other feed row."""
+    ("12 PM–10 PM"), not "Open 12 PM–10 PM" — uniform with every other feed row."""
     sat = date(2099, 7, 18)  # Saturday — the drop-in family venues publish hours.
     with SessionLocal() as db:
         feed = today_feed(db, day=sat, now=datetime(2099, 7, 18, 6, 0, tzinfo=_LHC))

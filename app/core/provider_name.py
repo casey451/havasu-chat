@@ -36,6 +36,28 @@ def clean_name(value: str | None) -> str:
     return value.split("|", 1)[0].rstrip()
 
 
+def time12h(value: str | None) -> str:
+    """Convert a 24-hour ``"HH:MM"`` string to a 12-hour label.
+
+    ``"12:00"`` → ``"12 PM"``, ``"21:00"`` → ``"9 PM"``, ``"18:30"`` → ``"6:30 PM"``.
+    Place-page hours store structured spans as 24-hour strings, but a consumer
+    audience reads 12-hour (site review §6). Unparseable input is returned
+    unchanged.
+    """
+    if not value:
+        return value or ""
+    s = str(value).strip()
+    hh, _, mm = s.partition(":")
+    if not (hh.isdigit() and mm.isdigit()):
+        return s
+    h, m = int(hh), int(mm)
+    if not (0 <= h <= 24 and 0 <= m < 60):
+        return s
+    mer = "AM" if (h % 24) < 12 else "PM"
+    h12 = h % 12 or 12
+    return f"{h12} {mer}" if m == 0 else f"{h12}:{m:02d} {mer}"
+
+
 def register_template_filters(templates_or_env: "object") -> None:
     """Register CLUSTER-08 Jinja filters on a ``Jinja2Templates`` or ``Environment``.
 
@@ -53,6 +75,7 @@ def register_template_filters(templates_or_env: "object") -> None:
     """
     env = getattr(templates_or_env, "env", templates_or_env)
     env.filters["clean_name"] = clean_name
+    env.filters["time12h"] = time12h
     # SEO P1.8: shared meta-description sanitizer (newline collapse +
     # sentence-boundary truncation) for description/og:description tags.
     from app.seo.meta import meta_description

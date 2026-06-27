@@ -85,10 +85,13 @@ def clean_event_title(title: str | None, *, location_name: str | None = None) ->
     t = _TIME_RE.sub(" ", t)
     # 5. Trailing month-day date ("June 25").
     t = _TRAILING_DATE_RE.sub("", t).strip(_TRIM_CHARS)
-    # 6. Redundant trailing "at {venue}".
+    # 6. Redundant trailing venue echo: "Yoga at Foo", and the separator forms
+    #    "Golf Course — Foo" / "Sims · Foo" / "Class - Foo" that just repeat the
+    #    venue already shown beside the title (site review §6).
     if location_name and location_name.strip():
         loc = re.escape(location_name.strip())
         t = re.sub(rf"\s+at\s+{loc}\s*$", "", t, flags=re.IGNORECASE).strip()
+        t = re.sub(rf"\s*[-–—·|]\s*{loc}\s*$", "", t, flags=re.IGNORECASE).strip(_TRIM_CHARS)
     # 7. Trailing known-instructor first name (+ any dangling "with"/"by").
     parts = t.split()
     if len(parts) >= 2 and parts[-1].lower().strip(".,") in INSTRUCTOR_NAMES:
