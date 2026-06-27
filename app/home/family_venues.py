@@ -129,8 +129,11 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
         kind="Bowling",
         url="https://www.havasulanesaz.com/",
         address="2128 McCulloch Blvd N",
-        age_note="Bumper lanes & arcade for kids · Rock & Bowl black-light "
-        "bowling Fri & Sat 6 PM–close",
+        # NB: the Rock & Bowl / Cosmic glow night is NOT mentioned here — it is
+        # owned by the dated "Cosmic Bowling" event series (havasu_lanes scraper),
+        # which renders as its own row inline under Bowling. Repeating it in the
+        # hours-row blurb made Cosmic Bowling read twice (Casey, 2026-06-27).
+        age_note="Bumper lanes & arcade for kids",
         # Source: havasulanesaz.com home (Hours of Operation) + SPECIALS page
         # (Rock & Bowl cosmic/neon nights), read Jun 2026. 32-lane center.
         hours={
