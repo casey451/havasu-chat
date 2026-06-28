@@ -62,6 +62,17 @@ _MOVES: tuple[tuple[str, str, str], ...] = (
     ("relax mobile massage", "day-spas-and-massage", "massage, not a chiropractor"),
     ("loaded gun coffee", "cafes-and-coffee", "coffee shop, not specialty food"),
     ("islander rv resort", "rv-parks-and-campgrounds", "RV resort (lodging), not RV service"),
+    # --- batch 3 (audit §4: non-parks dumped in Parks/Beaches; misc) ---
+    ("havasu pools & repairs", "pools-and-spas", "pool service, not a park"),
+    ("blue persuasion", "pools-and-spas", "pool service, not a park"),
+    # "Toy Brokers Havasu" is the golf-cart dealer (vs unrelated "AZ Toy Brokers").
+    ("toy brokers havasu", "golf-carts", "golf-cart dealer, not a park"),
+    ("grill max", "restaurants", "restaurant, not a park"),
+    # "Bogeys & Stogies" and "Rentals on the Beach" are duplicate PAIRS (renamed
+    # + old) — deferred to manual dedup, not auto-moved here.
+    ("htm performance", "boat-sales", "boat dealer/manufacturer, not a park"),
+    ("farm fresh", "smoke-vape-and-cannabis", "cannabis dispensary, not a doctor"),
+    ("simply savage", "print-signs-and-marketing", "print/design shop, not a museum"),
 )
 
 
