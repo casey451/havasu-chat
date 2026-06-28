@@ -50,6 +50,7 @@ from app.contrib.event_record import (
     EventRecord,
     canonicalize_venue,
     extract_cost_from_text,
+    strip_cost_prefix,
 )
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
@@ -130,9 +131,14 @@ def _http_url_or_none(url: str | None) -> str | None:
 
 
 def _location_name(rec: EventRecord) -> str:
+    # ED-cost: peel a price token a feed bled into the venue ("$45 - Aquatic
+    # Center") before tidying, so it never reaches the displayed "Where". A venue
+    # that is ONLY a price strips to nothing -> None -> the "Lake Havasu City"
+    # default below, rather than echoing the cost back.
+    venue_raw = strip_cost_prefix(rec.venue_name)
     # Fix 2.7 — canonicalize first (collapse "Lake Havasu City, Lake Havasu City,
     # AZ" doubling and adjacent repeats), then the existing glued-city / tail tidy.
-    name = normalize_location_text(canonicalize_venue(rec.venue_name) or rec.venue_name)
+    name = normalize_location_text(canonicalize_venue(venue_raw) or venue_raw)
     # P1: title-as-venue artifact — some feeds put the event TITLE in the venue
     # field, producing rows whose "Where" repeats the event name. Drop it (fall
     # back to the city) rather than show "Sunset Paddle @ Sunset Paddle".
