@@ -53,6 +53,15 @@ _MOVES: tuple[tuple[str, str, str], ...] = (
     ("303tattoo", "tattoo-and-piercing", "tattoo studio, not a museum"),
     ("universal sonics", "kids-classes-and-camps", "kids gymnastics/cheer, not a gym"),
     ("lake havasu golf club east", "golf-courses", "golf course, mis-tagged disc golf"),
+    # --- batch 2 (audit §4 category-by-category; clear targets) ---
+    # NB: "Lions Dog Park" and "Nautical Watersports" are duplicate PAIRS — they
+    # need a dedup+rehome, deferred to manual, not auto-moved here.
+    ("campbell cove complex", "self-storage", "boat/RV self-storage, not a beach"),
+    ("wolf watersports", "boat-sales", "boat dealership, not jet-ski rentals"),
+    ("kaizen golf", "golf-courses", "golf academy, not a gym"),
+    ("relax mobile massage", "day-spas-and-massage", "massage, not a chiropractor"),
+    ("loaded gun coffee", "cafes-and-coffee", "coffee shop, not specialty food"),
+    ("islander rv resort", "rv-parks-and-campgrounds", "RV resort (lodging), not RV service"),
 )
 
 
