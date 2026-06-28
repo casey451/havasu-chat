@@ -37,6 +37,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
+from app.contrib.lhc_golf import golf_hours_rows
 from app.core.timezone import to_lake_naive
 from app.db.models import Event
 from app.events.activity_taxonomy import (
@@ -160,9 +161,10 @@ def _event_row(ev: Event) -> dict[str, Any]:
     tags = list(ev.tags or [])
     label = _row_time_label(ev.title or "", ev.start_time, ev.end_time)
     # A venue-hours row (facet:hours) with no real clock time reads "Hours vary"
-    # rather than "Time TBD" — e.g. golf course/range/simulator all-day rows
-    # (Casey 2026-06-26). Curated funzone-hours rows show real hours instead and
-    # never reach this path.
+    # rather than "Time TBD" — a last-resort fallback only. The funzone AND golf
+    # venue-hours rows now render from their curated registries (real clock spans /
+    # honest labels) and their DB twins are render-filtered, so they never reach
+    # this path (Casey 2026-06-28).
     if label == TIME_TBD_LABEL and any(
         str(t).strip().lower() == "facet:hours" for t in tags
     ):
@@ -198,6 +200,15 @@ def _is_funzone_db_hours(tags: list[str] | None) -> bool:
     if "facet:hours" not in tagset:
         return False
     return any(f"activity:{slug}" in tagset for slug in _FUNZONE_HOURS_SLUGS)
+
+
+def _is_golf_db_hours(tags: list[str] | None) -> bool:
+    """True for a DB Event row that is a golf venue's all-day hours line
+    (``activity:golf`` + ``facet:hours``) — superseded at render by the curated
+    golf-hours rows (real clock spans / honest labels instead of "Hours vary").
+    The dated golf EVENTS (facet:special — e.g. a Family Night) are NOT dropped."""
+    tagset = {str(t).strip().lower() for t in (tags or [])}
+    return "facet:hours" in tagset and "activity:golf" in tagset
 
 
 def _row_has_special(row: dict[str, Any]) -> bool:
@@ -450,10 +461,11 @@ def day_groups(
     senior_overlay: list[dict[str, Any]] = []
     overlay_ok = not family and not seniors  # overlays/youth subs off under a narrow
     for ev in events:
-        # Funzone venue HOURS now render from the curated registry (real times),
-        # so drop any lingering DB all-day funzone hours row to avoid a duplicate.
-        # The themed funzone EVENTS (facet:special cosmic/glow) are NOT dropped.
-        if _is_funzone_db_hours(ev.tags):
+        # Funzone + golf venue HOURS now render from the curated registries (real
+        # times / honest labels), so drop any lingering DB all-day hours row to
+        # avoid a duplicate. The themed EVENTS (facet:special cosmic/glow, golf
+        # Family Night) are NOT dropped.
+        if _is_funzone_db_hours(ev.tags) or _is_golf_db_hours(ev.tags):
             continue
         gkey = _group_for(
             title=ev.title or "",
@@ -528,6 +540,15 @@ def day_groups(
     # narrow (the family/senior narrow is already that audience).
     if overlay_ok and not events_only:
         rows_by_group["events"].extend(funzone_hours_rows(day))
+        # Golf venue hours route by their venue-kind tags (courses → Sports &
+        # Fitness, range/simulators → Things to Do), so place each via _group_for
+        # rather than forcing one group like funzone.
+        for r in golf_hours_rows(day):
+            gkey = _group_for(
+                title=r.get("title") or "", tags=r.get("tags"),
+                featured=False, recurring=False,
+            )
+            _route_occurrence(r, gkey, rows_by_group, senior_overlay, is_senior=False)
 
     # Events-only mode (legacy month grid / week rollups): keep only dated
     # happenings — venue hours and recurring class rosters are filtered out.
@@ -722,6 +743,8 @@ def places_groups(
     while day <= end:
         for r in funzone_hours_rows(day):
             _consider(r, recurring=False)
+        for r in golf_hours_rows(day):
+            _consider(r, recurring=False)
         for r in class_today_rows(day):
             _consider(r, recurring=True)
         day += timedelta(days=1)
@@ -740,8 +763,8 @@ def places_groups(
         )
     for _d, evs in _live_events_by_day(db, window_start=today, window_end=end).items():
         for ev in evs:
-            if _is_funzone_db_hours(ev.tags):
-                continue  # superseded by the curated funzone-hours rows above
+            if _is_funzone_db_hours(ev.tags) or _is_golf_db_hours(ev.tags):
+                continue  # superseded by the curated funzone/golf-hours rows above
             _consider(_event_row(ev), recurring=bool(ev.is_recurring))
     day = today
     while day <= end:
@@ -916,17 +939,32 @@ def week_rows(
         for gkey, n in sched_by_day.get(d, {}).items():
             counts[gkey] = counts.get(gkey, 0) + n
         # Mirror the curated rows the day view injects (youth studio classes →
-        # Fitness; funzone venue hours → Things to Do) so the rollup agrees with
-        # the rendered group counts. Suppressed under a narrow, same as the day.
+        # Fitness; funzone venue hours → Things to Do; golf venue hours → by
+        # venue-kind) so the rollup agrees with the rendered group counts.
+        # Suppressed under a narrow, same as the day.
         if not seniors and not events_only:
             counts["classes"] += len(class_today_rows(d))
         if not family and not seniors and not events_only:
             counts["events"] += len(funzone_hours_rows(d))
+            # Golf hours route by venue-kind (courses → classes, range/sim →
+            # events), so count each into the group the day view renders it in.
+            for r in golf_hours_rows(d):
+                gkey = _group_for(
+                    title=r.get("title") or "", tags=r.get("tags"),
+                    featured=False, recurring=False,
+                )
+                for key in _occurrence_group_keys(
+                    gkey, title=r.get("title") or "", venue=r.get("venue"),
+                    activity=None, tags=r.get("tags"), is_senior=False,
+                ):
+                    counts[key] = counts.get(key, 0) + 1
         headline: dict[str, Any] | None = None
         best_key: tuple[int, int, time] | None = None
         for ev in by_day.get(d, []):
             if events_only and not _row_is_event(_event_row(ev)):
                 continue  # Calendar: skip recurring classes / venue-hours rows
+            if _is_funzone_db_hours(ev.tags) or _is_golf_db_hours(ev.tags):
+                continue  # venue hours render from the curated registry (counted above)
             tier = _event_tier(
                 title=ev.title or "",
                 tags=ev.tags,

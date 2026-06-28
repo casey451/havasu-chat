@@ -148,7 +148,10 @@ def test_funzone_hours_show_real_times_and_collapse_when_no_event() -> None:
     assert events["open"] is False
 
 
-def test_golf_hours_read_hours_vary_not_time_tbd() -> None:
+def test_golf_hours_read_real_label_not_hours_vary() -> None:
+    # Item 1 (Casey 2026-06-28): golf course hours now render from the curated
+    # registry with an honest label ("Open daily" / "Tee times daily") — never
+    # "Hours vary" / "Time TBD" — and the DB all-day twin is render-filtered.
     s = uuid.uuid4().hex[:6]
     title = f"Golf Course — ZZ Links {s}"
     eids: list[str] = []
@@ -162,7 +165,10 @@ def test_golf_hours_read_hours_vary_not_time_tbd() -> None:
         classes = next(g for g in groups if g["key"] == "classes")
         golf_rows = [r for sub in classes.get("subgroups", []) if sub["label"] == "Golf — courses"
                      for r in sub["rows"]]
-        row = next(r for r in golf_rows if title in r["title"])
-        assert row["time_label"] == "Hours vary"  # never "Time TBD"
+        # The synthetic DB all-day hours row is filtered out (replaced by curated).
+        assert not any(title in r["title"] for r in golf_rows)
+        # Curated course rows are present and every one carries a real label.
+        assert golf_rows
+        assert all(r["time_label"] not in ("Hours vary", "Time TBD") for r in golf_rows), golf_rows
     finally:
         _cleanup(eids)

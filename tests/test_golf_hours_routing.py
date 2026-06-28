@@ -114,25 +114,65 @@ def _add(db, *, title, tags) -> str:
 
 
 def test_golf_range_hours_render_under_things_to_do_golf_subgroup() -> None:
-    # Phase 2: a Top Tracer range row renders in Things to Do → "Golf — simulators
-    # & Top Tracer" → "Top Tracer driving range" (NOT Fitness).
+    # The CURATED Top Tracer range row renders in Things to Do → "Golf —
+    # simulators & Top Tracer" → "Top Tracer driving range" (NOT Fitness), with a
+    # REAL label ("Open 6 days/wk") rather than "Hours vary". Its DB all-day twin
+    # is render-filtered (2026-06-28).
+    with SessionLocal() as db:
+        groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
+    by_key = {g["key"]: {r["title"] for r in g["rows"]} for g in groups}
+    assert any("Iron Wolf Top Tracer Range" in t for t in by_key.get("events", set()))
+    assert not any("Iron Wolf Top Tracer Range" in t for t in by_key.get("classes", set()))
+    events = next(g for g in groups if g["key"] == "events")
+    golf = next(sub for sub in events["subgroups"]
+                if sub["label"] == "Golf — simulators & Top Tracer")
+    rng = next(c for c in golf["children"] if c["label"] == "Top Tracer driving range")
+    row = next(r for r in rng["rows"] if "Iron Wolf Top Tracer Range" in r["title"])
+    assert row["time_label"] == "Open 6 days/wk"
+
+
+def test_golf_venue_hours_show_real_labels_not_hours_vary() -> None:
+    # Item 1 (Casey 2026-06-28): every curated golf venue shows a real clock span
+    # or an honest fixed label — never "Hours vary" / "Time TBD".
+    from app.contrib.lhc_golf import golf_hours_rows
+
+    rows = golf_hours_rows(_MONDAY.date())  # a Monday
+    assert rows, "expected curated golf hours rows"
+    labels = {r["title"]: r["time_label"] for r in rows}
+    assert all(lbl not in ("Hours vary", "Time TBD") for lbl in labels.values()), labels
+    # Real clock span for the simulator lounge with published hours (Mon 9 AM–10 PM).
+    assert any("Golf n' Brews" in t and lbl == "9 AM–10 PM" for t, lbl in labels.items()), labels
+    # Honest fixed labels for the seasonal / by-tee-time / always-open venues.
+    assert any("Lake Havasu Golf Club" in t and lbl == "Tee times daily"
+               for t, lbl in labels.items()), labels
+    assert any("Back Nine" in t and lbl == "Open 24/7" for t, lbl in labels.items()), labels
+
+
+def test_golf_n_brews_friday_midnight_span_is_unambiguous() -> None:
+    # Fri/Sat close at midnight → "9 AM–12 AM" (both meridiems kept), not "9–12 AM".
+    from datetime import date as _date
+
+    from app.contrib.lhc_golf import golf_hours_rows
+
+    fri = golf_hours_rows(_date(2099, 7, 17))  # a Friday
+    row = next(r for r in fri if "Golf n' Brews" in r["title"])
+    assert row["time_label"] == "9 AM–12 AM"
+
+
+def test_golf_db_hours_rows_are_render_filtered() -> None:
+    # A DB all-day golf facet:hours row is dropped at render (replaced by curated),
+    # so no double-up with the curated registry.
     s = uuid.uuid4().hex[:6]
-    title = f"Driving Range — Toptracer — Iron Wolf {s}"
+    title = f"Golf Course — Synthetic {s}"
     eids: list[str] = []
     with SessionLocal() as db:
-        eids.append(_add(db, title=title, tags=["activity:golf", "facet:hours", "venue-kind:range"]))
+        eids.append(_add(db, title=title, tags=["activity:golf", "facet:hours", "venue-kind:course"]))
         db.commit()
     try:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
-        by_key = {g["key"]: {r["title"] for r in g["rows"]} for g in groups}
-        assert any(title in t for t in by_key.get("events", set()))
-        assert not any(title in t for t in by_key.get("classes", set()))
-        events = next(g for g in groups if g["key"] == "events")
-        golf = next(sub for sub in events["subgroups"]
-                    if sub["label"] == "Golf — simulators & Top Tracer")
-        rng = next(c for c in golf["children"] if c["label"] == "Top Tracer driving range")
-        assert any(title in r["title"] for r in rng["rows"])
+        all_titles = {r["title"] for g in groups for r in g["rows"]}
+        assert not any(title in t for t in all_titles), "synthetic DB golf hours row should be filtered"
     finally:
         with SessionLocal() as db:
             db.execute(delete(Event).where(Event.entity_id.in_(eids)))
