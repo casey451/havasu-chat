@@ -809,10 +809,40 @@ _QUERY_TO_LEAF_NEW_LEAVES_2026_06_20: dict[str, tuple[str, ...]] = {
     "pet-waste-removal": ("dog poop removal", "poop scooping", "dog waste removal"),
 }
 
+# 2026-06-28 intent-search alias pass (directory-audit §11). Each entry is a
+# category NOUN/phrase — NEVER a descriptive sentence (those stay conversational
+# by design; see test_leaf_query.test_normalize_leaves_descriptive_queries_unmatched)
+# — routing to an ALREADY-POPULATED leaf, closing the live-search gaps surfaced by
+# scripts/audit_search_intent_coverage_2026_06_28.py. These reach the keyword search
+# via the leaf-link bridge (app.search.routes._leaf_link_exists_predicate); a term
+# pointing at a sub-gate/empty leaf is a harmless no-op until it's seeded.
+_QUERY_TO_LEAF_SEARCH_ALIASES_2026_06_28: dict[str, tuple[str, ...]] = {
+    "hvac": ("swamp cooler", "swamp coolers", "swamp cooler repair", "evaporative cooler",
+        "evaporative coolers", "mini split", "ductless mini split", "ac install",
+        "ac installation", "ac tune up", "new ac unit", "ac unit"),
+    "roofing": ("leaky roof", "roof leak", "roof leak repair"),
+    "pest-control": ("bug guy", "bug man"),
+    "plumbing": ("water heater", "water heaters", "water heater repair",
+        "water heater installation", "water heater replacement", "tankless water heater"),
+    "title-and-escrow": ("title company", "title companies", "escrow company"),
+    "pools-and-spas": ("pool pump", "pool pumps", "pool equipment", "pool filter"),
+    "vacation-rentals": ("airbnb", "air bnb", "vrbo", "short term rental",
+        "short term rentals", "vacation home", "vacation homes"),
+    "veterinarians": ("emergency vet", "emergency veterinarian", "24 hour vet", "24 hr vet"),
+    "utilities": ("trash pickup", "trash service", "garbage pickup", "garbage service",
+        "recycling", "recycling center", "water company", "electric company",
+        "power company", "gas company"),
+    "gifts-and-boutiques": ("gift shops", "gift store", "gift stores"),
+    "primary-care": ("pediatrician", "pediatricians", "pediatrics"),
+}
+
 for _leaf_slug, _terms in _QUERY_TO_LEAF_EXPANSION_2026_06_20.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 for _leaf_slug, _terms in _QUERY_TO_LEAF_NEW_LEAVES_2026_06_20.items():
+    for _term in _terms:
+        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
+for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ALIASES_2026_06_28.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 for _term, _leaf_slug in _QUERY_TO_LEAF_BARE_FORMS_2026_06_20.items():
