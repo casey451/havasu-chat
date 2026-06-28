@@ -279,11 +279,16 @@ _SCRAPE_EVENT_SOURCES = frozenset(
 # council/board agendas, lhusd school calendar) auto-approve; aggregators like
 # allevents are deliberately NOT here, so they land pending for human review.
 #
-# Vision sources (2026-06-24): the Parks & Rec calendar/flyer and senior-center
-# flyer vision scrapers auto-approve only their CLEAN rows. Registry membership is
-# necessary but NOT sufficient for them — ``event_ingest`` ANDs this with the
-# per-row vision guards (confidence/self-check hold, weekday-mismatch; ambiguous +
-# cross-source dups are already held upstream), so a guessed row never lands live.
+# Sustainable-sourcing decision (2026-06-28): the events catalog only auto-
+# publishes data from STRUCTURED, re-pullable feeds (city CivicPlus iCal/RSS,
+# go_lake_havasu JSON-LD, chamber, legistar, lhusd) -- never one-off OCR reads.
+# The Parks & Rec calendar/flyer and senior-center flyer VISION sources were
+# auto-approving their "clean" rows (2026-06-24), but flyer OCR has no re-pullable
+# ground truth: it produced cross-contaminated craft/fishing descriptions and an
+# unverifiable event date. So the three vision sources are removed here -- they
+# keep ingesting (nothing is lost) but now land PENDING for human review, exactly
+# like the ``allevents`` aggregator. Flyer-only content still matters; it must be
+# human-confirmed before publish, never auto-fabricated.
 _DEFAULT_AUTO_APPROVE_EVENT_SOURCES = frozenset(
     {
         "chamber",
@@ -292,9 +297,6 @@ _DEFAULT_AUTO_APPROVE_EVENT_SOURCES = frozenset(
         "river_scene_import",
         "legistar",
         "lhusd",
-        "parks_rec_calendar",
-        "parks_rec_flyers",
-        "senior_center_flyers",
     }
 )
 

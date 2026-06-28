@@ -1,9 +1,14 @@
-"""One-time backfill: auto-approve already-PENDING CLEAN vision events (2026-06-25).
+"""Backfill of PENDING vision events is NEUTRALIZED by the review gate (2026-06-28).
 
-#514 auto-publishes CLEAN vision rows on FUTURE ingest; this backfill applies the
-SAME gate to rows that already landed pending. These exercise the reusable decision
-``backfill_pending_vision_contribution`` (and the script's selection query) against
-the test DB.
+The backfill script (``scripts/backfill_vision_auto_approve.py``) once promoted
+clean pending Parks & Rec / senior-center vision rows to live, reusing the
+production decision ``backfill_pending_vision_contribution``. The
+sustainable-sourcing decision removed the three vision sources from the
+auto-approve registry, so that shared decision now holds EVERY vision row as
+``not registry-eligible`` -- the backfill promotes nothing. These tests lock that
+invariant in: even the old promotion path can no longer publish a vision row;
+``/admin`` review is the only route. (The vision *guards* -- weekday-mismatch,
+should_hide -- still fire first, so their precedence is preserved.)
 """
 
 from __future__ import annotations
@@ -11,6 +16,8 @@ from __future__ import annotations
 import re
 import uuid
 from datetime import date, time
+
+import pytest
 
 from app.contrib.event_ingest import (
     backfill_pending_vision_contribution,
@@ -23,6 +30,7 @@ from app.schemas.contribution import ContributionCreate
 
 PARKS_VENUE = "Lake Havasu City Parks & Recreation"
 _WD = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+VISION_SOURCES = ("parks_rec_calendar", "parks_rec_flyers", "senior_center_flyers")
 
 
 def _pending(
@@ -53,35 +61,36 @@ def _pending(
 
 
 # --------------------------------------------------------------------------- #
-# Clean rows approve through the canonical path.
+# Clean vision rows are now HELD (not registry-eligible) -- nothing publishes.
 # --------------------------------------------------------------------------- #
-def test_clean_pending_calendar_row_approves() -> None:
+@pytest.mark.parametrize("source", VISION_SOURCES)
+def test_clean_pending_vision_row_held_not_eligible(source: str) -> None:
     with SessionLocal() as db:
-        c = _pending(db, "parks_rec_calendar", when=date(2027, 7, 6))
+        c = _pending(db, source, when=date(2027, 7, 6))
         r = backfill_pending_vision_contribution(db, c, dry_run=False)
-        assert r.action == "approve"
-        assert r.reason == "approved"
-        assert r.event_id is not None
+        assert r.action == "hold"
+        assert r.reason == "not registry-eligible"
+        assert r.event_id is None
         db.refresh(c)
-        assert c.status == "approved"
-        assert c.created_event_id == r.event_id
+        assert c.status == "pending"  # stays in the review queue
+        assert c.created_event_id is None
 
 
-def test_dry_run_would_approve_writes_nothing() -> None:
+def test_dry_run_holds_and_writes_nothing() -> None:
     with SessionLocal() as db:
         c = _pending(db, "parks_rec_flyers", when=date(2027, 7, 7))
         r = backfill_pending_vision_contribution(db, c, dry_run=True)
-        assert r.action == "approve"
-        assert r.reason == "would_auto_approve"
-        assert r.event_id is None
+        assert r.action == "hold"
+        assert r.reason == "not registry-eligible"
         db.refresh(c)
         assert c.status == "pending"  # dry-run wrote nothing
 
 
 # --------------------------------------------------------------------------- #
-# Flagged rows stay pending.
+# The per-row guards still fire FIRST (precedence preserved over the gate).
 # --------------------------------------------------------------------------- #
-def test_weekday_mismatch_row_held() -> None:
+def test_weekday_mismatch_row_held_with_guard_reason() -> None:
+    """A weekday-mismatch row is held by its guard (before the registry gate)."""
     d = date(2027, 7, 9)
     a, b = _WD[(d.weekday() + 1) % 7], _WD[(d.weekday() + 2) % 7]
     with SessionLocal() as db:
@@ -119,26 +128,8 @@ def test_should_hide_gate_holds_via_reused_predicate() -> None:
     assert vision_record_should_hold(clean, source="parks_rec_calendar") is False
 
 
-def test_reconcile_duplicate_against_live_event_held() -> None:
-    """A pending row that now matches a live event is held (never double-booked)."""
-    d = date(2027, 7, 12)
-    title = f"Family Movie Night {uuid.uuid4().hex[:8]}"
-    with SessionLocal() as db:
-        first = _pending(db, "parks_rec_calendar", when=d, title=title)
-        r1 = backfill_pending_vision_contribution(db, first, dry_run=False)
-        assert r1.action == "approve"  # creates the live event
-
-        # A second pending row for the same title/date/venue/time now duplicates it.
-        dup = _pending(db, "parks_rec_calendar", when=d, title=title)
-        r2 = backfill_pending_vision_contribution(db, dup, dry_run=False)
-        assert r2.action == "hold"
-        assert r2.reason.startswith("reconcile:")
-        db.refresh(dup)
-        assert dup.status == "pending"
-
-
 # --------------------------------------------------------------------------- #
-# Non-vision rows untouched; idempotent re-run.
+# Non-vision rows untouched; idempotent skip on non-pending.
 # --------------------------------------------------------------------------- #
 def test_non_vision_pending_untouched() -> None:
     with SessionLocal() as db:
@@ -151,20 +142,19 @@ def test_non_vision_pending_untouched() -> None:
         assert c.created_event_id is None
 
 
-def test_rerun_after_apply_approves_nothing() -> None:
+def test_non_pending_row_is_idempotent_skip() -> None:
     with SessionLocal() as db:
         c = _pending(db, "senior_center_flyers", when=date(2027, 7, 14))
-        r1 = backfill_pending_vision_contribution(db, c, dry_run=False)
-        assert r1.action == "approve"
-        db.refresh(c)
-        # Re-running sees an already-approved (non-pending) row -> no-op hold.
-        r2 = backfill_pending_vision_contribution(db, c, dry_run=False)
-        assert r2.action == "hold"
-        assert "not pending" in r2.reason
+        c.status = "approved"  # simulate an already-resolved row
+        db.add(c)
+        db.commit()
+        r = backfill_pending_vision_contribution(db, c, dry_run=False)
+        assert r.action == "hold"
+        assert "not pending" in r.reason
 
 
 # --------------------------------------------------------------------------- #
-# Script: selection query + dry-run CLI.
+# Script: selection query + dry-run CLI (promotes nothing).
 # --------------------------------------------------------------------------- #
 def test_select_pending_vision_excludes_non_vision() -> None:
     import scripts.backfill_vision_auto_approve as bcli
@@ -179,7 +169,7 @@ def test_select_pending_vision_excludes_non_vision() -> None:
         assert all(c.source != "allevents" for c in selected)
 
 
-def test_script_dry_run_reports_and_writes_nothing(capsys) -> None:
+def test_script_dry_run_promotes_nothing(capsys) -> None:
     import scripts.backfill_vision_auto_approve as bcli
 
     with SessionLocal() as db:
@@ -189,7 +179,9 @@ def test_script_dry_run_reports_and_writes_nothing(capsys) -> None:
     assert rc == 0
     out = capsys.readouterr().out
     assert "backfill vision pending -> live" in out
-    assert re.search(r"would_auto_approve\s+[1-9]", out)
+    # Nothing would auto-approve; the held breakdown names the registry gate.
+    assert re.search(r"would_auto_approve\s+0", out)
+    assert "not registry-eligible" in out
     assert "(dry run -- no database writes)" in out
 
     with SessionLocal() as db:
