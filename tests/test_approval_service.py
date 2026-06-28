@@ -129,12 +129,33 @@ def test_structured_sources_still_auto_approve(db: Session, source: str) -> None
     assert should_auto_approve_event(c) is True
 
 
-def test_env_override_can_re_enable_a_vision_source(monkeypatch: pytest.MonkeyPatch) -> None:
-    """EVENT_AUTO_APPROVE_SOURCES still overrides the default registry verbatim."""
-    monkeypatch.setenv("EVENT_AUTO_APPROVE_SOURCES", "parks_rec_calendar")
-    assert auto_approve_event_sources() == frozenset({"parks_rec_calendar"})
-    # ...and structured sources are no longer auto-approved when overridden out.
-    assert "go_lake_havasu" not in auto_approve_event_sources()
+def test_env_override_cannot_re_enable_vision_sources(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hard backstop (#605 follow-up): even an EVENT_AUTO_APPROVE_SOURCES override
+    that LISTS a vision source can never re-enable it -- the never-list wins."""
+    monkeypatch.setenv(
+        "EVENT_AUTO_APPROVE_SOURCES",
+        "go_lake_havasu,parks_rec_calendar,parks_rec_flyers",
+    )
+    sources = auto_approve_event_sources()
+    assert "go_lake_havasu" in sources  # the structured source the override added
+    for vision in _VISION_REVIEW_GATED:
+        assert vision not in sources  # subtracted regardless of the override
+    c = _complete_event_contribution(db, "parks_rec_calendar")
+    assert should_auto_approve_event(c) is False
+
+
+def test_default_excludes_vision_and_keeps_structured(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the env var unset, structured sources still auto-approve and the three
+    vision sources are still excluded."""
+    monkeypatch.delenv("EVENT_AUTO_APPROVE_SOURCES", raising=False)
+    sources = auto_approve_event_sources()
+    assert "go_lake_havasu" in sources
+    for vision in _VISION_REVIEW_GATED:
+        assert vision not in sources
+    assert should_auto_approve_event(_complete_event_contribution(db, "go_lake_havasu")) is True
+    assert should_auto_approve_event(_complete_event_contribution(db, "parks_rec_calendar")) is False
 
 
 def test_approve_provider_sets_catalog_and_contribution(db: Session) -> None:
