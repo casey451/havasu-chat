@@ -390,10 +390,169 @@ def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
     return {min(cluster, key=lambda m: _survivor_rank(m[1]))[0] for cluster in clusters}
 
 
+# --------------------------------------------------------------------------- #
+# Second pass: cross-source SAME-SESSION twins under DIFFERENT titles
+# --------------------------------------------------------------------------- #
+# The title-keyed pass groups by (title, date), so one real session surfaced by
+# multiple sources under DIFFERENT titles -- the Aquatic Center "Free Family Swim"
+# (admin) / "Free Swim Day!" (go_lake_havasu) / "Open Swim" (allevents) triple --
+# never collapses. This tight second pass merges two events ONLY when ALL hold:
+#   1. DIFFERENT sources (same-source distinct sessions never merge),
+#   2. both at a SPECIFIC venue (not the bare-city fallback) that token-set match,
+#   3. one title's significant words are a SUBSET of the other's, AND
+#   4. their time windows overlap (or, when an end time is missing, starts within
+#      _CROSS_SOURCE_START_GAP_MINUTES).
+# Guards (2)+(3) were added after a live run of the bare "overlap + different
+# source" rule over-merged DISTINCT events that merely share a container venue
+# ("Mini Bakers" vs "Sports Camp" at Parks & Rec) or an activity word at an
+# activity venue ("Cosmic Bowling" vs a charity "… Bowl" night at Havasu Lanes).
+# With all four guards, exactly the swim triple collapses across the live set;
+# the 63-cluster prevalence run (dominated by same-source clusters) is untouched.
+# Venue ENTITY resolution does NOT converge for the real variants ("Aquatic
+# Center" vs "Lake Havasu City Aquatic Center" resolve to different entities), so
+# the venue check is a token-set match on the names rather than a resolved id.
+_CROSS_SOURCE_START_GAP_MINUTES = 90
+_VENUE_MATCH_RATIO = 92
+
+# A bare-city venue ("Lake Havasu City") is the no-real-venue fallback and is NOT
+# a session, so it must never anchor a same-session merge. (Generic *container*
+# venues like "Lake Havasu City Parks & Recreation" pass the venue check but are
+# held apart by the title-token guard below — distinct programs share the building
+# but not a significant title word.)
+_BARE_CITY_VENUES: frozenset[str] = frozenset({"lake havasu city", "lake havasu", "havasu"})
+# Title words too generic to imply "same session" — the merge needs a SHARED word
+# OUTSIDE this set (so "Free Family Swim"/"Open Swim"/"Free Swim Day!" share
+# "swim", but "Mini Bakers" and "Sports Camp" at one Parks&Rec venue share nothing).
+_TITLE_STOPWORDS: frozenset[str] = frozenset({
+    "the", "and", "for", "with", "free", "day", "days", "night", "nights",
+    "family", "kids", "open", "lake", "havasu", "city", "event", "events",
+    "class", "classes", "series", "summer", "winter", "spring", "fall", "live",
+    "music", "party", "sponsored", "annual", "session", "sessions", "community",
+    "public", "all", "ages", "adult", "adults", "youth", "senior", "seniors",
+})
+
+
+def _significant_title_tokens(ev: Event) -> set[str]:
+    """Title tokens >= 4 chars that are not generic stopwords — the words that
+    actually name the activity ("swim", "yoga", "bingo")."""
+    norm = _norm_cached(ev.normalized_title or ev.title or "")
+    return {w for w in norm.split() if len(w) >= 4 and w not in _TITLE_STOPWORDS}
+
+
+def _titles_share_activity(a: Event, b: Event) -> bool:
+    """One title's significant words are a SUBSET of the other's (both non-empty).
+
+    A subset — not a mere intersection — is the tight signal for "same session,
+    different title": "Open Swim" {swim} ⊆ "Free Family Swim …" {swim, …}, and
+    "Free Swim Day!" {swim} ⊆ it too, so the cross-source swim triple collapses.
+    But two DISTINCTLY-named events that merely share the venue's activity word —
+    "Cosmic Bowling" {cosmic, bowling} vs "… Humane Society … Bowl" — are neither a
+    subset of the other, so they stay separate (the over-merge the bare-token rule
+    produced)."""
+    ta, tb = _significant_title_tokens(a), _significant_title_tokens(b)
+    if not ta or not tb:
+        return False
+    return ta <= tb or tb <= ta
+
+
+def _is_specific_venue(ev: Event) -> bool:
+    """The venue is a real named place, not the bare-city no-venue fallback."""
+    norm = _norm_cached(ev.location_name or "")
+    return bool(norm) and norm not in _BARE_CITY_VENUES
+
+
+def _venue_match(a: Event, b: Event) -> bool:
+    """Two events read as the SAME venue: equal normalized names, or a token-set
+    ratio >= _VENUE_MATCH_RATIO ("aquatic center" ⊆ "lake havasu city aquatic
+    center" → 100). Tiny names must match exactly (no fuzzy on <5 chars)."""
+    na = _norm_cached(a.location_name or "")
+    nb = _norm_cached(b.location_name or "")
+    if not na or not nb:
+        return False
+    if na == nb:
+        return True
+    if len(na) < 5 or len(nb) < 5:
+        return False
+    return fuzz.token_set_ratio(na, nb) >= _VENUE_MATCH_RATIO
+
+
+def _times_overlap_for_merge(a: Event, b: Event) -> bool:
+    """Time windows overlap; or, when EITHER end time is missing, the starts are
+    within _CROSS_SOURCE_START_GAP_MINUTES. A missing start never overlaps."""
+    sa, sb = a.start_time, b.start_time
+    if sa is None or sb is None:
+        return False
+    if a.end_time is not None and b.end_time is not None:
+        return (
+            _start_minutes(sa) < _start_minutes(b.end_time)
+            and _start_minutes(sb) < _start_minutes(a.end_time)
+        )
+    return abs(_start_minutes(sa) - _start_minutes(sb)) <= _CROSS_SOURCE_START_GAP_MINUTES
+
+
+def _different_source(a: Event, b: Event) -> bool:
+    """The two rows carry different (non-empty) source strings."""
+    sa = (a.source or "").strip().lower()
+    sb = (b.source or "").strip().lower()
+    return bool(sa) and bool(sb) and sa != sb
+
+
+def _uf_find(parent: dict[int, int], x: int) -> int:
+    while parent[x] != x:
+        parent[x] = parent[parent[x]]
+        x = parent[x]
+    return x
+
+
+def _cross_source_session_drops(
+    occurrences: Sequence[tuple[Event, date]], already_dropped: set[int]
+) -> set[int]:
+    """Positions to drop in the cross-source same-session second pass (union-find
+    over each date's surviving rows; an edge = same venue + overlap + diff source)."""
+    by_date: dict[date, list[tuple[int, Event]]] = {}
+    for idx, (ev, occ_date) in enumerate(occurrences):
+        if idx in already_dropped:
+            continue
+        by_date.setdefault(occ_date, []).append((idx, ev))
+
+    drops: set[int] = set()
+    for members in by_date.values():
+        if len(members) < 2:
+            continue
+        parent: dict[int, int] = {idx: idx for idx, _ev in members}
+        for i in range(len(members)):
+            ia, ea = members[i]
+            for j in range(i + 1, len(members)):
+                ib, eb = members[j]
+                if (
+                    _different_source(ea, eb)
+                    and _is_specific_venue(ea)
+                    and _is_specific_venue(eb)
+                    and _venue_match(ea, eb)
+                    and _titles_share_activity(ea, eb)
+                    and _times_overlap_for_merge(ea, eb)
+                ):
+                    parent[_uf_find(parent, ia)] = _uf_find(parent, ib)
+        comps: dict[int, list[tuple[int, Event]]] = {}
+        for idx, ev in members:
+            comps.setdefault(_uf_find(parent, idx), []).append((idx, ev))
+        for comp in comps.values():
+            if len(comp) < 2:
+                continue
+            survivor = min(comp, key=lambda m: _survivor_rank(m[1]))[0]
+            drops.update(idx for idx, _ev in comp if idx != survivor)
+    return drops
+
+
 def dedup_cross_source_occurrences(
     occurrences: Sequence[tuple[Event, date]],
 ) -> list[tuple[Event, date]]:
-    """Collapse cross-source duplicates of the same (title, date) occurrence.
+    """Collapse cross-source duplicates of the same occurrence.
+
+    Two passes: (1) the title-keyed pass groups by (normalized title, date) and
+    keeps one survivor per group; (2) the cross-source same-session pass collapses
+    DIFFERENT-titled twins of one real session at the same venue/date/time from
+    different sources (see ``_cross_source_session_drops``).
 
     Input/output are ``(event, occurrence_date)`` pairs; survivors keep their
     input order. Untitled rows never group. Pure + read-only: callers on the
@@ -411,6 +570,7 @@ def dedup_cross_source_occurrences(
             continue
         survivors = _group_survivor_positions(members)
         dropped.update(idx for idx, _ev in members if idx not in survivors)
+    dropped.update(_cross_source_session_drops(occurrences, dropped))
     return [pair for idx, pair in enumerate(occurrences) if idx not in dropped]
 
 
