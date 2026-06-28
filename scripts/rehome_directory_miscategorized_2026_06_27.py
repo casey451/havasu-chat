@@ -82,6 +82,16 @@ _MOVES: tuple[tuple[str, str, str], ...] = (
     # are REAL local resources mis-filed by a word-trap — re-home, don't delete.
     ("vet center", "government-and-mvd", "VA veterans counseling office, not a vet"),
     ("nature's integrative medicine", "primary-care", "naturopathic clinic, not a salon"),
+    # --- batch 6 (long-tail §4 + structurally-broken Security & Alarms) ---
+    # ("nutrition one" left in nutrition-and-wellness — a supplement bar there is
+    # defensible; "Walmart Supercenter" + "Minute Key" matched dup pairs and went
+    # to the dedup tool instead.)
+    ("london bridge harley", "powersports-and-atv", "motorcycle dealer, not clothing"),
+    ("bella faccia", "med-spas-and-aesthetics", "skincare/esthetics, not a hair salon"),
+    # KeyMe is literally a locksmith/key service mis-filed under Security & Alarms
+    # (which holds only key kiosks — moving these empties the broken leaf so the
+    # thin-page gate auto-hides it).
+    ("keyme", "locksmiths", "key/lock service, not a security firm"),
 )
 
 
