@@ -108,25 +108,44 @@ def main(argv: list[str] | None = None) -> int:
             if cur is not None and cur.id == target.id:
                 print(f"  OK    '{ent.name}': already on {target.slug}")
                 continue
-            planned.append((ent, prim, cur, target, note))
+            # The entity may ALREADY carry the target leaf as a SECONDARY link
+            # (uq on (entity_id, category_id) — repointing would collide). In that
+            # case we swap the primary flag instead of rewriting category_id.
+            existing = (
+                db.query(EntityCategory)
+                .filter(
+                    EntityCategory.entity_id == ent.id,
+                    EntityCategory.category_id == target.id,
+                )
+                .one_or_none()
+            )
+            planned.append((ent, prim, cur, target, note, existing))
 
         print(f"\nmoves planned: {len(planned)}\n")
-        print("--- primary entity_categories repoints ---")
-        for ent, _prim, cur, target, note in planned:
+        print("--- primary entity_categories moves ---")
+        for ent, _prim, cur, target, note, existing in planned:
             cur_slug = cur.slug if cur is not None else "(none)"
-            print(f"  MOVE  {ent.name[:34]:34s} | {cur_slug:26s} -> {target.slug:24s} | {note}")
+            mode = "swap-flag" if existing is not None else "repoint"
+            print(f"  MOVE  {ent.name[:32]:32s} | {cur_slug:24s} -> {target.slug:22s} "
+                  f"| {mode:9s} | {note}")
         print()
 
         if not args.apply:
-            print("DRY RUN — nothing written. Re-run with --apply (after approval) to repoint.")
+            print("DRY RUN — nothing written. Re-run with --apply (after approval) to apply.")
             return 0
 
-        print("--- snapshot (entity_id, ec_id, from_cat_id -> to_cat_id) ---")
-        for ent, prim, cur, target, _note in planned:
-            print(f"  {ent.id} {prim.id} {prim.category_id} -> {target.id}")
-            prim.category_id = target.id
+        print("--- snapshot (entity_id, old_primary_ec_id, from_cat -> to_cat, mode) ---")
+        for ent, prim, _cur, target, _note, existing in planned:
+            mode = "swap-flag" if existing is not None else "repoint"
+            print(f"  {ent.id} ec={prim.id} {prim.category_id} -> {target.id} ({mode})")
+            if existing is not None:
+                # Demote the old primary, promote the existing target link.
+                prim.is_primary = False
+                existing.is_primary = True
+            else:
+                prim.category_id = target.id
         db.commit()
-        print(f"\nAPPLIED: repointed {len(planned)} primary entity_categories rows. Reversible.")
+        print(f"\nAPPLIED: moved {len(planned)} primary entity_categories links. Reversible.")
         return 0
 
 
