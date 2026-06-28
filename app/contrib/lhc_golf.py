@@ -36,11 +36,13 @@ from __future__ import annotations
 
 import re
 from dataclasses import dataclass, field
-from datetime import date, timedelta
+from datetime import date, time, timedelta
+from typing import Any
 
 import httpx
 
 from app.contrib.ingest_base import EntityPayload
+from app.events.time_labels import format_short_time
 
 USER_AGENT = "Hava/0.1 (+https://github.com/casey451/havasu-chat)"
 REQUEST_TIMEOUT = httpx.Timeout(45.0, connect=20.0)
@@ -80,6 +82,14 @@ class GolfVenue:
     indoor: bool = False
     hours_text: str | None = None  # human-readable hours for the description
     blurb: str | None = None
+    # Render-time "today hours" for the calendar's curated venue-hours row
+    # (golf_hours_rows). ``hours`` maps weekday (Mon=0..Sun=6) -> open spans for a
+    # venue we have CLOCK times for (the simulator lounge); ``hours_label`` is the
+    # honest fixed label for a course/range whose schedule is seasonal/by-tee-time
+    # ("Open daily", "Tee times daily", "Open 6 days/wk", "Open 24/7"). One of the
+    # two is always set — never "Hours vary" (Casey 2026-06-28).
+    hours: dict[int, list[tuple[time, time]]] = field(default_factory=dict)
+    hours_label: str = ""
 
 
 @dataclass
@@ -101,6 +111,10 @@ class GolfEventSpec:
     end_time: str | None = None
 
 
+def _t(h: int, m: int = 0) -> time:
+    return time(h, m)
+
+
 # The in-geo-fence venue set (Appendix A, 2026-06-25). Coordinates are omitted
 # (no geocoder here); the address anchors the provider. Golf USA is left
 # directory-only per Casey (not emitted as a simulator venue).
@@ -116,6 +130,7 @@ IN_TOWN_VENUES: tuple[GolfVenue, ...] = (
                    "36 holes (East 'Nassau' + West 'Olde London'). Tee times via "
                    "lakehavasu.teesnap.net.",
         blurb="Municipal 36-hole golf club (East and West courses) in Lake Havasu City.",
+        hours_label="Tee times daily",  # seasonal by-tee-time hours
     ),
     GolfVenue(
         name="Iron Wolf Golf & Country Club",
@@ -126,6 +141,7 @@ IN_TOWN_VENUES: tuple[GolfVenue, ...] = (
         hours_text="Public 18-hole par-70 course (North Shore); pro-shop hours daily. "
                    "Also home to the Top Tracer driving range.",
         blurb="Public 18-hole golf course on the North Shore; hosts the Toptracer range.",
+        hours_label="Open daily",  # pro-shop hours daily
     ),
     GolfVenue(
         name="Bridgewater Links",
@@ -134,6 +150,7 @@ IN_TOWN_VENUES: tuple[GolfVenue, ...] = (
         website="https://golakehavasu.com/",
         hours_text="9-hole executive course at the London Bridge Resort; resort hours.",
         blurb="9-hole executive course at the London Bridge Resort.",
+        hours_label="Open daily",  # London Bridge Resort hours
     ),
     GolfVenue(
         name="Havasu Island Golf Course",
@@ -141,6 +158,7 @@ IN_TOWN_VENUES: tuple[GolfVenue, ...] = (
         address="1040 McCulloch Blvd N, Lake Havasu City, AZ 86403",
         hours_text="9-hole public course (est. 1974); open daily.",
         blurb="9-hole public golf course on the island.",
+        hours_label="Open daily",
     ),
     # Driving range — Toptracer (hours/rates published as image flyers → vision)
     GolfVenue(
@@ -152,6 +170,7 @@ IN_TOWN_VENUES: tuple[GolfVenue, ...] = (
         hours_text="Toptracer driving range, open 6 days/week. Current rates and exact "
                    "hours are posted as seasonal flyers — see ironwolfgcc.com/toptracer/.",
         blurb="Toptracer-equipped driving range at Iron Wolf (open 6 days/week).",
+        hours_label="Open 6 days/wk",  # seasonal flyer hours
     ),
     # Indoor simulators
     GolfVenue(
@@ -163,6 +182,7 @@ IN_TOWN_VENUES: tuple[GolfVenue, ...] = (
         hours_text="Indoor golf simulators, open 24/7 (no membership required to book). "
                    "Reserve at book.thebackninegolf.com.",
         blurb="24/7 self-serve indoor golf simulators.",
+        hours_label="Open 24/7",
     ),
     GolfVenue(
         name="Golf n' Brews",
@@ -174,6 +194,17 @@ IN_TOWN_VENUES: tuple[GolfVenue, ...] = (
         hours_text="Indoor golf simulators + bar. Mon–Thu 9am–10pm, Fri–Sat 9am–12am, "
                    "Sun 9am–10pm.",
         blurb="Indoor golf-simulator lounge and bar on McCulloch.",
+        # Published weekly hours (golfnbrews.com, Jun 2026). Fri/Sat close at
+        # midnight (12 AM == time(0, 0)).
+        hours={
+            0: [(_t(9), _t(22))],   # Mon 9–10
+            1: [(_t(9), _t(22))],   # Tue 9–10
+            2: [(_t(9), _t(22))],   # Wed 9–10
+            3: [(_t(9), _t(22))],   # Thu 9–10
+            4: [(_t(9), _t(0))],    # Fri 9 AM–12 AM
+            5: [(_t(9), _t(0))],    # Sat 9 AM–12 AM
+            6: [(_t(9), _t(22))],   # Sun 9–10
+        },
     ),
 )
 
@@ -305,3 +336,67 @@ def fetch_toptracer_open_days(*, client: httpx.Client | None = None) -> int | No
 def golf_facilities() -> list[GolfVenue]:
     """The curated in-geo-fence golf venue set (no network)."""
     return list(IN_TOWN_VENUES)
+
+
+# ---------------------------------------------------------------------------
+# Curated "today hours" calendar rows (mirrors family_venues.funzone_hours_rows)
+# ---------------------------------------------------------------------------
+_GOLF_HOURS_RANK = -1  # venue-hours rows sort before the day's timed events
+
+
+def _fmt_span(open_t: time, close_t: time) -> str:
+    """One open span: "9 AM–10 PM" — drop the redundant first meridiem when it
+    matches the close, EXCEPT when either endpoint is 12 (noon/midnight), so a
+    9am-to-midnight span reads the unambiguous "9 AM–12 AM" rather than "9–12 AM"."""
+    o = format_short_time(open_t)
+    c = format_short_time(close_t)
+    o_mer = o.rsplit(" ", 1)[-1]
+    c_mer = c.rsplit(" ", 1)[-1]
+    if o_mer == c_mer and not o.startswith("12") and not c.startswith("12"):
+        return f"{o[: -(len(o_mer) + 1)]}–{c}"
+    return f"{o}–{c}"
+
+
+def golf_hours_rows(day: date) -> list[dict[str, Any]]:
+    """Curated "today hours" accordion rows for the in-town golf venues.
+
+    Shaped like the funzone/family curated rows (drops straight into
+    ``events_views`` day groups), carrying ``activity:golf`` + ``facet:hours`` +
+    ``venue-kind:*`` tags so the events split files each row under its group
+    (courses → Sports & Fitness, range/simulators → Things to Do). Every venue
+    shows a REAL clock span (the simulator lounge with published hours) or an
+    honest fixed label ("Open daily" / "Tee times daily" / "Open 6 days/wk" /
+    "Open 24/7") — never "Hours vary". A venue closed ``day`` is omitted.
+    """
+    weekday = day.weekday()
+    rows: list[dict[str, Any]] = []
+    for v in IN_TOWN_VENUES:
+        if v.hours:
+            spans = v.hours.get(weekday)
+            if not spans:
+                continue  # known weekly schedule, closed today → omit
+            time_label = ", ".join(_fmt_span(o, c) for o, c in spans)
+            sort_t = spans[0][0]
+        elif v.hours_label:
+            time_label = v.hours_label
+            sort_t = time(0, 0)
+        else:
+            continue  # no curated hours → omit rather than fabricate or "Hours vary"
+        kind_label = _VENUE_KIND_LABEL.get(v.venue_kind, "Golf")
+        tags = ["activity:golf", "facet:hours", f"venue-kind:{v.venue_kind}"]
+        if v.indoor:
+            tags.append("indoor:true")
+        rows.append(
+            {
+                "sort": (_GOLF_HOURS_RANK, sort_t),
+                "time_label": time_label,
+                "title": f"{kind_label} — {v.name}",
+                "venue": v.name,
+                "url": v.website or "https://askhava.com/categories/outdoors-parks-trails/golf",
+                "recurring": False,
+                "ongoing": True,  # venue hours, not a scheduled event
+                "tags": tags,
+            }
+        )
+    rows.sort(key=lambda r: r["sort"])
+    return rows
