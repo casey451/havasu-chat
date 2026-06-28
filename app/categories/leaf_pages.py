@@ -256,8 +256,14 @@ def leaf_listing(
 
     Provider-backed entities render first (the existing dampened-rating ranking);
     Provider-less place entities follow as place cards, alphabetically. ``total``
-    is the full renderable count (the gate input). ``providers`` carries only the
-    Provider-backed rows for the ItemList JSON-LD (place cards aren't linkable).
+    is the count of this leaf's PRIMARY members (providers + places) — the gate
+    input, and the same basis the department landing (``_gate_counts``) and the
+    sitemap count — so it EXCLUDES curated cross-listed reference cards. Those
+    still render (appended after), but their canonical home is their own primary
+    leaf, so counting them here would over-state the header vs the landing.
+    ``providers`` likewise carries only this leaf's Provider-backed primary rows
+    for the ItemList JSON-LD (place cards aren't linkable; cross-listings aren't
+    members of this leaf).
 
     ``sort`` is the user's chip selection. ``"favorites"`` ("Top rated")
     suppresses the daily Featured shuffle so the dampened-rating order is kept;
@@ -349,17 +355,26 @@ def leaf_listing(
     ]
     cards += [_place_card(e) for e in place_entities]
 
-    # Curated hybrid cross-listings (e.g. "The Spot" on the arcade leaf as well
-    # as its primary restaurants leaf). Additive to the page, de-duplicated
-    # against what's already shown; empty unless explicitly curated.
+    # Canonical members of THIS leaf = its primary-linked providers + places.
+    # That count is what the "N Best X" header, the thin-page gate, the
+    # department landing (``_gate_counts``), and the sitemap all key on (the
+    # PRIMARY entity_categories link → a business belongs to exactly one leaf).
+    # Snapshot it BEFORE appending cross-listings so those references can't
+    # inflate the header above the landing count for the same leaf.
+    total = len(cards)
+
+    # Curated hybrid cross-listings (e.g. "The Spot" on the arcade leaf, or the
+    # auto+marine repair shops on boat-repair). They render here as references —
+    # their canonical home is their OWN primary leaf — so they're additive to the
+    # cards but deliberately excluded from ``total`` / the gate / the ItemList
+    # (``providers``). De-duplicated against what's already shown; empty unless
+    # explicitly curated.
     shown_eids = backed_eids | {e.id for e in place_entities}
-    extra_cards, extra_providers = _cross_listed_cards(
+    extra_cards, _ = _cross_listed_cards(
         db, leaf, now=now, exclude_entity_ids=shown_eids
     )
     cards += extra_cards
-    providers = providers + extra_providers
 
-    total = len(cards)
     return cards, total, providers
 
 
