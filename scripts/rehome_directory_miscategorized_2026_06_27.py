@@ -73,6 +73,10 @@ _MOVES: tuple[tuple[str, str, str], ...] = (
     ("htm performance", "boat-sales", "boat dealer/manufacturer, not a park"),
     ("farm fresh", "smoke-vape-and-cannabis", "cannabis dispensary, not a doctor"),
     ("simply savage", "print-signs-and-marketing", "print/design shop, not a museum"),
+    # --- batch 4 (audit §4: bait/tackle makers + dock dealer mis-filed) ---
+    ("project 72", "sporting-goods", "custom-bait maker, not a fishing charter"),
+    ("mc coy fishing line", "sporting-goods", "fishing-line maker, not a charter"),
+    ("riverside boat dock", "boat-sales", "dock dealer, not a marina"),
 )
 
 
