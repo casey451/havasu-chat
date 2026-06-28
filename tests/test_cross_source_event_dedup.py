@@ -140,6 +140,32 @@ def test_tiebreak_falls_to_source_priority() -> None:
     assert kept == [high]
 
 
+def test_authoritative_source_beats_longer_aggregator_blurb() -> None:
+    """The swim-card regression: a curated short admin row outranks a longer
+    aggregator blurb when they collapse to one session (source priority now
+    sorts ahead of description length)."""
+    admin = _ev(
+        "Free Swim Day!",
+        start=time(12, 0),
+        end=time(16, 0),
+        venue="Lake Havasu City Aquatic Center",
+        desc="Free swim, noon-4.",
+        source="admin",
+        ev_id="admin",
+    )
+    aggregator = _ev(
+        "Free Swim Day!",
+        start=time(13, 0),
+        venue="Lake Havasu City Aquatic Center",
+        desc="A much longer aggregator blurb describing the free swim event in "
+        "great, search-padded detail to make its description win on length.",
+        source="go_lake_havasu",
+        ev_id="aggregator",
+    )
+    kept = dedup_cross_source_event_rows([aggregator, admin])
+    assert kept == [admin]  # admin (source 0) beats go_lake_havasu (source 1)
+
+
 def test_occurrence_pairs_keep_input_order_and_distinct_titles() -> None:
     a = _ev("Alpha Night", start=time(19, 0), ev_id="a")
     b = _ev("Beta Brunch", start=time(10, 0), ev_id="b")

@@ -350,12 +350,17 @@ def _source_priority(source: str | None) -> int:
 
 def _survivor_rank(event: Event) -> tuple[bool, bool, int, int, str]:
     """Sort key for picking ONE survivor in a duplicate cluster (lowest wins):
-    real start time > named venue > longer description > source priority > id."""
+    real start time > named venue > source priority > longer description > id.
+
+    Source priority outranks description length so an authoritative row (e.g.
+    a curated ``admin`` entry) wins over a longer aggregator blurb, even when
+    the aggregator carries the richer text. See ``EVENT_SOURCE_PRIORITY``.
+    """
     return (
         _start_is_tbd_for_dedup(event.start_time, event.end_time),
         not _venue_is_named_place(event.location_name),
-        -len((event.description or "").strip()),
         _source_priority(event.source),
+        -len((event.description or "").strip()),
         str(event.id),
     )
 
