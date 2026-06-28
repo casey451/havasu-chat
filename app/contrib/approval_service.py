@@ -300,12 +300,24 @@ _DEFAULT_AUTO_APPROVE_EVENT_SOURCES = frozenset(
     }
 )
 
+# Vision/flyer OCR sources are review-gated by policy (contamination risk):
+# they must NEVER auto-publish, even if an EVENT_AUTO_APPROVE_SOURCES override
+# lists them. This is the hard backstop for PR #605 -- the prod env var no longer
+# matters for these sources, so no one has to remember to audit it.
+_NEVER_AUTO_APPROVE_EVENT_SOURCES = frozenset(
+    {"parks_rec_calendar", "parks_rec_flyers", "senior_center_flyers"}
+)
+
 
 def auto_approve_event_sources() -> frozenset[str]:
     raw = os.environ.get("EVENT_AUTO_APPROVE_SOURCES", "").strip()
     if not raw:
-        return _DEFAULT_AUTO_APPROVE_EVENT_SOURCES
-    return frozenset(s.strip() for s in raw.split(",") if s.strip())
+        computed = _DEFAULT_AUTO_APPROVE_EVENT_SOURCES
+    else:
+        computed = frozenset(s.strip() for s in raw.split(",") if s.strip())
+    # Subtract the hard never-list on BOTH branches so a stale/misconfigured env
+    # override can never silently re-enable the vision sources.
+    return computed - _NEVER_AUTO_APPROVE_EVENT_SOURCES
 
 
 def should_auto_approve_event(contribution: Contribution) -> bool:
