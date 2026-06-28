@@ -1,13 +1,16 @@
-"""One-time backfill: auto-approve the already-PENDING CLEAN vision events.
+"""One-time backfill (NEUTRALIZED 2026-06-28): formerly promoted PENDING CLEAN
+vision events to live.
 
-#514 made the Parks & Rec calendar/flyer + senior-center flyer vision sources
-auto-publish CLEAN rows to the live calendar — but only for FUTURE ingests. A real
-``--apply`` run before #514 deployed (or any run on pre-#514 code) left its rows as
-``inserted_pending`` in ``/admin``; this backfill applies the **same #514 gate** to
-those existing pending rows: auto-approve the clean ones, leave the flagged ones
-pending. It reuses the production decision (``backfill_pending_vision_contribution``
-in ``app.contrib.event_ingest``) rather than reimplementing it, so a backfilled
-event is identical to one auto-published on ingest.
+History: #514 made the Parks & Rec calendar/flyer + senior-center flyer vision
+sources auto-publish CLEAN rows; this script applied the same gate to rows that
+already landed pending. The sustainable-sourcing decision (2026-06-28) REVERSED
+that — vision/flyer OCR is now review-gated (removed from
+``_DEFAULT_AUTO_APPROVE_EVENT_SOURCES``). Because it reuses the production
+decision (``backfill_pending_vision_contribution``), this script now holds EVERY
+vision row as ``not registry-eligible`` and promotes nothing. It is kept as a
+safe, self-documenting no-op (and a regression guard that the review gate also
+defeats the backfill path); the live review queue in ``/admin`` is now the only
+way a vision row reaches the calendar.
 
 PROD DB WRITE — defaults to dry-run; ``--apply`` writes (CLAUDE.md: dry-run -> show
 counts -> Casey approves -> apply). Idempotent: already-approved rows are no longer

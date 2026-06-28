@@ -12,7 +12,9 @@ from app.contrib.approval_service import (
     approve_contribution_as_event,
     approve_contribution_as_program,
     approve_contribution_as_provider,
+    auto_approve_event_sources,
     enrichment_suggests_verified,
+    should_auto_approve_event,
 )
 from app.db.contribution_store import create_contribution
 from app.db.database import SessionLocal
@@ -80,6 +82,59 @@ def _event_contribution(db: Session) -> Contribution:
         ),
         submitter_ip_hash=None,
     )
+
+
+# --------------------------------------------------------------------------- #
+# Auto-approve trust tier (2026-06-28): only STRUCTURED feeds auto-publish.
+# Flyer/OCR vision sources are review-gated (land pending), like aggregators.
+# --------------------------------------------------------------------------- #
+_STRUCTURED_AUTO_APPROVE = ("chamber", "go_lake_havasu", "legistar", "lhusd", "river_scene")
+_VISION_REVIEW_GATED = ("parks_rec_calendar", "parks_rec_flyers", "senior_center_flyers")
+
+
+def _complete_event_contribution(db: Session, source: str) -> Contribution:
+    """A complete event contribution (name + date + start time) for ``source``."""
+    u = uuid.uuid4().hex[:8]
+    from datetime import date, time
+
+    return create_contribution(
+        db,
+        ContributionCreate(
+            entity_type="event",
+            submission_name=f"Trust Tier Event {u}",
+            submission_notes="C" * 22,
+            submission_url=f"https://example.com/tt-{u}",
+            event_date=date(2027, 7, 4),
+            event_time_start=time(12, 0),
+            event_time_end=time(16, 0),
+            source=source,
+        ),
+        submitter_ip_hash=None,
+    )
+
+
+@pytest.mark.parametrize("source", _VISION_REVIEW_GATED)
+def test_vision_sources_are_not_auto_approved(db: Session, source: str) -> None:
+    """Flyer/OCR vision rows must land pending even when payload is complete."""
+    assert source not in auto_approve_event_sources()
+    c = _complete_event_contribution(db, source)
+    assert should_auto_approve_event(c) is False
+
+
+@pytest.mark.parametrize("source", _STRUCTURED_AUTO_APPROVE)
+def test_structured_sources_still_auto_approve(db: Session, source: str) -> None:
+    """High-trust structured feeds keep auto-publishing complete payloads."""
+    assert source in auto_approve_event_sources()
+    c = _complete_event_contribution(db, source)
+    assert should_auto_approve_event(c) is True
+
+
+def test_env_override_can_re_enable_a_vision_source(monkeypatch: pytest.MonkeyPatch) -> None:
+    """EVENT_AUTO_APPROVE_SOURCES still overrides the default registry verbatim."""
+    monkeypatch.setenv("EVENT_AUTO_APPROVE_SOURCES", "parks_rec_calendar")
+    assert auto_approve_event_sources() == frozenset({"parks_rec_calendar"})
+    # ...and structured sources are no longer auto-approved when overridden out.
+    assert "go_lake_havasu" not in auto_approve_event_sources()
 
 
 def test_approve_provider_sets_catalog_and_contribution(db: Session) -> None:
