@@ -63,6 +63,22 @@ _NAV_CASES: dict[str, str] = {
     "mechanics": "auto-repair",
     "plumbers": "plumbing",
     "boat rentals": "boat-and-watercraft-rentals",
+    # 2026-06-28 intent-search alias pass (audit §11 → populated leaves)
+    "swamp cooler": "hvac",
+    "evaporative cooler": "hvac",
+    "mini split": "hvac",
+    "water heater": "plumbing",
+    "leaky roof": "roofing",
+    "bug guy": "pest-control",
+    "title company": "title-and-escrow",
+    "airbnb": "vacation-rentals",
+    "short term rental": "vacation-rentals",
+    "emergency vet": "veterinarians",
+    "trash pickup": "utilities",
+    "recycling": "utilities",
+    "pediatrician": "primary-care",
+    "gift shops": "gifts-and-boutiques",
+    "pool pump": "pools-and-spas",
 }
 
 # Misspellings handled by the deterministic alias map (token → canonical) that
