@@ -22,6 +22,10 @@ from app.contrib.event_record import strip_cost_prefix
         ("$3.00 - Lake Havasu City Aquatic Center", "Lake Havasu City Aquatic Center"),
         ("$5 to $10: Rotary Park", "Rotary Park"),
         ("  $20 — SARA Park  ", "SARA Park"),
+        # Price + unit clause + separator (the live "$5 per person - Jane Camlin").
+        ("$5 per person - Jane Camlin", "Jane Camlin"),
+        ("$10 per car — Lot 5", "Lot 5"),
+        ("$5/person - Rotary Park", "Rotary Park"),
         # Untouched: no leading price, or a price/number with no following separator.
         ("Aquatic Center", "Aquatic Center"),
         ("1420 McCulloch Blvd N", "1420 McCulloch Blvd N"),

@@ -350,12 +350,15 @@ def extract_cost_from_text(text: str | None) -> str | None:
 
 
 # A leading price token a feed bled into the venue field: "$45 - Aquatic Center",
-# "$10-$25 — Rotary Park", "Free | London Bridge". Anchored at the start and
-# REQUIRES a trailing separator, so a venue that merely contains a price ("$5 Pizza
-# Place") or leads with a street number ("1420 McCulloch") is never touched.
+# "$10-$25 — Rotary Park", "Free | London Bridge", "$5 per person - Jane Camlin".
+# Anchored at the start and REQUIRES a trailing separator, so a venue that merely
+# contains a price ("$5 Pizza Place") or leads with a street number ("1420
+# McCulloch") is never touched. An optional unit clause ("per person", "each",
+# "/car") may sit between the price and the separator.
 _COST_PREFIX_RE = re.compile(
     r"^\s*(?:\$\s?\d[\d,]*(?:\.\d{2})?"
     r"(?:\s*(?:[-–—]|to)\s*\$?\s?\d[\d,]*(?:\.\d{2})?)?|free)"
+    r"(?:\s+per\s+\w+|\s+each|\s+pp|\s*/\s*\w+)?"
     r"\s*[-–—:|]\s*",
     re.IGNORECASE,
 )
