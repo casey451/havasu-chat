@@ -77,6 +77,11 @@ _MOVES: tuple[tuple[str, str, str], ...] = (
     ("project 72", "sporting-goods", "custom-bait maker, not a fishing charter"),
     ("mc coy fishing line", "sporting-goods", "fishing-line maker, not a charter"),
     ("riverside boat dock", "boat-sales", "dock dealer, not a marina"),
+    # --- batch 5 (audit's ambiguous-target cases, resolved to preserve real
+    # entities): a federal veterans counseling center and a naturopathic clinic
+    # are REAL local resources mis-filed by a word-trap — re-home, don't delete.
+    ("vet center", "government-and-mvd", "VA veterans counseling office, not a vet"),
+    ("nature's integrative medicine", "primary-care", "naturopathic clinic, not a salon"),
 )
 
 
