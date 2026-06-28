@@ -53,6 +53,7 @@ _CLUSTER_KEYS: tuple[str, ...] = (
     "rentals on the beach",
     "anderson powersports",
     "grand island disc golf",
+    "minute key",  # duplicate key-copy kiosk in Security & Alarms (audit: "Minute Key x2")
 )
 
 _GOOGLE = "google_places"
