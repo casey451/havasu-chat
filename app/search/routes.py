@@ -34,7 +34,7 @@ from app.db.entity_types import (
     ENTITY_TYPE_PROGRAM,
     is_valid_entity_type,
 )
-from app.db.models import Entity, Event, Location, Program, Provider
+from app.db.models import Entity, EntityCategory, Event, Location, Program, Provider
 from app.providers import queries as provider_queries
 from app.search import fts as search_fts
 from app.search import ranking as search_ranking
@@ -149,6 +149,46 @@ def _provider_synonym_exists_predicate(
             P.draft.is_(False),
             P.is_local.isnot(False),  # Lake Havasu-local only (drop out-of-area)
             or_(*conds),
+        )
+    )
+
+
+def _leaf_link_exists_predicate(
+    db: Session,
+    *,
+    q_raw: str,
+    entity_type_filter: str | None,
+) -> Any | None:
+    """OR-branch: entities whose canonical taxonomy leaf matches the query's intent.
+
+    The legacy ``Provider.category`` / ``google_primary_category`` columns are
+    generic for trades ("home_services" / "general_contractor"), so a category
+    query like "ac repair", "roofer", or "nursing home" cannot reach the right
+    providers through the synonym needles alone — the specific trade lives only in
+    the entity name and the canonical ``EntityCategory`` leaf link (what the leaf
+    pages render). This branch resolves the query to its leaf via the existing
+    query→leaf routing (:mod:`app.categories.leaf_query`) and matches providers
+    whose PRIMARY ``EntityCategory`` is that leaf, closing the intent gap.
+
+    Commercial entities only; returns ``None`` when the query resolves to no leaf
+    (so non-category queries are unaffected).
+    """
+    if entity_type_filter is not None and entity_type_filter != ENTITY_TYPE_COMMERCIAL:
+        return None
+    from app.categories import leaf_query  # lazy: avoid an import cycle
+
+    leaf = leaf_query.match_leaf_query(db, q_raw) or leaf_query.match_leaf_service_intent(
+        db, q_raw
+    )
+    if leaf is None:
+        return None
+    return exists(
+        select(literal(1))
+        .select_from(EntityCategory)
+        .where(
+            EntityCategory.entity_id == Entity.id,
+            EntityCategory.category_id == leaf.id,
+            EntityCategory.is_primary.is_(True),
         )
     )
 
@@ -336,6 +376,10 @@ def api_search(
     if prov_syn is not None:
         text_parts.append(prov_syn)
 
+    leaf_link = _leaf_link_exists_predicate(db, q_raw=q_clean, entity_type_filter=entity_type_f)
+    if leaf_link is not None:
+        text_parts.append(leaf_link)
+
     if not text_parts:
         return {"results": [], "next_cursor": None}
 
@@ -510,6 +554,12 @@ def _keyword_provider_rows(db: Session, *, q_clean: str, limit: int) -> list[Pro
     )
     if prov_syn is not None:
         text_parts.append(prov_syn)
+
+    leaf_link = _leaf_link_exists_predicate(
+        db, q_raw=q_clean, entity_type_filter=ENTITY_TYPE_COMMERCIAL
+    )
+    if leaf_link is not None:
+        text_parts.append(leaf_link)
 
     if not text_parts:
         return []
