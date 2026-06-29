@@ -112,9 +112,9 @@ def pull_local_news(db: Session, *, now: datetime | None = None) -> int:
         unique.append(it)
     unique.sort(key=_pub_sort_key, reverse=True)
 
-    items = [_item_to_dict(it) for it in unique[:_MAX_ITEMS]]
-    upsert_source(db, SOURCE_NEWS_LOCAL, {"items": items}, now=now)
-    return len(items)
+    stored = [_item_to_dict(it) for it in unique[:_MAX_ITEMS]]
+    upsert_source(db, SOURCE_NEWS_LOCAL, {"items": stored}, now=now)
+    return len(stored)
 
 
 @dataclass(frozen=True)
