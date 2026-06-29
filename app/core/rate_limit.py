@@ -20,6 +20,31 @@ def is_rate_limit_disabled() -> bool:
     return v in ("1", "true", "yes", "on")
 
 
+# ── public-surface limits (A2: anti-scrape) ─────────────────────────────────
+# slowapi accepts a zero-arg callable as a limit value and re-evaluates it per
+# request (see slowapi/wrappers.py), so these read the env each call and are
+# tunable at deploy time without a code change. Defaults are deliberately
+# generous for humans but cap bulk pulls: HTML listing/profile pages are heavier
+# to render, JSON/feed endpoints are the cheapest bulk-scrape targets so they get
+# a tighter bucket.
+PUBLIC_HTML_RATE_LIMIT_DEFAULT = "90/minute"
+PUBLIC_API_RATE_LIMIT_DEFAULT = "30/minute"
+
+
+def public_html_rate_limit() -> str:
+    """Per-IP limit for public HTML listing/profile pages (env: ``PUBLIC_HTML_RATE_LIMIT``)."""
+    return (
+        os.environ.get("PUBLIC_HTML_RATE_LIMIT") or PUBLIC_HTML_RATE_LIMIT_DEFAULT
+    ).strip()
+
+
+def public_api_rate_limit() -> str:
+    """Per-IP limit for public JSON/feed endpoints (env: ``PUBLIC_API_RATE_LIMIT``)."""
+    return (
+        os.environ.get("PUBLIC_API_RATE_LIMIT") or PUBLIC_API_RATE_LIMIT_DEFAULT
+    ).strip()
+
+
 def client_ip_key(request) -> str:
     """Rate-limit key = the real client IP.
 

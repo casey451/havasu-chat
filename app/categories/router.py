@@ -49,6 +49,7 @@ from app.categories.cross_surface import cross_surface_sections
 from app.categories.display_labels import display_label
 from app.categories.queries import CategoryFacets
 from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.rate_limit import limiter, public_html_rate_limit
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import Provider
@@ -373,6 +374,7 @@ def _get_index_payload(db: Session) -> list[dict[str, Any]]:
 
 
 @router.get("/categories", response_class=HTMLResponse)
+@limiter.limit(public_html_rate_limit)
 def serve_categories_index(
     request: Request,
     db: Session = Depends(get_db),
@@ -620,6 +622,7 @@ def _render_category_page(
 
 
 @router.get("/categories/{slug}", response_class=HTMLResponse, response_model=None)
+@limiter.limit(public_html_rate_limit)
 def serve_category(
     request: Request,
     slug: str,
@@ -663,6 +666,7 @@ def serve_category(
 @router.get(
     "/categories/{parent}/{trade}", response_class=HTMLResponse, response_model=None
 )
+@limiter.limit(public_html_rate_limit)
 def serve_trade_page(
     request: Request,
     parent: str,

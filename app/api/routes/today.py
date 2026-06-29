@@ -17,6 +17,7 @@ from sqlalchemy.orm import Session
 
 from app.conditions.today_payload import build_today_payload
 from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.rate_limit import limiter, public_html_rate_limit
 from app.core.timezone import format_now_lake_havasu, now_lake_havasu
 from app.db.database import get_db
 
@@ -29,6 +30,7 @@ register_template_globals(templates)
 
 
 @router.get("/today", response_class=HTMLResponse)
+@limiter.limit(public_html_rate_limit)
 def today_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     now = datetime.now(UTC).replace(tzinfo=None)
     payload = build_today_payload(db, now=now)

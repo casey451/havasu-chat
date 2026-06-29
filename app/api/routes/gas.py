@@ -29,6 +29,7 @@ from app.conditions.cache import read_source
 from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
 from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.rate_limit import limiter, public_api_rate_limit, public_html_rate_limit
 from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.database import get_db
 
@@ -107,6 +108,7 @@ def _shell_context(db: Session) -> dict[str, Any]:
 
 
 @router.get("/gas", response_class=HTMLResponse)
+@limiter.limit(public_html_rate_limit)
 def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     data, staleness, is_stale, fetched_at_label, fetched_at_time_label = _read_payload(db)
     stations = [s for s in (data.get("stations") or []) if isinstance(s, dict)]
@@ -137,6 +139,7 @@ def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
 
 
 @router.get("/api/gas", response_class=JSONResponse)
-def gas_api(db: Session = Depends(get_db)) -> JSONResponse:
+@limiter.limit(public_api_rate_limit)
+def gas_api(request: Request, db: Session = Depends(get_db)) -> JSONResponse:
     data, staleness, is_stale, _, _ = _read_payload(db)
     return JSONResponse(content={**data, "staleness_label": staleness, "is_stale": is_stale})

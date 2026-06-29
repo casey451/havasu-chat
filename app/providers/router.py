@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 from app.auth.favorites import is_favorited
 from app.chat.disclosure_render import DISCLOSURE_WORD
 from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.rate_limit import limiter, public_html_rate_limit
 from app.db.database import get_db
 from app.db.models import Claim, Entity, Provider, User
 from app.events.queries import venue_events_for_profile
@@ -50,6 +51,7 @@ def _viewer_owns_provider(db: Session, *, current_user: User | None, provider: P
 
 
 @router.get("/provider/{slug}", response_class=HTMLResponse, response_model=None)
+@limiter.limit(public_html_rate_limit)
 def serve_provider_profile(
     slug: str, request: Request, db: Session = Depends(get_db)
 ) -> HTMLResponse | RedirectResponse:
