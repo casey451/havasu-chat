@@ -300,11 +300,15 @@ def _occurrence_group_keys(
     # pulled into Things to Do by the drop-in-rec rule below.
     if slug == "pickleball":
         return ["classes"]
-    # Classes & workshops (Phase 4c, Casey 2026-06-26): non-fitness instruction
-    # (arts/craft/cooking/maker/learning) folds into Things to Do as a "Classes &
-    # workshops" subcategory rather than its own top-level "learn" section.
+    # Classes & Workshops (Casey 2026-06-29): non-fitness instruction
+    # (arts/craft/cooking/maker/learning) is its OWN top-level Calendar group — a
+    # peer of Fitness & Sports, NOT a Things-to-Do subsection — because these are
+    # classes, not things to do. (This supersedes the Phase-4c fold. The Places
+    # browse surface still folds them under Things to Do as a "Classes &
+    # Workshops" section via _places_top_key("learn") → things-to-do; see
+    # PLACES_WORKSHOPS_LABEL — only the Calendar surface promotes them.)
     if abkt == "learn":
-        return ["events"]
+        return ["learn"]
     if slug == "theater":
         return ["music"]
     if abkt == "events" and slug:  # games / bowling / billiards / trampoline / family-fun
