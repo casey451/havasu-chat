@@ -27,6 +27,16 @@ SOURCE_USGS_WATER_TEMP = "usgs_water_temp_09426630"
 # free tier (~24 calls/day). See app/conditions/openuv.py.
 SOURCE_OPENUV = "openuv_index"
 
+# Local news aggregate (source-expansion #6 → live, Casey 2026-06-29). A single
+# cache row holding the merged, deduped, recency-sorted headline list from every
+# wired local news source (News-Herald sitemap, City newsflash, River Scene,
+# Sheriff press). Deliberately NOT in SOURCE_KEYS — the conditions cron must not
+# reach out to news endpoints. A dedicated pull (scripts/news_pull.py →
+# app.news.store.pull_local_news) populates it. Only headlines + links + dates
+# are stored; article bodies are never persisted (paywall/copyright rule 6, see
+# app/contrib/news_herald.py).
+SOURCE_NEWS_LOCAL = "news_local"
+
 SOURCE_KEYS: tuple[str, ...] = (
     SOURCE_AIRNOW,
     SOURCE_NWS_CURRENT,
@@ -51,6 +61,9 @@ TTL_BY_SOURCE: dict[str, int] = {
     SOURCE_USGS_WATER_TEMP: 3600,
     SOURCE_OPENUV: 3600,
     SOURCE_GAS: 28800,
+    # News refreshes on a ~hourly pull; the ticker still shows the last good
+    # headlines past TTL (staleness only drives an optional "updated" hint).
+    SOURCE_NEWS_LOCAL: 3600,
 }
 
 # Gas prices refresh on a roughly-daily cadence (86400s TTL), so the generic 2h

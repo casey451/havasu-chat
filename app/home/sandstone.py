@@ -948,6 +948,10 @@ def calendar_month(
                         ev.title or "", ev.tags, featured=bool(ev.featured)
                     ),
                     "recurring": bool(ev.is_recurring),
+                    # Per-event start time for the v4 calendar chips (Casey
+                    # 2026-06-29: show the time on the chip, not a color square).
+                    # None for time-TBD events so the chip shows just the title.
+                    "time": short_time_label(ev.start_time, ev.end_time),
                 }
             )
 

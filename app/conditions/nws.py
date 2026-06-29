@@ -101,7 +101,9 @@ def _build_current(props: dict[str, Any]) -> dict[str, Any]:
     return {
         "temperature_f": temp_f,
         "heat_index_f": heat_index_f,
-        "wind_speed_mph": float(wind_speed) * 0.621371 if wind_speed else None,
+        "wind_speed_mph": (
+            float(wind_speed) * 0.621371 if isinstance(wind_speed, (int, float)) else None
+        ),
         "wind_direction_deg": wind_direction,
         "timestamp": props.get("timestamp"),
     }

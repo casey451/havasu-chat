@@ -97,6 +97,7 @@ from app.home.router import router as home_router
 from app.home.static_pages import router as static_pages_router
 from app.monitoring.canaries import not_canary_clause
 from app.movies.router import router as movies_router
+from app.news.router import router as news_router
 from app.photos.routes import router as photos_router
 from app.photos.sweep import run_stuck_photo_sweep
 from app.portal.media_routes import router as creative_media_router
@@ -750,6 +751,7 @@ app.include_router(conditions_router)
 app.include_router(today_router)
 app.include_router(gas_router)
 app.include_router(static_pages_router)
+app.include_router(news_router)
 app.include_router(calendar_feed_router)
 app.include_router(ingest_router)
 app.include_router(ingest_jobs_router)

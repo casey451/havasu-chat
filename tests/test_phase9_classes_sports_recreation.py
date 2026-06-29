@@ -29,8 +29,9 @@ def test_category_config_has_age_and_drop_in_chips() -> None:
     params = {c["param"] for c in cfg.operational_chips}
     assert "drop_in" in params
     assert "registration" in params
-    assert "kids" in params
-    assert "55_plus" in params
+    # Age buckets collapsed to Youth (under 18) / Adult (2026-06-29).
+    assert "youth" in params
+    assert "adults" in params
 
 
 def test_program_age_band_kids() -> None:
@@ -48,6 +49,25 @@ def test_program_age_band_kids() -> None:
     )
     assert _program_matches_age_band(prog, "kids")
     assert not _program_matches_age_band(prog, "teens")
+    # The collapsed "youth" band folds in kids (anyone under 18).
+    assert _program_matches_age_band(prog, "youth")
+
+
+def test_program_age_band_youth_includes_teens() -> None:
+    prog = Program(
+        title="Teen art",
+        description="d",
+        activity_category="art",
+        age_min=13,
+        age_max=17,
+        schedule_days=["wed"],
+        schedule_start_time=__import__("datetime").time(16, 0),
+        schedule_end_time=__import__("datetime").time(17, 0),
+        location_name="Center",
+        provider_name="City",
+    )
+    assert _program_matches_age_band(prog, "youth")
+    assert not _program_matches_age_band(prog, "adults")
 
 
 def test_drop_in_filter(db) -> None:
