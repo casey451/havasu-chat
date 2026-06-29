@@ -33,6 +33,32 @@ def _event_in_category_bundle(event: Event, cat_slugs: set[str], db: Session) ->
     return bool(set(rows) & cat_slugs)
 
 
+def _when_window(when: str | None, today: date) -> tuple[date, date] | None:
+    """Date window for the events 'when' chips, or ``None`` for no/unknown filter.
+
+    today → just today; this-weekend → the coming Sat–Sun; this-week → today
+    through the coming Sunday; next-month → the next calendar month.
+    """
+    if not when:
+        return None
+    wd = today.weekday()  # Mon=0 .. Sun=6
+    if when == "today":
+        return (today, today)
+    if when == "this-weekend":
+        if wd >= 5:  # already Sat or Sun
+            return (today, today + timedelta(days=6 - wd))
+        sat = today + timedelta(days=5 - wd)
+        return (sat, sat + timedelta(days=1))
+    if when == "this-week":
+        return (today, today + timedelta(days=6 - wd))
+    if when == "next-month":
+        ny, nm = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
+        start = date(ny, nm, 1)
+        end = date(ny, 12, 31) if nm == 12 else date(ny, nm + 1, 1) - timedelta(days=1)
+        return (start, end)
+    return None
+
+
 def get_themed_group_card_stream(
     db: Session,
     group_slug: str,
@@ -42,6 +68,7 @@ def get_themed_group_card_stream(
     ref_lng: float,
     now,
     boat_only: bool = False,
+    when: str | None = None,
 ) -> list[HavaCardViewModel]:
     """Interleaved entity + event cards for a themed group landing page."""
     cat_slugs = tg.get_categories_for_group(group_slug)
@@ -74,10 +101,14 @@ def get_themed_group_card_stream(
     sponsored_ids = set(active_category_tiers(db, sort_slug).values())
 
     today = now.date() if hasattr(now, "date") else date.today()
-    window_end = today + timedelta(days=30)
+    # A 'when' chip (today / this-weekend / this-week / next-month) narrows the
+    # event window and switches the stream to events-only (see below).
+    win = _when_window(when, today)
+    events_only = win is not None
+    window_start, window_end = win if events_only else (today, today + timedelta(days=30))
     upcoming = events_in_window(
         db,
-        window_start=today,
+        window_start=window_start,
         window_end=window_end,
         category_slug=None,
         limit=limit * 4,
@@ -89,7 +120,9 @@ def get_themed_group_card_stream(
     temp_f = read_current_temperature_f(db)
     boat_mode = boat_only
 
-    for ent in entities:
+    # Place (entity) cards are skipped when a date filter is active: a venue has no
+    # date, so "Today" / "This weekend" should surface only events in that window.
+    for ent in (entities if not events_only else []):
         if ent.id in seen_entity:
             continue
         seen_entity.add(ent.id)
@@ -136,6 +169,11 @@ def get_themed_group_card_stream(
         )
         scored.append((vm, score))
 
+    if events_only:
+        # No event-share cap when a date filter is active — events ARE the result
+        # here, not an interleaved minority. Highest-scored first, page-limited.
+        scored.sort(key=lambda it: it[1], reverse=True)
+        return [vm for vm, _ in scored[:limit]]
     cap_pct = float(os.environ.get("THEMED_GROUP_EVENT_CAP_PCT", "0.40"))
     capped = _cap_event_share(scored, max_event_pct=cap_pct, limit=limit)
     return [vm for vm, _ in capped]

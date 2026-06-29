@@ -375,6 +375,12 @@ def feed_view_model(
     for s in sections:
         if not s.get("is_movies"):
             _feed_enrich(s, blurbs, s["key"])
+        # Classes & Workshops ("learn") and Fitness & classes ("classes") list flat
+        # — no activity sub-categories (Casey 2026-06-29: "classes and workshops
+        # can just all be put together"). The section keeps its full sorted `rows`,
+        # so dropping the split `subgroups` renders them as one flat list.
+        if s.get("key") in ("classes", "learn"):
+            s["subgroups"] = []
 
     return {"sections": sections, "total": vm["total"]}
 

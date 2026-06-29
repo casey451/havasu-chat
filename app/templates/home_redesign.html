@@ -17,7 +17,10 @@
 
 {%- macro ev_row(row) -%}
 <a class="ev" href="{{ row.url or '#' }}">
-  <span class="ph im {{ row.thumb }}"><span class="glyph">{{ cicon(row.cat, 24) }}</span>{% if row.time_label %}<span class="t">{{ row.time_label }}</span>{% endif %}</span>
+  {# Plain time column — the old gradient-thumbnail square with the time overlaid
+     on it was unreadable (Casey 2026-06-29). Blank when the time is unknown, so
+     titles still line up. #}
+  <span class="evt">{% if row.time_label and 'TBD' not in row.time_label %}{{ row.time_label }}{% endif %}</span>
   <span class="b">
     <span class="et">{{ row.title }}</span>
     {% if row.venue %}<span class="em">{{ row.venue }}</span>{% endif %}
@@ -154,7 +157,7 @@
         {% if s.is_movies %}
           {% for m in s.rows %}
           <a class="ev" href="{{ m.url or '/movies' }}">
-            <span class="ph im im-movie"><span class="glyph">{{ icon('film', 24) }}</span>{% if m.time_label %}<span class="t">{{ m.time_label }}</span>{% endif %}</span>
+            <span class="evt">{% if m.time_label and 'TBD' not in m.time_label %}{{ m.time_label }}{% endif %}</span>
             <span class="b"><span class="et">{{ m.title }}</span>{% if m.theater %}<span class="em">{{ m.theater }}{% if m.times %} · {{ m.times|join(', ') }}{% endif %}</span>{% endif %}</span>
             <span class="det" aria-hidden="true">{{ icon('arrow', 15) }}</span>
           </a>
