@@ -142,10 +142,10 @@ def test_senior_items_route_to_seniors_only_never_dual() -> None:
         _cleanup(eids)
 
 
-def test_nonfitness_class_routes_to_happening_today() -> None:
-    # 2026-06-23: a recurring non-fitness "class" (dog obedience) has no fitness
-    # activity type, so it files under Happening today — NOT a Fitness & classes
-    # "Other classes" residue (which no longer exists).
+def test_nonfitness_class_routes_to_classes_and_workshops() -> None:
+    # A recurring non-fitness "class" (dog obedience) reads as lifelong-learning,
+    # so (Casey 2026-06-29) it files under the top-level Classes & Workshops group
+    # (learn) — NOT Fitness, and NOT the Things-to-Do junk drawer.
     s = uuid.uuid4().hex[:6]
     dog = f"ZZ Dog Obedience {s}"
     eids: list[str] = []
@@ -157,7 +157,8 @@ def test_nonfitness_class_routes_to_happening_today() -> None:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
         by_key = {g["key"]: {r["title"] for r in g["rows"]} for g in groups}
-        assert any(dog in t for t in by_key.get("events", set()))
+        assert any(dog in t for t in by_key.get("learn", set()))
+        assert not any(dog in t for t in by_key.get("events", set()))
         assert not any(dog in t for t in by_key.get("classes", set()))
     finally:
         _cleanup(eids)
@@ -167,8 +168,8 @@ def test_kids_venue_class_lands_in_youth_sub() -> None:
     # A class at a kids-only venue is youth-flagged. With no Kids & Family group
     # (Casey 2026-06-26) it lands ONCE in its primary group and peels into that
     # group's Youth sub. An "Enrichment Lab" at a learning center reads as
-    # lifelong-learning (2026-06-28) → Things to Do → "Classes & workshops", so it
-    # surfaces under that subsection's Youth child ("Youth Classes & workshops").
+    # lifelong-learning → the top-level Classes & Workshops group (learn, Casey
+    # 2026-06-29), so it surfaces under that group's Youth child.
     s = uuid.uuid4().hex[:6]
     enr = f"ZZ Enrichment Lab {s}"
     eids: list[str] = []
@@ -182,9 +183,11 @@ def test_kids_venue_class_lands_in_youth_sub() -> None:
         by_key = {g["key"]: {r["title"] for r in g["rows"]} for g in groups}
         # No "family" group exists any more.
         assert not by_key.get("family")
-        assert any(enr in t for t in by_key.get("events", set()))
+        # Its own top-level Classes & Workshops group, not Things to Do or Fitness.
+        assert any(enr in t for t in by_key.get("learn", set()))
+        assert not any(enr in t for t in by_key.get("events", set()))
         assert not any(enr in t for t in by_key.get("classes", set()))
-        events = next(g for g in groups if g["key"] == "events")
+        learn = next(g for g in groups if g["key"] == "learn")
 
         def _walk(nodes: list[dict]) -> list[dict]:
             out: list[dict] = []
@@ -194,8 +197,8 @@ def test_kids_venue_class_lands_in_youth_sub() -> None:
             return out
 
         # Phase 1: the youth rows nest as a youth CHILD under their activity
-        # subsection (here "Classes & workshops"), not a flat top-level sibling.
-        youth = [n for n in _walk(events.get("subgroups", [])) if n.get("youth")]
+        # subsection, not a flat top-level sibling.
+        youth = [n for n in _walk(learn.get("subgroups", [])) if n.get("youth")]
         assert youth and any(
             enr in r["title"] for n in youth for r in n["rows"]
         )
