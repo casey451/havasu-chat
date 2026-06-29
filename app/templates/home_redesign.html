@@ -7,8 +7,12 @@
 {% block meta_description %}What's happening today in Lake Havasu City — events, the lake, live conditions, and the local directory.{% endblock %}
 {% block og_image %}{{ absolute_url('/static/img/og-home.png') }}{% endblock %}
 
+{#- SEO guard: skip internal taxonomy tokens (namespaced ``KEY:value`` tags like
+   activity:/facet:/venue-kind:/audience:). The colon is the same internal-tag
+   discriminator app/events/tag_display.py uses. Event rows are already filtered
+   upstream in redesign._enrich; this keeps any other caller (e.g. movies) clean. -#}
 {%- macro tags(tlist) -%}
-{%- for t in tlist -%}{%- set l = t|lower -%}<span class="tg{% if 'free' in l %} free{% elif l == 'water' %} water{% endif %}">{{ t }}</span>{%- endfor -%}
+{%- for t in tlist if ':' not in t -%}{%- set l = t|lower -%}<span class="tg{% if 'free' in l %} free{% elif l == 'water' %} water{% endif %}">{{ t }}</span>{%- endfor -%}
 {%- endmacro -%}
 
 {%- macro ev_row(row) -%}
