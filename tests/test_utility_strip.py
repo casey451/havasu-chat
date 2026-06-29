@@ -34,8 +34,8 @@ def test_utility_chips_combines_gas_and_conditions() -> None:
         "is_stale": False,
         "cheapest": [{"station_name": "Loves", "prices": {"regular": 4.29}}],
     }
-    # Phase 1 strip = temp · UV · wind · gas. AQI + water-temp tiles are present in
-    # the view model but deliberately excluded from the strip.
+    # Strip = temp · UV · wind · water · gas (water temp re-added 2026-06-29; it
+    # only reaches the view model when its gage feed is live). AQI stays excluded.
     vm = ConditionsStripViewModel(
         tiles=(
             _tile("temp", "99°F"),
@@ -55,11 +55,10 @@ def test_utility_chips_combines_gas_and_conditions() -> None:
         chips = home_router._utility_chips(SessionLocal())
 
     kinds = [c["kind"] for c in chips]
-    # Fixed order temp · UV · wind · gas; gas closes the strip.
-    assert kinds == ["weather", "uv", "wind", "gas"]
-    # AQI + water temp are dropped from the strip (still on /today + the JSON).
+    # Fixed order temp · UV · wind · water · gas; gas closes the strip.
+    assert kinds == ["weather", "uv", "wind", "water_temp", "gas"]
+    # AQI is still dropped from the strip (surfaced on /today + the JSON).
     assert "air" not in kinds
-    assert "water" not in kinds
     gas_chip = chips[-1]
     assert gas_chip["value"] == "$4.29"
     assert gas_chip["href"] == "/gas"

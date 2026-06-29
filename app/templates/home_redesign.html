@@ -59,6 +59,10 @@
 
 {% block main %}
 
+{# ── Local news ticker — cycles recent headlines, links out, honest-omit when
+   the pull has nothing stored yet. Casey 2026-06-29. ────────────────────────── #}
+{% include "_partials/news_ticker.html" %}
+
 {# ── Top marquee: sold sponsor creative, else the big buyable placeholder
    (never a fake business). ───────────────────────────────────────────── #}
 {% if marquee %}

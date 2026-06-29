@@ -78,7 +78,7 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .loc{font-size:12px;color:var(--ink2);font-weight:600;display:inline-flex;gap:6px;align-items:center}
 
 /* conditions — clean single values */
-.cond{display:grid;grid-template-columns:repeat(5,1fr);background:rgba(255,255,255,.72);
+.cond{display:grid;grid-auto-flow:column;grid-auto-columns:minmax(0,1fr);background:rgba(255,255,255,.72);
   backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border-bottom:1px solid var(--hair)}
 .cond .c{padding:10px 6px;border-right:1px solid var(--hair2);min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;background:none;border-top:0;border-left:0;border-bottom:0;width:100%;font-family:var(--ui);cursor:default}
 .cond .c:last-child{border-right:0}
@@ -278,6 +278,7 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .cell .chips{display:flex;flex-direction:column;gap:3px}
 .chip{display:flex;align-items:center;gap:5px;font-size:10px;font-weight:500;color:var(--ink2);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;background:var(--paper2);border-radius:5px;padding:2px 5px}
 .chip i{width:6px;height:6px;border-radius:50%;flex:0 0 auto}
+.chip .ct{font-weight:700;color:var(--ink);font-variant-numeric:tabular-nums;flex:0 0 auto}
 .cell .more{font-size:9.5px;font-weight:700;color:var(--teal);margin-top:auto}
 .cell .dots{display:flex;gap:3px;margin-top:auto}
 .cell .dots i{width:5px;height:5px;border-radius:50%}
@@ -311,11 +312,13 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .avatar{width:32px;height:32px;border-radius:50%;border:1.5px solid #fff;cursor:pointer;box-shadow:var(--sh-sm);text-decoration:none;display:inline-block;
   background:radial-gradient(circle at 32% 30%,#ffe6a6 0 26%,transparent 27%),linear-gradient(150deg,var(--teal-br),var(--teal-deep))}
 
-/* scroll-shrink header (mockup .screen.scrolled → prod body.scrolled) */
-.util{transition:max-height .3s ease,opacity .25s ease,padding .3s ease;max-height:34px;overflow:hidden}
-body.scrolled .util{max-height:0;opacity:0;padding-top:0;padding-bottom:0}
-.cond .c{transition:padding .3s ease}.cond .val{transition:font-size .3s ease}
-body.scrolled .cond .c{padding:6px}body.scrolled .cond .val{font-size:15px}
+/* Sticky header keeps a CONSTANT height while scrolling. The old "scroll-shrink"
+   collapsed the .util bar (max-height 34→0) and shrank the conditions tiles on
+   body.scrolled; because .head-stack is position:sticky, that height change
+   shoved the page content the instant you started scrolling — the "jumpy scroll"
+   Casey reported (2026-06-29). We now only add a soft shadow on scroll (purely
+   visual, no layout reflow), so the header stays put and scrolling is smooth. */
+body.scrolled .head-stack{box-shadow:0 6px 18px -10px rgba(19,32,29,.28)}
 
 /* gas top-5 panel */
 .gaspanel{display:grid;grid-template-rows:0fr;transition:grid-template-rows .3s ease;background:rgba(255,255,255,.9);
@@ -344,3 +347,44 @@ body.scrolled .cond .c{padding:6px}body.scrolled .cond .val{font-size:15px}
   .cell .dots{display:none}
 }
 @media(max-width:430px){ .feature-marquee .frame{display:none} }
+
+/* ── Local news ticker (home) + /news page (Casey 2026-06-29) ──────────────── */
+.newsbar{display:flex;align-items:center;gap:12px;margin:14px 16px 0;padding:9px 14px;
+  background:linear-gradient(180deg,#fff,var(--paper2));border:1px solid var(--hair);
+  border-radius:12px;box-shadow:var(--sh-sm);min-width:0}
+.newsbar .nb-tag{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;font-size:9.5px;
+  font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--brass);
+  border-right:1px solid var(--hair);padding-right:12px}
+.nb-track{position:relative;flex:1;min-width:0;height:34px;overflow:hidden}
+.nb-item{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:1px;
+  min-width:0;text-decoration:none;color:inherit;opacity:0;transform:translateY(6px);
+  transition:opacity .4s ease,transform .4s ease;pointer-events:none}
+.nb-item.on{opacity:1;transform:none;pointer-events:auto}
+.nb-h{font-family:var(--disp);font-weight:500;font-size:14px;letter-spacing:-.01em;color:var(--ink);
+  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb-src{font-size:10.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nb-more{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;
+  color:var(--teal);text-decoration:none;white-space:nowrap}
+.nb-more:hover{gap:8px}
+@media (prefers-reduced-motion:reduce){.nb-item{transition:none}}
+
+.newshead{padding:18px 16px 4px}
+.newshead h1{font-family:var(--disp);font-weight:500;font-size:24px;letter-spacing:-.02em;margin:0}
+.newssub{font-size:12.5px;color:var(--ink2);margin:4px 0 0;line-height:1.45}
+.newssub .nu{color:var(--ink3)}
+.newslist{display:flex;flex-direction:column;margin:12px 16px 0;background:var(--surface);
+  border:1px solid var(--hair);border-radius:var(--rad);box-shadow:var(--sh-sm);overflow:hidden}
+.newsrow{display:flex;align-items:center;gap:12px;padding:14px 16px;border-top:1px solid var(--hair2);
+  text-decoration:none;color:inherit;transition:background .15s}
+.newsrow:first-child{border-top:0}
+.newsrow:hover{background:var(--paper2)}
+.nr-body{min-width:0;flex:1;display:flex;flex-direction:column;gap:3px}
+.nr-title{font-family:var(--disp);font-weight:500;font-size:15.5px;letter-spacing:-.01em;color:var(--ink);line-height:1.3}
+.nr-meta{font-size:11.5px;color:var(--ink3)}
+.nr-go{flex:0 0 auto;color:var(--ink3);width:30px;height:30px;border-radius:50%;border:1px solid var(--hair);
+  display:flex;align-items:center;justify-content:center}
+.newsrow:hover .nr-go{color:var(--teal);border-color:var(--teal)}
+.newsempty{margin:16px;padding:30px 18px;text-align:center;background:var(--surface);
+  border:1px solid var(--hair);border-radius:var(--rad)}
+.newsempty h3{font-family:var(--disp);font-weight:500;font-size:18px;margin:0 0 6px}
+.newsempty p{font-size:13px;color:var(--ink2);margin:0}

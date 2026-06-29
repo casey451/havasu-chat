@@ -1,0 +1,35 @@
+{#- Local news ticker — cycles the top headlines, each linking out to its source.
+   Honest-omit: renders nothing until the news pull has stored headlines. The JS
+   is pure enhancement (auto-rotate, paused under prefers-reduced-motion); with no
+   JS the first headline shows and the rest are reachable via "All news".
+   Context: ``news`` (app.news.store.ticker_view). Casey 2026-06-29. -#}
+{% from "components/redesign_icons.html" import icon %}
+{% if news and news.items %}
+<aside class="newsbar rise" aria-label="Local news headlines">
+  <span class="nb-tag">{{ icon('spark', 13) }}News</span>
+  <div class="nb-track" data-newsticker>
+    {% for it in news.items %}
+    <a class="nb-item{% if loop.first %} on{% endif %}" href="{{ it.url }}" target="_blank" rel="noopener nofollow">
+      <span class="nb-h">{{ it.title }}</span>
+      <span class="nb-src">{{ it.source_label }}{% if it.published_label %} · {{ it.published_label }}{% endif %}</span>
+    </a>
+    {% endfor %}
+  </div>
+  <a class="nb-more" href="/news">All news {{ icon('arrow', 13) }}</a>
+</aside>
+<script>
+(function () {
+  var track = document.querySelector('[data-newsticker]');
+  if (!track) return;
+  var items = track.querySelectorAll('.nb-item');
+  if (items.length < 2) return;
+  if (window.matchMedia && window.matchMedia('(prefers-reduced-motion:reduce)').matches) return;
+  var i = 0;
+  setInterval(function () {
+    items[i].classList.remove('on');
+    i = (i + 1) % items.length;
+    items[i].classList.add('on');
+  }, 5000);
+})();
+</script>
+{% endif %}

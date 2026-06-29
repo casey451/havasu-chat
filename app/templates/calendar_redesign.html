@@ -29,7 +29,7 @@
        href="/calendar?cal={{ '%04d-%02d'|format(cal.year, cal.month) }}&date={{ d.iso }}#cal-agenda" data-day="{{ d.iso }}"
        aria-label="{{ d.count }} event{{ '' if d.count == 1 else 's' }} on {{ d.iso }}">
       <span class="dnum">{{ d.day }}</span>
-      {% if d.chips %}<span class="chips">{% for ch in d.chips %}<span class="chip"><i style="background:{{ ch.color }}"></i>{{ ch.title }}</span>{% endfor %}</span>{% endif %}
+      {% if d.chips %}<span class="chips">{% for ch in d.chips %}<span class="chip">{% if ch.time %}<span class="ct">{{ ch.time }}</span>{% endif %}{{ ch.title }}</span>{% endfor %}</span>{% endif %}
       {% if d.more > 0 %}<span class="more">+{{ d.more }} more</span>{% endif %}
       {% if d.dots %}<span class="dots">{% for c in d.dots %}<i style="background:{{ c }}"></i>{% endfor %}</span>{% endif %}
     </a>
@@ -44,7 +44,7 @@
   <div class="asub">{% if cal.agenda.total %}{{ cal.agenda.total }} event{{ '' if cal.agenda.total == 1 else 's' }} &amp; classes{% else %}No events listed yet.{% endif %}</div>
   {% for r in cal.agenda.rows %}
   <a class="arow" href="{{ r.url or '#' }}">
-    <span class="atime">{{ r.time_label or 'TBD' }}</span>
+    <span class="atime">{{ r.time_label }}</span>
     <span class="adot" style="background:{{ r.color }}"></span>
     <span class="atitle">{{ r.title }}</span>
     <span class="acat">{{ r.cat_label }}</span>

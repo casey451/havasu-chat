@@ -45,6 +45,7 @@ from app.home import events_views, flags, redesign, sandstone, sponsor_store
 from app.home.today_feed import today_feed
 from app.monetization import serving
 from app.movies.queries import movies_today
+from app.news import store as news_store
 from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -481,19 +482,24 @@ def _category_cards(db: Session) -> list[dict[str, str | int]]:
 _UTILITY_TILE_MAP: dict[str, tuple[str, str, str]] = {
     # conditions-tile kind -> (chip kind, icon, label)
     # Phase 1 (home IA, PHASE1 brief §3): the live-conditions strip is trimmed to
-    # the four highest-value, always-relevant signals — temp · UV · wind · gas —
-    # so the band stays scannable. AQI, lake level, water temp and the advisory
-    # tile were dropped from the strip; they are still surfaced on /today and in
-    # the conditions JSON payload (honest omission, never fabricated values).
+    # the highest-value, always-relevant signals so the band stays scannable.
+    # AQI, lake level and the advisory tile are surfaced on /today and in the
+    # conditions JSON payload rather than the strip (honest omission, never
+    # fabricated values). Water temp was re-added to the strip at Casey's request
+    # (2026-06-29): it only renders when FEATURE_FLAG_WATER_TEMP_GAGE_09426630 is
+    # ON and the gage has data, so the band degrades to temp · UV · wind when the
+    # reading is absent — never a fabricated value.
     "temp": ("weather", "🌡", "Now"),
     "uv": ("uv", "☀", "UV index"),
     "wind": ("wind", "🌬", "Wind"),
+    "water_temp": ("water_temp", "🌊", "Water"),
 }
 
 # Fixed strip order for the conditions tiles (gas is appended after these so the
-# rendered band reads temp · UV · wind · gas · Live). A tile with no live source
-# is simply skipped — the strip never invents a value.
-_STRIP_TILE_ORDER: tuple[str, ...] = ("temp", "uv", "wind")
+# rendered band reads temp · UV · wind · water · gas · Live). A tile with no live
+# source is simply skipped — the strip never invents a value, so water temp only
+# appears when its gage feed is live (otherwise the band reads temp · UV · wind).
+_STRIP_TILE_ORDER: tuple[str, ...] = ("temp", "uv", "wind", "water_temp")
 
 
 def _gas_chip(db: Session) -> dict[str, Any] | None:
@@ -661,6 +667,8 @@ def serve_home(
                 "featured_cards": featured_cards,
                 "directory_tiles": sandstone.directory_primary_tiles(),
                 "explore_tiles": sandstone.explore_tiles(db),
+                # Local news ticker headlines (honest-omit when the pull is empty).
+                "news": news_store.ticker_view(db),
                 "active_tab": "today",
             },
         )

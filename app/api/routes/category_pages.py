@@ -334,10 +334,11 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         operational_chips=(
             {"param": "drop_in", "value": "1", "label": "Drop-in OK"},
             {"param": "registration", "value": "1", "label": "Registration required"},
-            {"param": "kids", "value": "1", "label": "Kids (0-12)"},
-            {"param": "teens", "value": "1", "label": "Teens (13-17)"},
-            {"param": "adults", "value": "1", "label": "Adults (18+)"},
-            {"param": "55_plus", "value": "1", "label": "55+"},
+            # Collapsed the four age buckets (Kids 0-12 / Teens 13-17 / Adults 18+
+            # / 55+) down to just Youth (under 18) and Adult at Casey's request
+            # (2026-06-29): too many age categories to maintain across all classes.
+            {"param": "youth", "value": "1", "label": "Youth"},
+            {"param": "adults", "value": "1", "label": "Adult"},
         ),
         sort_default="closest_now",
     ),
@@ -873,6 +874,9 @@ def _program_matches_age_band(prog, band: str) -> bool:
         return False
     amin = int(amin) if amin is not None else 0
     amax = int(amax) if amax is not None else 99
+    if band == "youth":
+        # Anyone under 18 the program serves (folds the old kids + teens bands).
+        return amin <= 17
     if band == "kids":
         return amin <= 12 and amax >= 0
     if band == "teens":
@@ -901,12 +905,13 @@ def _apply_classes_sports_filters(
     db: Session,
     drop_in: bool,
     registration: bool,
-    kids: bool,
-    teens: bool,
-    adults: bool,
-    senior_55: bool,
+    kids: bool = False,
+    teens: bool = False,
+    adults: bool = False,
+    senior_55: bool = False,
+    youth: bool = False,
 ) -> list[Entity]:
-    if not any((drop_in, registration, kids, teens, adults, senior_55)):
+    if not any((drop_in, registration, kids, teens, adults, senior_55, youth)):
         return entities
     eids = [e.id for e in entities]
     prog_map = _programs_for_entities(db, eids)
@@ -929,6 +934,8 @@ def _apply_classes_sports_filters(
         if adults and not any(_program_matches_age_band(p, "adults") for p in progs):
             continue
         if senior_55 and not any(_program_matches_age_band(p, "55_plus") for p in progs):
+            continue
+        if youth and not any(_program_matches_age_band(p, "youth") for p in progs):
             continue
         out.append(ent)
     return out

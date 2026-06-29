@@ -200,6 +200,25 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
             }
         )
 
+    # Water temp (USGS 09426630, ~25mi south in the Bill Williams backwater).
+    # Added to the conditions bar at Casey's request (2026-06-29). Honest-omit:
+    # only renders when FEATURE_FLAG_WATER_TEMP_GAGE_09426630 is ON and the gage
+    # has a reading; otherwise the bar simply shows one fewer tile.
+    water_temp = payload.get("water_temp_f")
+    if isinstance(water_temp, (int, float)):
+        tiles.append(
+            {
+                "key": "water_temp",
+                "icon": "wave",
+                "label": "Water",
+                "value": f"{round(water_temp)}°",
+                "unit": None,
+                "color": None,
+                "is_gas": False,
+                "is_stale": bool(payload.get("water_temp_is_stale")),
+            }
+        )
+
     gas = gas_top5(db, now=now)
     if gas["cheapest"]:
         top = gas["cheapest"][0]
@@ -386,7 +405,11 @@ def calendar_month_view(
             iso = cell["iso"]
             d = date.fromisoformat(iso)
             chips = [
-                {"title": ev["title"], "color": category_color(ev.get("type", "events"))}
+                {
+                    "title": ev["title"],
+                    "time": ev.get("time"),
+                    "color": category_color(ev.get("type", "events")),
+                }
                 for ev in cell.get("events", [])[:3]
             ]
             dots = [
@@ -446,9 +469,14 @@ def _agenda(db: Session, day: date, *, now: datetime | None = None) -> dict[str,
         else:
             src.extend(g.get("rows", []))
         for r in src:
+            _tl = r.get("time_label") or ""
             rows.append(
                 {
-                    "time_label": r.get("time_label") or "",
+                    # Drop the "Time TBD" placeholder so the agenda shows a clean
+                    # blank instead of a wall of "TBD" (Casey 2026-06-29); a real
+                    # clock time still renders. The deeper fix is better ingest-
+                    # time parsing, tracked separately.
+                    "time_label": "" if "TBD" in _tl.upper() else _tl,
                     "title": r.get("title") or "",
                     "url": r.get("url"),
                     "cat": key,
