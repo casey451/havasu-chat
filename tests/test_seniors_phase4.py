@@ -164,10 +164,11 @@ def test_nonfitness_class_routes_to_happening_today() -> None:
 
 
 def test_kids_venue_class_lands_in_youth_sub() -> None:
-    # A generically-named class at a kids-only venue is youth-flagged. With no
-    # Kids & Family group (Casey 2026-06-26) it lands ONCE in its primary group
-    # and peels into that group's Youth sub. An untyped "class" residue routes to
-    # Things to Do, so it surfaces under Things to Do → Youth & Family.
+    # A class at a kids-only venue is youth-flagged. With no Kids & Family group
+    # (Casey 2026-06-26) it lands ONCE in its primary group and peels into that
+    # group's Youth sub. An "Enrichment Lab" at a learning center reads as
+    # lifelong-learning (2026-06-28) → Things to Do → "Classes & workshops", so it
+    # surfaces under that subsection's Youth child ("Youth Classes & workshops").
     s = uuid.uuid4().hex[:6]
     enr = f"ZZ Enrichment Lab {s}"
     eids: list[str] = []
@@ -192,10 +193,12 @@ def test_kids_venue_class_lands_in_youth_sub() -> None:
                 out += _walk(n.get("children", []) or [])
             return out
 
-        # Phase 1: the youth residue nests as a "Youth & Family" CHILD under its
-        # activity (Around Town), not a flat top-level sibling.
-        youth = [n for n in _walk(events.get("subgroups", [])) if n["label"] == "Youth & Family"]
-        assert youth and any(enr in r["title"] for r in youth[0]["rows"])
+        # Phase 1: the youth rows nest as a youth CHILD under their activity
+        # subsection (here "Classes & workshops"), not a flat top-level sibling.
+        youth = [n for n in _walk(events.get("subgroups", [])) if n.get("youth")]
+        assert youth and any(
+            enr in r["title"] for n in youth for r in n["rows"]
+        )
     finally:
         _cleanup(eids)
 
