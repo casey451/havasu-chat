@@ -51,6 +51,18 @@ _SOURCES: tuple[tuple[str, Callable[[], list[NewsItem]]], ...] = (
 )
 
 
+def _naive_utc(now: datetime | None) -> datetime:
+    """Coerce ``now`` to the naive-UTC the conditions cache stores and compares
+    against (``read_source`` / ``_is_stale`` subtract naive ``fetched_at``). A
+    tz-aware caller (e.g. the /news router passing ``now_lake_havasu()``) would
+    otherwise blow up on naive-vs-aware subtraction."""
+    if now is None:
+        return datetime.now(UTC).replace(tzinfo=None)
+    if now.tzinfo is not None:
+        return now.astimezone(UTC).replace(tzinfo=None)
+    return now
+
+
 def _source_label(key: str) -> str:
     return SOURCE_LABELS.get(key, key.replace("_", " ").title())
 
@@ -84,7 +96,7 @@ def pull_local_news(db: Session, *, now: datetime | None = None) -> int:
     Per-source failures are logged and skipped so one dead feed never blanks the
     whole ticker; only when EVERY source fails do we record a fetch failure (and
     leave the prior cache row intact for graceful degradation)."""
-    now = now or datetime.now(UTC).replace(tzinfo=None)
+    now = _naive_utc(now)
     collected: list[NewsItem] = []
     ok_sources = 0
     for key, fetch in _SOURCES:
@@ -149,7 +161,7 @@ def _relative_label(iso: str | None, now: datetime) -> str | None:
 
 
 def _view(db: Session, *, limit: int | None, now: datetime | None) -> NewsView:
-    now = now or datetime.now(UTC).replace(tzinfo=None)
+    now = _naive_utc(now)
     row = read_source(db, SOURCE_NEWS_LOCAL, now=now)
     if row is None:
         return NewsView(items=[], is_stale=False, updated_at=None)
