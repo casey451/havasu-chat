@@ -94,11 +94,12 @@ def test_home_feed_matches_events_ui_calendar(db: Session) -> None:
     calendar = ev.calendar_day_view_model(db, day=_DAY)["sections"]
     feed = redesign.feed_view_model(db, day=_DAY)["sections"]
 
-    # ONE documented divergence: the home feed lists Classes & Workshops /
-    # Fitness flat (no sub-accordions) while /events-ui keeps them grouped
-    # (Casey 2026-06-29). Normalize that section's nesting away, then the rest of
-    # the tree must still be IDENTICAL — so accidental drift anywhere else fails.
-    _FLAT = {"classes", "learn"}
+    # ONE documented divergence: the home feed lists Classes & Workshops
+    # ("learn") flat (no sub-accordions) while /events-ui keeps it grouped (Casey
+    # 2026-06-29). Fitness & sports ("classes") keeps its subgroups on both
+    # (Casey 2026-06-30 restored them). Normalize the learn nesting away, then the
+    # rest of the tree must still be IDENTICAL — so accidental drift fails CI.
+    _FLAT = {"learn"}
 
     def _norm(sig: list) -> list:
         return [(k, c, () if k in _FLAT else subs) for k, c, subs in sig]
