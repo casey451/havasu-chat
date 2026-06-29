@@ -144,3 +144,65 @@ def test_events_in_window_recurring(db) -> None:
         db.execute(delete(Event).where(Event.id == ev.id))
         db.execute(delete(EntityCategory).where(EntityCategory.entity_id == ev.entity_id))
         db.commit()
+
+
+def _add_swim(db, *, title: str, source: str, start: time, end: time,
+              venue: str, on_date: date) -> Event:
+    ev = Event(
+        title=title,
+        normalized_title=title.lower(),
+        date=on_date,
+        start_time=start,
+        end_time=end,
+        location_name=venue,
+        location_normalized=venue.lower(),
+        description="x",
+        event_url="https://example.com/e",
+        status="live",
+        source=source,
+        is_recurring=False,
+    )
+    db.add(ev)
+    db.flush()
+    return ev
+
+
+def test_events_in_window_collapses_cross_source_session_twins() -> None:
+    # Real-data regression (2026-06-29): ONE Aquatic-Center swim session was
+    # ingested by three sources — "Free Family Swim" (admin, 12-4), "Free Swim
+    # Day!" (go_lake_havasu, 1-4), and "Open Swim" (allevents, 1-4). The
+    # /events-ui day view collapsed them via dedup_cross_source_occurrences, but
+    # events_in_window (chat event search, category pages, the v1 events API, the
+    # feed, the weekend digest) showed all three. events_in_window now applies the
+    # SAME cross-source dedup — no matcher loosening, so genuinely distinct
+    # same-venue sessions (Lap Swim at 5 AM) are untouched.
+    d = date(2099, 11, 17)
+    venue = "Lake Havasu City Aquatic Center"
+    ids: list[str] = []
+    with SessionLocal() as db:
+        family = _add_swim(db, title="Free Family Swim", source="admin",
+                           start=time(12, 0), end=time(16, 0), venue=venue, on_date=d)
+        openswim = _add_swim(db, title="Open Swim", source="allevents",
+                             start=time(13, 0), end=time(16, 0), venue=venue, on_date=d)
+        swimday = _add_swim(db, title="Free Swim Day!", source="go_lake_havasu",
+                            start=time(13, 0), end=time(16, 0), venue=venue, on_date=d)
+        # Control: a genuinely distinct session at the same venue/date. Lap Swim at
+        # 5 AM doesn't overlap the noon session, so it must stay separate.
+        lap = _add_swim(db, title="Lap Swim", source="admin",
+                        start=time(5, 0), end=time(7, 0), venue=venue, on_date=d)
+        db.commit()
+        ids = [family.id, openswim.id, swimday.id, lap.id]
+    try:
+        with SessionLocal() as db:
+            pairs = events_in_window(db, window_start=d, window_end=d, limit=200)
+        got = {e.id for e, _ in pairs if e.id in set(ids)}
+        # The three cross-source twins collapse to the admin survivor only.
+        assert ids[0] in got, "admin Free Family Swim should survive"
+        assert ids[1] not in got, "allevents Open Swim twin should drop"
+        assert ids[2] not in got, "go_lake Free Swim Day! twin should drop"
+        # The distinct, non-overlapping session is untouched.
+        assert ids[3] in got, "Lap Swim (5 AM, distinct session) should stay"
+    finally:
+        with SessionLocal() as db:
+            db.execute(delete(Event).where(Event.id.in_(ids)))
+            db.commit()
