@@ -13,15 +13,19 @@ from __future__ import annotations
 from datetime import date, time
 
 from app.home.family_venues import (
+    HOURS_VARY_LABEL,
     OPEN_VENUES,
+    FamilyVenue,
     _fmt_span,
     class_today_rows,
+    funzone_hours_rows,
     open_today_rows,
 )
 
 _MON = date(2026, 6, 15)
 _WED = date(2026, 6, 17)
 _THU = date(2026, 6, 18)
+_FRI = date(2026, 6, 19)
 _SUN = date(2026, 6, 21)
 
 
@@ -128,3 +132,46 @@ def test_fmt_span_keeps_meridiem_for_noon_open() -> None:
     assert _fmt_span(time(15, 0), time(21, 0)) == "3–9 PM"
     # Different meridiems → both shown.
     assert _fmt_span(time(9, 0), time(14, 0)) == "9 AM–2 PM"
+
+
+def test_fmt_span_keeps_meridiem_for_midnight_close() -> None:
+    """An 11am-to-midnight span keeps the close meridiem ("11 AM–12 AM"), never
+    the ambiguous "11–12 AM" — the mirror of the noon-open guard (Lady Lee's
+    Fri/Sat close at midnight; mirrors lhc_golf for Golf n' Brews)."""
+    assert _fmt_span(time(11, 0), time(0, 0)) == "11 AM–12 AM"
+    assert _fmt_span(time(9, 0), time(0, 0)) == "9 AM–12 AM"
+
+
+def test_lady_lees_funzone_hours_show_real_window_not_hours_vary() -> None:
+    """Part A: Lady Lee's now carries its verified weekly hours, so its Things-to-
+    Do → Billiards hours row shows the REAL window per weekday instead of the
+    "Hours vary" fallback (provider hours, curated like golf #601)."""
+    def _lady(day: date) -> dict:
+        return next(
+            r for r in funzone_hours_rows(day) if r["title"] == "Lady Lee's Billiards Hall"
+        )
+
+    assert _lady(_MON)["time_label"] == "11 AM–10 PM"   # Mon–Thu 11–10
+    assert _lady(_FRI)["time_label"] == "11 AM–12 AM"    # Fri/Sat close at midnight
+    assert _lady(_SUN)["time_label"] == "11 AM–9 PM"     # Sun 11–9
+    # Routed under Billiards (venue-kind tag) and read as a listing, not an event.
+    assert _lady(_MON)["tags"] == ["activity:billiards", "facet:hours"]
+    assert _lady(_MON)["ongoing"] is True
+    # No funzone venue should read "Hours vary" any more — every one is curated.
+    assert all(r["time_label"] != HOURS_VARY_LABEL for r in funzone_hours_rows(_MON))
+
+
+def test_funzone_hours_unconfirmed_venue_reads_hours_vary() -> None:
+    """Honest fallback: a funzone venue with NO confident weekly hours still
+    reads "Hours vary" (never a fabricated time). ``venues`` is injected so the
+    fallback branch stays covered even though every shipped venue now has hours."""
+    unknown = FamilyVenue(
+        name="Mystery Pool Hall",
+        kind="Billiards hall",
+        url="https://example.com/",
+        venue_kind="billiards",
+        family=False,
+    )
+    rows = funzone_hours_rows(_MON, venues=(unknown,))
+    assert len(rows) == 1
+    assert rows[0]["time_label"] == HOURS_VARY_LABEL

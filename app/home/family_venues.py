@@ -171,6 +171,20 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
         kind="Billiards hall",
         url="https://www.facebook.com/people/Lady-Lees/",
         age_note="Billiards · Monday-night dance party",
+        # Source: the venue's structured hours carried on its directory Provider
+        # row (provider_name "Lady Lee's Billiards Hall", confirmed Jun 2026:
+        # "Mon-Thu 11am-10pm; Fri-Sat 11am-12am; Sun 11am-9pm"). Curated here so
+        # the Things-to-Do → Billiards hours row shows the REAL window instead of
+        # "Hours vary" (mirrors the golf #601 curation; Casey 2026-06-28).
+        hours={
+            0: [(_h(11), _h(22))],   # Mon 11 AM–10 PM
+            1: [(_h(11), _h(22))],   # Tue 11 AM–10 PM
+            2: [(_h(11), _h(22))],   # Wed 11 AM–10 PM
+            3: [(_h(11), _h(22))],   # Thu 11 AM–10 PM
+            4: [(_h(11), _h(0))],    # Fri 11 AM–12 AM (closes midnight)
+            5: [(_h(11), _h(0))],    # Sat 11 AM–12 AM (closes midnight)
+            6: [(_h(11), _h(21))],   # Sun 11 AM–9 PM
+        },
         venue_kind="billiards",
         family=False,
     ),
@@ -208,14 +222,15 @@ def _fmt_span(open_t: time, close_t: time) -> str:
     """One span: "3–9 PM" (drop the redundant first meridiem when it matches),
     "9 AM–2 PM" when they differ.
 
-    The open meridiem is kept when the open hour is 12 (noon/midnight), so a
-    span like noon-to-11 reads "12 PM–11 PM" instead of the ambiguous
-    "12–11 PM" that looks like a 24-hour range (site review §6)."""
+    The meridiem on EITHER endpoint is kept when that hour is 12 (noon/midnight),
+    so a noon-to-11 span reads "12 PM–11 PM" and an 11am-to-midnight span reads
+    "11 AM–12 AM" — never the ambiguous "12–11 PM" / "11–12 AM" that looks like a
+    24-hour range (site review §6; mirrors lhc_golf._fmt_span)."""
     o = format_short_time(open_t)
     c = format_short_time(close_t)
     o_mer = o.rsplit(" ", 1)[-1]
     c_mer = c.rsplit(" ", 1)[-1]
-    if o_mer == c_mer and not o.startswith("12"):
+    if o_mer == c_mer and not o.startswith("12") and not c.startswith("12"):
         return f"{o[: -(len(o_mer) + 1)]}–{c}"
     return f"{o}–{c}"
 
@@ -270,20 +285,23 @@ HOURS_VARY_LABEL = "Hours vary"
 FUNZONE_KINDS: frozenset[str] = frozenset({"bowling", "billiards", "trampoline", "family-fun"})
 
 
-def funzone_hours_rows(day: date) -> list[dict[str, Any]]:
+def funzone_hours_rows(
+    day: date, venues: tuple[FamilyVenue, ...] = OPEN_VENUES
+) -> list[dict[str, Any]]:
     """Accordion-row dicts for the Things-to-Do "Bowling, Billiards & Family Fun"
     cluster — every funzone venue, carrying its venue-kind so the events split
     files it under Billiards / Bowling / Trampoline / Arcade & Family Fun.
 
-    A venue with confident weekly hours shows its real "12–11 PM" window (and is
-    omitted on a day it is closed — never a fabricated "open" claim); a venue
+    A venue with confident weekly hours shows its real "11 AM–10 PM" window (and
+    is omitted on a day it is closed — never a fabricated "open" claim); a venue
     whose hours we cannot confirm shows "Hours vary" rather than "Time TBD".
     Shaped like :func:`open_today_rows` (drops straight into the day-view "events"
     group), with ``activity:<kind>`` + ``facet:hours`` tags so the split routes it
-    and the auto-expand rule reads it as a listing (not an event)."""
+    and the auto-expand rule reads it as a listing (not an event). ``venues`` is
+    injectable for tests (defaults to the curated :data:`OPEN_VENUES`)."""
     weekday = day.weekday()
     rows: list[dict[str, Any]] = []
-    for v in OPEN_VENUES:
+    for v in venues:
         if v.venue_kind not in FUNZONE_KINDS:
             continue
         if v.hours:
