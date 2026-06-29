@@ -707,11 +707,14 @@ class CanonicalHostRedirectMiddleware(BaseHTTPMiddleware):
 # session or header work happens.
 app.add_middleware(CanonicalHostRedirectMiddleware)
 
-# Host-header allowlist (audit L9) — defense-in-depth alongside the Starlette
-# 1.0.1 BadHost fix. OFF by default (no behavior change on deploy); enable by
-# setting TRUSTED_HOSTS (comma-separated) once confirmed, e.g.
-# "askhava.com,*.askhava.com,*.up.railway.app" — include the Railway host so
-# health probes and the legacy-host redirect still pass.
+# Host-header allowlist (audit L9; A1 Cloudflare-readiness) — defense-in-depth
+# alongside the Starlette 1.0.1 BadHost fix. OFF by default (no behavior change
+# on deploy); enable by setting TRUSTED_HOSTS (comma-separated) once confirmed,
+# e.g. "askhava.com,*.askhava.com,*.up.railway.app" — include the Railway host
+# so health probes and the legacy-host redirect still pass. With Cloudflare in
+# front (Track A1) the Host header is preserved end to end, so the same origin
+# hostnames apply; recommended to enable alongside the CF cutover so only
+# Cloudflare-proxied hostnames are accepted at the origin.
 _trusted_hosts_env = (os.getenv("TRUSTED_HOSTS") or "").strip()
 if _trusted_hosts_env:
     app.add_middleware(

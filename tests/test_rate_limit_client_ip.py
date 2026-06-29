@@ -36,3 +36,42 @@ def test_malformed_forwarded_for_falls_back_to_peer() -> None:
 def test_ipv6_forwarded_for_is_accepted() -> None:
     req = _req({"x-forwarded-for": "2001:db8::1, 10.0.0.1"}, "10.0.0.1")
     assert client_ip_key(req) == "2001:db8::1"
+
+
+# A1 (Cloudflare-readiness): CF-Connecting-IP is the authoritative client IP
+# when Cloudflare fronts the origin, and outranks X-Forwarded-For.
+
+
+def test_cf_connecting_ip_takes_precedence_over_forwarded_for() -> None:
+    req = _req(
+        {"cf-connecting-ip": "203.0.113.50", "x-forwarded-for": "198.51.100.9, 10.0.0.1"},
+        "10.0.0.1",
+    )
+    assert client_ip_key(req) == "203.0.113.50"
+
+
+def test_cf_connecting_ip_used_when_only_header() -> None:
+    req = _req({"cf-connecting-ip": "203.0.113.51"}, "10.0.0.1")
+    assert client_ip_key(req) == "203.0.113.51"
+
+
+def test_malformed_cf_connecting_ip_falls_back_to_forwarded_for() -> None:
+    # A garbage CF header must not shadow the still-valid XFF client IP.
+    req = _req(
+        {"cf-connecting-ip": "not-an-ip", "x-forwarded-for": "198.51.100.9, 10.0.0.1"},
+        "10.0.0.1",
+    )
+    assert client_ip_key(req) == "198.51.100.9"
+
+
+def test_malformed_cf_and_forwarded_for_fall_back_to_peer() -> None:
+    req = _req(
+        {"cf-connecting-ip": "garbage", "x-forwarded-for": "also-garbage"},
+        "198.51.100.5",
+    )
+    assert client_ip_key(req) == "198.51.100.5"
+
+
+def test_cf_connecting_ip_ipv6_is_accepted() -> None:
+    req = _req({"cf-connecting-ip": "2001:db8::ab"}, "10.0.0.1")
+    assert client_ip_key(req) == "2001:db8::ab"
