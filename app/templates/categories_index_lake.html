@@ -13,7 +13,14 @@
   "@context": "https://schema.org",
   "@type": "CollectionPage",
   "name": "Lake Havasu City directory",
+  "description": "The local business directory for Lake Havasu City, Arizona — restaurants, the lake, home services, health, shopping and more, with real listings and live open-now status.",
   "url": "{{ absolute_url('/categories') }}",
+  "isPartOf": { "@type": "WebSite", "name": "Ask Hava", "url": "{{ absolute_url('/home') }}" },
+  "about": {
+    "@type": "City",
+    "name": "Lake Havasu City",
+    "address": { "@type": "PostalAddress", "addressLocality": "Lake Havasu City", "addressRegion": "AZ", "addressCountry": "US" }
+  },
   "breadcrumb": {
     "@type": "BreadcrumbList",
     "itemListElement": [
@@ -23,6 +30,8 @@
   },
   "mainEntity": {
     "@type": "ItemList",
+    "name": "Lake Havasu City business categories",
+    "numberOfItems": {{ categories|length }},
     "itemListElement": [{% for cat in categories %}{ "@type": "ListItem", "position": {{ loop.index }}, "name": {{ cat.label|tojson }}, "url": {{ absolute_url('/categories/' ~ cat.slug)|tojson }} }{% if not loop.last %}, {% endif %}{% endfor %}]
   }
 }
@@ -34,8 +43,8 @@
 <div class="wrap dir-wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Directory</span></nav>
   <div class="pagehead">
-    <h1>The Lake Havasu directory</h1>
-    <p class="sub dir-intro">Where to eat, who to call, what to do. Every category, real local listings, open-now first.</p>
+    <h1>The Lake Havasu City directory</h1>
+    <p class="sub dir-intro">The local directory for Lake Havasu City, Arizona — where to eat, who to call, and what to do. Browse every category below, each with real local listings and live open-now status, updated daily.</p>
   </div>
 
   {# P3: the directory's keyword search. "Explore" in the nav links here with
