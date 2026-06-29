@@ -5,7 +5,7 @@ from __future__ import annotations
 import time as _time
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -13,6 +13,7 @@ from app.api.routes import category_pages as cat_pages
 from app.categories.queries import primary_listing_filter
 from app.core.conditions_temperature import read_current_temperature_f
 from app.core.ranking import compute_card_rank
+from app.core.rate_limit import limiter, public_api_rate_limit
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import get_db
 from app.db.models import Entity, EntityCategory, Provider
@@ -111,7 +112,9 @@ def _select_provider_entities(
 
 
 @router.get("/api/map_data/{scope_slug}")
+@limiter.limit(public_api_rate_limit)
 def map_data(
+    request: Request,
     scope_slug: str,
     db: Session = Depends(get_db),
     boat: str | None = Query(None),

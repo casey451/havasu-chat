@@ -13,10 +13,11 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import limiter, public_api_rate_limit
 from app.db.database import get_db
 from app.db.models import Event
 from app.events.activity_taxonomy import activity_bucket, resolve_activity
@@ -148,7 +149,8 @@ def _vevent(event: Event, *, dtstamp: str, base_url: str) -> list[str]:
 
 
 @router.get("/events.ics")
-def events_ics_feed(db: Session = Depends(get_db)) -> Response:
+@limiter.limit(public_api_rate_limit)
+def events_ics_feed(request: Request, db: Session = Depends(get_db)) -> Response:
     """Return the whole live-event calendar as an iCalendar feed."""
     from app.core.timezone import now_lake_havasu
 

@@ -7,6 +7,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
 from app.categories.router import render_cuisine_landing, render_subcategory_landing
+from app.core.rate_limit import limiter, public_html_rate_limit
 from app.db.database import get_db
 from app.providers import queries as provider_queries
 from app.v1.categories import BUCKET_SLUG_REDIRECTS
@@ -28,6 +29,7 @@ def lake_havasu_category(bucket: str) -> RedirectResponse:
 
 
 @router.get("/lake-havasu/{slug}", response_model=None)
+@limiter.limit(public_html_rate_limit)
 def lake_havasu_business(
     request: Request,
     slug: str,

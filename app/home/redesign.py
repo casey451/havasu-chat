@@ -24,6 +24,7 @@ from app.conditions.cache import read_source
 from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
 from app.db.models import Event
+from app.events.tag_display import public_event_tags
 from app.home import events_views, sandstone
 
 # ── category accents / icons (v4 CICON + CCOLOR, mapped onto the app's real
@@ -305,6 +306,14 @@ def _enrich(row: dict[str, Any], blurbs: dict[str, str], cat: str) -> dict[str, 
     out["blurb"] = blurbs.get(m.group(1)) if m else None
     out["thumb"] = CAT_THUMB.get(cat, "im-market")
     out["cat"] = cat
+    # SEO: the v4 home row template renders ``row.tags`` verbatim, so the
+    # internal ``KEY:value`` taxonomy tokens (``activity:billiards``,
+    # ``facet:hours``, ``venue-kind:simulator``, ``audience:youth``) leaked into
+    # the indexed page text. Grouping/tiering already ran upstream on the raw
+    # tags in ``calendar_day_view_model``; this enrichment step is display-only,
+    # so strip them to the friendly tags here (same rule as the event permalink
+    # and chat builders — see app/events/tag_display.py).
+    out["tags"] = public_event_tags(row.get("tags"))
     return out
 
 

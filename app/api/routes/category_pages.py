@@ -43,6 +43,7 @@ from app.core.conditions_temperature import read_current_temperature_f
 from app.core.liveness import liveness_dampener
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.ranking import CardRankInput, compute_card_rank
+from app.core.rate_limit import limiter, public_html_rate_limit
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
 from app.db.models import Category, District, Entity, EntityCategory, Provider
 from app.events import series as event_series
@@ -1078,6 +1079,7 @@ SINGULAR_TO_PLURAL_REDIRECTS: dict[str, str] = {
 
 
 @router.get("/category/{slug}")
+@limiter.limit(public_html_rate_limit)
 def category_landing(request: Request, slug: str) -> RedirectResponse:
     """301 the retired singular surface to the canonical plural page."""
     cat_slug = slug.strip().lower()
