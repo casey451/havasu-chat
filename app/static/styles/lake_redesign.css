@@ -223,7 +223,7 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 
 .ev{display:flex;gap:14px;padding:13px 0;border-top:1px solid var(--hair2);text-decoration:none;color:inherit}
 .ev:first-child{border-top:0}
-.ev .evt{flex:0 0 auto;width:56px;font-family:var(--disp);font-weight:600;font-size:13px;line-height:1.3;color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:1px}
+.ev .evt{flex:0 0 auto;min-width:52px;font-family:var(--disp);font-weight:600;font-size:13px;line-height:1.3;color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:1px}
 .ev .ph{width:60px;height:60px;border-radius:12px;flex:0 0 auto;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(19,32,29,.06)}
 .ev .ph .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.34)}
 .ev .ph .t{position:absolute;left:0;right:0;bottom:0;padding:4px 0;text-align:center;background:linear-gradient(0deg,rgba(8,28,30,.82),transparent);color:#fff;font-size:9px;font-weight:600}
