@@ -95,6 +95,7 @@ from app.home.chat_route import router as new_chat_ui_router
 from app.home.lake_preview import router as lake_preview_router
 from app.home.router import router as home_router
 from app.home.static_pages import router as static_pages_router
+from app.monitoring.canaries import not_canary_clause
 from app.movies.router import router as movies_router
 from app.photos.routes import router as photos_router
 from app.photos.sweep import run_stuck_photo_sweep
@@ -1329,6 +1330,9 @@ def _build_sitemap_providers_xml() -> str:
                     Provider.is_active.is_(True),
                     Provider.draft.is_(False),
                     Provider.slug.isnot(None),
+                    # A4: seeded canary listings never enter the sitemap (we don't
+                    # want a decoy business indexed by Google).
+                    not_canary_clause(),
                 )
                 .all()
             )

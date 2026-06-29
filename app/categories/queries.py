@@ -498,6 +498,8 @@ def primary_listing_filter(primary_slugs: set[str] | frozenset[str] | list[str] 
     """
     from sqlalchemy import and_, false, or_
 
+    from app.monitoring.canaries import not_canary_clause
+
     primaries = {s for s in primary_slugs if s}
     if not primaries:
         return false()
@@ -507,7 +509,10 @@ def primary_listing_filter(primary_slugs: set[str] | frozenset[str] | list[str] 
         clauses.append(
             and_(Provider.primary_category.is_(None), Provider.category.in_(legacy))
         )
-    return or_(*clauses)
+    # A4: seeded canary listings never count toward — or render in — a category,
+    # so the "N listed" numbers and the lists agree and stay honest. NULL-safe, so
+    # real rows (source IS NULL) are unaffected; a no-op until canaries exist.
+    return and_(or_(*clauses), not_canary_clause())
 
 
 def category_listing_count(
