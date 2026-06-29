@@ -72,7 +72,7 @@ from app.core.provider_name import (
 from app.core.provider_name import (
     register_template_globals as _register_template_globals,
 )
-from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
+from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter, public_html_rate_limit
 from app.core.theme import (
     THEME_COOKIE,
     VALID_THEMES,
@@ -1150,10 +1150,67 @@ _sitemap_cache: dict[str, tuple[float, str]] = {}
 _SITEMAP_SECTIONS = ("pages", "providers", "events")
 
 
+# A3 (anti-scrape): AI training / scraper crawlers blocked from the whole site.
+# Search engines (Googlebot, Bingbot, DuckDuckBot, …) are deliberately NOT on
+# this list — blocking them would tank the SEO this whole effort is for. These
+# are the well-published AI/data-harvest agents that honor robots.txt; the ones
+# that don't are Cloudflare/limiter's job (Track A1/A2), not robots'.
+_BLOCKED_CRAWLER_AGENTS: tuple[str, ...] = (
+    "GPTBot",
+    "ChatGPT-User",
+    "OAI-SearchBot",
+    "anthropic-ai",
+    "ClaudeBot",
+    "Claude-Web",
+    "CCBot",
+    "Google-Extended",
+    "PerplexityBot",
+    "Bytespider",
+    "Amazonbot",
+    "Applebot-Extended",
+    "FacebookBot",
+    "meta-externalagent",
+    "Diffbot",
+    "Omgilibot",
+    "Omgili",
+    "ImagesiftBot",
+    "DataForSeoBot",
+    "YouBot",
+    "cohere-ai",
+    "Scrapy",
+)
+
+# Paths every crawler (even the allowed ones) should skip: the JSON/data APIs and
+# the bulk iCal feed are cheap full-dataset pulls with no SEO value to crawl.
+_ROBOTS_DISALLOWED_PATHS: tuple[str, ...] = ("/api/", "/events.ics")
+
+
+def _build_robots_txt(base: str) -> str:
+    """robots.txt body: block AI/scraper agents site-wide, keep the HTML
+    directory crawlable for search engines, and steer everyone away from the
+    JSON/data endpoints. ``Allow: /`` stays in the wildcard group (default-allow
+    semantics + back-compat); the per-path ``Disallow`` wins by longest-match."""
+    lines: list[str] = []
+    # One grouped block: many ``User-agent`` lines sharing a single ``Disallow: /``
+    # rule (valid per the robots spec — a group may name multiple agents).
+    for agent in _BLOCKED_CRAWLER_AGENTS:
+        lines.append(f"User-agent: {agent}")
+    lines.append("Disallow: /")
+    lines.append("")
+    # Everyone else (incl. search engines): crawl HTML, skip the data endpoints.
+    lines.append("User-agent: *")
+    for path in _ROBOTS_DISALLOWED_PATHS:
+        lines.append(f"Disallow: {path}")
+    lines.append("Allow: /")
+    lines.append("")
+    lines.append(f"Sitemap: {base}/sitemap.xml")
+    return "\n".join(lines) + "\n"
+
+
 @app.get("/robots.txt", response_class=PlainTextResponse)
-def robots_txt() -> PlainTextResponse:
-    body = f"User-agent: *\nAllow: /\n\nSitemap: {_base_url()}/sitemap.xml\n"
-    return PlainTextResponse(body)
+@limiter.limit(public_html_rate_limit)
+def robots_txt(request: Request) -> PlainTextResponse:
+    return PlainTextResponse(_build_robots_txt(_base_url()))
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -1404,7 +1461,8 @@ def _get_cached_sitemap_xml(section: str) -> str:
 
 
 @app.get("/sitemap.xml")
-def sitemap_xml() -> Response:
+@limiter.limit(public_html_rate_limit)
+def sitemap_xml(request: Request) -> Response:
     return Response(
         content=_get_cached_sitemap_xml("index"),
         media_type="application/xml",
@@ -1412,7 +1470,8 @@ def sitemap_xml() -> Response:
 
 
 @app.get("/sitemap-{section}.xml")
-def sitemap_section_xml(section: str) -> Response:
+@limiter.limit(public_html_rate_limit)
+def sitemap_section_xml(request: Request, section: str) -> Response:
     if section not in _SITEMAP_SECTIONS:
         raise HTTPException(status_code=404, detail="unknown_sitemap")
     return Response(
