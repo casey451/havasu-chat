@@ -507,14 +507,20 @@ NONFITNESS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "windchime", "wind chime", "jewelry making", "watercolor", "water color",
         "mosaic", "quilting", "sewing class", "knitting", "crochet", "scrapbook",
     )),
-    # Pet-training instruction (dog obedience / puppy class) → Classes & workshops
-    # (Casey 2026-06-26). These carry no fitness keyword and "course" is
-    # deliberately absent from :data:`_LEARNING_GENERIC` (it collides with "golf
-    # course"), so a "Dog Obedience (8-wk course)" would otherwise fall to Around
-    # Town. Checked here, before the fitness classifier, so it's never mistaken
-    # for a workout.
+    # Pet-training instruction (dog obedience / puppy class) AND educational
+    # enrichment / homeschool programming → Classes & workshops. These carry no
+    # fitness keyword and "course" is deliberately absent from
+    # :data:`_LEARNING_GENERIC` (it collides with "golf course"), so a "Dog
+    # Obedience (8-wk course)" or a "Movement Lab (Afternoon Enrichment)" would
+    # otherwise fall to Around Town. "enrichment"/"homeschool" are unambiguous
+    # learning signals (a learning center's after-school enrichment block — Desert
+    # Bloom Learning Center, 2026-06-28); checked here, BEFORE the fitness
+    # classifier, so they're never mistaken for a workout. (Bare "lab"/"workshop"
+    # are deliberately NOT here — too broad; a generic "workshop" stays a fitness
+    # fallback via :data:`_LEARNING_GENERIC`.)
     ("learning", (
         "dog obedience", "obedience", "dog training", "puppy class", "puppy training",
+        "enrichment", "homeschool", "home school",
     )),
     ("maker", ("maker", "cake pop", "slime", "robotics", "stem workshop", "3d print")),
     ("bowling", (
@@ -587,6 +593,15 @@ _THEATER_VENUES: tuple[str, ...] = (
     "community theater",
 )
 
+# Venues whose untyped classes ARE lifelong-learning / enrichment so a generically
+# named class published under them ("Movement Lab", "History Explorers") still
+# reads as learning. Substring matched, lower-cased. Checked AFTER the fitness
+# classifier (so a real yoga class at a "…Learning Center" stays yoga) — a pure
+# backstop for the token-less titles a learning center publishes (2026-06-28).
+_LEARNING_VENUES: tuple[str, ...] = (
+    "learning center",
+)
+
 
 def _phrase_hit(low: str, hints: tuple[str, ...]) -> bool:
     """Word-boundary match of any hint in already-lowercased text (mirrors the
@@ -625,6 +640,11 @@ def classify_activity(
     fitness = SUBGROUP_SLUGS.get(classify_class_subgroup(title, venue, provider_activity))
     if fitness:
         return fitness
+    # A learning-center venue's untyped class (no fitness/craft keyword) is
+    # lifelong-learning. Placed after the fitness classifier so a real yoga class
+    # there stays yoga; before the competition guard a learning center won't trip.
+    if vlow and any(v in vlow for v in _LEARNING_VENUES):
+        return "learning"
     # A competition (tournament / league / round-robin / PickleFest) is never a
     # class/workshop or a craft, so it must NOT fall through to the generic
     # learning words or the bare-``arts`` source tag below — a "Yard Games &

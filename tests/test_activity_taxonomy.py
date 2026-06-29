@@ -101,6 +101,35 @@ def test_pet_training_routes_to_learn():
     assert classify_activity("Puppy Class") == "learning"
 
 
+def test_enrichment_classes_route_to_learn():
+    # Desert Bloom Learning Center's after-school enrichment publishes token-less
+    # titles ("Movement Lab", "History Explorers") that carried no activity slug
+    # and fell to Things to Do → Around Town. The "enrichment"/"homeschool" signal
+    # (and the learning-center venue backstop) now route them to learn.
+    venue = "Desert Bloom Learning Center"
+    for title in (
+        "Movement Lab (Afternoon Enrichment)",
+        "Afternoon Enrichment: History Explorers",
+        "Afternoon Enrichment Workshops",
+        "Morning Homeschool Learning Support",
+    ):
+        slug = classify_activity(title, venue)
+        assert slug == "learning", title
+        assert activity_bucket(slug) == "learn", title
+        assert "activity:learning" in event_activity_tags(title, venue)
+
+
+def test_learning_center_venue_does_not_override_a_real_fitness_class():
+    # The venue backstop is a fallback only: a real yoga class at a learning
+    # center stays yoga (fitness keyword wins), and a token-less title with NO
+    # learning-center venue is left unclassified (no over-reach).
+    assert classify_activity("Vinyasa Yoga", "Desert Bloom Learning Center") == "yoga"
+    assert classify_activity("History Explorers", venue=None) is None
+    # Drop-in rec / sport controls stay out of learning.
+    assert classify_activity("Open Swim") != "learning"
+    assert classify_activity("Pickleball Round Robin") == "pickleball"
+
+
 def test_spaced_watercolors_reads_as_arts():
     # Bug 3: "Water Colors" (spaced) didn't match the one-word "watercolor" hint.
     assert classify_activity("Adult Intro to Water Colors Series") == "arts"
