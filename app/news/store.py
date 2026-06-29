@@ -15,6 +15,7 @@ on a schedule); render it with :func:`ticker_view` / :func:`page_view`.
 from __future__ import annotations
 
 import logging
+import re
 from collections.abc import Callable
 from dataclasses import dataclass
 from datetime import UTC, datetime
@@ -40,6 +41,40 @@ SOURCE_LABELS: dict[str, str] = {
 # the /news page shows the rest). Extra wired sources (abc15_havasu, lhusd) drop
 # in as one more tuple each — keep the list short and well-understood.
 _MAX_ITEMS = 60
+
+# Syndicated, non-local-news filler the wire feeds repeat daily (Casey 2026-06-29).
+# Dropped outright — it's not local news and it floods the ticker.
+_FILLER_TITLE_BITS = (
+    "celebrity cipher",
+    "horoscope",
+    "your stars",
+    "sudoku",
+    "crossword",
+    "jumble",
+    "lottery numbers",
+    "daily puzzle",
+)
+
+_TITLE_DATEISH_RE = re.compile(
+    r"\b(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]*\b|\d+", re.IGNORECASE
+)
+_TITLE_NONWORD_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _is_filler(title: str) -> bool:
+    t = (title or "").lower()
+    return any(bit in t for bit in _FILLER_TITLE_BITS)
+
+
+def _normalize_title(title: str) -> str:
+    """Collapse a headline to a stable key so the same recurring column posted
+    under many URLs/dates dedupes to one (e.g. 'Celebrity Cipher for June 28' and
+    'Celebrity Cipher for July 1' → 'celebrity cipher for')."""
+    t = (title or "").lower()
+    t = _TITLE_DATEISH_RE.sub(" ", t)
+    t = _TITLE_NONWORD_RE.sub(" ", t).strip()
+    return t
+
 
 # (source key, zero-arg fetch callable → list[NewsItem]). Each callable makes its
 # own live HTTP request; failures are isolated per source in pull_local_news.
@@ -112,17 +147,24 @@ def pull_local_news(db: Session, *, now: datetime | None = None) -> int:
         record_fetch_failure(db, SOURCE_NEWS_LOCAL, "all news sources failed", now=now)
         return 0
 
-    # Dedupe by canonical URL (each source yields its own URLs), then recency
-    # first — undated items sink to the bottom rather than disappearing.
-    seen: set[str] = set()
+    # Newest first, then collapse: drop syndicated filler (Celebrity Cipher,
+    # horoscopes, puzzles…) and near-duplicate titles — the same recurring column
+    # posted under many URLs/dates. The sources repeat these; we fix it our end.
+    collected.sort(key=_pub_sort_key, reverse=True)
+    seen_url: set[str] = set()
+    seen_title: set[str] = set()
     unique: list[NewsItem] = []
     for it in collected:
-        key = it.dedupe_key()
-        if not key or key in seen or not it.title or not it.url:
+        if not it.title or not it.url or _is_filler(it.title):
             continue
-        seen.add(key)
+        url_key = it.dedupe_key()
+        title_key = _normalize_title(it.title)
+        if url_key in seen_url or (title_key and title_key in seen_title):
+            continue
+        seen_url.add(url_key)
+        if title_key:
+            seen_title.add(title_key)
         unique.append(it)
-    unique.sort(key=_pub_sort_key, reverse=True)
 
     stored = [_item_to_dict(it) for it in unique[:_MAX_ITEMS]]
     upsert_source(db, SOURCE_NEWS_LOCAL, {"items": stored}, now=now)
@@ -167,10 +209,21 @@ def _view(db: Session, *, limit: int | None, now: datetime | None) -> NewsView:
         return NewsView(items=[], is_stale=False, updated_at=None)
     raw = row.data.get("items") if isinstance(row.data, dict) else None
     items = raw if isinstance(raw, list) else []
+    # Defensive re-clean at read time too, so a cache row written before the
+    # filler/title-dedup fix still renders clean without waiting for a re-pull.
     out: list[dict] = []
+    seen_title: set[str] = set()
     for it in items:
         if not isinstance(it, dict) or not it.get("title") or not it.get("url"):
             continue
+        title = str(it.get("title") or "")
+        if _is_filler(title):
+            continue
+        title_key = _normalize_title(title)
+        if title_key and title_key in seen_title:
+            continue
+        if title_key:
+            seen_title.add(title_key)
         entry = dict(it)
         entry["published_label"] = _relative_label(it.get("published_at"), now)
         out.append(entry)

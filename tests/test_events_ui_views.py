@@ -401,7 +401,7 @@ def test_date_view_renders_accordion_with_day_nav() -> None:
 # --- (g) Time TBD rows render honestly and sort last --------------------------
 
 
-def test_time_tbd_rows_render_label_and_sort_last() -> None:
+def test_time_tbd_rows_render_blank_and_sort_last() -> None:
     suffix = uuid.uuid4().hex[:6]
     day = date(2099, 7, 27)
     timed = f"ZZ Timed Talk {suffix}"
@@ -420,7 +420,9 @@ def test_time_tbd_rows_render_label_and_sort_last() -> None:
         # elsewhere on the page can't skew the assertions.
         i_events = body.index('data-group="events"')
         block = body[i_events : body.index("</details>", i_events)]
-        assert "Time TBD" in block  # honest label, never a fabricated 12 AM
+        # Time-unknown rows show NO time, not a "Time TBD" badge (Casey 2026-06-29)
+        # and never a fabricated 12 AM.
+        assert "Time TBD" not in block
         assert "12 AM" not in block
         assert "10 AM" in block  # the timed sibling keeps its real time
         # TBD rows sort after timed rows within their group.

@@ -94,8 +94,20 @@ def test_home_feed_matches_events_ui_calendar(db: Session) -> None:
     calendar = ev.calendar_day_view_model(db, day=_DAY)["sections"]
     feed = redesign.feed_view_model(db, day=_DAY)["sections"]
 
-    # The home feed must render the IDENTICAL nested tree as /events-ui.
-    assert _tree_sig(feed) == _tree_sig(calendar)
+    # ONE documented divergence: the home feed lists Classes & Workshops /
+    # Fitness flat (no sub-accordions) while /events-ui keeps them grouped
+    # (Casey 2026-06-29). Normalize that section's nesting away, then the rest of
+    # the tree must still be IDENTICAL — so accidental drift anywhere else fails.
+    _FLAT = {"classes", "learn"}
+
+    def _norm(sig: list) -> list:
+        return [(k, c, () if k in _FLAT else subs) for k, c, subs in sig]
+
+    assert _norm(_tree_sig(feed)) == _norm(_tree_sig(calendar))
+    # ...and the home feed really did flatten those sections (no subgroups left).
+    for key, _count, subs in _tree_sig(feed):
+        if key in _FLAT:
+            assert subs == (), f"home feed section {key!r} should be flat"
     # And it must be a real, multi-section tree (guards against an empty pass).
     assert len(calendar) >= 4
     keys = [s["key"] for s in calendar]

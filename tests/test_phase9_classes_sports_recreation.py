@@ -24,14 +24,16 @@ def db():
         session.rollback()
 
 
-def test_category_config_has_age_and_drop_in_chips() -> None:
+def test_category_config_has_audience_chips() -> None:
     cfg = category_page_config("classes-sports-recreation")
     params = {c["param"] for c in cfg.operational_chips}
-    assert "drop_in" in params
-    assert "registration" in params
-    # Age buckets collapsed to Youth (under 18) / Adult (2026-06-29).
+    # Audience buckets collapsed to Youth (under 18) / Adult (2026-06-29).
     assert "youth" in params
     assert "adults" in params
+    # Drop-in / Registration chips were removed — nothing populated the
+    # crowd_notes flag they filtered on (2026-06-29).
+    assert "drop_in" not in params
+    assert "registration" not in params
 
 
 def test_program_age_band_kids() -> None:

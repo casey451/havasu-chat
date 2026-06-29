@@ -196,9 +196,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
             {"param": "boat", "value": "1", "label": "Boat-friendly"},
-            {"param": "family", "value": "1", "label": "Family-friendly"},
-            {"param": "free", "value": "1", "label": "Free"},
-            {"param": "paid", "value": "1", "label": "Paid"},
         ),
         sort_default="closest_now",
     ),
@@ -219,7 +216,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
             {"param": "open", "value": "now", "label": "Open now"},
             {"param": "verified", "value": "1", "label": "Verified"},
             {"param": "mobile", "value": "1", "label": "Mobile-service"},
-            {"param": "emergency", "value": "1", "label": "Emergency 24h"},
         ),
         sort_default="editorial_pick",
     ),
@@ -239,8 +235,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
             {"param": "npi", "value": "1", "label": "NPI-verified"},
-            {"param": "new-patients", "value": "1", "label": "Accepting new patients"},
-            {"param": "insurance", "value": "1", "label": "Insurance accepted"},
         ),
         sort_default="closest_now",
     ),
@@ -258,8 +252,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
             {"param": "mobile", "value": "1", "label": "Mobile-service"},
-            {"param": "tow", "value": "1", "label": "Tow available"},
-            {"param": "rv", "value": "1", "label": "RV-friendly"},
         ),
         sort_default="closest_now",
     ),
@@ -279,8 +271,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
             {"param": "late", "value": "1", "label": "Open past 9pm"},
-            {"param": "drive", "value": "1", "label": "Drive-through"},
-            {"param": "curbside", "value": "1", "label": "Curbside pickup"},
         ),
         sort_default="closest_now",
     ),
@@ -314,10 +304,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         ),
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
-            {"param": "free", "value": "1", "label": "Free"},
-            {"param": "family", "value": "1", "label": "Family-friendly"},
-            {"param": "dog", "value": "1", "label": "Dog-friendly"},
-            {"param": "seasonal", "value": "1", "label": "Seasonal access"},
         ),
         sort_default="closest_now",
     ),
@@ -332,11 +318,9 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
             Chip("adult_sports", "Adult sports"),
         ),
         operational_chips=(
-            {"param": "drop_in", "value": "1", "label": "Drop-in OK"},
-            {"param": "registration", "value": "1", "label": "Registration required"},
-            # Collapsed the four age buckets (Kids 0-12 / Teens 13-17 / Adults 18+
-            # / 55+) down to just Youth (under 18) and Adult at Casey's request
-            # (2026-06-29): too many age categories to maintain across all classes.
+            # Audience filters — collapsed from Kids/Teens/Adults/55+ to Youth
+            # (under 18) / Adult (Casey 2026-06-29). Drop-in / Registration chips
+            # were removed: nothing populates the crowd_notes flag they filtered on.
             {"param": "youth", "value": "1", "label": "Youth"},
             {"param": "adults", "value": "1", "label": "Adult"},
         ),
@@ -354,10 +338,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         ),
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
-            {"param": "waterfront", "value": "1", "label": "Waterfront"},
-            {"param": "pool", "value": "1", "label": "Pool"},
-            {"param": "pet", "value": "1", "label": "Pet-friendly"},
-            {"param": "parking", "value": "1", "label": "Free parking"},
         ),
         sort_default="closest_now",
     ),
@@ -371,9 +351,7 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         ),
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
-            {"param": "walkins", "value": "1", "label": "Walk-ins"},
             {"param": "mobile", "value": "1", "label": "Mobile service"},
-            {"param": "emergency", "value": "1", "label": "Emergency"},
         ),
         sort_default="closest_now",
     ),
@@ -390,9 +368,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         ),
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
-            {"param": "free", "value": "1", "label": "Free"},
-            {"param": "appointment", "value": "1", "label": "Appointment required"},
-            {"param": "always", "value": "1", "label": "24/7 access"},
         ),
         sort_default="closest_now",
     ),
@@ -408,7 +383,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
             {"param": "verified", "value": "1", "label": "Verified"},
-            {"param": "appointment", "value": "1", "label": "Appointment required"},
         ),
         sort_default="closest_now",
     ),
@@ -800,6 +774,7 @@ def _apply_python_filters(
     mobile_only: bool,
     boat_only: bool,
     free_only: bool,
+    npi_only: bool = False,
     now: datetime,
 ) -> list[Entity]:
     if not entities:
@@ -846,6 +821,8 @@ def _apply_python_filters(
             attrs = (prov.attributes if prov else {}) or {}
             if not attrs.get("free_admission") and not attrs.get("free"):
                 continue
+        if npi_only and not (prov is not None and prov.verification_method == "npi_registry"):
+            continue
         out.append(ent)
     return out
 

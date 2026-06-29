@@ -223,6 +223,7 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 
 .ev{display:flex;gap:14px;padding:13px 0;border-top:1px solid var(--hair2);text-decoration:none;color:inherit}
 .ev:first-child{border-top:0}
+.ev .evt{flex:0 0 auto;width:56px;font-family:var(--disp);font-weight:600;font-size:13px;line-height:1.3;color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:1px}
 .ev .ph{width:60px;height:60px;border-radius:12px;flex:0 0 auto;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(19,32,29,.06)}
 .ev .ph .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.34)}
 .ev .ph .t{position:absolute;left:0;right:0;bottom:0;padding:4px 0;text-align:center;background:linear-gradient(0deg,rgba(8,28,30,.82),transparent);color:#fff;font-size:9px;font-weight:600}
@@ -355,18 +356,30 @@ body.scrolled .head-stack{box-shadow:0 6px 18px -10px rgba(19,32,29,.28)}
 .newsbar .nb-tag{flex:0 0 auto;display:inline-flex;align-items:center;gap:6px;font-size:9.5px;
   font-weight:700;letter-spacing:.1em;text-transform:uppercase;color:var(--brass);
   border-right:1px solid var(--hair);padding-right:12px}
-.nb-track{position:relative;flex:1;min-width:0;height:34px;overflow:hidden}
+.nb-track{position:relative;flex:1;min-width:0;height:50px;overflow:hidden}
 .nb-item{position:absolute;inset:0;display:flex;flex-direction:column;justify-content:center;gap:1px;
   min-width:0;text-decoration:none;color:inherit;opacity:0;transform:translateY(6px);
   transition:opacity .4s ease,transform .4s ease;pointer-events:none}
 .nb-item.on{opacity:1;transform:none;pointer-events:auto}
 .nb-h{font-family:var(--disp);font-weight:500;font-size:14px;letter-spacing:-.01em;color:var(--ink);
-  white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+  line-height:1.2;display:-webkit-box;-webkit-line-clamp:2;-webkit-box-orient:vertical;overflow:hidden}
 .nb-src{font-size:10.5px;color:var(--ink3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .nb-more{flex:0 0 auto;display:inline-flex;align-items:center;gap:5px;font-size:11.5px;font-weight:600;
   color:var(--teal);text-decoration:none;white-space:nowrap}
 .nb-more:hover{gap:8px}
 @media (prefers-reduced-motion:reduce){.nb-item{transition:none}}
+/* Mobile: hide the "News"/"All news" text labels (keep their icons) so the
+   headline gets the full width, and let it wrap to two lines (Casey 2026-06-29:
+   on mobile you couldn't see enough of the heading). Desktop keeps one line. */
+@media(max-width:560px){
+  .newsbar{gap:8px;padding:8px 10px}
+  .nb-tag{padding-right:8px}
+  .nb-tag .lbl,.nb-more .lbl{display:none}
+}
+@media(min-width:980px){
+  .nb-track{height:38px}
+  .nb-h{-webkit-line-clamp:1}
+}
 
 .newshead{padding:18px 16px 4px}
 .newshead h1{font-family:var(--disp);font-weight:500;font-size:24px;letter-spacing:-.02em;margin:0}
