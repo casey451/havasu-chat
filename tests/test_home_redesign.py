@@ -150,6 +150,16 @@ def test_home_redesign_a11y() -> None:
     assert not issues, f"A11y issues on redesigned /home: {issues}"
 
 
+def test_home_redesign_has_header_landmark() -> None:
+    """F17: the top bar is wrapped in a <header> banner landmark (was a bare div),
+    alongside the existing <main> and <footer> landmarks."""
+    b = _home()
+    assert '<header class="head-stack">' in b
+    assert "</header>" in b
+    assert '<main id="main"' in b
+    assert "<footer" in b
+
+
 # ── redesigned calendar render ──────────────────────────────────────────────────
 def _cal(qs: str = "") -> str:
     return TestClient(app).get(f"/calendar?home_redesign=1{qs}").text
