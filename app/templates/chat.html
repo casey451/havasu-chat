@@ -42,6 +42,9 @@
     <p class="chat-contribute">Know a place I'm missing? <a href="/contribute">Add to Hava</a></p>
   </section>
 
+  {# F13: arrived from a zero-result keyword search — say so above the AI answer. #}
+  {% if fallback_notice %}<p class="chat-fallback-note">No exact matches — here's what Hava found:</p>{% endif %}
+
   {# ─────────── chat thread (populated by chat-new.js) ─────────── #}
   <div id="thread" class="thread" role="log" aria-live="polite"></div>
 

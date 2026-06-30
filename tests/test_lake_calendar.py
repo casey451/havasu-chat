@@ -96,18 +96,38 @@ class _FakeLeaf:
     slug = "plumbers"
 
 
-def test_chat_lake_routes_discovery_to_calendar() -> None:
+def test_chat_lake_routes_nonquestion_discovery_to_calendar() -> None:
+    # A non-question discovery ask (no "?", no interrogative, no AI intent
+    # phrase) still routes to the /calendar surface. ("things to do this
+    # weekend" is discovery via the day/weekend filter but stays keyword-class.)
     with patch.object(leaf_query, "match_leaf_query", return_value=None):
-        r = TestClient(app).get("/chat?q=live music tonight&theme=lake", follow_redirects=False)
+        r = TestClient(app).get(
+            "/chat?q=things to do this weekend&theme=lake", follow_redirects=False
+        )
     assert r.status_code == 302
     assert r.headers["location"].startswith("/calendar?q=")
 
 
-def test_chat_lake_unplaced_falls_back_to_search() -> None:
+def test_chat_lake_unplaced_query_serves_ai_scaffold() -> None:
+    # F13: an unplaced query no longer dead-ends at keyword /search — it renders
+    # the AI chat scaffold (chat-new.js fires the turn from ?q on load).
     with patch.object(leaf_query, "match_leaf_query", return_value=None):
-        r = TestClient(app).get("/chat?q=best sushi spot downtown&theme=lake", follow_redirects=False)
-    assert r.status_code == 302
-    assert r.headers["location"].startswith("/search?q=")
+        r = TestClient(app).get(
+            "/chat?q=sushi spot downtown&theme=lake", follow_redirects=False
+        )
+    assert r.status_code == 200
+    assert 'id="thread"' in r.text
+
+
+def test_chat_lake_question_serves_ai_scaffold() -> None:
+    # F13: a question-shaped query goes straight to the AI (ahead of leaf /
+    # discovery routing), even when a leaf would otherwise match.
+    with patch.object(leaf_query, "match_leaf_query", return_value=_FakeLeaf()):
+        r = TestClient(app).get(
+            "/chat?q=is In-N-Out Burger open right now?&theme=lake", follow_redirects=False
+        )
+    assert r.status_code == 200
+    assert 'id="thread"' in r.text
 
 
 def test_chat_service_leaf_routes_in_both_themes() -> None:

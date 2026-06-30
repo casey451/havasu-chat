@@ -13,15 +13,17 @@ import json
 import re
 from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
+from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy import Float, and_, case, cast, exists, false, func, literal, or_, select
 from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.chat import tier2_db_query
 from app.chat.normalizer import spell_correct
+from app.chat.query_intent import INTENT_AI, classify_query_intent
 from app.chat.tier2_schema import Tier2Filters
 from app.chat.tier2_synonyms import _category_needle_set
 from app.core.provider_name import register_template_filters, register_template_globals
@@ -633,6 +635,13 @@ def search_results_page(
     """
     q_clean = (q or "").strip()
 
+    # F13: a question / natural-language ask ("is In-N-Out open right now")
+    # can't be answered by keyword lookup — route it straight to the AI
+    # concierge (which the chat scaffold fires on load). Plain noun lookups
+    # ("pizza", "plumber") fall through to keyword search unchanged.
+    if q_clean and classify_query_intent(q_clean) == INTENT_AI:
+        return RedirectResponse(url=f"/chat?q={quote(q_clean)}", status_code=302)
+
     providers: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
     if q_clean:
@@ -668,6 +677,13 @@ def search_results_page(
                     "venue": ev.location_name,
                 }
             )
+
+        # F13: a real keyword query that matched nothing no longer dead-ends on
+        # the "No matches" page — fall through to the AI (nf=1 shows a short
+        # "no exact matches" note above the answer). The AI path never re-invokes
+        # keyword search, so there is no loop.
+        if not providers and not events:
+            return RedirectResponse(url=f"/chat?q={quote(q_clean)}&nf=1", status_code=302)
 
     # Lake Ink & Brass: the concierge falls through here for descriptive
     # queries, so /search must follow the active theme (was desert-only).

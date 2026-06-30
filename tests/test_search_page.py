@@ -81,6 +81,59 @@ def test_search_page_returns_200_with_provider_row(db: Session) -> None:
     assert "928-555-0142" in body
 
 
+def test_search_question_query_redirects_to_ai(db: Session) -> None:
+    """F13: a question / NL query on /search routes straight to the AI concierge."""
+    with TestClient(app) as client:
+        r = client.get(
+            "/search", params={"q": "is In-N-Out Burger open right now"},
+            follow_redirects=False,
+        )
+    assert r.status_code == 302
+    assert r.headers["location"].startswith("/chat?q=")
+    assert "nf=1" not in r.headers["location"]  # direct AI, not the 0-result note
+
+
+def test_search_zero_result_keyword_falls_back_to_ai(db: Session) -> None:
+    """F13: a real keyword query that matches nothing falls back to the AI
+    (with the nf=1 'no exact matches' note) instead of the dead-end page."""
+    nomatch = f"zzqqx{_suffix()}plumberless"
+    with TestClient(app) as client:
+        r = client.get("/search", params={"q": nomatch}, follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"].startswith("/chat?q=")
+    assert "nf=1" in r.headers["location"]
+
+
+def test_search_keyword_hit_still_renders_results_no_redirect(db: Session) -> None:
+    """F13 regression guard: a keyword-class query WITH matches renders the
+    keyword page (no AI redirect) — working lookups are untouched."""
+    suf = _suffix()
+    mark = f"Pizza Palace {suf}"
+    slug = f"pizza-palace-{suf}"
+    ent = _commercial_entity(name=mark, slug=slug)
+    p = Provider(
+        provider_name=mark, slug=slug, category="eat_and_drink",
+        source="test-search-page", draft=False, is_active=True, entity_id=ent.id,
+    )
+    db.add_all([ent, p])
+    db.commit()
+    with TestClient(app) as client:
+        r = client.get("/search", params={"q": "pizza"}, follow_redirects=False)
+    assert r.status_code == 200  # keyword page, not a 302 to /chat
+    assert mark in r.text
+
+
+def test_chat_q_serves_ai_scaffold_for_family_card(db: Session) -> None:
+    """F13: the Family-card style /chat?q= link lands on the AI scaffold (which
+    fires the turn from ?q on load), not the keyword /search page."""
+    with TestClient(app) as client:
+        r = client.get(
+            "/chat", params={"q": "swimming and splash pads"}, follow_redirects=False
+        )
+    assert r.status_code == 200
+    assert 'id="thread"' in r.text  # the chat scaffold, not a redirect
+
+
 def test_like_escape_neutralizes_wildcards() -> None:
     """F13: a query's LIKE wildcards are escaped so it matches as literal text."""
     from app.search.routes import _like_escape
@@ -151,13 +204,16 @@ def test_search_page_blank_q_shows_empty_state() -> None:
     assert "Businesses" not in r.text
 
 
-def test_search_page_no_matches_shows_empty_state() -> None:
+def test_search_page_no_match_now_falls_back_to_ai() -> None:
+    # F13: a non-empty keyword query with zero matches no longer renders a
+    # dead-end "No matches" page — it 302s to the AI concierge (nf=1 note).
     with TestClient(app) as client:
-        r = client.get("/search", params={"q": f"zzqqxx{_suffix()}nomatch"})
-    assert r.status_code == 200
-    body = r.text
-    assert "No matches for" in body
-    assert "/chat?q=" in body
+        r = client.get(
+            "/search", params={"q": f"zzqqxx{_suffix()}nomatch"}, follow_redirects=False
+        )
+    assert r.status_code == 302
+    assert r.headers["location"].startswith("/chat?q=")
+    assert "nf=1" in r.headers["location"]
 
 
 def test_search_page_does_not_leak_internal_fields(db: Session) -> None:
@@ -208,11 +264,14 @@ def test_search_page_excludes_draft_and_inactive(db: Session) -> None:
     db.commit()
 
     with TestClient(app) as client:
-        r = client.get("/search", params={"q": mark})
-    assert r.status_code == 200
-    # The query echoes in the <title>, but the draft provider's row/link must not render.
-    assert f"/provider/draftdojo-{suf}" not in r.text
-    assert "No matches for" in r.text
+        r = client.get("/search", params={"q": mark}, follow_redirects=False)
+    # The draft+inactive provider is excluded, so the keyword search matches
+    # nothing and falls back to the AI (F13) rather than rendering the draft row.
+    # A 302 to /chat proves the draft produced no keyword result; a leaked row
+    # would instead render a 200 results page.
+    assert r.status_code == 302
+    assert r.headers["location"].startswith("/chat?q=")
+    assert f"draftdojo-{suf}" not in r.headers["location"]
 
 
 def test_home_has_single_search_form_to_chat() -> None:
