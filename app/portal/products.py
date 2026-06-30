@@ -125,6 +125,24 @@ STOREFRONT_OFFERS: tuple[dict, ...] = (
 )
 
 
+def resolve_offer(db, key: str, rank_tier: int | None = None) -> dict | None:
+    """Resolve a single storefront offer (label/blurb/price) by its product key
+    + tier, or ``None`` when the key isn't one of the public self-serve products.
+
+    Used to carry a chosen Buy-button product through the advertise funnel (F2):
+    the sponsor storefront links to ``/portal/placements/new?placement_type=…``,
+    and both the buy form and the claim-first interstitial name the exact product
+    and live price the visitor picked, instead of dropping them on a context-free
+    page.
+    """
+    if not key:
+        return None
+    for o in storefront_offers(db):
+        if o["key"] == key and o.get("rank_tier") == rank_tier:
+            return o
+    return None
+
+
 def storefront_offers(db) -> list[dict]:
     """The public rate card: each product with a display price.
 

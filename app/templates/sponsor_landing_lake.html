@@ -31,7 +31,7 @@
           {% if o.price_cents is not none %}{{ "$%.0f"|format(o.price_cents/100) }}<span style="font-size:13px;font-weight:500">/mo{% if o.indicative %} starting{% endif %}</span>{% else %}Price on request{% endif %}
         </p>
         <p class="cat">{{ o.blurb }}</p>
-        <p class="act"><a class="btn btn-ghost" href="/portal/placements/new">Buy &rarr;</a></p>
+        <p class="act"><a class="btn btn-ghost" href="/portal/placements/new?placement_type={{ o.key }}{% if o.rank_tier %}&amp;rank_tier={{ o.rank_tier }}{% endif %}">Buy &rarr;</a></p>
       </div>
       {% endfor %}
     </div>

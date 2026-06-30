@@ -9,6 +9,7 @@ is a later increment once the owner picks a processor + configures keys.
 from __future__ import annotations
 
 from pathlib import Path
+from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
@@ -22,7 +23,7 @@ from app.db.database import get_db
 from app.db.monetization_models import PlacementStatus
 from app.home.queries import CATEGORY_LABELS
 from app.monetization import serving
-from app.portal import creative_store
+from app.portal import creative_store, products
 from app.portal import placements as placement_logic
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -67,6 +68,27 @@ def _t(request: Request, name: str) -> str:
     return f"{name[:-5]}_lake.html"
 
 
+def _clean_offer_params(request: Request) -> dict[str, str]:
+    """Pull a chosen storefront product out of the query string (F2 funnel).
+
+    Returns only the keys present AND valid: ``placement_type`` (must be a real
+    sellable product), ``rank_tier`` (1–5), ``category_slug``. Garbage is dropped
+    so it never preselects a bogus radio or builds a junk resume link. Empty dict
+    when no real product was carried in.
+    """
+    out: dict[str, str] = {}
+    ptype = (request.query_params.get("placement_type") or "").strip()
+    if ptype in placement_logic.PURCHASABLE_TYPES:
+        out["placement_type"] = ptype
+        rank = (request.query_params.get("rank_tier") or "").strip()
+        if rank.isdigit() and 1 <= int(rank) <= 5:
+            out["rank_tier"] = rank
+        cat = (request.query_params.get("category_slug") or "").strip()
+        if cat:
+            out["category_slug"] = cat
+    return out
+
+
 @router.get("", response_class=HTMLResponse)
 @router.get("/", response_class=HTMLResponse)
 def portal_home(request: Request) -> HTMLResponse:
@@ -77,12 +99,30 @@ def portal_home(request: Request) -> HTMLResponse:
 
 
 @router.get("/claim", response_class=HTMLResponse)
-def portal_claim(request: Request) -> HTMLResponse:
+def portal_claim(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     """Claim entry point: find your listing (then claim it from its page) or add
     a new one. The per-listing claim itself lives at /claim/{slug} via the
-    provider profile's 'Claim this listing' CTA."""
+    provider profile's 'Claim this listing' CTA.
+
+    When reached from the advertise funnel (F2) — a visitor without a claimed
+    listing clicked Buy on a placement — the page names the chosen product and
+    price and offers a resume link back to the buy form, so the purchase intent
+    isn't silently dropped on a context-free claim page.
+    """
+    offer_params = _clean_offer_params(request)
+    advertise = bool(offer_params) or request.query_params.get("advertise") == "1"
+    offer = None
+    resume_url = None
+    if offer_params:
+        rank = int(offer_params["rank_tier"]) if "rank_tier" in offer_params else None
+        offer = products.resolve_offer(db, offer_params["placement_type"], rank)
+        resume_url = "/portal/placements/new?" + urlencode(offer_params)
+    elif advertise:
+        resume_url = "/portal/placements/new"
     return templates.TemplateResponse(
-        request=request, name=_t(request, "portal_claim.html"), context={}
+        request=request,
+        name=_t(request, "portal_claim.html"),
+        context={"advertise": advertise, "offer": offer, "resume_url": resume_url},
     )
 
 
@@ -174,13 +214,26 @@ def portal_placements(
 def portal_placement_new_get(
     request: Request, provider_id: str = "", db: Session = Depends(get_db)
 ) -> HTMLResponse | RedirectResponse:
-    """Render the buy-a-placement form for the merchant's claimed listings."""
+    """Render the buy-a-placement form for the merchant's claimed listings.
+
+    A chosen product carried in via the storefront (``?placement_type=…``) is
+    preserved across the login and claim redirects and preselected on the form,
+    so a Buy click never loses which product + price the visitor picked (F2).
+    """
     user = get_current_user(request)
+    offer_params = _clean_offer_params(request)
+    offer_qs = urlencode(offer_params)
     if user is None:
-        return RedirectResponse(url="/login?next=/portal/placements/new", status_code=303)
+        target = "/portal/placements/new" + (f"?{offer_qs}" if offer_qs else "")
+        return RedirectResponse(
+            url="/login?" + urlencode({"next": target}), status_code=303
+        )
     providers = placement_logic.claimed_providers(db, user.id)
     if not providers:
-        return RedirectResponse(url="/portal/claim", status_code=303)
+        # Send to claim, but carry the chosen product so the claim page names it
+        # and offers a resume link (F2: never a context-free claim page).
+        claim_q = dict(offer_params) or {"advertise": "1"}
+        return RedirectResponse(url="/portal/claim?" + urlencode(claim_q), status_code=303)
     return templates.TemplateResponse(
         request=request,
         name=_t(request, "portal_placement_new.html"),
@@ -192,7 +245,9 @@ def portal_placement_new_get(
             "prices": _indicative_prices(db),
             "creatives": _merchant_creatives(db, providers),
             "errors": {},
-            "form": {},
+            # Preselect the carried product (placement_type / rank_tier /
+            # category_slug); the template reads these off `form`.
+            "form": dict(offer_params),
         },
     )
 
