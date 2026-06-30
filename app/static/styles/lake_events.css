@@ -127,6 +127,10 @@
 .ev-seg-m a:hover{color:var(--ink)}
 .ev-seg-m a.on{background:linear-gradient(165deg,#1b2f3a,#10202b);color:#fff}
 
+/* F8: the week subtitle is viewport-aware — desktop shows the 7-day list, mobile
+   shows the swipeable-week carousel, so the copy must match what's on screen. */
+.ev-sub-m{display:none}
+
 /* Item 3: swipeable-week carousel — one Sun–Sat week per full-width slide,
    horizontal scroll-snap = native swipe. Shown only on mobile (desktop keeps the
    flat week list / month grid). */
@@ -171,4 +175,7 @@
   .ev-swipe{display:block}
   .ev-week{display:none}
   .mcal,.ev-mg-legend{display:none}
+  /* F8: match the subtitle to the swipeable-week carousel shown here. */
+  .ev-sub-d{display:none}
+  .ev-sub-m{display:inline}
 }
