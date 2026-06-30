@@ -80,6 +80,15 @@ def _encode_offset(offset: int) -> str:
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
 
+def _like_escape(s: str) -> str:
+    """Escape LIKE/ILIKE wildcards so the query matches as literal text.
+
+    Used with an explicit ``escape='\\'`` so a name like "In-N-Out" or a query
+    such as "50% off" can't behave as a wildcard pattern.
+    """
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _tier2_filters_for_search(
     *,
     q: str,
@@ -545,6 +554,14 @@ def _keyword_provider_rows(db: Session, *, q_clean: str, limit: int) -> list[Pro
         tsq = search_fts.build_tsquery_string(filters)
         if tsq:
             text_parts.append(search_fts.entities_search_vector_match(tsq))
+        # F13: a proper noun or punctuated name ("In-N-Out") tokenizes away in
+        # to_tsquery (hyphens are dropped, then "in"/"out" are stopwords), so an
+        # FTS-only path returns nothing for it. Add a direct name substring so
+        # named businesses stay findable; the SQLite branch already does this.
+        if q_clean.strip():
+            text_parts.append(
+                Entity.name.ilike(f"%{_like_escape(q_clean.strip())}%", escape="\\")
+            )
     else:
         text_parts.append(_sqlite_entity_text_and(filters, entity_type=ENTITY_TYPE_COMMERCIAL))
 

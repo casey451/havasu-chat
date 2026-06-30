@@ -81,6 +81,38 @@ def test_search_page_returns_200_with_provider_row(db: Session) -> None:
     assert "928-555-0142" in body
 
 
+def test_like_escape_neutralizes_wildcards() -> None:
+    """F13: a query's LIKE wildcards are escaped so it matches as literal text."""
+    from app.search.routes import _like_escape
+
+    assert _like_escape("In-N-Out") == "In-N-Out"  # hyphens are not wildcards
+    assert _like_escape("50% off") == "50\\% off"
+    assert _like_escape("a_b") == "a\\_b"
+    assert _like_escape("c\\d") == "c\\\\d"
+
+
+def test_search_page_matches_hyphenated_business_name(db: Session) -> None:
+    """F13: a punctuated proper-noun query ("In-N-Out") finds the business by
+    name. It used to return nothing on Postgres because to_tsquery dropped the
+    hyphenated token; /search now also matches the name as a substring."""
+    suf = _suffix()
+    mark = f"Zorp-Q-Blat {suf}"
+    slug = f"zorp-q-blat-{suf}"
+    ent = _commercial_entity(name=mark, slug=slug)
+    p = Provider(
+        provider_name=mark, slug=slug, category="eat_and_drink",
+        source="test-search-page", draft=False, is_active=True, entity_id=ent.id,
+    )
+    db.add_all([ent, p])
+    db.commit()
+
+    with TestClient(app) as client:
+        r = client.get("/search", params={"q": "Zorp-Q-Blat"})
+    assert r.status_code == 200
+    assert mark in r.text
+    assert f"/provider/{slug}" in r.text
+
+
 def test_search_page_event_row_links_to_permalink(db: Session) -> None:
     suf = _suffix()
     mark = f"LanternFest{suf}"
