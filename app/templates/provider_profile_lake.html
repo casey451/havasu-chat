@@ -86,7 +86,7 @@
   <section class="phero">
     <div>
       {% if _photos %}
-      <div class="pgallery" role="img" aria-label="Photos of {{ _name }}">
+      <div class="pgallery pg-{{ _photos[:5]|length }}" role="img" aria-label="Photos of {{ _name }}">
         {% for _p in _photos[:5] %}<span class="g" style="background-image:url('{{ _p }}')"></span>{% endfor %}
       </div>
       {% else %}
