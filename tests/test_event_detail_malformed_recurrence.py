@@ -67,3 +67,70 @@ def test_detail_page_renders_for_malformed_recurrence(db: Session) -> None:
     finally:
         db.query(Event).filter(Event.id == eid).delete()
         db.commit()
+
+
+# ── F5: is_recurring=True but NO rrule and NO rdate (266 live rows 2026-06-29) ──
+# These have no real schedule. next_occurrence used to return None for them, so
+# _event_is_past wore a false "This event has passed" banner while the anchor was
+# today/upcoming. Degrade to one-off semantics instead.
+
+
+def _oneoff_recurring(anchor: date) -> Event:
+    """In-memory recurring-flagged Event with no rrule/rdate (not DB-persisted)."""
+    return Event(
+        title="No-rule recurring",
+        normalized_title="no-rule recurring",
+        date=anchor,
+        start_time=time(0, 0),  # TBD time, like the Craft Series row
+        end_time=None,
+        location_name="V",
+        location_normalized="v",
+        description="d",
+        event_url="",
+        tags=[],
+        status="live",
+        source="t",
+        verified=True,
+        is_recurring=True,
+        rrule=None,
+        rdate=None,
+        entity_id="x",
+    )
+
+
+def test_recurring_no_schedule_today_anchor_not_past() -> None:
+    from app.core.timezone import now_lake_havasu
+    from app.events.recurrence import next_occurrence
+    from app.main import _display_date, _event_is_past
+
+    today = now_lake_havasu().date()
+    ev = _oneoff_recurring(today)
+    assert next_occurrence(ev, on_or_after=today) == today
+    assert _event_is_past(ev) is False
+    assert _display_date(ev) == today
+
+
+def test_recurring_no_schedule_past_anchor_is_past() -> None:
+    from app.core.timezone import now_lake_havasu
+    from app.events.recurrence import next_occurrence
+    from app.main import _event_is_past
+
+    today = now_lake_havasu().date()
+    past = date(today.year - 1, 1, 1)
+    ev = _oneoff_recurring(past)
+    assert next_occurrence(ev, on_or_after=today) is None
+    assert _event_is_past(ev) is True
+
+
+def test_detail_page_no_false_passed_banner_for_no_schedule_recurring(db: Session) -> None:
+    from app.core.timezone import now_lake_havasu
+
+    today = now_lake_havasu().date()
+    eid = _seed(db, date=today, start_time=time(0, 0), end_time=None, rrule=None, rdate=None)
+    try:
+        r = TestClient(app).get(f"/events/{eid}")
+        assert r.status_code == 200
+        assert "has passed" not in r.text  # no false "This event has passed" banner
+    finally:
+        db.query(Event).filter(Event.id == eid).delete()
+        db.commit()
