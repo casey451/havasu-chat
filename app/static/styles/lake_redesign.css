@@ -66,11 +66,16 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .nav-sp{flex:1}
 /* mobile nav drawer — native <details> disclosure (works with no JS) */
 .navdrawer{position:relative}
-.navdrawer>summary{list-style:none;cursor:pointer}
+/* F11 part 2: the shared site_header.html partial renders the hamburger as a
+   bare <summary> (no .ico class), so give it the same button chrome here that
+   site_chrome.css gives interior pages — a soft rounded square. */
+.navdrawer>summary{list-style:none;cursor:pointer;width:38px;height:38px;border-radius:10px;border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;color:var(--ink2);background:rgba(255,255,255,.7)}
+.navdrawer>summary:hover{color:var(--ink)}
 .navdrawer>summary::-webkit-details-marker{display:none}
 .navdrawer-menu{position:absolute;left:0;top:calc(100% + 10px);background:var(--surface);border:1px solid var(--hair);border-radius:14px;box-shadow:var(--sh-lift);padding:6px;min-width:200px;z-index:40;display:flex;flex-direction:column}
 .navdrawer-menu a{font-size:14px;font-weight:500;color:var(--ink2);padding:11px 12px;border-radius:9px;text-decoration:none;min-height:44px;display:flex;align-items:center}
 .navdrawer-menu a:hover,.navdrawer-menu a.active{background:var(--paper2);color:var(--ink)}
+.navdrawer-menu .biz{color:var(--brass);font-weight:600}
 .ico{width:36px;height:36px;border-radius:50%;border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;color:var(--ink2);background:rgba(255,255,255,.6);transition:.2s;cursor:pointer;text-decoration:none}
 .ico:hover{box-shadow:var(--sh-sm);transform:translateY(-1px);color:var(--ink)}
 .btn-ghost{font-size:13px;font-weight:600;color:var(--ink);border:1px solid var(--ink);border-radius:999px;padding:8px 17px;background:transparent;cursor:pointer;transition:.2s;text-decoration:none;display:inline-flex;align-items:center}
@@ -311,12 +316,16 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
   mask-image:linear-gradient(90deg,transparent,#000 20px,#000 calc(100% - 20px),transparent)}
 .hscroll::-webkit-scrollbar{display:none;height:0}
 
-/* visibility helpers (mobile default → desktop via media query) */
-.only-d{display:none}
+/* visibility helpers (mobile default → desktop via media query). The .sc-only-*
+   aliases let the shared site_header.html partial (which uses sc-only-*) switch
+   on base_redesign's 980px breakpoint, same as the inline .only-* did (F11). */
+.only-d,.sc-only-d{display:none}
 
 /* ---- v4 final polish ---- */
 .cpill:focus-visible,.dcard:focus-visible,.dd-btn:focus-visible,.calbtn:focus-visible,.cell:focus-visible,.sechd:focus-visible,.feature-slot:focus-visible,.feature-marquee:focus-visible,.dd-menu a:focus-visible,.arow:focus-visible,.navlinks a:focus-visible,.ico:focus-visible,.btn-ghost:focus-visible,.calback:focus-visible,.calnav a:focus-visible,.showall:focus-visible,.brand:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(12,90,96,.34);border-color:var(--teal)}
-.avatar{width:32px;height:32px;border-radius:50%;border:1.5px solid #fff;cursor:pointer;box-shadow:var(--sh-sm);text-decoration:none;display:inline-block;
+/* The shared site_header.html partial drops a location pin inside the avatar
+   (it used to be an empty gradient chip), so center + color the glyph (F11). */
+.avatar{width:32px;height:32px;border-radius:50%;border:1.5px solid #fff;cursor:pointer;box-shadow:var(--sh-sm);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;color:#fff;
   background:radial-gradient(circle at 32% 30%,#ffe6a6 0 26%,transparent 27%),linear-gradient(150deg,var(--teal-br),var(--teal-deep))}
 
 /* Sticky header keeps a CONSTANT height while scrolling. The old "scroll-shrink"
@@ -344,8 +353,8 @@ body.scrolled .head-stack{box-shadow:0 6px 18px -10px rgba(19,32,29,.28)}
 
 /* ============ DESKTOP (production responsive — replaces .device.desktop) ===== */
 @media(min-width:980px){
-  .only-d{display:flex}
-  .only-m{display:none}
+  .only-d,.sc-only-d{display:flex}
+  .only-m,.sc-only-m{display:none}
   .main{display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start;padding:8px 24px 0}
   .rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:150px}
   .feature-slot.infeed{display:none}            /* in-feed ads are mobile-only; desktop uses the rail */
