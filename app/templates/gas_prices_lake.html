@@ -42,7 +42,7 @@
   <div class="gas-cheap">
     {% for s in cheapest %}
     {% if s.provider_slug %}<a class="card gas-card" href="/provider/{{ s.provider_slug }}">{% else %}<div class="card gas-card">{% endif %}
-      <div class="rank">#{{ loop.index }}{% if s.brand %} &middot; {{ s.brand }}{% endif %}</div>
+      <div class="rank">#{{ loop.index }} &middot; {{ s.brand or s.name }}</div>
       <div class="price tnum">{% if s.prices and s.prices.regular %}${{ '%.2f'|format(s.prices.regular) }}{% else %}&mdash;{% endif %}</div>
       <div class="name">{{ s.name }}</div>
       {% if s.address %}<div class="addr">{{ s.address }}</div>{% endif %}

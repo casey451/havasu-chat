@@ -4,16 +4,16 @@
    omit empty state. Context: ``news`` (app.news.store.page_view). Casey 2026-06-29. -#}
 {% from "components/redesign_icons.html" import icon %}
 
-{% block title %}Local news — Ask Hava, Lake Havasu City{% endblock %}
-{% block meta_description %}Recent Lake Havasu City news headlines from local sources — the News-Herald, the City, River Scene Magazine, and the Sheriff's Office. Each links out to the original source.{% endblock %}
+{% block title %}Havasu headlines — Ask Hava, Lake Havasu City{% endblock %}
+{% block meta_description %}Recent headlines from Lake Havasu City's news outlets — the News-Herald, the City, River Scene Magazine, and the Sheriff's Office, plus the national wire they run. Each links out to the original source.{% endblock %}
 
 {% block main %}
 <div class="newshead">
   <nav class="crumbs" aria-label="Breadcrumb" style="font-size:12.5px;color:var(--ink3);margin-bottom:6px">
     <a href="/home" style="color:var(--teal);text-decoration:none">Ask Hava</a> › <span aria-current="page">News</span>
   </nav>
-  <h1 class="serif">Local news</h1>
-  <p class="newssub">Recent headlines from around Lake Havasu City — each links out to the original source.{% if news.updated_at %} <span class="nu">Updated {{ news.updated_at.strftime('%b ') }}{{ news.updated_at.day }}.</span>{% endif %}</p>
+  <h1 class="serif">Havasu headlines</h1>
+  <p class="newssub">The latest from Lake Havasu City's news outlets — local stories plus the national wire they run. Each links out to the original source.{% if news.updated_at %} <span class="nu">Updated {{ news.updated_at.strftime('%b ') }}{{ news.updated_at.day }}.</span>{% endif %}</p>
 </div>
 
 {% if news.items %}
