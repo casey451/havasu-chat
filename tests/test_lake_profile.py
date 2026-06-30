@@ -82,6 +82,17 @@ def test_profile_renders_core_bindings() -> None:
     assert "210 Swanson Ave" in h  # address
 
 
+def test_profile_map_is_a_link_button_not_a_fake_map() -> None:
+    """F14: the "View on the map" element is an obvious link button (pin glyph +
+    label), not a faux embedded-map panel."""
+    h = _render(_vm())
+    assert '<a class="pmap"' in h
+    assert "View on the map" in h
+    assert "<svg" in h.split('class="pmap"')[1][:400]  # pin icon inside the link
+    # The old faux-map gradient panel markup is gone.
+    assert "linear-gradient(160deg,#dbe6ec" not in h
+
+
 def test_profile_gallery_class_tracks_photo_count() -> None:
     """F14: the hero gallery carries a pg-N count class so the CSS can fill the
     frame for sparse photo sets (a single photo no longer leaves a blue half)."""

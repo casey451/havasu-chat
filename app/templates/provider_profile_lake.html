@@ -115,7 +115,7 @@
           <button type="button" class="fav-save" data-requires-login="1" aria-label="Save to favorites"><span class="heart" aria-hidden="true"><span class="heart-off">♡</span></span> Save</button>
           {% endif %}
         </div>
-        {% if vm.directions_url %}<a class="pmap" href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open map and directions for {{ _name }}">View on the map →</a>{% endif %}
+        {% if vm.directions_url %}<a class="pmap" href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open map and directions for {{ _name }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.4" stroke="currentColor" stroke-width="1.8"/></svg>View on the map →</a>{% endif %}
         <div class="pclaim">{% if vm.show_claim_cta %}Own this business? <a href="{{ vm.claim_url or '/contribute' }}">Claim &amp; manage it →</a>{% else %}Listing kept fresh from public data.{% endif %}</div>
       </div>
     </aside>

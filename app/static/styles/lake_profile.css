@@ -36,8 +36,12 @@
 .pcta-card{background:var(--raised);border:1px solid var(--hair);border-radius:18px;box-shadow:var(--sh-card);padding:18px}
 .pcta-act{display:flex;flex-direction:column;gap:9px}
 .pcta-act .btn{width:100%}
-.pmap{height:150px;border-radius:14px;background:linear-gradient(160deg,#dbe6ec,#cdd9e1);border:1px solid var(--hair-2);margin-top:14px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;text-decoration:none}
-.pmap:hover{border-color:var(--ink)}
+/* F14: was a 150px blue gradient panel that masqueraded as an embedded map but
+   was only a link. Render it as an obvious link button (pin glyph + label) so it
+   no longer looks like a broken/fake map. */
+.pmap{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:10px 16px;border-radius:12px;background:var(--surface);border:1px solid var(--hair-2);color:var(--ink-2);font-size:14px;font-weight:600;text-decoration:none}
+.pmap svg{flex:none;color:var(--brass-deep)}
+.pmap:hover{border-color:var(--ink);color:var(--ink)}
 .pclaim{margin-top:14px;font-size:12.5px;color:var(--muted);text-align:center}
 .pclaim a{color:var(--brass-deep);font-weight:600}
 .fav-save{display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;font-family:var(--ui);font-weight:600;font-size:14px;border-radius:999px;padding:11px 20px;min-height:44px;cursor:pointer;background:var(--raised);color:var(--ink);border:1px solid var(--hair-2);box-shadow:var(--sh-1)}
