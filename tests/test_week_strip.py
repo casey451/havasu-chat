@@ -72,6 +72,35 @@ def _add(
     db.commit()
 
 
+# --- F6/F9 canonical happenings count ---------------------------------------
+
+
+def test_real_happenings_counts_events_excludes_movies(db: Session) -> None:
+    _add(db, title="One-off Concert")
+    _add(db, title="Weekly Farmers Market", recurring=True)
+    _add(db, title="Matinee Showtime", tags=["movie"])
+    counts = sandstone.real_happenings_by_day(db, window_start=_TODAY, window_end=_TODAY)
+    # The one-off + the recurring EVENT count; the movie showtime does not.
+    assert counts.get(_TODAY) == 2
+
+
+def test_real_happenings_empty_day_is_absent(db: Session) -> None:
+    _add(db, title="Only Today")
+    counts = sandstone.real_happenings_by_day(db, window_start=_TODAY, window_end=_TODAY)
+    other = date(2026, 6, 6)
+    counts2 = sandstone.real_happenings_by_day(db, window_start=other, window_end=other)
+    assert counts.get(_TODAY) == 1
+    # An honest empty day reads as 0 (no fabricated "busy"), not a flat roster.
+    assert counts2.get(other, 0) == 0
+
+
+def test_week_strip_day_carries_happenings(db: Session) -> None:
+    _add(db, title="A")
+    _add(db, title="B")
+    strip = sandstone.week_strip(db, today=_TODAY)
+    assert strip["days"][0]["happenings"] == 2
+
+
 # --- tiering (pure) ---------------------------------------------------------
 
 
