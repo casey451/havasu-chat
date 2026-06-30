@@ -106,7 +106,7 @@
   </nav>
   <div class="pagehead">
     <h1>{{ _h1 }}</h1>
-    {% if mode == 'week' %}<p class="sub">The next seven days around the lake — tap a day for the full lineup.</p>
+    {% if mode == 'week' %}<p class="sub"><span class="ev-sub-d">The next seven days around the lake — tap a day for the full lineup.</span><span class="ev-sub-m">Swipe between weeks — tap a day for the full lineup.</span></p>
     {% elif mode == 'month' %}<p class="sub"><b>{{ calendar.month_oneoff_total or 0 }}</b> events &amp; <b>{{ calendar.month_class_total or 0 }}</b> classes this month — tap a date.</p>
     {% endif %}
   </div>

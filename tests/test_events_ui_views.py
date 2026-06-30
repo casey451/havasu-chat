@@ -271,6 +271,16 @@ def test_week_view_rollup_counts_and_headline(monkeypatch: pytest.MonkeyPatch) -
         _cleanup(eids)
 
 
+def test_week_view_subtitle_is_viewport_aware() -> None:
+    """F8: the week view ships both subtitle variants — the desktop 7-day list
+    copy and the mobile swipe-carousel copy — so the CSS shows whichever matches
+    what's on screen (the audit saw a 5-week carousel under a 'seven days' line)."""
+    with TestClient(app) as client:
+        body = client.get("/events-ui?view=week").text
+    assert '<span class="ev-sub-d">The next seven days around the lake' in body
+    assert '<span class="ev-sub-m">Swipe between weeks' in body
+
+
 def test_week_rollup_counts_match_day_groups(monkeypatch: pytest.MonkeyPatch) -> None:
     """The week rollup must count an occurrence under the SAME group the day view
     renders it in. Regression for the carried-forward finding: a senior class
