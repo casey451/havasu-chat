@@ -115,6 +115,35 @@ def _live_events_by_day(
         by_day.setdefault(occ_date, []).append(ev)
     return by_day
 
+
+def real_happenings_by_day(
+    db: Session, *, window_start: date, window_end: date
+) -> dict[date, int]:
+    """Per-day count of REAL dated happenings — the canonical "N events on day X"
+    number (F6/F9).
+
+    A happening is an Event-table occurrence: a one-off event *or* a recurring
+    EVENT landing on that day (a weekly concert, the farmers market). It excludes
+    the three things that made every surface's count disagree and made far-future
+    days read falsely "busy":
+
+    * **venue class-schedule rosters** (entity ``Schedule`` rows — the ~55 gym
+      classes that project onto *every* day; counted separately as classes),
+    * **movie showtimes** (already excluded by :func:`_live_events_by_day`), and
+    * **always-open venue hours** (never Event rows).
+
+    The result is honest and day-varying — a quiet far-future day reads ~10, not
+    ~95 — and stable across reloads (no ``now`` filtering, so a fixed day's number
+    doesn't drift as events end). One bulk query for the whole window (reuses
+    :func:`_live_events_by_day`), so a strip or month grid stays cheap.
+    """
+    return {
+        d: len(evs)
+        for d, evs in _live_events_by_day(
+            db, window_start=window_start, window_end=window_end
+        ).items()
+    }
+
 # ---------------------------------------------------------------------------
 # Explore strips — driven by the live A.3 taxonomy departments
 # ---------------------------------------------------------------------------
@@ -687,6 +716,11 @@ def week_strip(
                 "events": visible,
                 "overflow": overflow,
                 "event_count": len(oneoffs),
+                # F6/F9 canonical count: all real dated happenings that day
+                # (one-off + recurring EVENTS), excluding the venue class roster
+                # that otherwise makes every day read the same ~55. Honest and
+                # day-varying; the strip pill + home header read this.
+                "happenings": len(evs),
                 "class_count": class_count,
                 "categories": categories,
                 "summary": " · ".join(summary_bits),

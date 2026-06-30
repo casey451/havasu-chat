@@ -110,7 +110,7 @@
     {% for day in week.days %}
     {% set is_sel = day.iso == selected_iso %}
     <a class="dcard{% if is_sel %} on{% endif %}" href="/home?date={{ day.iso }}#today"{% if is_sel %} aria-current="date"{% endif %}
-       aria-label="{{ day.event_count or 0 }} event{{ '' if day.event_count == 1 else 's' }} on {{ day.dow }} {{ day.iso.split('-')[2]|int }}">
+       aria-label="{{ day.happenings or 0 }} event{{ '' if day.happenings == 1 else 's' }} on {{ day.dow }} {{ day.iso.split('-')[2]|int }}">
       <span class="dw">{% if loop.first and is_sel %}Today{% else %}{{ day.dow }}{% endif %}</span>
       <span class="dn num">{{ day.iso.split('-')[2]|int }}</span>
     </a>
@@ -120,7 +120,7 @@
 
 {# ── Feed heading + jump-to-category ─────────────────────────────────── #}
 <div class="calbar">
-  <h1 class="serif" id="feedTitle">Happening {{ 'today' if is_today else feed_day_label }} <span class="n">· <span class="num">{{ feed.total }}</span> listed</span></h1>
+  <h1 class="serif" id="feedTitle">Happening {{ 'today' if is_today else feed_day_label }} <span class="n">· <span class="num">{{ happenings }}</span> event{{ '' if happenings == 1 else 's' }}</span></h1>
   <div class="dd" id="jump">
     <button type="button" class="dd-btn" aria-haspopup="true" aria-expanded="false">Jump to <span class="cv">{{ icon('chev', 14) }}</span></button>
     <div class="dd-menu" role="menu">
