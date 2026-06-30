@@ -185,16 +185,22 @@ body.ll-chat .stuck-composer .composer input[type="text"]:focus-visible {
 
 /* Photo button lives on the black box — cream text, peach accents.
    Selectors mirror chat_cards.css so the desert colors win its jade ones. */
+/* Add-a-photo control: an icon button (was the text "Photo", which rendered as
+   an uppercase "PHOTO" pill that read like a stray placeholder — F12). The photo
+   upload itself is unchanged (chat-new.js still wires #composer-photo-btn). */
 body.ll-chat .stuck-composer .composer .photo-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
   border: 1.5px solid rgba(251, 244, 230, 0.4);
   background: transparent;
   color: var(--cream);
-  font-family: var(--text);
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  padding: 9px 13px;
+  padding: 9px;
+  line-height: 0;
+}
+
+body.ll-chat .stuck-composer .composer .photo-btn svg {
+  display: block;
 }
 
 body.ll-chat .stuck-composer .composer .photo-btn:hover,
