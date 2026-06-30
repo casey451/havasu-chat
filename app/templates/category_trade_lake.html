@@ -1,4 +1,5 @@
 {% extends "base_lake.html" %}
+{% from "_partials/dir_toolbar.html" import dir_toolbar %}
 {#- Lake Ink & Brass leaf listing (/categories/{department}/{leaf}) — the
    ad-revenue surface. SAME real context as category_trade.html (cards, filters,
    pager, faqs). DECISION D4 kept: JSON-LD = BreadcrumbList + ItemList (names +
@@ -24,14 +25,14 @@
   </div>
 
   {% if list_controls %}
-  <div class="toolbar" role="group" aria-label="Filter and sort listings">
-    <span class="tlab">Filter</span>
-    <a class="chip{% if list_controls.open_now %} on{% endif %}" href="{% if list_controls.open_now %}{{ list_controls.url_open_off }}{% else %}{{ list_controls.url_open_on }}{% endif %}"{% if list_controls.open_now %} aria-current="true"{% endif %}>Open now</a>
-    <a class="chip{% if list_controls.sort == 'top' %} on{% endif %}" href="{{ list_controls.url_top }}"{% if list_controls.sort == 'top' %} aria-current="true"{% endif %}>Featured</a>
-    <a class="chip{% if list_controls.sort == 'favorites' %} on{% endif %}" href="{{ list_controls.url_favorites }}"{% if list_controls.sort == 'favorites' %} aria-current="true"{% endif %}>Top rated</a>
-    <a class="chip{% if list_controls.sort == 'az' %} on{% endif %}" href="{{ list_controls.url_az }}"{% if list_controls.sort == 'az' %} aria-current="true"{% endif %}>A&ndash;Z</a>
-    {% if list_controls.open_now %}<span class="shown">{{ list_controls.shown_total }} open now</span>{% endif %}
-  </div>
+  {% set lc = list_controls %}
+  {% set _toolbar_groups = [{'label': 'Filter', 'chips': [
+    {'label': 'Open now', 'href': (lc.url_open_off if lc.open_now else lc.url_open_on), 'active': lc.open_now},
+    {'label': 'Featured', 'href': lc.url_top, 'active': lc.sort == 'top'},
+    {'label': 'Top rated', 'href': lc.url_favorites, 'active': lc.sort == 'favorites'},
+    {'label': 'A–Z', 'href': lc.url_az, 'active': lc.sort == 'az'},
+  ]}] %}
+  {{ dir_toolbar(_toolbar_groups, note=((lc.shown_total ~ ' open now') if lc.open_now else none)) }}
   {% endif %}
 
   {# P3 finding 34: the category ad slot lives at the TOP, above the listings,

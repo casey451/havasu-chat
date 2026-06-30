@@ -180,7 +180,9 @@ def test_open_now_is_a_filter_not_a_sort_pill(client: TestClient) -> None:
     # Isolate the Sort segment of the unified "Filter and sort" toolbar.
     sort_seg = body.split('">Sort</span>', 1)[1].split("</div>", 1)[0]
     assert sort_seg.count('class="chip on"') == 1
-    assert "Locals' favorites" in sort_seg
+    # F15: the default-sort chip is now labeled "Featured" (unified with the
+    # trade leaf page and this page's own "Featured = … shuffled fresh" note).
+    assert "Featured" in sort_seg
 
 
 def test_sort_explainer_matches_active_sort(client: TestClient) -> None:
