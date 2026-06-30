@@ -262,6 +262,76 @@ def strip_soft_suggest(text: str) -> str:
     return _join_sentences(kept)
 
 
+# ---------------------------------------------------------------------------
+# Ungrounded contact-info guard (F1) — the audit caught Tier 3 emitting a
+# fabricated phone number ("(775) 848-5418", a Nevada area code) for a business
+# that wasn't even in Context. The system prompt bans this, but gpt-4.1-mini
+# still confabulates contact details on some queries. This is the deterministic
+# backstop: any phone/address in the answer whose value is NOT present in the
+# Context block we handed the model gets its whole sentence dropped. Better to
+# omit a number than to send a caller a fake one.
+#
+# Regexes mirror app.chat.halt3_validator (the CI eval-set validator) but are
+# duplicated locally to avoid an import cycle (halt3_validator imports
+# unified_router, which transitively imports this module).
+_CONTACT_PHONE_RE = re.compile(r"\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4}")
+_CONTACT_ADDRESS_RE = re.compile(
+    r"\b\d{1,6}\s+(?:[NSEW]\.?\s+)?[A-Z][\w.]*"
+    r"(?:\s+[A-Z][\w.]*){0,4}\s+(?:Blvd|Ave|St|Rd|Dr|Ln|Way|Hwy|Pl)\b"
+)
+
+_UNGROUNDED_CONTACT_FALLBACK = (
+    "I don't have that contact info in the catalog yet — the venue's own site or "
+    "/contribute is the move."
+)
+
+
+def _phone_digits(s: str) -> str:
+    return re.sub(r"\D", "", s or "")
+
+
+def redact_ungrounded_contact(text: str, context_text: str | None) -> str:
+    """Drop any sentence whose phone/address is not grounded in ``context_text``.
+
+    ``context_text`` is the Context block injected into the Tier-3 user message
+    (see ``app.chat.context_builder``); it carries the only facts the model was
+    given, on ``phone:`` / ``address:`` lines. A phone is grounded when its
+    digits appear in Context; an address is grounded when it is a substring of
+    (or contains) a Context address, case-insensitively. Idempotent; returns the
+    input unchanged when every contact mention is grounded (the common case).
+
+    When *every* sentence carried an ungrounded contact detail (the whole answer
+    was confabulated contact info), returns a clean honest-gap line instead of
+    an empty string.
+    """
+    if not text:
+        return text
+    ctx = context_text or ""
+    grounded_phones = {_phone_digits(m) for m in _CONTACT_PHONE_RE.findall(ctx)}
+    grounded_addrs = [a.lower() for a in _CONTACT_ADDRESS_RE.findall(ctx)]
+
+    sentences = _split_sentences(text)
+    if not sentences:
+        return text
+
+    def _sentence_grounded(s: str) -> bool:
+        for ph in _CONTACT_PHONE_RE.findall(s):
+            if _phone_digits(ph) not in grounded_phones:
+                return False
+        for ad in _CONTACT_ADDRESS_RE.findall(s):
+            al = ad.lower()
+            if not any(al in g or g in al for g in grounded_addrs):
+                return False
+        return True
+
+    kept = [s for s in sentences if _sentence_grounded(s)]
+    if len(kept) == len(sentences):
+        return text
+    if not kept:
+        return _UNGROUNDED_CONTACT_FALLBACK
+    return _join_sentences(kept)
+
+
 def scrub_scaffold_leak(text: str) -> str:
     """Drop only grounding-scaffold-leak sentences from ``text``.
 

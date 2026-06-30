@@ -34,7 +34,7 @@ from app.chat.tier2_formatter import (
     _enforce_low_tier_phone,
     is_confidence_tier_enabled,
 )
-from app.chat.tier3_postprocess import strip_soft_suggest
+from app.chat.tier3_postprocess import redact_ungrounded_contact, strip_soft_suggest
 from app.core.llm_messages import call_anthropic_messages, load_prompt
 from app.core.timezone import format_now_lake_havasu, now_lake_havasu
 from app.db.database import SessionLocal
@@ -356,6 +356,9 @@ def answer_with_tier3(
         # from tier3_rows on every call (hit or miss). Rows stay fresh via
         # build_context_and_rows_for_tier3 above even when voice is cached.
         cleaned_text = cached_response
+        # F1: re-ground contact info against THIS request's Context — a similarity
+        # cache hit could carry a phone that was grounded for a sibling query.
+        cleaned_text = redact_ungrounded_contact(cleaned_text, context)
         if is_confidence_tier_enabled():
             rows_hit = rows_for_tier3_classification(intent_result, db, query=query)
             cleaned_text = _enforce_low_tier_phone(cleaned_text, rows_hit)
@@ -416,6 +419,12 @@ def answer_with_tier3(
         return FALLBACK_MESSAGE, None, None, None
 
     cleaned_text = strip_soft_suggest(result.text)
+    if not cleaned_text:
+        cleaned_text = result.text  # defensive: never return empty
+
+    # F1: drop any phone/address the LLM emitted that isn't grounded in Context.
+    # Runs before the cache write so the stored text is already scrubbed.
+    cleaned_text = redact_ungrounded_contact(cleaned_text, context)
     if not cleaned_text:
         cleaned_text = result.text  # defensive: never return empty
 
