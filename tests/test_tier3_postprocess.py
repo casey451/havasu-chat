@@ -7,7 +7,9 @@ import pytest
 
 from app.chat.tier3_postprocess import (
     _SCAFFOLDING_FALLBACK,
+    _UNGROUNDED_CONTACT_FALLBACK,
     _is_sentence_useful,
+    redact_ungrounded_contact,
     strip_soft_suggest,
 )
 
@@ -61,3 +63,68 @@ def test_legit_rows_word_not_scrubbed() -> None:
     out = strip_soft_suggest(text)
     assert out != _SCAFFOLDING_FALLBACK
     assert "vines" in out
+
+
+# ---------------------------------------------------------------------------
+# F1 — ungrounded contact-info guard
+# ---------------------------------------------------------------------------
+
+_CTX = (
+    "Context — Lake Havasu catalog snapshot:\n"
+    "Provider: Sloane's Craft Kitchen\n"
+    "  address: 100 Swanson Ave\n"
+    "  phone: (928) 855-1223\n"
+)
+
+
+def test_ungrounded_phone_sentence_dropped() -> None:
+    # The audit's failure shape: a fabricated number for a business not in Context.
+    text = "Go with Mudshark. Their listed number is (775) 848-5418."
+    out = redact_ungrounded_contact(text, _CTX)
+    assert "(775) 848-5418" not in out
+    assert "775" not in out
+    assert "Go with Mudshark." in out
+
+
+def test_grounded_phone_kept_even_reformatted() -> None:
+    # Same number as Context, reformatted by the model — digits match, so kept.
+    text = "Call Sloane's at 928-855-1223 to book."
+    out = redact_ungrounded_contact(text, _CTX)
+    assert out == text
+
+
+def test_grounded_address_kept() -> None:
+    text = "Sloane's is at 100 Swanson Ave."
+    out = redact_ungrounded_contact(text, _CTX)
+    assert out == text
+
+
+def test_ungrounded_address_dropped() -> None:
+    text = "Head to The Spot. It's at 1101 McCulloch Blvd."
+    out = redact_ungrounded_contact(text, _CTX)
+    assert "1101 McCulloch Blvd" not in out
+    assert "Head to The Spot." in out
+
+
+def test_all_contact_ungrounded_returns_clean_gap() -> None:
+    text = "Their number is (775) 848-5418."
+    out = redact_ungrounded_contact(text, _CTX)
+    assert out == _UNGROUNDED_CONTACT_FALLBACK
+
+
+def test_no_contact_info_untouched() -> None:
+    text = "Saturday's street fair is the pick — that's where locals show up."
+    assert redact_ungrounded_contact(text, _CTX) == text
+
+
+def test_empty_context_drops_any_phone() -> None:
+    text = "Reach them at (928) 555-0000."
+    out = redact_ungrounded_contact(text, "")
+    assert out == _UNGROUNDED_CONTACT_FALLBACK
+
+
+def test_idempotent() -> None:
+    text = "Go with Mudshark. Their listed number is (775) 848-5418."
+    once = redact_ungrounded_contact(text, _CTX)
+    twice = redact_ungrounded_contact(once, _CTX)
+    assert once == twice
