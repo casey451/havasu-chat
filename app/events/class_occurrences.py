@@ -68,6 +68,17 @@ def program_anchor(title: str, venue: str | None) -> str:
 # Safety valve: the calendar asks for at most a month; never expand more.
 _MAX_WINDOW_DAYS = 62
 
+# F6/F9 (2026-06-30): how far past *today* a captured recurring class roster is
+# trusted to still hold. The Schedule rows carry no end date, so without a cap
+# "Mon BJJ" projects onto every Monday forever — making a day eight months out
+# read ~90 "happenings" that are really the same speculative roster. Beyond this
+# horizon the calendar shows only real dated events; within it, classes render as
+# today. Six weeks balances "browsing next month still shows classes" against
+# "don't claim a gym schedule we can't vouch for." Tunable. Callers opt in by
+# passing ``horizon_today`` (the real current date); a None anchor disables the
+# cap (used by the Places & Ongoing roster view and by tests).
+CLASS_PROJECTION_HORIZON_DAYS = 42
+
 
 @dataclass(frozen=True)
 class ClassOccurrence:
@@ -112,12 +123,27 @@ class ClassOccurrence:
 
 
 def class_occurrences_in_window(
-    db: Session, *, window_start: date, window_end: date
+    db: Session,
+    *,
+    window_start: date,
+    window_end: date,
+    horizon_today: date | None = None,
 ) -> list[ClassOccurrence]:
-    """All recurring-Schedule class occurrences in the inclusive date window."""
+    """All recurring-Schedule class occurrences in the inclusive date window.
+
+    ``horizon_today`` (the real current date) caps the projection at
+    ``today + CLASS_PROJECTION_HORIZON_DAYS`` so the calendar surfaces stop
+    showing the indefinitely-recurring class roster on far-future days (F6/F9).
+    Pass None to disable the cap (the Places & Ongoing roster view, tests)."""
     if window_end < window_start:
         return []
     window_end = min(window_end, window_start + timedelta(days=_MAX_WINDOW_DAYS))
+    if horizon_today is not None:
+        window_end = min(
+            window_end, horizon_today + timedelta(days=CLASS_PROJECTION_HORIZON_DAYS)
+        )
+    if window_end < window_start:
+        return []
 
     rows = (
         db.query(Schedule, Entity, Provider)
