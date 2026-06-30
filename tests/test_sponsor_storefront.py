@@ -32,6 +32,24 @@ def test_storefront_offers_fall_back_to_default_price_book() -> None:
         assert o["indicative"] is True
 
 
+def test_portal_disclosure_is_consistent_with_storefront() -> None:
+    # F16: /portal claimed "one paid unit per surface / a single slot" while
+    # /sponsor sells up to three category spots. The disclosure must not assert
+    # the false single-slot scarcity anymore (it would contradict the rate card).
+    with TestClient(app) as client:
+        body = client.get("/portal").text
+    assert "one paid unit per surface" not in body
+    assert "a single, clearly labeled slot" not in body
+    assert "capped" in body  # the reconciled, accurate framing
+
+
+def test_portal_lunch_typo_fixed() -> None:
+    with TestClient(app) as client:
+        body = client.get("/portal").text
+    assert "eat, lunch, and shop" in body
+    assert "launch, and shop" not in body
+
+
 def test_offers_never_invent_a_price_without_config() -> None:
     # An unknown product key has no default → price stays None (→ "on request").
     from app.portal.products import storefront_offers as _so
