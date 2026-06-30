@@ -18,7 +18,20 @@ from fastapi.testclient import TestClient
 from app.main import app
 
 #: Primary destinations that MUST appear on both breakpoints, by href.
-SHARED_HREFS = {"/home", "/events-ui", "/movies", "/family", "/categories#search", "/ask", "/portal", "/login"}
+SHARED_HREFS = {
+    "/home",
+    "/events-ui",
+    "/calendar",  # F10: Calendar restored to the menu
+    "/news",
+    "/movies",
+    "/family",
+    "/seniors",
+    "/gas",  # F10: Gas restored to the menu
+    "/categories#search",
+    "/ask",
+    "/portal",
+    "/login",
+}
 
 
 def _nav_block(html: str, cls: str) -> str:
