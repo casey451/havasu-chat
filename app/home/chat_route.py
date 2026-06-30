@@ -19,6 +19,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.categories import leaf_query
+from app.chat.query_intent import INTENT_AI, classify_query_intent
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import get_db
 from app.home.calendar_view import is_discovery_query
@@ -35,24 +36,33 @@ router = APIRouter(tags=["chat-ui"])
 def serve_chat(
     request: Request,
     q: str | None = None,
+    nf: int | None = None,
     db: Session = Depends(get_db),
 ) -> HTMLResponse | RedirectResponse:
     """Render the /chat scaffold. JS reads ?q=… and fires the first turn.
 
-    B.3 chat routing: when the query maps EXACTLY to a single gate-clearing
-    taxonomy leaf ("plumbers", "boat rentals", "med spas"), 302 straight to that
-    leaf page instead of opening a conversational turn. Descriptive/ambiguous
-    queries fall through to chat unchanged (Casey's confirmed conservative
-    threshold).
+    Routing (F13, 2026-06-30): /chat is the AI entry point — a question or
+    natural-language ask is answered by the concierge, and anything we can't
+    place no longer dead-ends at keyword ``/search`` (it falls through to the AI
+    too). The one high-confidence shortcut is kept: a query that maps EXACTLY to
+    a single gate-clearing taxonomy leaf ("plumbers", "boat rentals") still 302s
+    straight to that category page, and a non-question discovery ask goes to the
+    /calendar surface. ``nf=1`` marks an arrival from a zero-result keyword
+    search so the scaffold shows a short "no exact matches" note above the AI
+    answer.
     """
     cleaned = (q or "").strip()
     if cleaned:
-        # Service/business → its directory leaf. Applies in BOTH themes (existing
-        # conservative B.3 behaviour): "plumbers", "boat rentals" → category page.
+        # Questions / natural language / "open now"-style asks → the AI directly,
+        # ahead of the keyword shortcuts ("is there a plumber near me" answers,
+        # it does not redirect to the plumbers page).
+        if classify_query_intent(cleaned) == INTENT_AI:
+            return _scaffold(request, cleaned, fallback=bool(nf))
+        # Service/business → its directory leaf ("plumbers", "boat rentals").
         leaf = leaf_query.match_leaf_query(db, cleaned)
-        # Need-shaped service asks the exact matcher misses ("hvac needs repair",
-        # "pool service repair") still route to their leaf when one unambiguous
-        # category keyword carries the query — else fall through unchanged.
+        # Need-shaped service asks the exact matcher misses ("hvac needs repair")
+        # still route to their leaf when one unambiguous category keyword carries
+        # the query — else fall through to the AI.
         if leaf is None:
             leaf = leaf_query.match_leaf_service_intent(db, cleaned)
         if leaf is not None:
@@ -60,16 +70,21 @@ def serve_chat(
                 url=f"/categories/{leaf.department_slug}/{leaf.slug}",
                 status_code=302,
             )
-        # The concierge is an intent ROUTER — it routes, it doesn't chat (Lake is
-        # the only theme since the desert lineage was deleted 2026-06-24).
-        # Discovery ("what's happening tonight") → the /calendar surface; anything
-        # else we couldn't place → a graceful search, never Tier-3 prose.
+        # Non-question discovery ("events this weekend") → the /calendar surface.
         if is_discovery_query(cleaned):
             return RedirectResponse(url=f"/calendar?q={quote(cleaned)}", status_code=302)
-        return RedirectResponse(url=f"/search?q={quote(cleaned)}", status_code=302)
+        # Anything else (descriptive asks, "swimming and splash pads", a business
+        # name we couldn't place) → the AI, never a keyword dead-end.
+        return _scaffold(request, cleaned, fallback=bool(nf))
     # Empty query (the "Ask" front door): the lake chat scaffold.
+    return _scaffold(request, None, fallback=False)
+
+
+def _scaffold(request: Request, initial_query: str | None, *, fallback: bool) -> HTMLResponse:
+    """Render the chat scaffold; chat-new.js reads ?q from the URL and fires the
+    first AI turn. ``fallback`` shows the zero-result keyword-search note."""
     return templates.TemplateResponse(
         request=request,
         name="chat.html",
-        context={"initial_query": cleaned or None},
+        context={"initial_query": initial_query, "fallback_notice": fallback},
     )
