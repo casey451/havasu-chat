@@ -1,0 +1,80 @@
+/* ============================================================
+   Ask Hava — unified site chrome (F11). The v4 (base_redesign) masthead +
+   footer + menu, made self-contained so EVERY page renders the SAME header and
+   footer regardless of its content stylesheet (lake.css vs lake_redesign.css).
+
+   The v4 design tokens are scoped to the chrome roots (.head-stack / .foot), so
+   they style the chrome without leaking into — or clobbering — a page's own
+   content tokens. Markup lives in _partials/site_header.html + site_footer.html;
+   both base_lake.html and base_redesign.html include those partials.
+   ============================================================ */
+
+.head-stack, .foot {
+  --paper2:#f8f5ef; --surface:#ffffff; --glass:rgba(248,245,239,.74);
+  --ink:#13201d; --ink2:#3d4c46; --ink3:#677570;
+  --teal:#0c5a60;
+  --brass:#9a7625; --brass-br:#c9a14a;
+  --hair:rgba(19,32,29,.10); --hair2:rgba(19,32,29,.055);
+  --sh-sm:0 1px 2px rgba(19,32,29,.05),0 2px 8px rgba(19,32,29,.045);
+  --sh-lift:0 8px 22px rgba(19,32,29,.10),0 26px 64px rgba(19,32,29,.14);
+  --disp:"Fraunces",Georgia,serif; --ui:"Inter",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+}
+
+/* skip link is global (not scoped) so keyboard focus works before the header */
+.sc-skip{position:absolute;left:-9999px;top:0;background:#13201d;color:#fff;padding:10px 14px;border-radius:8px;z-index:60}
+.sc-skip:focus{left:12px;top:12px}
+
+.head-stack{position:sticky;top:0;z-index:30;font-family:var(--ui)}
+.head-stack .util{display:flex;align-items:center;justify-content:space-between;padding:7px 20px;background:#10202b;color:#cfdbe3;font-size:12px}
+.head-stack .util .r{display:inline-flex;gap:5px;align-items:center;color:#bcd6d4}
+.head-stack .nav{background:var(--glass);backdrop-filter:saturate(1.5) blur(16px);-webkit-backdrop-filter:saturate(1.5) blur(16px);border-bottom:1px solid var(--hair)}
+.head-stack .nav-in{display:flex;align-items:center;gap:18px;padding:13px 20px;max-width:1180px;margin:0 auto}
+.head-stack .brand{display:flex;align-items:center;gap:10px;text-decoration:none;color:inherit}
+.head-stack .brand .rdlogo{height:26px;width:auto;flex:0 0 auto;display:block}
+.head-stack .brand .wm{font-family:var(--disp);font-weight:500;font-size:20px;letter-spacing:-.01em;color:var(--ink)}
+.head-stack .brand .wm .b{color:var(--brass)}
+.head-stack .navlinks{display:flex;gap:22px;margin-left:8px}
+.head-stack .navlinks a{font-size:13.5px;color:var(--ink2);font-weight:500;text-decoration:none;position:relative;padding:5px 0;cursor:pointer;transition:color .2s}
+.head-stack .navlinks a:hover{color:var(--ink)}
+.head-stack .navlinks a.active{color:var(--ink)}
+.head-stack .navlinks a.active::after{content:"";position:absolute;left:0;right:0;bottom:-1px;height:2px;border-radius:2px;background:linear-gradient(90deg,var(--brass-br),#d8b864)}
+.head-stack .nav-sp{flex:1}
+.head-stack .loc{font-size:12px;color:var(--ink2);font-weight:600;display:inline-flex;gap:6px;align-items:center}
+/* hamburger menu — pinned to the START (left) on every page (F10/F11) */
+.head-stack .navdrawer{position:relative}
+.head-stack .navdrawer>summary{list-style:none;cursor:pointer;width:38px;height:38px;border-radius:10px;border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;color:var(--ink2);background:rgba(255,255,255,.7)}
+.head-stack .navdrawer>summary:hover{color:var(--ink)}
+.head-stack .navdrawer>summary::-webkit-details-marker{display:none}
+/* F10: opaque, backdrop-shadowed panel (was a translucent overlay) */
+.head-stack .navdrawer-menu{position:absolute;left:0;top:calc(100% + 10px);background:#fff;border:1px solid var(--hair);border-radius:14px;box-shadow:var(--sh-lift);padding:6px;min-width:210px;z-index:40;display:flex;flex-direction:column}
+.head-stack .navdrawer-menu a{font-size:14px;font-weight:500;color:var(--ink2);padding:11px 12px;border-radius:9px;text-decoration:none;min-height:44px;display:flex;align-items:center}
+.head-stack .navdrawer-menu a:hover,.head-stack .navdrawer-menu a.active{background:var(--paper2);color:var(--ink)}
+.head-stack .navdrawer-menu .biz{color:var(--brass);font-weight:600}
+.head-stack .ico{width:36px;height:36px;border-radius:50%;border:1px solid var(--hair);display:flex;align-items:center;justify-content:center;color:var(--ink2);background:rgba(255,255,255,.6);transition:.2s;cursor:pointer;text-decoration:none}
+.head-stack .ico:hover{box-shadow:var(--sh-sm);transform:translateY(-1px);color:var(--ink)}
+.head-stack .btn-ghost{font-size:13px;font-weight:600;color:var(--ink);border:1px solid var(--ink);border-radius:999px;padding:8px 17px;background:transparent;cursor:pointer;transition:.2s;text-decoration:none;display:inline-flex;align-items:center}
+.head-stack .btn-ghost:hover{background:var(--ink);color:#fff}
+.head-stack .avatar{width:34px;height:34px;border-radius:50%;border:1px solid var(--hair);display:inline-flex;align-items:center;justify-content:center;color:var(--ink2);background:rgba(255,255,255,.6);text-decoration:none}
+
+/* desktop / mobile visibility (matches the v4 only-d / only-m contract) */
+.sc-only-d{display:inline-flex}
+.sc-only-m{display:none}
+@media(max-width:720px){
+  .sc-only-d{display:none}
+  .sc-only-m{display:inline-flex}
+  .head-stack .navlinks{display:none}
+  .head-stack .nav-in{gap:12px}
+}
+
+/* footer — the v4 dark band */
+.foot{margin-top:28px;background:#13201d;color:#aebcb6;padding:28px 22px 24px;font-family:var(--ui)}
+.foot .ft{font-family:var(--disp);font-weight:500;font-size:20px;color:#fff;letter-spacing:-.01em}
+.foot .ft .b{color:var(--brass-br)}
+.foot .fl{display:flex;gap:6px 18px;flex-wrap:wrap;margin:10px 0;font-size:12.5px}
+.foot .fl a{display:inline-flex;align-items:center;min-height:24px;padding:2px 0;color:#cdd6d1;text-decoration:none;cursor:pointer}
+.foot .fl a:hover{color:#fff}
+.foot .rule{height:1px;background:linear-gradient(90deg,var(--brass-br),transparent);margin:14px 0}
+.foot .ftrust{font-size:11.5px;color:#9fb0a9;margin-bottom:6px}
+.foot .ftrust a{color:#cdd6d1;text-decoration:none}
+.foot .ftrust a:hover{color:#fff;text-decoration:underline}
+.foot .fc{font-size:11px;color:#7f8d87}

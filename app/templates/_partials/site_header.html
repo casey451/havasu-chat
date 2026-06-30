@@ -1,57 +1,53 @@
-{#- ───── Shared site header ─────
-   The single source for the site masthead + primary nav. Included by
-   base_lake.html (the only base since the desert lineage was deleted 2026-06-24).
-   Self-contained: imports its own logo macro and reads only the shared
-   `active_tab` context. -#}
+{#- ───── Unified site masthead (F11) ─────
+   The single v4 header included by BOTH base_lake.html and base_redesign.html so
+   every page wears the same chrome. Styled by lake_redesign.css (the v4
+   surfaces) or static/styles/site_chrome.css (every other page) — both define
+   the same .head-stack rules. F10: ONE complete menu (incl. Lake + Account, no
+   /night), an opaque drawer panel, and the hamburger pinned to the start side.
+   The live-conditions strip is rendered by each base after this partial (big
+   tiles on home, the condensed strip on content pages). -#}
 {% from "_partials/lake_logo.svg.html" import logo_nav %}
-<header class="hdr">
-  <div class="hdr-in">
-    <a class="brand" href="/home" aria-label="Ask Hava — home" style="color:#eef3f7;--ac:#d8a64e">
-      {{ logo_nav(26) }}
-      <span class="wm">Ask <span class="b">Hava</span></span>
-    </a>
-    {# Canonical nav — the SAME primary destinations across breakpoints (mirrored
-       in the mobile drawer below). Phase 1.2 (UX review §P0 + FIX_SPEC 1.2)
-       restores two front doors the lean P3 nav had dropped from BOTH surfaces:
-       "For Kids" (→ /family, the parent's one-tap front door — the highest-intent
-       mobile case) and "Ask" (→ /ask → /chat, the product's namesake, previously
-       reachable only via the hero search). "Explore" still opens the directory
-       (where the search bar + the other categories live). Phase 4 (UX review §P1)
-       adds the symmetric "For Seniors" (→ /seniors) front door, giving seniors the
-       same nav presence kids already have. #}
-    <nav class="nav" aria-label="Primary">
-      <a href="/home"{% if active_tab == 'home' or active_tab == 'today' %} aria-current="page"{% endif %}>Home</a>
-      <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
-      <a href="/calendar">Calendar</a>
-      <a href="/news"{% if active_tab == 'news' %} aria-current="page"{% endif %}>News</a>
-      <a href="/movies"{% if active_tab == 'movies' %} aria-current="page"{% endif %}>Movies</a>
-      <a href="/family"{% if active_tab == 'family' %} aria-current="page"{% endif %}>For Kids</a>
-      <a href="/seniors"{% if active_tab == 'seniors' %} aria-current="page"{% endif %}>For Seniors</a>
-      <a href="/gas">Gas</a>
-      <a href="/categories#search"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Explore</a>
-      <a href="/ask"{% if active_tab == 'ask' or active_tab == 'chat' %} aria-current="page"{% endif %}>Ask</a>
-      <a class="biz" href="/portal">For Business</a>
-      <a href="/login">Sign in</a>
-    </nav>
-    <button type="button" class="navtoggle" id="lk-menu-btn" aria-haspopup="menu" aria-expanded="false" aria-controls="lk-drawer" aria-label="Open menu">
-      <svg viewBox="0 0 24 24" width="24" height="24" fill="none" aria-hidden="true"><path d="M3 6h18M3 12h18M3 18h18" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
-    </button>
+{% from "components/redesign_icons.html" import icon %}
+{%- set _nav = [
+  ('/home', 'Home', ['home', 'today']),
+  ('/events-ui', 'Events', ['events']),
+  ('/calendar', 'Calendar', ['calendar']),
+  ('/news', 'News', ['news']),
+  ('/movies', 'Movies', ['movies']),
+  ('/family', 'For Kids', ['family']),
+  ('/seniors', 'For Seniors', ['seniors']),
+  ('/lake', 'Lake', ['lake']),
+  ('/gas', 'Gas', ['gas']),
+  ('/categories#search', 'Explore', ['explore']),
+  ('/ask', 'Ask', ['ask', 'chat']),
+] -%}
+<header class="head-stack">
+  <div class="util">
+    <span>Lake Havasu City</span>
+    {% if today_label %}<span class="r">{{ today_label }}</span>{% endif %}
   </div>
-  {# Mobile disclosure menu opened by the hamburger — the SAME canonical set as
-     the desktop nav (incl. For Kids, For Seniors + Ask). Real menu, hidden until
-     toggled; without JS the desktop nav (scrollable) still covers navigation. #}
-  <nav class="drawer" id="lk-drawer" aria-label="Site menu" hidden>
-    <a href="/home"{% if active_tab == 'home' or active_tab == 'today' %} aria-current="page"{% endif %}>Home</a>
-    <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
-    <a href="/calendar">Calendar</a>
-    <a href="/news"{% if active_tab == 'news' %} aria-current="page"{% endif %}>News</a>
-    <a href="/movies"{% if active_tab == 'movies' %} aria-current="page"{% endif %}>Movies</a>
-    <a href="/family"{% if active_tab == 'family' %} aria-current="page"{% endif %}>For Kids</a>
-    <a href="/seniors"{% if active_tab == 'seniors' %} aria-current="page"{% endif %}>For Seniors</a>
-    <a href="/gas">Gas</a>
-    <a href="/categories#search"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Explore</a>
-    <a href="/ask"{% if active_tab == 'ask' or active_tab == 'chat' %} aria-current="page"{% endif %}>Ask</a>
-    <a class="biz" href="/portal">For Business</a>
-    <a href="/login">Sign in</a>
+  <nav class="nav" aria-label="Primary">
+    <div class="nav-in">
+      {# Hamburger menu — pinned to the start side on every page. The COMPLETE
+         menu (F10): every section + Lake, For Business and Account. #}
+      <details class="navdrawer sc-only-m">
+        <summary aria-label="Open menu">{{ icon('menu', 18) }}</summary>
+        <div class="navdrawer-menu">
+          {% for href, label, keys in _nav %}<a href="{{ href }}"{% if active_tab in keys %} class="active" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+          <a class="biz{% if active_tab == 'portal' %} active{% endif %}" href="/portal">For Business</a>
+          <a class="{% if active_tab == 'account' %}active{% endif %}" href="/account">Account</a>
+          <a href="/login">Sign in</a>
+        </div>
+      </details>
+      <a class="brand" href="/home" aria-label="Ask Hava — home">{{ logo_nav(26, cls="rdlogo") }}<span class="wm">Ask <span class="b">Hava</span></span></a>
+      <span class="navlinks sc-only-d">
+        {% for href, label, keys in _nav %}<a href="{{ href }}"{% if active_tab in keys %} class="active" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+        <a class="biz{% if active_tab == 'portal' %} active{% endif %}" href="/portal">For Business</a>
+      </span>
+      <span class="nav-sp"></span>
+      <a class="ico sc-only-d" href="/chat" aria-label="Search">{{ icon('search', 17) }}</a>
+      <a class="btn-ghost sc-only-d" href="/login">Sign in</a>
+      <a class="avatar sc-only-m" href="/account" aria-label="Account">{{ icon('pin', 15) }}</a>
+    </div>
   </nav>
 </header>

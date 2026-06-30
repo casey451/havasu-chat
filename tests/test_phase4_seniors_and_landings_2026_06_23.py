@@ -27,9 +27,9 @@ _SOURCE = "test-phase4-landings"
 
 
 def _nav_block(html: str, cls: str) -> str:
-    m = re.search(rf'<nav class="{cls}\b[^>]*>(.*?)</nav>', html, re.DOTALL)
-    assert m, f"no <nav class=\"{cls}\">"
-    return m.group(1)
+    m = re.search(rf'<(span|div|nav) class="{cls}\b[^>]*>(.*?)</\1>', html, re.DOTALL)
+    assert m, f"no element with class \"{cls}\""
+    return m.group(2)
 
 
 # ── 4 / P1: seniors chat intent ────────────────────────────────────────────────
@@ -50,7 +50,7 @@ def test_kids_intent_still_recognized() -> None:
 
 def test_for_seniors_front_door_on_both_nav_surfaces() -> None:
     html = TestClient(app).get("/home?theme=lake").text
-    for cls in ("nav", "drawer"):
+    for cls in ("navlinks", "navdrawer-menu"):
         block = _nav_block(html, cls)
         assert "/seniors" in block, f"For Seniors (/seniors) missing from .{cls}"
         assert "/family" in block, f"For Kids (/family) missing from .{cls}"

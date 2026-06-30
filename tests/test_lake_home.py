@@ -262,24 +262,23 @@ def test_lake_nav_unified_across_breakpoints() -> None:
     """The lean primary destinations appear in BOTH the desktop header nav and
     the mobile drawer, so no front-door vanishes on mobile (Phase 1 nav fix)."""
     b = _lake_home()
-    assert 'id="lk-menu-btn"' in b  # the hamburger toggle exists
+    assert 'class="navdrawer' in b  # the unified v4 hamburger menu exists
 
-    # Isolate the desktop primary nav and the mobile drawer markup.
-    desktop = re.search(r'<nav class="nav"[^>]*>(.*?)</nav>', b, re.S)
-    drawer = re.search(r'<nav class="drawer"[^>]*>(.*?)</nav>', b, re.S)
-    assert desktop and drawer, "both the desktop nav and mobile drawer must render"
+    # Isolate the desktop inline nav (.navlinks) and the hamburger menu
+    # (.navdrawer-menu) from the unified v4 masthead (F11).
+    desktop = re.search(r'<span class="navlinks\b[^>]*>(.*?)</span>', b, re.S)
+    drawer = re.search(r'<div class="navdrawer-menu\b[^>]*>(.*?)</div>', b, re.S)
+    assert desktop and drawer, "both the desktop nav and hamburger menu must render"
 
-    # P3 canonical six: Home · Events · Movies · Explore · For Business · Sign in.
-    lean = ('href="/home"', 'href="/events-ui"', 'href="/movies"',
-            'href="/categories#search"', 'href="/portal"', 'href="/login"')
-    for href in lean:
+    # Core destinations appear on BOTH surfaces (the .navlinks inline nav carries
+    # these; /login lives in the menu + the desktop Sign-in button, not .navlinks).
+    core = ('href="/home"', 'href="/events-ui"', 'href="/movies"',
+            'href="/categories#search"', 'href="/portal"')
+    for href in core:
         assert href in desktop.group(1), f"{href} missing from desktop nav"
-        assert href in drawer.group(1), f"{href} missing from mobile drawer"
-    # Map and Ask were removed from the nav (P3): Map route stays live but
-    # unlinked; chat is no longer an identity front door.
-    for gone in ('href="/map"', 'href="/chat"'):
-        assert gone not in desktop.group(1), f"{gone} should be gone from desktop nav"
-        assert gone not in drawer.group(1), f"{gone} should be gone from mobile drawer"
+        assert href in drawer.group(1), f"{href} missing from hamburger menu"
+    # /map stays live but unlinked from the nav.
+    assert 'href="/map"' not in desktop.group(1)
     # Category front-doors were trimmed out of the header (they live in the
     # directory zone now), so the heavy nav is genuinely lean.
     assert 'href="/categories/eat-and-drink"' not in desktop.group(1)
