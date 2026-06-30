@@ -573,7 +573,12 @@ def _short_time(t: time | None) -> str | None:
 
 
 def week_strip(
-    db: Session, *, today: date, days: int = 7, per_day: int = 3
+    db: Session,
+    *,
+    today: date,
+    days: int = 7,
+    per_day: int = 3,
+    selected: date | None = None,
 ) -> dict[str, Any]:
     """Build the next-``days`` strip: a today-first calendar (Slice F).
 
@@ -591,8 +596,18 @@ def week_strip(
     midnight ingest fallback) show no time — never "12 AM" — and sort after timed
     events within their tier.
     """
-    end = today + timedelta(days=days - 1)
-    by_day = _live_events_by_day(db, window_start=today, window_end=end)
+    # The strip is today-anchored, EXCEPT when a far date is selected (the home
+    # day-picker navigated to e.g. a month out): then center the window on the
+    # selected day so it's visible and highlighted (F9 — the strip must follow
+    # the selection, with a persistent "Today" anchor back, surfaced via
+    # ``includes_today`` / ``today_iso``). A selection within the next ``days``
+    # keeps the today-first window unchanged.
+    if selected is not None and not (today <= selected <= today + timedelta(days=days - 1)):
+        window_start = selected - timedelta(days=(days - 1) // 2)
+    else:
+        window_start = today
+    end = window_start + timedelta(days=days - 1)
+    by_day = _live_events_by_day(db, window_start=window_start, window_end=end)
 
     # Venue Schedule classes (entity Schedule rows, not events) join the per-day
     # class count so the rollup matches the day's /events-ui?date= page;
@@ -628,7 +643,7 @@ def week_strip(
 
     sched_classes_by_day: dict[date, int] = {}
     for occ in drop_event_duplicates(
-        class_occurrences_in_window(db, window_start=today, window_end=end), event_keys
+        class_occurrences_in_window(db, window_start=window_start, window_end=end), event_keys
     ):
         sched_classes_by_day[occ.date] = sched_classes_by_day.get(occ.date, 0) + 1
         day_cat_counts[occ.date][
@@ -648,19 +663,21 @@ def week_strip(
 
     out_days: list[dict[str, Any]] = []
     for i in range(days):
-        d = today + timedelta(days=i)
+        d = window_start + timedelta(days=i)
         evs = by_day.get(d, [])
         oneoffs = sorted((ev for ev in evs if not ev.is_recurring), key=_sort_key)
         class_count = sum(1 for ev in evs if ev.is_recurring) + sched_classes_by_day.get(d, 0)
-        if i == 0:
+        if d == today:
             label = "Today"
-        elif i == 1:
+        elif d == today + timedelta(days=1):
             label = "Tomorrow"
         else:
             label = d.strftime("%a")
         # Slice F: only TODAY headlines individual events; the other days are
         # rendered as counts-only cards, so they carry an empty ``events`` list.
-        if i == 0:
+        # When a far date is selected, today may be outside the window — then no
+        # card headlines (the v4 strip renders day tiles only, not headlines).
+        if d == today:
             visible = [
                 {
                     "title": clean_event_title(ev.title, location_name=ev.location_name),
@@ -678,7 +695,7 @@ def week_strip(
                     # unchanged (still one item per day); this only labels it.
                     "recurrence_label": event_recurrence_label(
                         ev,
-                        window_start=today,
+                        window_start=window_start,
                         window_end=end,
                         time_label=short_time_label(ev.start_time, ev.end_time),
                     ),
@@ -712,7 +729,7 @@ def week_strip(
                 # rather than the Today/Tomorrow ``label`` used elsewhere.
                 "dow": d.strftime("%a"),
                 "md": f"{d.month}/{d.day}",
-                "is_today": i == 0,
+                "is_today": d == today,
                 "events": visible,
                 "overflow": overflow,
                 "event_count": len(oneoffs),
@@ -728,7 +745,14 @@ def week_strip(
                 "has": total > 0,
             }
         )
-    return {"days": out_days, "has_any": any(day["has"] for day in out_days)}
+    return {
+        "days": out_days,
+        "has_any": any(day["has"] for day in out_days),
+        # F9: when a far date shifts the window off the current week, the template
+        # surfaces a persistent "Today" anchor back to ``today_iso``.
+        "includes_today": window_start <= today <= end,
+        "today_iso": today.isoformat(),
+    }
 
 
 # ---------------------------------------------------------------------------

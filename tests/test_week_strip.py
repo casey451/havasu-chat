@@ -101,6 +101,36 @@ def test_week_strip_day_carries_happenings(db: Session) -> None:
     assert strip["days"][0]["happenings"] == 2
 
 
+# --- F9: the strip follows a far selection, with a Today anchor back ---------
+
+
+def test_week_strip_today_anchored_by_default(db: Session) -> None:
+    strip = sandstone.week_strip(db, today=_TODAY)
+    assert strip["days"][0]["iso"] == _TODAY.isoformat()
+    assert strip["days"][0]["is_today"] is True
+    assert strip["includes_today"] is True
+    assert strip["today_iso"] == _TODAY.isoformat()
+
+
+def test_week_strip_near_selection_stays_today_anchored(db: Session) -> None:
+    # A selection within the next 7 days keeps the today-first window.
+    strip = sandstone.week_strip(db, today=_TODAY, selected=_TODAY + __import__("datetime").timedelta(days=2))
+    assert strip["days"][0]["iso"] == _TODAY.isoformat()
+    assert strip["includes_today"] is True
+
+
+def test_week_strip_follows_far_selection(db: Session) -> None:
+    far = date(2027, 2, 15)
+    strip = sandstone.week_strip(db, today=_TODAY, selected=far)
+    isos = [d["iso"] for d in strip["days"]]
+    assert far.isoformat() in isos  # the selected day is visible in the strip
+    assert isos[len(isos) // 2] == far.isoformat()  # centered
+    assert strip["includes_today"] is False  # today fell out of the window…
+    assert strip["today_iso"] == _TODAY.isoformat()  # …so the anchor back is exposed
+    # No card is mislabeled "Today" when today isn't in the window.
+    assert all(d["is_today"] is False for d in strip["days"])
+
+
 # --- tiering (pure) ---------------------------------------------------------
 
 

@@ -106,12 +106,15 @@
 {# ── Date strip — one week + Calendar button ─────────────────────────── #}
 <div class="daystrip rise" style="animation-delay:80ms">
   <a class="calbtn" href="/calendar" aria-label="Open the calendar">{{ icon('cal', 18) }}<span>Calendar</span></a>
+  {% if not week.includes_today %}
+  <a class="calbtn" href="/home?date={{ week.today_iso }}#today" aria-label="Jump back to today">{{ icon('spark', 16) }}<span>Today</span></a>
+  {% endif %}
   <div class="days">
     {% for day in week.days %}
     {% set is_sel = day.iso == selected_iso %}
-    <a class="dcard{% if is_sel %} on{% endif %}" href="/home?date={{ day.iso }}#today"{% if is_sel %} aria-current="date"{% endif %}
-       aria-label="{{ day.happenings or 0 }} event{{ '' if day.happenings == 1 else 's' }} on {{ day.dow }} {{ day.iso.split('-')[2]|int }}">
-      <span class="dw">{% if loop.first and is_sel %}Today{% else %}{{ day.dow }}{% endif %}</span>
+    <a class="dcard{% if is_sel %} on{% endif %}{% if day.is_today %} td{% endif %}" href="/home?date={{ day.iso }}#today"{% if is_sel %} aria-current="date"{% endif %}
+       aria-label="{{ day.happenings or 0 }} event{{ '' if day.happenings == 1 else 's' }} on {{ day.dow }} {{ day.iso.split('-')[2]|int }}{% if day.is_today %} (today){% endif %}">
+      <span class="dw">{% if day.is_today %}Today{% else %}{{ day.dow }}{% endif %}</span>
       <span class="dn num">{{ day.iso.split('-')[2]|int }}</span>
     </a>
     {% endfor %}
