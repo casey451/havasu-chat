@@ -81,6 +81,19 @@ def test_home_redesign_structure() -> None:
     assert "Ad space · Available" in b or "Sponsored" in b
 
 
+def test_home_redesign_emits_seo_jsonld() -> None:
+    """F18: the v4 home carries Organization + WebSite (SearchAction) structured
+    data — the old home had it, the v4 reskin had emitted none."""
+    b = _home()
+    assert b.count('type="application/ld+json"') >= 2
+    assert '"@type": "Organization"' in b
+    assert '"@type": "WebSite"' in b
+    assert '"@type": "SearchAction"' in b
+    # SearchAction points at the same /chat?q= the hero search submits to, with
+    # the placeholder left literal for Google to fill.
+    assert "/chat?q={search_term_string}" in b
+
+
 def test_home_redesign_conditions_bar_with_seeded_data() -> None:
     """With live conditions + gas, the 5-tile bar + gas expander render (the bar
     is honestly omitted only when there is no data at all)."""
