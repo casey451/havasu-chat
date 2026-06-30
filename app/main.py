@@ -423,6 +423,22 @@ def run_stale_job_requeue() -> int:
         return len(requeued)
 
 
+def run_news_pull() -> None:
+    """Refresh the local-news cache (home ticker + /news) so it stays fresh
+    without an external cron (Casey 2026-06-30). Best-effort: a failure is logged
+    and retried the next hour. pull_local_news already isolates per-source feed
+    failures internally, so this only catches a hard DB/transport error."""
+    from app.news.store import pull_local_news
+
+    try:
+        with SessionLocal() as db:
+            count = pull_local_news(db)
+            db.commit()
+        logger.info("news pull refreshed %s headline(s)", count)
+    except Exception:
+        logger.warning("news pull failed; retrying next hour", exc_info=True)
+
+
 async def _hourly_cleanup_loop() -> None:
     # OPS-3: one transient failure (DB blip, etc.) must not kill the janitor
     # for the process lifetime — run_stuck_photo_sweep is the safety net for
@@ -431,6 +447,7 @@ async def _hourly_cleanup_loop() -> None:
     while True:
         await asyncio.sleep(3600)
         try:
+            await asyncio.to_thread(run_news_pull)
             await asyncio.to_thread(run_expired_review_cleanup)
             await asyncio.to_thread(run_stuck_photo_sweep)
             await asyncio.to_thread(run_stale_job_requeue)

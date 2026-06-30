@@ -14,6 +14,7 @@ from app.conditions.constants import (
     SOURCE_NWS_CURRENT,
     SOURCE_NWS_FORECAST,
     SOURCE_OPENUV,
+    SOURCE_RISE_WATER_TEMP,
     SOURCE_USGS,
     SOURCE_USGS_WATER_TEMP,
 )
@@ -194,25 +195,42 @@ def build_conditions_api_payload(db: Session, *, now: datetime | None = None) ->
             }
         )
 
-    # V1.5 wave 3: water-temperature signal from USGS 09426630, gated at the
-    # api-payload boundary on the cache row's feature_enabled flag. The
-    # fetcher writes feature_enabled=False when the env flag is OFF (and
-    # makes no HTTP request); we honor that here by skipping field emission
-    # so /api/conditions stays bit-for-bit unchanged in flag-OFF prod state.
-    water_temp = read_source(db, SOURCE_USGS_WATER_TEMP, now=now)
-    if water_temp is not None:
-        d = water_temp.data
-        if d.get("feature_enabled"):
-            label, stale = staleness_label(water_temp.fetched_at, now)
-            payload.update(
-                {
-                    "water_temp_c": d.get("water_temp_c"),
-                    "water_temp_f": d.get("water_temp_f"),
-                    "water_temp_updated_at_iso": _iso(water_temp.fetched_at),
-                    "water_temp_staleness_label": label,
-                    "water_temp_is_stale": stale or water_temp.is_stale,
-                }
-            )
+    # Water temperature. Prefer the Reclamation RISE reading at Parker Dam (item
+    # 6127) — Parker Dam impounds Lake Havasu, so it's the representative main-
+    # lake value — and fall back to the USGS Bill Williams gage (09426630), which
+    # has published the -100000 sentinel since 2026-05-21 (water_temp_f None).
+    # Each self-gates at the fetcher on its feature flag, so a row with
+    # feature_enabled=False or a null reading is simply not chosen and
+    # /api/conditions stays unchanged.
+    def _live_water_temp(row) -> bool:
+        return (
+            row is not None
+            and isinstance(row.data, dict)
+            and bool(row.data.get("feature_enabled"))
+            and row.data.get("water_temp_f") is not None
+        )
+
+    rise_wt = read_source(db, SOURCE_RISE_WATER_TEMP, now=now)
+    usgs_wt = read_source(db, SOURCE_USGS_WATER_TEMP, now=now)
+    if _live_water_temp(rise_wt):
+        chosen_wt, wt_attribution = rise_wt, "Reclamation · Parker Dam"
+    elif _live_water_temp(usgs_wt):
+        chosen_wt, wt_attribution = usgs_wt, "USGS 09426630 ~25mi south"
+    else:
+        chosen_wt, wt_attribution = None, None
+    if chosen_wt is not None:
+        d = chosen_wt.data
+        label, stale = staleness_label(chosen_wt.fetched_at, now)
+        payload.update(
+            {
+                "water_temp_c": d.get("water_temp_c"),
+                "water_temp_f": d.get("water_temp_f"),
+                "water_temp_attribution": wt_attribution,
+                "water_temp_updated_at_iso": _iso(chosen_wt.fetched_at),
+                "water_temp_staleness_label": label,
+                "water_temp_is_stale": stale or chosen_wt.is_stale,
+            }
+        )
 
     # Sunset: PREFER the true astronomical sunset from Open-UV
     # (sun_info.sun_times.sunset, stored on the SOURCE_OPENUV row as

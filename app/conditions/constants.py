@@ -20,6 +20,14 @@ SOURCE_GAS = "gas_prices_lhc"
 # See app/conditions/usgs_water_temp.py module docstring for context.
 SOURCE_USGS_WATER_TEMP = "usgs_water_temp_09426630"
 
+# Reclamation RISE water temperature at Parker Dam (item 6127). Parker Dam
+# impounds Lake Havasu, so this is the representative main-lake reading and the
+# PREFERRED water-temp source over the Bill Williams USGS gage (09426630), which
+# has published the -100000 missing-data sentinel since 2026-05-21. Gated at the
+# fetcher on FEATURE_FLAG_WATER_TEMP_RISE_6127 (default OFF; no HTTP when off).
+# See app/conditions/rise_water_temp.py.
+SOURCE_RISE_WATER_TEMP = "rise_water_temp_6127"
+
 # Optional UV index (Open-UV, https://www.openuv.io/). Key-gated on
 # OPENUV_API_KEY: when the key is unset the fetcher makes NO HTTP call (returns
 # an empty payload) and api_payload/view_model skip the UV chip — so the cron is
@@ -45,6 +53,7 @@ SOURCE_KEYS: tuple[str, ...] = (
     SOURCE_NWS_SUNSET,
     SOURCE_USGS,
     SOURCE_USGS_WATER_TEMP,
+    SOURCE_RISE_WATER_TEMP,
     SOURCE_OPENUV,
     SOURCE_GAS,
 )
@@ -59,6 +68,8 @@ TTL_BY_SOURCE: dict[str, int] = {
     # Same 3600s TTL as the lake-gauge USGS source -- water temperature is a
     # slow-moving signal (instrument cadence is hourly at most for 00010).
     SOURCE_USGS_WATER_TEMP: 3600,
+    # RISE posts a daily Parker Dam water temp; refetch a few times a day.
+    SOURCE_RISE_WATER_TEMP: 21600,
     SOURCE_OPENUV: 3600,
     SOURCE_GAS: 28800,
     # News refreshes on a ~hourly pull; the ticker still shows the last good
