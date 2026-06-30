@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.conditions import airnow, nws, usgs, usgs_water_temp, uv
+from app.conditions import airnow, nws, rise_water_temp, usgs, usgs_water_temp, uv
 from app.conditions.cache import record_fetch_failure, should_skip_fetch, upsert_source
 from app.conditions.constants import (
     SOURCE_AIRNOW,
@@ -19,6 +19,7 @@ from app.conditions.constants import (
     SOURCE_NWS_FORECAST,
     SOURCE_NWS_SUNSET,
     SOURCE_OPENUV,
+    SOURCE_RISE_WATER_TEMP,
     SOURCE_USGS,
     SOURCE_USGS_WATER_TEMP,
     TTL_BY_SOURCE,
@@ -44,6 +45,10 @@ _FETCHERS: dict[str, Callable[[], dict[str, Any]]] = {
     # empty payload without issuing any HTTP request when disabled, so the
     # cron is safe to call this on every tick regardless of flag state.
     SOURCE_USGS_WATER_TEMP: usgs_water_temp.fetch_usgs_water_temp_09426630,
+    # Reclamation RISE Parker Dam water temp — the representative main-lake
+    # reading, preferred over the sentinel-stuck Bill Williams USGS gage. Self-
+    # gates on FEATURE_FLAG_WATER_TEMP_RISE_6127 (default OFF; no HTTP when off).
+    SOURCE_RISE_WATER_TEMP: rise_water_temp.fetch_rise_water_temp,
 }
 
 
