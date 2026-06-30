@@ -253,7 +253,9 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 
 .foot{margin-top:28px;background:var(--ink);color:#aebcb6;padding:28px 22px 24px}
 .foot .ft{font-family:var(--disp);font-weight:500;font-size:20px;color:#fff;letter-spacing:-.01em}
-.foot .fl{display:flex;gap:18px;flex-wrap:wrap;margin:14px 0;font-size:12.5px}.foot .fl a{color:#cdd6d1;text-decoration:none;cursor:pointer}
+.foot .fl{display:flex;gap:6px 18px;flex-wrap:wrap;margin:10px 0;font-size:12.5px}
+/* a11y (F17): footer links were ~15px tall; give each a >=24px tap target. */
+.foot .fl a{display:inline-flex;align-items:center;min-height:24px;padding:2px 0;color:#cdd6d1;text-decoration:none;cursor:pointer}
 .foot .fl a:hover{color:#fff}
 .foot .rule{height:1px;background:linear-gradient(90deg,var(--brass-br),transparent);margin:14px 0}
 .foot .fc{font-size:11px;color:#7f8d87}
