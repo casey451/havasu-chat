@@ -29,6 +29,25 @@ def db() -> Session:
         s.close()
 
 
+@pytest.fixture(autouse=True)
+def _clear_llm_response_cache() -> None:
+    """These tests inspect ``create.call_args`` to assert on the LLM user message,
+    so the call MUST happen — but ``answer_with_tier3`` short-circuits on a cache
+    hit. The ``llm_response_cache`` table is shared across the whole pytest session
+    and conftest's autouse row cleanup doesn't cover it, so an entry left by ANY
+    other test (an exact OR an embedding-similarity match) makes ``create`` never
+    fire and ``call_args`` is None (CI-only flake, ordering-dependent). Wipe it per
+    test — same guard ``test_tier3_handler.py`` already uses."""
+    from app.db.models import LlmResponseCache
+
+    s = SessionLocal()
+    try:
+        s.query(LlmResponseCache).delete()
+        s.commit()
+    finally:
+        s.close()
+
+
 def _intent() -> IntentResult:
     return IntentResult(
         mode="ask",
