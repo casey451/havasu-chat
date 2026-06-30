@@ -660,7 +660,7 @@ def serve_home(
                 "is_today": feed_day == now.date(),
                 "cond_tiles": redesign.conditions_tiles(db, now=now),
                 "gas": redesign.gas_top5(db, now=now),
-                "week": sandstone.week_strip(db, today=now.date()),
+                "week": sandstone.week_strip(db, today=now.date(), selected=feed_day),
                 "feed": redesign.feed_view_model(db, day=feed_day, now=now),
                 # F6/F9: the honest "N happening" headline count for the selected
                 # day — real dated happenings only (excludes the venue class
