@@ -13,6 +13,17 @@
 .pgallery{display:grid;grid-template-columns:2fr 1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;height:300px;border-radius:18px;overflow:hidden;border:1px solid var(--hair-2);background:linear-gradient(160deg,#dce6ec,#c9d6df)}
 .pgallery .g{background-size:cover;background-position:center;background-color:#cdd9e1}
 .pgallery .g:first-child{grid-row:1/3}
+/* F14: with fewer than 5 photos the fixed 3x2 mosaic left empty cells showing
+   the gradient (a single-photo hero filled only the left half). Adapt the grid
+   to the photo count so the images always fill the frame. */
+.pgallery.pg-1{grid-template-columns:1fr;grid-template-rows:1fr}
+.pgallery.pg-2{grid-template-columns:1fr 1fr;grid-template-rows:1fr}
+.pgallery.pg-3{grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr}
+.pgallery.pg-4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+.pgallery.pg-1 .g:first-child,
+.pgallery.pg-2 .g:first-child,
+.pgallery.pg-3 .g:first-child,
+.pgallery.pg-4 .g:first-child{grid-row:auto}
 .pgallery.is-art{display:flex;align-items:center;justify-content:center}
 .pgallery .mono{font-family:var(--disp);font-weight:600;font-size:64px;color:var(--brass-deep);opacity:.6}
 .ptitle{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}
