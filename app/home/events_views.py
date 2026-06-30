@@ -493,7 +493,13 @@ def day_groups(
         []
         if events_only
         else drop_event_duplicates(
-            class_occurrences_in_window(db, window_start=day, window_end=day), event_keys
+            class_occurrences_in_window(
+                db,
+                window_start=day,
+                window_end=day,
+                horizon_today=now.date() if now is not None else None,
+            ),
+            event_keys,
         )
     )
     for occ in _sched_occs:

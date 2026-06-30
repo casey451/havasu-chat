@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 
 from app.db.database import SessionLocal
 from app.db.models import Entity, Event, Provider, Schedule
@@ -109,6 +109,42 @@ def test_expansion_hits_every_matching_weekday() -> None:
     assert {o.date.weekday() for o in occs} == {0, 1, 2, 3}
     assert all(o.provider_slug == slug for o in occs)
     assert occs[0].url == f"/provider/{slug}"
+
+
+def test_horizon_caps_far_future_projection() -> None:
+    """F6/F9: ``horizon_today`` stops the indefinite roster beyond
+    today + CLASS_PROJECTION_HORIZON_DAYS; None leaves it uncapped."""
+    from app.events.class_occurrences import CLASS_PROJECTION_HORIZON_DAYS
+
+    title = f"Horizon Yoga {uuid.uuid4().hex[:6]}"
+    _make_venue_with_class(title, ["monday", "tuesday", "wednesday", "thursday", "friday"])
+    today = date(2026, 6, 1)
+    near = today + timedelta(days=7)  # within horizon
+    far = today + timedelta(days=CLASS_PROJECTION_HORIZON_DAYS + 10)  # beyond horizon
+
+    with SessionLocal() as db:
+        # Near day: the class shows whether or not the cap is on.
+        near_capped = [
+            o for o in class_occurrences_in_window(
+                db, window_start=near, window_end=near, horizon_today=today
+            ) if o.title == title
+        ]
+        # Far day: dropped when the cap is on...
+        far_capped = [
+            o for o in class_occurrences_in_window(
+                db, window_start=far, window_end=far, horizon_today=today
+            ) if o.title == title
+        ]
+        # ...but still present with no anchor (Places & Ongoing / tests).
+        far_uncapped = [
+            o for o in class_occurrences_in_window(
+                db, window_start=far, window_end=far
+            ) if o.title == title
+        ]
+
+    assert len(near_capped) == 1
+    assert far_capped == []
+    assert len(far_uncapped) == 1
 
 
 def test_event_duplicates_dropped_by_title_and_date() -> None:

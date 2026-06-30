@@ -643,7 +643,10 @@ def week_strip(
 
     sched_classes_by_day: dict[date, int] = {}
     for occ in drop_event_duplicates(
-        class_occurrences_in_window(db, window_start=window_start, window_end=end), event_keys
+        class_occurrences_in_window(
+            db, window_start=window_start, window_end=end, horizon_today=today
+        ),
+        event_keys,
     ):
         sched_classes_by_day[occ.date] = sched_classes_by_day.get(occ.date, 0) + 1
         day_cat_counts[occ.date][
@@ -1023,6 +1026,7 @@ def calendar_month(
             db,
             window_start=date(year, month, 1),
             window_end=date(year, month, days_in_month),
+            horizon_today=today,
         ),
         event_keys,
     )
