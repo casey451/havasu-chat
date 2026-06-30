@@ -58,6 +58,28 @@ def test_midnight_event_with_explicit_end_still_expires() -> None:
     assert _occurrence_expired(_TODAY, time(0, 0), time(0, 30), _NOW) is True
 
 
+def test_is_time_tbd_midnight_start_with_daytime_end_is_tbd() -> None:
+    """F5b: a 00:00 start paired with a daytime / all-day end is the OCR/flyer
+    'only an end time' artifact, not a real midnight start — so it's TBD and
+    never renders as '12 am'. Only a genuine overnight end (small hours) is real."""
+    from app.events.time_labels import is_time_tbd
+
+    # Bogus midnight starts (flyer listed only an end) -> TBD.
+    assert is_time_tbd(time(0, 0), time(16, 45)) is True  # "Creative Mondays"
+    assert is_time_tbd(time(0, 0), time(8, 0)) is True
+    assert is_time_tbd(time(0, 0), time(23, 59)) is True  # all-day marker
+    assert is_time_tbd(time(0, 0), time(6, 0)) is True  # 6 AM is the cutoff
+    assert is_time_tbd(time(0, 0), None) is True
+    assert is_time_tbd(time(0, 0), time(0, 0)) is True  # zero span
+    assert is_time_tbd(None) is True
+    # Genuine overnight midnight start (ends in the small hours) -> real.
+    assert is_time_tbd(time(0, 0), time(2, 0)) is False
+    assert is_time_tbd(time(0, 0), time(5, 59)) is False
+    # A real daytime start is always real.
+    assert is_time_tbd(time(19, 0), None) is False
+    assert is_time_tbd(time(9, 30), time(11, 0)) is False
+
+
 def test_other_days_never_expire() -> None:
     assert _occurrence_expired(date(2026, 6, 17), time(9, 0), None, _NOW) is False
     assert _occurrence_expired(date(2026, 6, 15), time(9, 0), None, _NOW) is False
