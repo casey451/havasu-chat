@@ -59,23 +59,28 @@
           <div class="navdrawer-menu">
             <a href="/home"{% if active_tab in ['home', 'today'] %} class="active"{% endif %}>Home</a>
             <a href="/events-ui">Events</a>
+            <a href="/calendar">Calendar</a>
             <a href="/news"{% if active_tab == 'news' %} class="active"{% endif %}>News</a>
             <a href="/movies">Movies</a>
             <a href="/family">For Kids</a>
             <a href="/seniors">For Seniors</a>
+            <a href="/gas">Gas</a>
             <a href="/categories#search">Explore</a>
             <a href="/ask">Ask</a>
             <a href="/portal">For Business</a>
+            <a href="/login">Sign in</a>
           </div>
         </details>
         <a class="brand" href="/home" aria-label="Ask Hava home" style="color:var(--ink);--ac:var(--brass)">{{ logo_nav(26, cls="rdlogo") }}<span class="wm">Ask <span class="b">Hava</span></span></a>
         <span class="navlinks only-d">
           <a href="/home"{% if active_tab in ['home', 'today'] %} class="active"{% endif %}>Home</a>
           <a href="/events-ui"{% if active_tab == 'events' %} class="active"{% endif %}>Events</a>
+          <a href="/calendar">Calendar</a>
           <a href="/news"{% if active_tab == 'news' %} class="active"{% endif %}>News</a>
           <a href="/movies"{% if active_tab == 'movies' %} class="active"{% endif %}>Movies</a>
           <a href="/family"{% if active_tab == 'family' %} class="active"{% endif %}>For Kids</a>
           <a href="/seniors"{% if active_tab == 'seniors' %} class="active"{% endif %}>For Seniors</a>
+          <a href="/gas">Gas</a>
           <a href="/categories#search"{% if active_tab == 'explore' %} class="active"{% endif %}>Explore</a>
           <a href="/ask"{% if active_tab in ['ask', 'chat'] %} class="active"{% endif %}>Ask</a>
           <a href="/portal">For Business</a>

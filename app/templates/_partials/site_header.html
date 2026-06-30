@@ -22,9 +22,12 @@
     <nav class="nav" aria-label="Primary">
       <a href="/home"{% if active_tab == 'home' or active_tab == 'today' %} aria-current="page"{% endif %}>Home</a>
       <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
+      <a href="/calendar">Calendar</a>
+      <a href="/news"{% if active_tab == 'news' %} aria-current="page"{% endif %}>News</a>
       <a href="/movies"{% if active_tab == 'movies' %} aria-current="page"{% endif %}>Movies</a>
       <a href="/family"{% if active_tab == 'family' %} aria-current="page"{% endif %}>For Kids</a>
       <a href="/seniors"{% if active_tab == 'seniors' %} aria-current="page"{% endif %}>For Seniors</a>
+      <a href="/gas">Gas</a>
       <a href="/categories#search"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Explore</a>
       <a href="/ask"{% if active_tab == 'ask' or active_tab == 'chat' %} aria-current="page"{% endif %}>Ask</a>
       <a class="biz" href="/portal">For Business</a>
@@ -40,9 +43,12 @@
   <nav class="drawer" id="lk-drawer" aria-label="Site menu" hidden>
     <a href="/home"{% if active_tab == 'home' or active_tab == 'today' %} aria-current="page"{% endif %}>Home</a>
     <a href="/events-ui"{% if active_tab == 'events' %} aria-current="page"{% endif %}>Events</a>
+    <a href="/calendar">Calendar</a>
+    <a href="/news"{% if active_tab == 'news' %} aria-current="page"{% endif %}>News</a>
     <a href="/movies"{% if active_tab == 'movies' %} aria-current="page"{% endif %}>Movies</a>
     <a href="/family"{% if active_tab == 'family' %} aria-current="page"{% endif %}>For Kids</a>
     <a href="/seniors"{% if active_tab == 'seniors' %} aria-current="page"{% endif %}>For Seniors</a>
+    <a href="/gas">Gas</a>
     <a href="/categories#search"{% if active_tab == 'explore' %} aria-current="page"{% endif %}>Explore</a>
     <a href="/ask"{% if active_tab == 'ask' or active_tab == 'chat' %} aria-current="page"{% endif %}>Ask</a>
     <a class="biz" href="/portal">For Business</a>
