@@ -45,58 +45,13 @@
 <a class="skip" href="#main">Skip to content</a>
 
 <div class="rd-shell">
-  <header class="head-stack">
-    <div class="util">
-      <span>Lake Havasu City</span>
-      {% if today_label %}<span class="r">{{ today_label }}</span>{% endif %}
-    </div>
-    <nav class="nav" aria-label="Primary">
-      <div class="nav-in">
-        <details class="navdrawer only-m">
-          <summary class="ico" aria-label="Menu">{{ icon('menu', 18) }}</summary>
-          {# Canonical nav — mirrors _partials/site_header.html so the homepage
-             and every interior page share one menu (site review §3). #}
-          <div class="navdrawer-menu">
-            <a href="/home"{% if active_tab in ['home', 'today'] %} class="active"{% endif %}>Home</a>
-            <a href="/events-ui">Events</a>
-            <a href="/calendar">Calendar</a>
-            <a href="/news"{% if active_tab == 'news' %} class="active"{% endif %}>News</a>
-            <a href="/movies">Movies</a>
-            <a href="/family">For Kids</a>
-            <a href="/seniors">For Seniors</a>
-            <a href="/lake">Lake</a>
-            <a href="/gas">Gas</a>
-            <a href="/categories#search">Explore</a>
-            <a href="/ask">Ask</a>
-            <a href="/portal">For Business</a>
-            <a href="/account">Account</a>
-            <a href="/login">Sign in</a>
-          </div>
-        </details>
-        <a class="brand" href="/home" aria-label="Ask Hava home" style="color:var(--ink);--ac:var(--brass)">{{ logo_nav(26, cls="rdlogo") }}<span class="wm">Ask <span class="b">Hava</span></span></a>
-        <span class="navlinks only-d">
-          <a href="/home"{% if active_tab in ['home', 'today'] %} class="active"{% endif %}>Home</a>
-          <a href="/events-ui"{% if active_tab == 'events' %} class="active"{% endif %}>Events</a>
-          <a href="/calendar">Calendar</a>
-          <a href="/news"{% if active_tab == 'news' %} class="active"{% endif %}>News</a>
-          <a href="/movies"{% if active_tab == 'movies' %} class="active"{% endif %}>Movies</a>
-          <a href="/family"{% if active_tab == 'family' %} class="active"{% endif %}>For Kids</a>
-          <a href="/seniors"{% if active_tab == 'seniors' %} class="active"{% endif %}>For Seniors</a>
-          <a href="/lake"{% if active_tab == 'lake' %} class="active"{% endif %}>Lake</a>
-          <a href="/gas">Gas</a>
-          <a href="/categories#search"{% if active_tab == 'explore' %} class="active"{% endif %}>Explore</a>
-          <a href="/ask"{% if active_tab in ['ask', 'chat'] %} class="active"{% endif %}>Ask</a>
-          <a href="/portal">For Business</a>
-        </span>
-        <span class="nav-sp"></span>
-        <span class="loc only-d">{{ icon('pin', 14) }}Lake Havasu City</span>
-        <a class="ico only-d" href="/chat" aria-label="Search">{{ icon('search', 17) }}</a>
-        <a class="btn-ghost only-d" href="/login">Sign in</a>
-        <a class="avatar only-m" href="/account" aria-label="Account"></a>
-      </div>
-    </nav>
+  {# F11 part 2: single-source the masthead through the shared partial (the same
+     one base_lake.html includes) so the menu lives in exactly ONE place. The
+     live-conditions strip + gas panel render right after the partial — they sit
+     just below the sticky header (big v4 tiles on home) instead of inside it. #}
+  {% include "_partials/site_header.html" %}
 
-    {% if cond_tiles %}
+  {% if cond_tiles %}
     <div class="cond" aria-label="Live conditions">
       {% for t in cond_tiles %}
       {% if t.is_gas %}
@@ -126,8 +81,7 @@
       </div>
     </div>
     {% endif %}
-    {% endif %}
-  </header>
+  {% endif %}
 
   <main id="main" role="main" tabindex="-1">
   {% block main %}{% endblock %}
