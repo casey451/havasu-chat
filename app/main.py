@@ -83,6 +83,7 @@ from app.db.database import SessionLocal, get_db, init_db
 from app.db.jobs_store import count_stale_running, requeue_stale_claims
 from app.db.models import AuthSession, Event, Provider
 from app.digest.routes import router as digest_router
+from app.events.directions import directions_url as event_directions_url
 from app.events.event_type_tags import event_type_label
 from app.events.recurrence import _event_is_recurring, next_occurrence
 from app.events.tag_display import public_event_tags
@@ -1124,6 +1125,7 @@ def _render_permalink_response(
             "type_label": event_type_label(event.title, event.tags, event.location_name),
             "location_name": event.location_name,
             "venue_url": venue_url,
+            "directions_url": event_directions_url(event.location_name),
             "description": event.description,
             "cost": getattr(event, "cost", None),
             "cost_description": getattr(event, "cost_description", None),
