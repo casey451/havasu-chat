@@ -120,7 +120,10 @@ def collect_links(db) -> list[LinkRef]:
     from app.home.family_venues import curated_outbound_links
 
     for url, label in curated_outbound_links():
-        refs.append(LinkRef(_clean(url), "feed_venue", None, label))
+        # No DB entity — feed links are curated in code. entity_id is an opaque
+        # string downstream (report labels + nullable LinkHealth column), and
+        # every consumer guards it (``entity_id or '-'``), so "" is safe.
+        refs.append(LinkRef(_clean(url), "feed_venue", "", label))
     return refs
 
 
