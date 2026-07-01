@@ -532,4 +532,9 @@ def today_feed(
     for g in groups:
         g["open"] = g["key"] == open_key
 
+    # F4: suppress confirmed-dead outbound links (e.g. a curated venue link that
+    # went 404) so they render as plain text, not broken anchors.
+    from app.monitoring import link_health
+
+    link_health.suppress_dead_links(groups, link_health.confirmed_broken_urls(db))
     return {"groups": groups, "counts": counts, "summary": _summary(counts)}

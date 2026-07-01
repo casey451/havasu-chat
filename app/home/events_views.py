@@ -851,6 +851,13 @@ def calendar_day_view_model(
         }
         anchor = next((i for i, s in enumerate(sections) if s["key"] == "events"), -1)
         sections.insert(anchor + 1, movies_section)
+    # F4: drop the href on any outbound link the sweep has confirmed dead, so a
+    # broken feed link renders as plain text instead of shipping to users. Counts
+    # and structure are untouched (parity-safe); internal /events/<id> permalinks
+    # are never in the set.
+    from app.monitoring import link_health
+
+    link_health.suppress_dead_links(sections, link_health.confirmed_broken_urls(db))
     return {"sections": sections, "total": sum(int(s.get("count") or 0) for s in sections)}
 
 
