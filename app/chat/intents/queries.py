@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
+from functools import lru_cache
 from typing import Any
 
 from sqlalchemy import or_
@@ -308,6 +309,29 @@ def _marine_first(rows: list[Provider]) -> list[Provider]:
     return marine + rest
 
 
+@lru_cache(maxsize=1)
+def _primary_leaf_name_by_entity() -> dict[str, str]:
+    """``entity_id -> primary-leaf Category.name`` — the authoritative per-listing
+    category label (2026-06-30 search audit 3B). Preferred over the unreliable
+    ``google_primary_category`` ("Rv Park", "Indoor Playground") / legacy
+    ``category`` for the card tag. Cached once per process (categories are
+    near-static; a reclass shows after the next deploy). Best-effort: ``{}`` on
+    any failure so the label falls back to the legacy heuristics."""
+    try:
+        from app.db.database import SessionLocal
+
+        with SessionLocal() as db:
+            rows = (
+                db.query(EntityCategory.entity_id, Category.name)
+                .join(Category, Category.id == EntityCategory.category_id)
+                .filter(EntityCategory.is_primary.is_(True))
+                .all()
+            )
+        return {eid: name for eid, name in rows if eid and name}
+    except Exception:  # pragma: no cover - defensive; label just falls back
+        return {}
+
+
 def _provider_to_row(p: Provider) -> dict[str, Any]:
     """Tier2 provider-row shape consumed by build_business_list."""
     return {
@@ -318,6 +342,7 @@ def _provider_to_row(p: Provider) -> dict[str, Any]:
         "phone": p.phone,
         "address": p.address,
         "category": p.category,
+        "primary_category_label": _primary_leaf_name_by_entity().get(p.entity_id),
         "google_primary_category": p.google_primary_category,
         "google_rating": p.google_rating,
         "google_review_count": p.google_review_count,

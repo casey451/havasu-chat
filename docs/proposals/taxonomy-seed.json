@@ -705,6 +705,12 @@
     "gate_ok": true,
     "new": true
    },
+   "cannabis-dispensaries": {
+    "name": "Cannabis Dispensaries",
+    "count": 2,
+    "gate_ok": true,
+    "new": true
+   },
    "shoes": {
     "name": "Shoes",
     "count": 3,
