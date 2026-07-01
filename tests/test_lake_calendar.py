@@ -10,6 +10,7 @@ from __future__ import annotations
 
 from unittest.mock import patch
 
+import pytest
 from fastapi.testclient import TestClient
 from test_ada_compliance import _A11yChecker
 
@@ -159,11 +160,18 @@ def test_cuisine_query_slug_maps_dishes_to_cuisine() -> None:
     assert cuisine_query_slug("tacos") == "mexican"
     assert cuisine_query_slug("good mexican food") == "mexican"
     assert cuisine_query_slug("pizza") == "pizza"
+    assert cuisine_query_slug("italian food") == "italian"
     assert cuisine_query_slug("italian restaurant") == "italian"
+    assert cuisine_query_slug("chinese food") == "chinese"
+    assert cuisine_query_slug("thai food") == "thai"
     assert cuisine_query_slug("sushi") == "japanese"
     assert cuisine_query_slug("bbq") == "bbq"
     assert cuisine_query_slug("seafood") == "seafood"
+    assert cuisine_query_slug("steak") == "steakhouse"
     assert cuisine_query_slug("burgers") == "burgers"
+    # bare cuisine word (no food tail) still resolves
+    assert cuisine_query_slug("mexican") == "mexican"
+    assert cuisine_query_slug("italian") == "italian"
 
 
 def test_cuisine_query_slug_ignores_events_and_non_food() -> None:
@@ -208,3 +216,32 @@ def test_chat_genuine_food_event_still_routes_to_calendar() -> None:
         r = TestClient(app).get("/chat?q=taco festival", follow_redirects=False)
     assert r.status_code == 302
     assert r.headers["location"].startswith("/calendar?q=")
+
+
+@pytest.mark.parametrize(
+    "query",
+    [
+        "mexican food",
+        "italian food",
+        "chinese food",
+        "thai food",
+        "greek food",
+        "tacos",
+        "pizza",
+        "sushi",
+        "burgers",
+        "bbq",
+        "seafood",
+        "steak",
+        "mexican",
+        "italian",
+    ],
+)
+def test_chat_cuisine_query_never_routes_to_calendar(query: str) -> None:
+    # Guardrail (N1/N2): no cuisine/dish search may 302 to the events calendar.
+    # With a publishable cuisine page each lands on its /lake-havasu/{cuisine}
+    # landing; the assertion that matters is simply "not /calendar".
+    with patch.object(cuisine_pages, "is_publishable_cuisine", return_value=True):
+        r = TestClient(app).get(f"/chat?q={query}", follow_redirects=False)
+    assert r.status_code == 302
+    assert not r.headers["location"].startswith("/calendar")
