@@ -13,7 +13,8 @@ from unittest.mock import patch
 from fastapi.testclient import TestClient
 from test_ada_compliance import _A11yChecker
 
-from app.categories import leaf_query
+from app.categories import cuisine_pages, leaf_query
+from app.categories.subcategories import cuisine_query_slug
 from app.home.calendar_view import is_discovery_query, parse_calendar_query
 from app.main import app
 
@@ -136,3 +137,74 @@ def test_chat_service_leaf_routes_in_both_themes() -> None:
             r = TestClient(app).get(f"/chat?q=plumbers{suffix}", follow_redirects=False)
             assert r.status_code == 302
             assert r.headers["location"] == "/categories/home-property-services/plumbers"
+
+
+# ── cuisine/dish routing (N1/N2, 2026-07-01) ─────────────────────────────────
+# A plain cuisine search ("mexican food", "tacos", "sushi") must land on the
+# Eat & Drink listing filtered to that cuisine — NEVER the events calendar. The
+# calendar's own discovery matcher fires on bare "food"/"taco", so the fix
+# intercepts ahead of the /calendar branch.
+
+
+class _FakeRestaurantsLeaf:
+    department_slug = "eat-drink"
+    slug = "restaurants"
+
+
+def test_cuisine_query_slug_maps_dishes_to_cuisine() -> None:
+    # Bare dish/cuisine words and "<cuisine> food/restaurant(s)" phrasings all
+    # resolve to their cuisine slug (one leading qualifier tolerated).
+    assert cuisine_query_slug("mexican food") == "mexican"
+    assert cuisine_query_slug("mexican restaurants") == "mexican"
+    assert cuisine_query_slug("tacos") == "mexican"
+    assert cuisine_query_slug("good mexican food") == "mexican"
+    assert cuisine_query_slug("pizza") == "pizza"
+    assert cuisine_query_slug("italian restaurant") == "italian"
+    assert cuisine_query_slug("sushi") == "japanese"
+    assert cuisine_query_slug("bbq") == "bbq"
+    assert cuisine_query_slug("seafood") == "seafood"
+    assert cuisine_query_slug("burgers") == "burgers"
+
+
+def test_cuisine_query_slug_ignores_events_and_non_food() -> None:
+    # An event/temporal signal keeps the query on the calendar side; generic
+    # "food"/"restaurants" and non-food queries aren't cuisine-shaped.
+    assert cuisine_query_slug("taco festival") is None
+    assert cuisine_query_slug("food truck night") is None
+    assert cuisine_query_slug("cooking class") is None
+    assert cuisine_query_slug("mexican food festival") is None
+    assert cuisine_query_slug("food") is None
+    assert cuisine_query_slug("restaurants") is None
+    assert cuisine_query_slug("plumbers") is None
+
+
+def test_chat_cuisine_routes_to_cuisine_landing_not_calendar() -> None:
+    # "mexican food" would otherwise trip is_discovery_query (bare "food") and
+    # 302 to /calendar. With a publishable cuisine page it lands there instead.
+    assert is_discovery_query("mexican food")  # the trap this fix defuses
+    with patch.object(cuisine_pages, "is_publishable_cuisine", return_value=True):
+        r = TestClient(app).get("/chat?q=mexican food", follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == "/lake-havasu/mexican"
+    assert not r.headers["location"].startswith("/calendar")
+
+
+def test_chat_cuisine_falls_back_to_restaurants_leaf_when_thin() -> None:
+    # Cuisine page too thin to publish → the generic Restaurants leaf, still not
+    # the calendar.
+    with (
+        patch.object(cuisine_pages, "is_publishable_cuisine", return_value=False),
+        patch.object(leaf_query, "match_leaf_query", return_value=_FakeRestaurantsLeaf()),
+    ):
+        r = TestClient(app).get("/chat?q=sushi", follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"] == "/categories/eat-drink/restaurants"
+    assert not r.headers["location"].startswith("/calendar")
+
+
+def test_chat_genuine_food_event_still_routes_to_calendar() -> None:
+    # The guard is narrow: an actual food *event* keeps its calendar route.
+    with patch.object(leaf_query, "match_leaf_query", return_value=None):
+        r = TestClient(app).get("/chat?q=taco festival", follow_redirects=False)
+    assert r.status_code == 302
+    assert r.headers["location"].startswith("/calendar?q=")
