@@ -188,9 +188,11 @@ def test_cuisine_query_slug_ignores_events_and_non_food() -> None:
 
 
 def test_chat_cuisine_routes_to_cuisine_landing_not_calendar() -> None:
-    # "mexican food" would otherwise trip is_discovery_query (bare "food") and
-    # 302 to /calendar. With a publishable cuisine page it lands there instead.
-    assert is_discovery_query("mexican food")  # the trap this fix defuses
+    # "mexican food" used to trip is_discovery_query on the bare "food" token
+    # and 302 to /calendar; the 2026-07-01 scope fix defused that at the source
+    # (a parsed type word alone no longer routes to the calendar). The cuisine
+    # interception still runs first and lands on the cuisine page.
+    assert not is_discovery_query("mexican food")  # the trap stays defused
     with patch.object(cuisine_pages, "is_publishable_cuisine", return_value=True):
         r = TestClient(app).get("/chat?q=mexican food", follow_redirects=False)
     assert r.status_code == 302

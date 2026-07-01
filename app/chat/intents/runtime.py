@@ -326,6 +326,31 @@ def _honest_empty_answer(
                 category=result.category_hint,
                 result_count=0,
             )
+    # 2026-07-01 consolidated audit A1/2.B: a broad-bucket provider ask that
+    # names a topic the bucket doesn't carry ("gun store", "tubing", "golf cart
+    # rental") comes back empty via the topical gate -- that empty is
+    # authoritative. Answer honestly here instead of falling through to Tier 3,
+    # which is what produced the off-catalog / Kingman recommendations.
+    from app.chat.intents.queries import (
+        TOPIC_GATED_PROVIDER_INTENTS,
+        _provider_activity_terms,
+    )
+
+    if key in TOPIC_GATED_PROVIDER_INTENTS or (
+        key == "eat_find" and not resolved.slots.get("cuisine")
+    ):
+        terms = _provider_activity_terms(query, key)
+        if terms:
+            what = " ".join(terms)
+            return IntentAnswer(
+                text=(
+                    f"I don't see any {what} listed in the local directory "
+                    "yet. Try golakehavasu.com, or add one at /contribute."
+                ),
+                intent_key=key,
+                category=result.category_hint,
+                result_count=0,
+            )
     return None
 
 

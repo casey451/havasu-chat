@@ -623,6 +623,111 @@ def _program_row_matches_terms(row: dict[str, Any], terms: list[str]) -> bool:
 
 
 # ---------------------------------------------------------------------------
+# Broad-bucket topical gate (2026-07-01 consolidated search audit A1 / 2.B)
+# ---------------------------------------------------------------------------
+# The classes_find guard above, generalized to PROVIDER buckets. A broad-bucket
+# intent ("shopping", "on the water", "places to stay") legitimately lists its
+# whole bucket -- but "gun store" resolved to shopping_find on the bare "store"
+# token and answered with golf carts and a fabric shop, "tubing" surfaced an
+# RV-parts store, and "golf cart rental" returned boat companies. The gate
+# extracts the topical nouns a bucket query carries; when it names one and NO
+# returned row matches it, the bucket answer is wrong -- return nothing so the
+# honest gap template answers instead of Tier 3 guessing an out-of-area business.
+
+#: Intents whose result set is a broad category bucket, where an unmatched
+#: topical noun means the rows do NOT answer the query. find_service /
+#: urgent_care are deliberately absent -- their SERVICE_DICT / SYMPTOM_MAP hit
+#: IS the topical match ("plumber" is not a substring of "plumbing").
+TOPIC_GATED_PROVIDER_INTENTS: frozenset[str] = frozenset(
+    {
+        "shopping_find",
+        "lodging_find",
+        "on_the_water",
+        "boat_rental",
+        "boat_repair",
+        "gym_fitness",
+        "yoga_pilates",
+        "martial_arts",
+        "pickleball",
+    }
+)
+
+# Generic bucket nouns on top of the ranking stopwords: naming the bucket
+# ("store", "hotel", "rental", "restaurant") carries no topical signal -- every
+# row in the bucket is one. What survives is the activity/product noun that
+# must actually appear somewhere on a row ("gun", "tubing", "kayak", "weight").
+_PROVIDER_BROWSE_FILLER: frozenset[str] = _RANK_STOP_TERMS | frozenset(
+    """store stores shop shops rental rentals rent rented renting hire hotel
+    hotels motel motels stay staying place places business businesses company
+    companies buy shopping eat eats food dining dine restaurant restaurants
+    meal meals dinner lunch brunch supper snack snacks grab bite bites hungry
+    repair repairs service services
+    should shall anything anywhere somewhere someplace
+    exist exists available availability offer offers offering options option
+    recommend recommends recommendation recommendations suggest suggestions""".split()
+)
+
+# Per-intent bucket trigger nouns: the words that RESOLVED the query to this
+# bucket describe the bucket itself, not a narrower topic within it ("gym" must
+# not topical-gate the gyms list; "pickleball" must not gate the courts list).
+_INTENT_BUCKET_NOUNS: dict[str, frozenset[str]] = {
+    "gym_fitness": frozenset(
+        "gym gyms fitness crossfit workout workouts weights".split()
+    ),
+    "yoga_pilates": frozenset("yoga pilates barre studio studios".split()),
+    "martial_arts": frozenset(
+        "martial arts karate jiu jitsu bjj judo taekwondo dojo".split()
+    ),
+    "pickleball": frozenset("pickleball tennis racquet court courts".split()),
+}
+
+
+def _provider_activity_terms(raw_query: str | None, intent_key: str = "") -> list[str]:
+    """Distinctive topical nouns in a bucket query ("gun store" -> ["gun"]).
+
+    Mirrors :func:`_class_activity_terms`: tokenize, drop filler / bucket nouns /
+    short tokens / digits. Empty for a generic bucket browse ("shopping in lake
+    havasu", "places to stay") -- those still list the whole bucket."""
+    skip = _PROVIDER_BROWSE_FILLER | _INTENT_BUCKET_NOUNS.get(intent_key, frozenset())
+    out: list[str] = []
+    for tok in re.split(r"[^a-z0-9]+", (raw_query or "").lower()):
+        if len(tok) < 3 or tok.isdigit() or tok in skip or tok in out:
+            continue
+        out.append(tok)
+    return out
+
+
+def _topic_pattern(term: str) -> re.Pattern[str]:
+    """Word-boundary matcher with singular/plural tolerance ("gym" matches
+    "gyms", "church" matches "churches"). Substring matching would false-pass
+    ("side" in "Riverside"), so the boundary is required."""
+    stem = term[:-1] if term.endswith("s") and len(term) > 3 else term
+    return re.compile(rf"\b{re.escape(stem)}(?:e?s)?\b")
+
+
+def _topical_gate(
+    db: Session, rows: list[Provider], raw_query: str | None, intent_key: str
+) -> list[Provider]:
+    """Empty a broad-bucket result whose rows never mention the query's topic.
+
+    All-or-nothing: if ANY row matches a topical term the whole list survives
+    (the relevance ranking already floats the matches); if none does, the
+    bucket does not answer the query and the honest gap template should."""
+    terms = _provider_activity_terms(raw_query, intent_key)
+    if not terms or not rows:
+        return rows
+    slugs_by_eid = _leaf_slugs_for_entities(
+        db, [p.entity_id for p in rows if p.entity_id]
+    )
+    patterns = [_topic_pattern(t) for t in terms]
+    for p in rows:
+        hay = _provider_searchable(p, slugs_by_eid.get(p.entity_id, ()))
+        if any(pat.search(hay) for pat in patterns):
+            return rows
+    return []
+
+
+# ---------------------------------------------------------------------------
 # Gas
 # ---------------------------------------------------------------------------
 
@@ -749,6 +854,10 @@ def run_query(
             rank_terms=rank_terms,
             now=now,
         )
+        if key == "eat_find" and not cuisine:
+            # No cuisine slot narrowed the bucket, so a topical noun the rows
+            # never mention means the generic restaurant list is not the answer.
+            rows = _topical_gate(db, rows, raw_query, key)
         return QueryResult(
             key,
             "providers",
@@ -778,6 +887,7 @@ def run_query(
             rank_terms=rank_terms,
             now=now,
         )
+        rows = _topical_gate(db, rows, raw_query, key)
         return QueryResult(
             key,
             "providers",
@@ -830,6 +940,7 @@ def run_query(
             rank_terms=rank_terms,
             now=now,
         )
+        rows = _topical_gate(db, rows, raw_query, key)
         return QueryResult(
             key,
             "providers",
@@ -848,6 +959,7 @@ def run_query(
             rank_terms=rank_terms,
             now=now,
         )
+        rows = _topical_gate(db, rows, raw_query, key)
         return QueryResult(
             key,
             "providers",
@@ -895,6 +1007,7 @@ def run_query(
         if key == "boat_repair":
             # Float genuine marine shops above auto/RV "Car Repair" yards.
             rows = _marine_first(rows)
+        rows = _topical_gate(db, rows, raw_query, key)
         return QueryResult(
             key,
             "providers",

@@ -998,10 +998,18 @@ def calendar_month(
         }
     by_day: dict[int, list[dict[str, Any]]] = {}
     event_keys: set[tuple[str, date, time | None]] = set()
+    from app.events.event_type_tags import is_civic_meeting
+
     for occ_date, evs in occ_by_date.items():
         bucket = by_day.setdefault(occ_date.day, [])
         for ev in evs:
             event_keys.add(((ev.title or "").strip().lower(), occ_date, ev.start_time))
+            # Government meetings (City Council, Board of Adjustment…) are not
+            # leisure plans (2026-07-01 audit A3): keep them off the month
+            # cells' pills/counts. The day view still lists them under its own
+            # "Local Government" group.
+            if is_civic_meeting(ev.title, getattr(ev, "description", None), ev.location_name):
+                continue
             bucket.append(
                 {
                     "title": clean_event_title(ev.title, location_name=ev.location_name),

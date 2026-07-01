@@ -56,27 +56,32 @@ def test_api_chat_tier3_persists_mention_row() -> None:
         raw_query="kayak",
         normalized_query="kayak",
     )
-    with patch("app.chat.unified_router.classify", return_value=ask_intent):
-        with patch(
-            "app.chat.unified_router.try_tier1",
-            return_value=None,
-        ):
+    # The intent layer would claim "what kayak rentals exist?" itself when the
+    # catalog has no kayak row (honest bounded-empty, 2026-07-01 topical gate) —
+    # patch it out so this test keeps exercising the Tier-3 mention-scan
+    # persistence it is actually for.
+    with patch("app.chat.intents.runtime.try_intent_layer", return_value=None):
+        with patch("app.chat.unified_router.classify", return_value=ask_intent):
             with patch(
-                "app.chat.unified_router.try_tier2_with_usage",
-                return_value=(None, None, None, None),
+                "app.chat.unified_router.try_tier1",
+                return_value=None,
             ):
                 with patch(
-                    "app.chat.unified_router.answer_with_tier3",
-                    return_value=(tier3_text, 10, 5, 5),
+                    "app.chat.unified_router.try_tier2_with_usage",
+                    return_value=(None, None, None, None),
                 ):
-                    with TestClient(app) as client:
-                        r = client.post(
-                            "/api/chat",
-                            json={
-                                "query": "What kayak rentals exist?",
-                                "session_id": "tier3-mention-scan",
-                            },
-                        )
+                    with patch(
+                        "app.chat.unified_router.answer_with_tier3",
+                        return_value=(tier3_text, 10, 5, 5),
+                    ):
+                        with TestClient(app) as client:
+                            r = client.post(
+                                "/api/chat",
+                                json={
+                                    "query": "What kayak rentals exist?",
+                                    "session_id": "tier3-mention-scan",
+                                },
+                            )
     assert r.status_code == 200
     body = r.json()
     assert body["tier_used"] == "3"

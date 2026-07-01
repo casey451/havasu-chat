@@ -68,6 +68,13 @@ def serve_chat(
         food_dest = _cuisine_destination(db, cleaned)
         if food_dest is not None:
             return RedirectResponse(url=food_dest, status_code=302)
+        # Evergreen browse asks with a department-level home ("things to do" →
+        # the Things to Do landing, the kids variant → /family). These used to
+        # fall to the calendar router below, which turned a directory ask into
+        # a week of Board-of-Adjustment rows (2026-07-01 audit A3).
+        direct = leaf_query.match_direct_destination(cleaned)
+        if direct is not None:
+            return RedirectResponse(url=direct, status_code=302)
         # Service/business → its directory leaf ("plumbers", "boat rentals").
         leaf = leaf_query.match_leaf_query(db, cleaned)
         # Need-shaped service asks the exact matcher misses ("hvac needs repair")

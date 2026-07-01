@@ -879,6 +879,58 @@ _QUERY_TO_LEAF_SEARCH_ADD2_2026_06_30: dict[str, tuple[str, ...]] = {
         "dive shop", "dive shops", "scuba shop"),
 }
 
+# 2026-07-01 consolidated search audit (A3 + A5). The calendar router no longer
+# captures these evergreen asks (is_discovery_query is scoped to explicit
+# time/event intent), so each gets a real directory destination; plus the
+# bare/variant terms the audit found unmapped ("hair" -> the 83-listing salons
+# leaf, phone-repair variants -> the IT-repair leaf). Category NOUNS only
+# (never a descriptive sentence), merged via setdefault so live entries win.
+_QUERY_TO_LEAF_SEARCH_ADD_2026_07_01: dict[str, tuple[str, ...]] = {
+    "bars-and-breweries": ("nightlife", "happy hour"),
+    "restaurants": ("date night", "waterfront dining"),
+    # "lake havasu state park" normalizes to "state park" (the locality filler
+    # strip removes "lake havasu" first); the park's beach rows live on the
+    # beaches leaf.
+    "beaches-and-swim-areas": ("state park", "state parks"),
+    "boat-and-watercraft-rentals": ("party boat", "party boats",
+        "party boat rental", "party boat rentals"),
+    "boat-tours-and-charters": ("boat rental with captain", "captained boat tour",
+        "captained boat tours"),
+    "hair-salons-and-barbers": ("hair",),
+    "computer-and-it-repair": ("cell phone repair", "phone repair",
+        "iphone repair", "phone screen repair"),
+    "jet-ski-and-watersports": ("waverunner rental", "waverunner rentals",
+        "sea doo rental", "sea doo rentals"),
+}
+
+# Evergreen browse asks whose right destination is a DEPARTMENT landing or a
+# static page, not a single leaf (the dicts above can only target leaf slugs).
+# Consulted by the /chat router ahead of the leaf match via
+# :func:`match_direct_destination`; these routes always render, so no publish
+# gate applies. "things to do" -> the Things to Do department landing (a real
+# browse page; the tours-and-sightseeing leaf is too narrow for the ask);
+# the kids variant -> the /family day view.
+_QUERY_TO_URL_2026_07_01: dict[str, str] = {
+    "things to do": "/categories/things-to-do-and-attractions",
+    "fun things to do": "/categories/things-to-do-and-attractions",
+    "free things to do": "/categories/things-to-do-and-attractions",
+    "stuff to do": "/categories/things-to-do-and-attractions",
+    "things to do with kids": "/family",
+}
+
+
+def match_direct_destination(q: str | None) -> str | None:
+    """Static destination URL for an evergreen browse ask, or ``None``.
+
+    Pure in-memory lookup on the normalized query -- no DB, because the
+    department landing and /family always render (unlike leaf pages, which
+    carry the publish gate)."""
+    norm = _normalize(q or "")
+    if not norm:
+        return None
+    return _QUERY_TO_URL_2026_07_01.get(norm)
+
+
 for _leaf_slug, _terms in _QUERY_TO_LEAF_EXPANSION_2026_06_20.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
@@ -892,6 +944,9 @@ for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ADD_2026_06_30.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ADD2_2026_06_30.items():
+    for _term in _terms:
+        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
+for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ADD_2026_07_01.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 for _term, _leaf_slug in _QUERY_TO_LEAF_BARE_FORMS_2026_06_20.items():
@@ -978,6 +1033,10 @@ _SERVICE_FILLER: frozenset[str] = frozenset(
         "quote", "quotes", "estimate", "estimates", "recommendation", "recommendations",
         "company", "companies", "guy", "guys", "shop", "shops", "place", "places",
         "unit", "units", "get", "find", "hire", "book",
+        # 2026-07-01: rent-intent words, so "<mapped-category> rental" routes
+        # ("waverunner rental", "pontoon boat rental"). "golf cart rental" stays
+        # safely unrouted -- its leftover "cart" is a content token.
+        "rent", "rents", "rental", "rentals", "renting",
         # breakdown phrasings ("my hvac is broken", "ac not working", "stopped")
         "is", "are", "was", "broke", "not", "working", "stopped",
         # harmless function words (no category signal)
