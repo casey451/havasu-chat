@@ -48,11 +48,23 @@ def base_url() -> str:
     return _coerce_https(raw)
 
 
-def absolute_url(path: str) -> str:
-    """Join ``path`` onto the canonical origin → absolute https URL."""
-    p = path or "/"
-    if not p.startswith("/"):
-        p = "/" + p
+def absolute_url(path: str | None) -> str:
+    """Join a site-relative ``path`` onto the canonical origin → absolute https URL.
+
+    Already-absolute inputs pass through UNCHANGED, so a caller that hands over a
+    full URL — an external ``sameAs`` link, an absolute CDN image, a venue's own
+    site in JSON-LD — can't produce a doubled ``https://askhava.com/https://…``
+    value. That covers ``http(s)://`` URLs, protocol-relative ``//host`` refs,
+    and ``mailto:`` / ``tel:`` links. ``None`` / empty return ``""`` (graceful,
+    never mangled into the bare site root). Every other value is treated as a
+    site-relative path and domain-prefixed exactly as before.
+    """
+    if not path:
+        return ""
+    low = path.lower()
+    if low.startswith(("http://", "https://", "//", "mailto:", "tel:")):
+        return path
+    p = path if path.startswith("/") else "/" + path
     return base_url() + p
 
 
