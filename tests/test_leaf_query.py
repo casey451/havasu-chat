@@ -139,7 +139,8 @@ def test_chat_route_redirects_exact_category(client: TestClient) -> None:
     try:
         r = client.get("/chat", params={"q": "plumbers"}, follow_redirects=False)
         assert r.status_code == 302
-        assert r.headers["location"] == "/categories/hps-b3/plumbing"
+        # The search term is carried onto the leaf (?q=) for query-aware ranking.
+        assert r.headers["location"] == "/categories/hps-b3/plumbing?q=plumbers"
         # A descriptive query stays on the conversational chat page.
         r2 = client.get("/chat", params={"q": "what's a good plumber for a slab leak"})
         assert r2.status_code == 200

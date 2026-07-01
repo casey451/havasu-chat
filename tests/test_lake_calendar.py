@@ -137,7 +137,8 @@ def test_chat_service_leaf_routes_in_both_themes() -> None:
         for suffix in ("", "&theme=lake"):
             r = TestClient(app).get(f"/chat?q=plumbers{suffix}", follow_redirects=False)
             assert r.status_code == 302
-            assert r.headers["location"] == "/categories/home-property-services/plumbers"
+            # The search term rides along (?q=) so the leaf can rank by relevance.
+            assert r.headers["location"] == "/categories/home-property-services/plumbers?q=plumbers"
 
 
 # ── cuisine/dish routing (N1/N2, 2026-07-01) ─────────────────────────────────

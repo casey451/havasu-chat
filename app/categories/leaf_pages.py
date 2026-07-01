@@ -31,6 +31,7 @@ when it is genuinely empty (0 listings).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -249,8 +250,64 @@ def _leaf_provider_backed_entity_ids(db: Session, leaf_id: int) -> set[str]:
     return {eid for (eid,) in rows.all()}
 
 
+# Query-aware relevance (2026-07-01): a niche search ("wake surfing") 302s to a
+# broad leaf ("jet-ski-and-watersports"), which otherwise renders in dampened-
+# rating order and buries newer on-topic shops below high-review generic ones.
+# When the leaf is reached WITH the originating ``?q=``, on-topic providers float
+# to the top — ahead of the shuffle's new/unrated tail — then the normal order
+# follows. Generic/stop tokens are dropped so "jet ski rentals" still leads with
+# the rental shops (they match "jet"/"ski") and a no-match query is a no-op.
+_RELEVANCE_STOP_TERMS: frozenset[str] = frozenset(
+    """a an and any are at best find for get good great in local me my near nearby
+    new of on or our place places rent rental rentals service services shop shops
+    the to top with company companies lake havasu city arizona az lhc""".split()
+)
+_RELEVANCE_TOKEN_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _relevance_terms(query: str | None) -> list[str]:
+    """Distinctive lowercase search terms for floating on-topic providers."""
+    toks = _RELEVANCE_TOKEN_RE.split((query or "").lower())
+    return [t for t in toks if len(t) >= 3 and t not in _RELEVANCE_STOP_TERMS]
+
+
+def _provider_matches_terms(p: Provider, terms: list[str]) -> bool:
+    """True when any distinctive query term appears in the provider's name /
+    subcategory / category. Matches on substring, or a shared 4-char stem, so
+    "wake"~"wakesurf" (substring) and "surfing"~"wakesurf" ("surf" stem) both
+    hit."""
+    hay = " ".join(
+        str(v or "").lower()
+        for v in (p.provider_name, getattr(p, "subcategory", ""), getattr(p, "category", ""))
+    )
+    for t in terms:
+        if t in hay:
+            return True
+        if len(t) >= 4 and t[:4] in hay:  # stem: "surfing" -> "surf" in "wakesurf"
+            return True
+    return False
+
+
+def _float_query_matches(
+    providers: list[Provider], query: str | None, pinned_ids: set[str]
+) -> list[Provider]:
+    """Stable-partition ``providers`` so query-relevant rows lead (paid pins stay
+    first). No-op when there's no query, no distinctive term, or nothing matches."""
+    terms = _relevance_terms(query)
+    if not terms:
+        return providers
+    rest = [p for p in providers if p.id not in pinned_ids]
+    matches = [p for p in rest if _provider_matches_terms(p, terms)]
+    if not matches:
+        return providers
+    match_ids = {p.id for p in matches}
+    pinned = [p for p in providers if p.id in pinned_ids]
+    nonmatch = [p for p in rest if p.id not in match_ids]
+    return pinned + matches + nonmatch
+
+
 def leaf_listing(
-    db: Session, leaf: Leaf, *, now: datetime, sort: str | None = None
+    db: Session, leaf: Leaf, *, now: datetime, sort: str | None = None, query: str | None = None
 ) -> tuple[list[dict[str, Any]], int, list[Provider]]:
     """``(cards, total, providers)`` for a leaf page.
 
@@ -341,6 +398,10 @@ def leaf_listing(
             shuffle=False,
         )
         providers = [by_id[k] for k in arr.order if k in by_id]
+
+    # Query-aware relevance: float providers matching the originating search to
+    # the top (ahead of the shuffle's new/unrated tail), paid pins kept first.
+    providers = _float_query_matches(providers, query, sponsored_ids)
 
     cards = [
         cat_queries._provider_card(

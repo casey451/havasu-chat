@@ -1078,7 +1078,13 @@ def _render_leaf_page(
     # P4: "Top rated" (?sort=favorites) suppresses the daily Featured shuffle and
     # keeps the dampened-rating order; everything else gets the shuffled default.
     sort_param = (request.query_params.get("sort") or "").strip().lower()
-    cards, total, providers = leaf_pages.leaf_listing(db, leaf, now=now, sort=sort_param)
+    # 2026-07-01: the originating search term (carried from /chat as ?q=) floats
+    # on-topic businesses to the top so a niche ask isn't buried under the broad
+    # leaf's review-count order. Absent/empty q is a no-op.
+    search_q = (request.query_params.get("q") or "").strip() or None
+    cards, total, providers = leaf_pages.leaf_listing(
+        db, leaf, now=now, sort=sort_param, query=search_q
+    )
     if total < leaf_pages.LEAF_PAGE_MIN_PROVIDERS:
         raise HTTPException(status_code=404, detail="leaf_below_minimum")
 
