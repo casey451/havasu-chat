@@ -119,6 +119,24 @@ def classify_event_type(
     strong_music = bool(_MUSIC_STRONG_RE.search(blob))
     automotive = bool(_AUTOMOTIVE_RE.search(blob))
 
+    # A structured ``activity:<x>`` tag (activity:billiards / golf / bowling ...,
+    # stamped by the venue/parks ingest) is the event's OWN type. A billiards
+    # row whose blurb merely mentions the venue's other nights ("...also hosts a
+    # Monday-night dance party") must not be retyped Live Music off that stray
+    # keyword. So an activity tag suppresses a weak/venue-only music signal —
+    # only an AUTHORITATIVE signal (a real concert/band, the durable music/
+    # live_music tag, or a curated act) still counts. Mirrors the automotive
+    # guard below.
+    structured_activity = any(
+        str(t).lower().startswith("activity:") for t in (tags or [])
+    )
+    authoritative_music = (
+        strong_music
+        or "music" in tagset
+        or LIVE_MUSIC in tagset
+        or any(name in ntitle for name in CURATED_LIVE_MUSIC)
+    )
+
     # Car show: an automotive event with no strong live-music headliner.
     if automotive and not strong_music:
         types.add(CAR_SHOW)
@@ -136,6 +154,9 @@ def classify_event_type(
     if not music_signal and _MUSIC_WEAK_RE.search(blob):
         family_ctx = _FAMILY_CONTEXT_RE.search(f"{title or ''} {description or ''}")
         music_signal = not family_ctx
+    # An explicit non-music activity tag overrides a venue-only / weak signal.
+    if structured_activity and not authoritative_music:
+        music_signal = False
 
     # Comedy: an explicit comedy word always counts; a theater word counts only
     # when there's no live-music signal, so a music act named "...Theatre" or a gig
