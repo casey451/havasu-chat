@@ -820,3 +820,82 @@ def derive_cuisine(
                 if needle in tok:
                     return slug
     return None
+
+
+# --- Free-text cuisine intent (search routing) -----------------------------
+#
+# A plain cuisine/dish search ("mexican food", "tacos", "sushi", "pizza") must
+# reach the Eat & Drink listing filtered to that cuisine — NOT the events
+# calendar (the old ``_TYPE_WORDS`` "events" bucket matched bare "food"/"taco"
+# and swallowed cuisine queries into ``/calendar``). This resolver maps such a
+# query to its cuisine slug so the router can send it to
+# ``/lake-havasu/{cuisine}``.
+#
+# Deliberately conservative: it matches only an exact "<cuisine> [food/dining
+# tail]" phrase (after one leading qualifier is stripped) and returns ``None``
+# the moment the query carries an event/temporal signal, so a genuine calendar
+# ask ("taco festival", "food truck night") is never captured.
+
+#: Generic food/dining tails that may follow a cuisine word in a search.
+#: The empty tail lets a bare cuisine/dish word ("tacos", "sushi") match.
+_CUISINE_TAILS: tuple[str, ...] = (
+    "", "food", "foods", "restaurant", "restaurants", "cuisine",
+    "place", "places", "spot", "spots", "joint", "joints",
+    "eatery", "eateries", "takeout", "delivery",
+)
+
+#: One leading qualifier we tolerate ("good mexican food", "authentic tacos").
+_CUISINE_LEAD_RE = re.compile(
+    r"^(?:the\s+)?(?:best|good|great|authentic|real|local|top|nearby|some|a|an)\s+"
+)
+
+#: Event/discovery words that make a query a calendar ask, not a restaurant
+#: search ("taco festival", "food truck night", "cooking class"). Their presence
+#: forces ``cuisine_query_slug`` to return ``None`` so the calendar keeps them.
+_CUISINE_EVENT_EXCLUDE_RE = re.compile(
+    r"\b(festival|festivals|fest|event|events|fair|market|truck|trucks|"
+    r"night|crawl|tasting|tastings|class|classes|cooking|competition|contest|"
+    r"tonight|tomorrow|weekend|week|today)\b"
+)
+
+
+def _build_cuisine_phrase_map() -> dict[str, str]:
+    """``{normalized phrase: cuisine slug}`` for exact cuisine-query lookup.
+
+    Built from every cuisine's label + synonym needles crossed with the food
+    tails (and simple plurals so "taco" → "tacos", "burger" → "burgers"). First
+    cuisine in ``_CUISINES`` order wins a shared phrase.
+    """
+    out: dict[str, str] = {}
+    for slug, label, needles in _CUISINES:
+        bases: set[str] = {label.lower()}
+        for n in needles:
+            if n.startswith("_"):  # placeholder tokens like "_sub_"
+                continue
+            bases.add(n)
+            bases.add(f"{n}s")  # taco → tacos, burger → burgers, burrito → burritos
+        for base in bases:
+            for tail in _CUISINE_TAILS:
+                phrase = f"{base} {tail}".strip()
+                out.setdefault(phrase, slug)
+    return out
+
+
+_CUISINE_PHRASE_MAP: dict[str, str] = _build_cuisine_phrase_map()
+
+
+def cuisine_query_slug(q: str | None) -> str | None:
+    """Cuisine slug a plain restaurant/dish search maps to, or ``None``.
+
+    Pure (no DB). Returns ``None`` for any query carrying an event/temporal
+    signal, so a genuine calendar ask ("taco festival") is never treated as a
+    restaurant search. The caller still gates the resulting cuisine page on its
+    publish threshold before redirecting.
+    """
+    s = (q or "").strip().lower()
+    s = re.sub(r"[^a-z0-9\s]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    if not s or _CUISINE_EVENT_EXCLUDE_RE.search(s):
+        return None
+    s = _CUISINE_LEAD_RE.sub("", s).strip()
+    return _CUISINE_PHRASE_MAP.get(s)

@@ -18,7 +18,8 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.categories import leaf_query
+from app.categories import cuisine_pages, leaf_query
+from app.categories.subcategories import cuisine_query_slug
 from app.chat.query_intent import INTENT_AI, classify_query_intent
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import get_db
@@ -58,6 +59,15 @@ def serve_chat(
         # it does not redirect to the plumbers page).
         if classify_query_intent(cleaned) == INTENT_AI:
             return _scaffold(request, cleaned, fallback=bool(nf))
+        # Cuisine/dish search ("mexican food", "tacos", "sushi", "pizza") → the
+        # Eat & Drink listing filtered to that cuisine, NEVER the events calendar.
+        # (The calendar's discovery matcher fires on bare "food"/"taco", so this
+        # must intercept ahead of the /calendar branch below.) Falls back to the
+        # generic Restaurants leaf when the specific cuisine page is too thin to
+        # publish; only then does control continue to the other routers.
+        food_dest = _cuisine_destination(db, cleaned)
+        if food_dest is not None:
+            return RedirectResponse(url=food_dest, status_code=302)
         # Service/business → its directory leaf ("plumbers", "boat rentals").
         leaf = leaf_query.match_leaf_query(db, cleaned)
         # Need-shaped service asks the exact matcher misses ("hvac needs repair")
@@ -78,6 +88,26 @@ def serve_chat(
         return _scaffold(request, cleaned, fallback=bool(nf))
     # Empty query (the "Ask" front door): the lake chat scaffold.
     return _scaffold(request, None, fallback=False)
+
+
+def _cuisine_destination(db: Session, cleaned: str) -> str | None:
+    """Redirect target for a cuisine/dish search, or ``None`` when it isn't one.
+
+    ``/lake-havasu/{cuisine}`` when the specific cuisine page clears its publish
+    gate; otherwise the generic Restaurants leaf (so "sushi" in a town with only
+    a couple of sushi spots still lands on a real listing rather than the
+    calendar). ``None`` — query isn't cuisine-shaped, or nothing renderable —
+    lets the caller fall through to the leaf/calendar/AI routers unchanged.
+    """
+    slug = cuisine_query_slug(cleaned)
+    if slug is None:
+        return None
+    if cuisine_pages.is_publishable_cuisine(db, slug):
+        return f"/lake-havasu/{slug}"
+    restaurants = leaf_query.match_leaf_query(db, "restaurants")
+    if restaurants is not None:
+        return f"/categories/{restaurants.department_slug}/{restaurants.slug}"
+    return None
 
 
 def _scaffold(request: Request, initial_query: str | None, *, fallback: bool) -> HTMLResponse:
