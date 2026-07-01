@@ -61,6 +61,7 @@ from app.contrib.ingest_reconciler import (  # noqa: E402
     reconcile_hit,
     slugify,
 )
+from app.contrib.ingest_suppression import is_suppressed_business  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.entity_dual_write import (  # noqa: E402
     create_provider_and_entity,
@@ -323,6 +324,7 @@ def ingest_partners(
         "urls": 0,
         "parsed": 0,
         "skipped_unnamed": 0,
+        "skipped_suppressed": 0,
         "inserted": 0,
         "inserted_pending": 0,
         "updated": 0,
@@ -433,6 +435,13 @@ def ingest_partners(
                 # Per-listing category (Task C): payload.category_slug carries the
                 # CVB->Hava mapped slug, or the --category-slug default when the
                 # CVB category had no confident mapping.
+                # Durable do-not-import: a suppressed identity is skipped on every
+                # run so a re-scrape can neither insert nor reactivate it (a bare
+                # is_active=False gets undone by the reactivate path below).
+                if is_suppressed_business(payload.name):
+                    counts["skipped_suppressed"] += 1
+                    continue
+
                 row_slug = payload.category_slug or category_slug
                 row_cat_id = _cat_id_for(row_slug)
                 kwargs = _provider_kwargs(payload, category_slug=row_slug, category_id=row_cat_id)

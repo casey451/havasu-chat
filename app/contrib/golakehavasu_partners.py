@@ -32,6 +32,7 @@ from app.contrib.golakehavasu import (
     _http_get_text,
 )
 from app.contrib.ingest_base import EntityPayload
+from app.contrib.ingest_suppression import clean_placeholder_address
 
 # Partner child sitemaps contain this substring (there are two: p1 + p2).
 PARTNERS_SITEMAP_SUBSTR = "partnerDirectory"
@@ -421,7 +422,10 @@ def partner_to_entity_payload(
         entity_type="place",
         lat=listing.lat,
         lng=listing.lng,
-        address=listing.address,
+        # The CVB lists many operators at the visitor center's own address; that
+        # is a shared placeholder, not a real business location, so store NULL
+        # rather than a fake pin (the business itself is kept).
+        address=clean_placeholder_address(listing.address),
         phone=listing.phone,
         website=listing.website,
         description=listing.description,
