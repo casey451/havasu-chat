@@ -372,17 +372,32 @@ def _event_to_row(event, occ: date) -> dict[str, Any]:
 def _query_events(
     db: Session, window: str, *, today: date, activity: str | None
 ) -> list[dict[str, Any]]:
+    from app.events.event_type_tags import (
+        EVENT_TYPE_LABELS,
+        LIVE_MUSIC,
+        event_type_label,
+        is_civic_meeting,
+    )
     from app.events.queries import events_in_window
 
     start, end = _event_window_dates(window, today)
     pairs = events_in_window(db, window_start=start, window_end=end, limit=_EVENT_LIMIT)
     rows: list[dict[str, Any]] = []
     for event, occ in pairs:
+        title = event.title
+        venue = getattr(event, "location_name", "") or ""
+        desc = getattr(event, "description", "") or ""
         if activity == "live_music":
-            tags = [str(x).lower() for x in (event.tags or [])]
-            blob = f"{event.title} {' '.join(tags)}".lower()
-            if not any(k in blob for k in ("music", "concert", "band", "dj", "acoustic")):
+            # 2026-06-30 audit A2: "live music tonight" must return only ACTUAL
+            # live music -- a real performance signal, not a paint-and-sip that
+            # merely sits at a brewery. event_type_label requires that signal.
+            if event_type_label(title, event.tags, venue, desc) != EVENT_TYPE_LABELS[LIVE_MUSIC]:
                 continue
+        elif is_civic_meeting(title, desc, venue):
+            # Generic "things to do" / "what's happening" browse: government
+            # meetings (City Council, P&Z, Board of Adjustment) are not leisure
+            # activities -- keep them out of the concierge's events list.
+            continue
         rows.append(_event_to_row(event, occ))
     return rows
 
@@ -544,6 +559,42 @@ def _query_programs(
             }
         )
     return rows
+
+
+# ---------------------------------------------------------------------------
+# classes_find topical guard (2026-06-30 search audit A1)
+# ---------------------------------------------------------------------------
+# A bare "what classes are offered" browse legitimately lists every active
+# program. But "golf lessons" / "wake surf lessons" / "wakeboard lessons" name a
+# SPECIFIC activity the catalog doesn't teach -- and the old handler, finding no
+# resolver topic, dumped the full Parks & Rec after-school roster (ASP Oro
+# Grande, Camp Iwannago...) as if it answered the query. The guard below pulls
+# the activity nouns a class query carries; when it names one, a program must
+# actually match it, else we return nothing so the honest gap template answers.
+_CLASS_BROWSE_FILLER: frozenset[str] = frozenset(
+    """a an and any are around at available browse camp camps class classes
+    clinic clinics course courses do does enroll find for get go going have has
+    here how i im in is it join learn lesson lessons list local looking me my
+    near nearby need now of offer offered offering offerings offers on or our
+    program programs provide provided provides register registration session
+    sessions sign signup some take taught teach teaches teaching the their there
+    this to town up us want we what whats when where which who with workshop
+    workshops would you your""".split()
+) | frozenset({"lake", "havasu", "city", "arizona", "az", "lhc"})
+
+
+def _class_activity_terms(raw_query: str | None) -> list[str]:
+    """Distinctive activity nouns in a class/lesson query ("golf lessons" ->
+    ["golf"]). Empty for a generic browse ("what classes are offered") whose
+    every token is a class/schedule/filler/locality word -- that still lists all."""
+    toks = re.split(r"[^a-z0-9]+", (raw_query or "").lower())
+    return [t for t in toks if t and t not in _CLASS_BROWSE_FILLER and not t.isdigit()]
+
+
+def _program_row_matches_terms(row: dict[str, Any], terms: list[str]) -> bool:
+    """True when any activity term appears in the program row's name/subtitle."""
+    hay = f"{row.get('name', '')} {row.get('subtitle', '')}".lower()
+    return any(t in hay for t in terms)
 
 
 # ---------------------------------------------------------------------------
@@ -734,6 +785,14 @@ def run_query(
     if key == "classes_find":
         topic = str(slots.get("topic") or "") or None
         rows = _query_programs(db, age_band=None, activity_category=topic)
+        if topic is None:
+            # 2026-06-30 audit A1: a query naming a specific activity the catalog
+            # doesn't teach ("golf lessons", "wake surf lessons") must return
+            # nothing -- never the full Parks & Rec after-school roster. Only a
+            # true topic-less browse ("what classes are offered") lists them all.
+            terms = _class_activity_terms(raw_query)
+            if terms:
+                rows = [r for r in rows if _program_row_matches_terms(r, terms)]
         lead = f"{topic.title()} classes around town:" if topic else "Classes and programs around town:"
         return QueryResult(key, "programs", rows, "classes_sports_recreation", lead)
 

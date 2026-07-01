@@ -836,6 +836,30 @@ _QUERY_TO_LEAF_SEARCH_ALIASES_2026_06_28: dict[str, tuple[str, ...]] = {
     "primary-care": ("pediatrician", "pediatricians", "pediatrics"),
 }
 
+# 2026-06-30 search-audit expansion (ASKHAVA_SEARCH_AUDIT_2026-06-30 §A3 / PART
+# D). The leaf exists and is populated, but these phrasings were never wired, so
+# the box dropped to a weak conversational answer instead of the page (e.g.
+# "kayak rentals" reached the leaf but "paddleboard rentals" didn't). Same
+# mechanism as the 2026-06-20 pool-builders pass: category NOUNS only (never a
+# descriptive sentence), merged via setdefault so any live entry above wins.
+# Attraction terms (escape room, axe throwing, trampoline park...) point at the
+# existing Things-to-Do leaves so they land on a real page now, and become exact
+# once Phase 2 backfills VR Escape Reality / the helicopter operators.
+# NB: "scenic flight" is deliberately NOT added -- its token "flight" is one edit
+# from the common word "light" ("light switch not working") and would pollute the
+# shared spell-correct vocab (normalizer._spell_vocab). "helicopter tour(s)" is
+# distinctive and covers the same intent without that footgun.
+_QUERY_TO_LEAF_SEARCH_ADD_2026_06_30: dict[str, tuple[str, ...]] = {
+    "kayak-and-paddle": ("paddleboard rentals", "paddle board rental"),
+    "jet-ski-and-watersports": ("wake surfing", "wakesurf", "wakesurfing",
+        "wakeboarding", "flyboard"),
+    "fishing-charters-and-guides": ("fishing trip", "bass fishing guide"),
+    "music-lessons": ("drum lessons",),
+    "family-fun-and-arcades": ("escape room", "escape rooms", "axe throwing",
+        "miniature golf", "trampoline park"),
+    "tours-and-sightseeing": ("helicopter tour", "helicopter tours"),
+}
+
 for _leaf_slug, _terms in _QUERY_TO_LEAF_EXPANSION_2026_06_20.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
@@ -843,6 +867,9 @@ for _leaf_slug, _terms in _QUERY_TO_LEAF_NEW_LEAVES_2026_06_20.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ALIASES_2026_06_28.items():
+    for _term in _terms:
+        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
+for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ADD_2026_06_30.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 for _term, _leaf_slug in _QUERY_TO_LEAF_BARE_FORMS_2026_06_20.items():

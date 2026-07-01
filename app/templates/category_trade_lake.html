@@ -5,7 +5,7 @@
    pager, faqs). DECISION D4 kept: JSON-LD = BreadcrumbList + ItemList (names +
    urls), NO AggregateRating on listing pages — the visible star ratings stay. -#}
 
-{% block title %}{{ trade_count }} Best {{ trade_label }} in Lake Havasu City, AZ — Ask Hava{% endblock %}
+{% block title %}{% if trade_count != 1 %}{{ trade_count }} {% endif %}Best {{ trade_label }} in Lake Havasu City, AZ — Ask Hava{% endblock %}
 {% block meta_description %}{{ trade_intro | meta_desc(160) }}{% endblock %}
 
 {% block head_extra %}
@@ -20,7 +20,7 @@
 <div class="wrap dir-wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span>{% if parent_href %}<a href="{{ parent_href }}">{{ parent_label }}</a>{% else %}<span>{{ parent_label }}</span>{% endif %}<span class="sep" aria-hidden="true">›</span><span aria-current="page">{{ trade_label }}</span></nav>
   <div class="pagehead">
-    <h1>{{ trade_count }} Best {{ trade_label }} in Lake Havasu City, AZ</h1>
+    <h1>{% if trade_count != 1 %}{{ trade_count }} {% endif %}Best {{ trade_label }} in Lake Havasu City, AZ</h1>
     {% if trade_intro %}<p class="sub">{{ trade_intro }}</p>{% endif %}
   </div>
 
