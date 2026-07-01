@@ -76,8 +76,12 @@ def serve_chat(
         if leaf is None:
             leaf = leaf_query.match_leaf_service_intent(db, cleaned)
         if leaf is not None:
+            # Carry the search term onto the leaf so the page can float on-topic
+            # businesses to the top (a niche ask like "wake surfing" lands on the
+            # broad Jet Ski & Watersports leaf; without the query it would render
+            # in review-count order and bury the two actual wakesurf shops).
             return RedirectResponse(
-                url=f"/categories/{leaf.department_slug}/{leaf.slug}",
+                url=f"/categories/{leaf.department_slug}/{leaf.slug}?q={quote(cleaned)}",
                 status_code=302,
             )
         # Non-question discovery ("events this weekend") → the /calendar surface.
