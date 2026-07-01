@@ -665,6 +665,22 @@ def _handle_ask(
         if telemetry is not None:
             telemetry["cache_status"] = "bypass"
         return family_text, "2", None, None, None
+    # Wedding / event venue browse: "wedding venues", "reception hall" answer
+    # with the curated list of real venues (London Bridge Resort, Iron Wolf,
+    # the Nautical…) instead of falling through to Tier 3, which surfaced a
+    # wedding *planner* and a mountain park. Deterministic, zero LLM. A venue
+    # SERVICE ask ("wedding planner/photographer") is excluded and falls through.
+    try:
+        from app.chat.wedding_venues import try_wedding_venues
+
+        venue_text = try_wedding_venues(query, db, component_meta)
+    except Exception:
+        logging.exception("unified_router: wedding venue browse failed")
+        venue_text = None
+    if venue_text is not None:
+        if telemetry is not None:
+            telemetry["cache_status"] = "bypass"
+        return venue_text, "2", None, None, None
     # Ask Hava intent layer (flag-gated; USE_INTENT_LAYER off by default). Sits
     # at the front of Tier 2: a confident rule/slot match answers from the
     # catalog with no LLM call and logs the intent to query_log. Anything else
