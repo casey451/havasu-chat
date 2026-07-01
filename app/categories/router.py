@@ -1047,6 +1047,20 @@ _LEAF_INTRO_TEMPLATE = (
     "instead. Spots can't be bought, Hava never invents a rating, and any "
     "sponsored placement is clearly labeled."
 )
+# 2026-06-30 audit A5/1D: with LEAF_PAGE_MIN_PROVIDERS == 1 a leaf can render a
+# single listing, where the plural/daily-rotation copy reads wrong ("The 1
+# well-reviewed listings below rotate daily"). Use a singular-correct line.
+_LEAF_INTRO_TEMPLATE_ONE = (
+    "{name} in Lake Havasu City, AZ — part of our {department} directory. "
+    "The one listing below is shown with its real public rating — Hava never "
+    "invents a rating, and any sponsored placement is clearly labeled."
+)
+
+
+def _leaf_intro(*, name: str, n: int, department: str) -> str:
+    """Number-aware honest leaf intro (singular copy when only one listing)."""
+    template = _LEAF_INTRO_TEMPLATE_ONE if n == 1 else _LEAF_INTRO_TEMPLATE
+    return template.format(name=name, n=n, department=department)
 
 
 def _render_leaf_page(
@@ -1126,7 +1140,7 @@ def _render_leaf_page(
         ]
     else:
         intro = _strip_md(
-            _LEAF_INTRO_TEMPLATE.format(name=display, n=total, department=dept_label)
+            _leaf_intro(name=display, n=total, department=dept_label)
         )
         faqs = []
 

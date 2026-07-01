@@ -158,6 +158,20 @@ def classify_event_type(
     return types
 
 
+def is_civic_meeting(
+    title: str | None,
+    description: str | None = "",
+    venue: str | None = "",
+    organizer: str | None = "",
+) -> bool:
+    """True for a government/civic meeting (City Council, Planning & Zoning,
+    Board of Adjustment, public hearing...). Used to keep such agenda items out
+    of a leisure "things to do" / "what's happening" browse -- they are not
+    activities. Same conservative signal ``classify_event_type`` guards on."""
+    blob = " ".join(x for x in (title, description, venue, organizer) if x)
+    return bool(_CIVIC_GUARD_RE.search(blob))
+
+
 def is_strong_live_music(
     title: str | None, venue: str | None = "", description: str | None = ""
 ) -> bool:
