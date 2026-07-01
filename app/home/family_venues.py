@@ -169,7 +169,10 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
     FamilyVenue(
         name="Lady Lee's Billiards Hall",
         kind="Billiards hall",
-        url="https://www.facebook.com/people/Lady-Lees/",
+        # F4 follow-up (2026-06-30): the old Facebook URL
+        # (facebook.com/people/Lady-Lees/) is DEAD — 404 "Page Isn't Available".
+        # Verified official site that loads (200): the venue's own domain.
+        url="https://ladyleesbilliards.com/",
         age_note="Billiards · Monday-night dance party",
         # Source: the venue's structured hours carried on its directory Provider
         # row (provider_name "Lady Lee's Billiards Hall", confirmed Jun 2026:
@@ -484,3 +487,25 @@ def class_today_rows(day: date) -> list[dict[str, Any]]:
             )
     rows.sort(key=lambda r: r["sort"])
     return rows
+
+
+def curated_outbound_links() -> list[tuple[str, str]]:
+    """``(url, label)`` for every curated venue/studio outbound link rendered on
+    the events surfaces (OPEN_VENUES, DIRECTORY, STUDIOS).
+
+    These are feed-supplied links that live in code, not in the ``providers`` /
+    ``events`` tables, so the link-health sweep (``collect_links``) can't see
+    them from the DB. Feeding them in here lets the sweep check them like any
+    other outbound link — so a curated link that goes dead (e.g. F4's Lady Lee's
+    Facebook page) can be flagged ``confirmed_broken`` and suppressed at render
+    time instead of shipping a broken link to users. Internal links are skipped;
+    only real ``http(s)`` destinations are returned, de-duplicated.
+    """
+    seen: set[str] = set()
+    out: list[tuple[str, str]] = []
+    for v in (*OPEN_VENUES, *DIRECTORY, *STUDIOS):
+        url = (v.url or "").strip()
+        if url.startswith("http") and url not in seen:
+            seen.add(url)
+            out.append((url, v.name))
+    return out

@@ -31,12 +31,18 @@ def test_collect_links_maps_providers_and_events() -> None:
     ]
     events = [("e1", "Concert", "https://tix.example/show")]
     refs = lh.collect_links(_FakeDB(providers, events))
-    kinds = sorted((r.kind, r.url) for r in refs)
-    assert kinds == [
+    # DB-derived refs map providers + events as before...
+    db_kinds = sorted((r.kind, r.url) for r in refs if r.kind != "feed_venue")
+    assert db_kinds == [
         ("event_url", "https://tix.example/show"),
         ("provider_facebook", "https://fb.com/joes"),
         ("provider_website", "https://joes.example"),
     ]
+    # ...and the curated family_venues links are appended so the sweep checks
+    # them too (F4 — feed links live in code, not the DB).
+    feed = [r for r in refs if r.kind == "feed_venue"]
+    assert feed, "expected curated feed_venue links to be collected"
+    assert all(r.url.startswith("http") for r in feed)
 
 
 # --- scan_links: dedup, categories, actionable, limit, pause --------------- #

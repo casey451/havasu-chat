@@ -114,7 +114,60 @@ def collect_links(db) -> list[LinkRef]:
     for eid, title, url in events:
         if _clean(url):
             refs.append(LinkRef(_clean(url), "event_url", str(eid), title or ""))
+    # Curated feed-supplied links (family_venues) live in code, not the DB, so
+    # add them here — otherwise the sweep never checks them and a dead one (F4's
+    # Lady Lee's Facebook page) can't be flagged for render-time suppression.
+    from app.home.family_venues import curated_outbound_links
+
+    for url, label in curated_outbound_links():
+        refs.append(LinkRef(_clean(url), "feed_venue", None, label))
     return refs
+
+
+def confirmed_broken_urls(db) -> frozenset[str]:
+    """The set of outbound URLs the sweep has confirmed broken across enough
+    consecutive runs (``LinkHealth.confirmed_broken``).
+
+    This is the render-side read of the link-health table: view-models pass it to
+    :func:`suppress_dead_links` so a link that is *known* dead renders as plain
+    text instead of a broken ``<a>``. Returns an empty set if the table is empty
+    or unavailable (the sweep runs on the VPS; a fresh DB simply suppresses
+    nothing). Cheap: one indexed lookup on the ``confirmed_broken`` column.
+    """
+    from sqlalchemy import select
+
+    from app.db.models import LinkHealth
+
+    try:
+        rows = db.execute(
+            select(LinkHealth.url).where(LinkHealth.confirmed_broken.is_(True))
+        )
+    except Exception:  # pragma: no cover - never block a render over monitoring
+        return frozenset()
+    return frozenset(_clean(u) for (u,) in rows if _clean(u))
+
+
+def suppress_dead_links(node: object, dead_urls: frozenset[str]) -> None:
+    """Recursively NULL any ``url`` in a view-model tree that is confirmed broken.
+
+    Walks the nested section/subgroup/row dicts (and any lists) in place, setting
+    ``url`` to ``None`` when it matches ``dead_urls`` so the template falls back
+    to its no-link rendering. Only URLs the sweep has actually checked land in
+    ``dead_urls`` (external provider/event/feed links); internal permalinks like
+    ``/events/<id>`` are never in the set, so they are always kept. No-op when
+    ``dead_urls`` is empty.
+    """
+    if not dead_urls:
+        return
+    if isinstance(node, dict):
+        url = node.get("url")
+        if isinstance(url, str) and url.strip() in dead_urls:
+            node["url"] = None
+        for value in node.values():
+            suppress_dead_links(value, dead_urls)
+    elif isinstance(node, list):
+        for item in node:
+            suppress_dead_links(item, dead_urls)
 
 
 # --------------------------------------------------------------------------- #
