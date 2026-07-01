@@ -860,6 +860,17 @@ _QUERY_TO_LEAF_SEARCH_ADD_2026_06_30: dict[str, tuple[str, ...]] = {
     "tours-and-sightseeing": ("helicopter tour", "helicopter tours"),
 }
 
+# 2026-06-30 follow-on: the data backfill added Havasu Parasail (jet-ski leaf)
+# and created the scuba-and-dive leaf (re-homing Scuba Training & Technology off
+# jet-ski-and-watersports). Wire the phrasings that reach them. "scuba-and-dive"
+# is a real live leaf (added to docs/proposals/taxonomy-seed.json) so the drift
+# guard passes.
+_QUERY_TO_LEAF_SEARCH_ADD2_2026_06_30: dict[str, tuple[str, ...]] = {
+    "jet-ski-and-watersports": ("parasailing", "parasail"),
+    "scuba-and-dive": ("scuba", "scuba diving", "scuba lessons", "scuba certification",
+        "dive shop", "dive shops", "scuba shop"),
+}
+
 for _leaf_slug, _terms in _QUERY_TO_LEAF_EXPANSION_2026_06_20.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
@@ -870,6 +881,9 @@ for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ALIASES_2026_06_28.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ADD_2026_06_30.items():
+    for _term in _terms:
+        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
+for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ADD2_2026_06_30.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 for _term, _leaf_slug in _QUERY_TO_LEAF_BARE_FORMS_2026_06_20.items():

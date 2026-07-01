@@ -92,6 +92,12 @@
     "count": 0,
     "gate_ok": false,
     "new": true
+   },
+   "scuba-and-dive": {
+    "name": "Scuba & Dive",
+    "count": 1,
+    "gate_ok": true,
+    "new": true
    }
   }
  },
