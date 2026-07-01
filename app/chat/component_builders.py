@@ -497,6 +497,13 @@ def _maps_directions_url(address: str) -> str:
 
 
 def _trade_category_label(row: dict[str, Any]) -> str:
+    # 2026-06-30 search audit 3B: prefer the authoritative primary-leaf category
+    # (from entity_categories) over Google's freeform google_primary_category
+    # ("Rv Park", "Indoor Playground") or the legacy category string — both are
+    # unreliable and produced the wrong card tags the audit flagged.
+    leaf = str(row.get("primary_category_label") or "").strip()
+    if leaf:
+        return leaf
     gpc = str(row.get("google_primary_category") or row.get("category") or "")
     gpc = re.sub(r"_+", " ", gpc).strip()
     if gpc:

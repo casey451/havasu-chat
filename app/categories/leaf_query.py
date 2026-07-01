@@ -409,8 +409,16 @@ _QUERY_TO_LEAF: dict[str, str] = {
     # 2026-06-11: existing leaves with no entry.
     "smoke shops": "smoke-vape-and-cannabis",
     "vape shops": "smoke-vape-and-cannabis",
-    "dispensary": "smoke-vape-and-cannabis",
-    "dispensaries": "smoke-vape-and-cannabis",
+    # 2026-06-30 audit 3D: cannabis dispensaries split into their own leaf so the
+    # 2 real dispensaries aren't buried among the vape shops. Dispensary/cannabis
+    # terms route to the new leaf; smoke/vape terms stay above.
+    "dispensary": "cannabis-dispensaries",
+    "dispensaries": "cannabis-dispensaries",
+    "cannabis": "cannabis-dispensaries",
+    "cannabis dispensary": "cannabis-dispensaries",
+    "marijuana": "cannabis-dispensaries",
+    "marijuana dispensary": "cannabis-dispensaries",
+    "weed": "cannabis-dispensaries",
     "convenience stores": "convenience",
     "appliance stores": "appliances-and-electronics",
     "electronics stores": "appliances-and-electronics",
