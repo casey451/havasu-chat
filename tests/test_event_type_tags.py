@@ -97,6 +97,39 @@ def test_label_prefers_live_music_then_comedy_then_none():
     assert event_type_label("Top Goons Comedy") == "Comedy"
 
 
+def test_activity_tag_suppresses_weak_venue_only_music_signal():
+    # 2026-07-01 search N3: a billiards row (activity:billiards) whose blurb only
+    # MENTIONS the venue's other nights ("...also hosts a Monday-night dance
+    # party") was retyped Live Music off that stray weak signal, and leaked into
+    # a "live music tonight" search. The structured activity tag must win.
+    assert (
+        event_type_label(
+            "Billiards - Lady Lee's Billiards Hall",
+            ["activity:billiards", "facet:hours"],
+            "Lady Lee's Billiards Hall",
+            "Billiards hall (also hosts a Monday-night dance party). Call for hours.",
+        )
+        is None
+    )
+    # A golf clinic is not live music off a weak venue-night mention ("DJ after").
+    assert event_type_label("Junior Golf Clinic", ["activity:golf"], "", "stay for the DJ after") is None
+
+
+def test_activity_tag_yields_to_authoritative_music_signal():
+    # The guard only suppresses a WEAK/venue-only signal. An authoritative signal
+    # (durable music tag, a real band/concert, or a curated act) still types
+    # Live Music even when a structured activity tag is present.
+    assert (
+        event_type_label(
+            "Lady Lee's Monday Night Dance Party",
+            ["events", "music", "activity:dance"],
+            "Lady Lee's",
+        )
+        == "Live Music"
+    )
+    assert event_type_label("Live Band Night", ["activity:arts"], "The Tavern", "live band") == "Live Music"
+
+
 def test_ingest_stamps_type_tags_additively():
     rec = EventRecord(
         source="allevents",

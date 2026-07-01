@@ -113,6 +113,41 @@ def test_empty_result_falls_through_but_logs(db, monkeypatch):
     assert row.result_count == 0
 
 
+def test_specific_activity_class_empty_answers_honestly(db, monkeypatch):
+    # 2026-07-01 search N4: "golf lessons" (an activity the catalog doesn't teach)
+    # must answer with an honest "not listed" line instead of falling through to
+    # Tier 3, which recommended an out-of-area (Kingman) golf course. No golf
+    # program is seeded, so the result is empty.
+    monkeypatch.setenv("USE_INTENT_LAYER", "1")
+    ans = try_intent_layer("golf lessons", db)
+    assert ans is not None
+    assert ans.intent_key == "classes_find"
+    assert ans.result_count == 0
+    assert ans.component_type == "none"
+    assert "golf" in ans.text.lower()
+
+
+def test_topic_filtered_events_empty_answers_honestly(db, monkeypatch):
+    # 2026-07-01 search N3: "live music tonight" with no music on the calendar
+    # must say so plainly -- never fall through to Tier 3 and surface a billiards
+    # (or other non-music) row. No live-music event is seeded tonight.
+    monkeypatch.setenv("USE_INTENT_LAYER", "1")
+    ans = try_intent_layer("live music tonight", db)
+    assert ans is not None
+    assert ans.intent_key.startswith("events_")
+    assert ans.result_count == 0
+    assert ans.component_type == "none"
+    assert "live music" in ans.text.lower()
+
+
+def test_broad_empty_events_browse_still_falls_through(db, monkeypatch):
+    # The honest-empty claim is scoped: a broad "what's happening" browse with no
+    # topic/activity filter still falls through so the conversational tiers can
+    # help. (No events seeded -> empty.)
+    monkeypatch.setenv("USE_INTENT_LAYER", "1")
+    assert try_intent_layer("things to do this weekend", db) is None
+
+
 def test_factual_lookup_falls_through(db, monkeypatch):
     monkeypatch.setenv("USE_INTENT_LAYER", "1")
     # "rating for <fake place>" is an entity-factual lookup -> the layer must not
