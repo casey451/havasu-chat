@@ -17,6 +17,7 @@ from urllib.parse import urlencode
 
 from sqlalchemy.orm import Session
 
+from app.events.event_type_tags import is_civic_meeting
 from app.home import events_views
 
 WINDOW_DAYS = 7
@@ -93,25 +94,38 @@ def parse_calendar_query(q: str) -> dict[str, Any]:
     return out
 
 
+# Explicit EVENT nouns only (2026-07-01 consolidated audit A3). The old
+# matcher also fired on any parsed type/part/audience token, which captured
+# evergreen directory asks: "waterfront dining"/"happy hour" via the events
+# type words, "nightlife"/"date night" via the "night" part token, "party boat
+# rental"/"lake havasu state park" via the water tokens, and bare "things to
+# do". Those now route to real directory surfaces (leaf_query); /calendar is
+# only for explicit time or event intent. ("things to do this weekend" still
+# reaches the calendar via the days parse below.)
 _DISCOVERY_RE = re.compile(
-    r"\b(events?|things? to do|what'?s (?:on|happening|going on)|happening|tonight|"
-    r"this weekend|weekend|this week|calendar|live music|concerts?|festival|"
-    r"farmers? ?market|family fun|do (?:today|tonight|this))\b",
+    r"\b(events?|calendar|what'?s (?:on|happening|going on)|happening|"
+    r"concerts?|festival|live music|farmers? ?market|do (?:today|tonight|this))\b",
     re.I,
 )
 
 
 def is_discovery_query(q: str) -> bool:
-    """True when a free-text query is a 'what's happening' discovery ask.
+    """True when a free-text query carries explicit time or event intent.
 
     Used by the concierge intent-router to send discovery queries to /calendar
-    (vs a directory leaf for a service/business query). Deterministic: any
-    extracted day/time/type/audience filter, or an explicit discovery phrase.
+    (vs a directory leaf for a service/business query). Deterministic: a parsed
+    DAY filter (today / tonight / tomorrow / weekend / a weekday / this week is
+    handled by the day-toggle default) or an explicit event noun. A parsed
+    type/part/audience token alone no longer routes here -- "happy hour" is a
+    bars ask, not a calendar ask.
     """
+    s = (q or "").lower()
     f = parse_calendar_query(q)
-    if f["days"] or f["part"] or f["type"] or f["aud"]:
+    # "this week"/"all week" parse to days == [] (the whole window), so check
+    # the phrase itself -- it is explicit time intent all the same.
+    if f["days"] or re.search(r"\b(?:this|all) week\b", s):
         return True
-    return bool(_DISCOVERY_RE.search((q or "").lower()))
+    return bool(_DISCOVERY_RE.search(s))
 
 
 def _first_hour(time_label: str) -> float | None:
@@ -211,6 +225,12 @@ def build_calendar(
             db, day=col["date"], family=family, seniors=seniors, now=now, events_only=True
         )
         items: list[dict[str, Any]] = []
+        # Government/civic meetings (City Council, Board of Adjustment…) are not
+        # leisure plans (2026-07-01 audit A3): they leave the default day list
+        # for a collapsed per-day "Local Government" section. Both signals are
+        # checked — the day_groups "civic" bucket AND is_civic_meeting on the
+        # row itself (catches venue-signal rows a bucket heuristic misses).
+        civic_items: list[dict[str, Any]] = []
         for g in groups:
             if type_key and g["key"] != type_key:
                 continue
@@ -223,7 +243,7 @@ def build_calendar(
             for r in rows:
                 if not _passes_part(r.get("time_label", ""), part):
                     continue
-                items.append({
+                entry = {
                     "time_label": r.get("time_label", ""),
                     "title": r.get("title", ""),
                     "venue": r.get("venue"),
@@ -231,13 +251,23 @@ def build_calendar(
                     "kind": "class" if g["key"] == "classes" else "event",
                     "group": g["key"],
                     "_h": _first_hour(r.get("time_label", "")),
-                })
+                }
+                if g["key"] == "civic" or is_civic_meeting(
+                    entry["title"], None, entry["venue"]
+                ):
+                    civic_items.append(entry)
+                else:
+                    items.append(entry)
         items.sort(key=lambda it: (it["_h"] is None, it["_h"] or 0))
+        civic_items.sort(key=lambda it: (it["_h"] is None, it["_h"] or 0))
+        # Civic rows are excluded from the day count/total — the headline number
+        # answers "how many plans", not "how many agenda items".
         total += len(items)
         # Key is "entries" (not "items"): Jinja's ``col.items`` resolves to the
         # dict's .items() method, shadowing a key named "items".
         columns.append({"label": col["label"], "iso": col["iso"], "daynum": col["daynum"],
-                        "is_today": col["label"] == "Today", "count": len(items), "entries": items})
+                        "is_today": col["label"] == "Today", "count": len(items),
+                        "entries": items, "civic_entries": civic_items})
 
     # "Hava understood" removable chips — each links to /calendar without that filter.
     base = {"q": q, "aud": aud, "age": age, "part": part, "type": type_,

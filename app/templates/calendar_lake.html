@@ -77,6 +77,21 @@
       {% else %}
       <div class="cal-empty"><span class="e1">Nothing matches here</span>Try another day or loosen a filter.</div>
       {% endif %}
+      {% if col.civic_entries %}
+      {#- Government meetings stay out of the leisure list (2026-07-01 audit A3):
+          collapsed by default, still one click away. -#}
+      <details class="cal-civic">
+        <summary>Local Government <span class="cc">{{ col.civic_entries|length }}</span></summary>
+        <div class="items">
+          {% for it in col.civic_entries %}
+          {% if it.url %}<a class="it" href="{{ it.url }}">{% else %}<div class="it">{% endif %}
+            <span class="tcol"><span class="tm tnum">{{ it.time_label }}</span><span class="kind ev">Meeting</span></span>
+            <span class="ibody"><span class="nm">{{ it.title }}</span>{% if it.venue %}<span class="mt">{{ it.venue }}</span>{% endif %}</span>
+          {% if it.url %}</a>{% else %}</div>{% endif %}
+          {% endfor %}
+        </div>
+      </details>
+      {% endif %}
     </div>
     {% endfor %}
   </div>

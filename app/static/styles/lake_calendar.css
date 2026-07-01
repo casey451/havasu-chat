@@ -52,6 +52,12 @@
 .it .mt{display:block;font-size:12px;color:var(--muted);margin-top:2px}
 .cal-empty{padding:26px 16px;text-align:center;color:var(--muted);font-size:13px}
 .cal-empty .e1{display:block;font-family:var(--disp);color:var(--ink);font-size:15px;margin-bottom:4px}
+/* Collapsed per-day Local Government section — civic meetings sit out of the
+   leisure list (2026-07-01 audit A3). */
+.cal-civic{border-top:1px solid var(--hair);margin-top:auto}
+.cal-civic summary{display:flex;align-items:center;gap:8px;cursor:pointer;padding:10px 16px;font-size:12px;font-weight:600;color:var(--muted);font-family:var(--disp)}
+.cal-civic summary .cc{margin-left:auto;font-size:11px;font-weight:700;color:var(--muted)}
+.cal-civic[open] summary{color:var(--ink-2)}
 
 .refine{margin:8px 0 50px;background:var(--raised);border:1px solid var(--hair);border-radius:16px;box-shadow:var(--sh-card);padding:18px 20px;display:flex;align-items:center;gap:14px;flex-wrap:wrap}
 .refine .rt{font-family:var(--disp);font-weight:600;font-size:17px}
