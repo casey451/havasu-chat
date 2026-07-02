@@ -23,6 +23,7 @@ from typing import Any
 from bs4 import BeautifulSoup
 from dateutil import parser as dateutil_parser
 
+from app.core.timezone import to_lake_naive
 from app.events.scrapers.base import normalize_event_title
 
 
@@ -64,12 +65,20 @@ def dedupe_within(records: list[EventRecord]) -> list[EventRecord]:
 
 
 def parse_dt(value: Any) -> datetime | None:
+    """Parse to a NAIVE Lake Havasu (America/Phoenix) wall-clock datetime.
+
+    Aggregator JSON-LD startDate/endDate commonly carries a UTC "Z" or another
+    offset; stripping tzinfo without converting turned a 19:00:00Z event into
+    7 PM instead of noon Phoenix. Offset-carrying values are converted first;
+    naive values are assumed to already be Phoenix wall-clock.
+    """
     if not value:
         return None
     try:
-        return dateutil_parser.parse(str(value)).replace(tzinfo=None)
+        dt = dateutil_parser.parse(str(value))
     except (ValueError, OverflowError, TypeError):
         return None
+    return to_lake_naive(dt)
 
 
 def _iter_jsonld_nodes(data: Any):

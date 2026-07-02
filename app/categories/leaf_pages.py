@@ -303,20 +303,27 @@ def _provider_matches_terms(p: Provider, terms: list[str]) -> bool:
 
 def _float_query_matches(
     providers: list[Provider], query: str | None, pinned_ids: set[str]
-) -> list[Provider]:
+) -> tuple[list[Provider], frozenset[str]]:
     """Stable-partition ``providers`` so query-relevant rows lead (paid pins stay
-    first). No-op when there's no query, no distinctive term, or nothing matches."""
+    first). No-op when there's no query, no distinctive term, or nothing matches.
+
+    Also returns the matched provider ids so the render layer can keep the
+    float through its own Featured re-sort (``_apply_list_controls`` demotes
+    closed/unreviewed cards — without the flag, a closed or low-review query
+    match sank right back under the generic open/reviewed rows #666 floated
+    it above).
+    """
     terms = _relevance_terms(query)
     if not terms:
-        return providers
+        return providers, frozenset()
     rest = [p for p in providers if p.id not in pinned_ids]
     matches = [p for p in rest if _provider_matches_terms(p, terms)]
     if not matches:
-        return providers
-    match_ids = {p.id for p in matches}
+        return providers, frozenset()
+    match_ids = frozenset(p.id for p in matches)
     pinned = [p for p in providers if p.id in pinned_ids]
     nonmatch = [p for p in rest if p.id not in match_ids]
-    return pinned + matches + nonmatch
+    return pinned + matches + nonmatch, match_ids
 
 
 def leaf_listing(
@@ -364,10 +371,11 @@ def leaf_listing(
 
     # Query-aware relevance: float providers matching the originating search to
     # the top (ahead of the shuffle's new/unrated tail), paid pins kept first.
-    providers = _float_query_matches(providers, query, sponsored_ids)
+    providers, query_match_ids = _float_query_matches(providers, query, sponsored_ids)
 
-    cards = [
-        cat_queries._provider_card(
+    cards = []
+    for p in providers:
+        card = cat_queries._provider_card(
             db,
             p,
             now=now,
@@ -375,8 +383,11 @@ def leaf_listing(
             new_unrated_ids=new_unrated_ids,
             creatives=creatives,
         )
-        for p in providers
-    ]
+        if p.id in query_match_ids:
+            # Carried through to _apply_list_controls so the Featured re-sort
+            # keeps query matches ahead of the open/has_reviews demotion.
+            card["is_query_match"] = True
+        cards.append(card)
     cards += [_place_card(e) for e in place_entities]
 
     # Canonical members of THIS leaf = its primary-linked providers + places.

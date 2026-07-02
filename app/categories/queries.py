@@ -1153,37 +1153,29 @@ def available_cuisines_for_route(db: Session | None, slug: str) -> list[dict[str
     """Cuisine chips for a route's providers (C-2), in canonical order.
 
     2026-07-01 (consolidated audit A4): a chip renders only for a cuisine that
-    clears the RENDER gate (``CUISINE_PAGE_MIN_PROVIDERS``) — presence alone
-    used to show chips for one-provider cuisines whose facet view was near
-    empty. Returns ``[]`` for non-food routes (no cuisine tokens match) or on
-    any DB hiccup — the template then renders no cuisine row. One light
-    two-column query.
+    clears the RENDER gate (``CUISINE_PAGE_MIN_PROVIDERS``). 2026-07-02: counts
+    now come from ``cuisine_pages._eat_drink_cuisine_counts`` — the SAME pool
+    (``route_provider_filter``: primary→subcategory→legacy tiers) the cuisine
+    facet view and the landing gate use. This function used to count on the
+    legacy ``Provider.category`` filter only, so a chip could render for a
+    cuisine whose facet sat below the gate (and a qualifying cuisine could miss
+    its chip) — exactly the drift A4 existed to stop. Cuisine signal only
+    exists on the eat-drink route; every other route returns ``[]`` without
+    touching the DB (the old version scanned e.g. the whole ~1.5k-row services
+    pool to produce an empty chip list).
     """
-    from app.categories.cuisine_pages import CUISINE_PAGE_MIN_PROVIDERS
+    from app.categories.cuisine_pages import (
+        CUISINE_PAGE_MIN_PROVIDERS,
+        EAT_DRINK_ROUTE,
+        _eat_drink_cuisine_counts,
+    )
     from app.categories.subcategories import cuisine_label, cuisine_slugs_in_order
 
     if db is None:
         return []
-    slugs = CATEGORY_FILTERS.get((slug or "").strip().lower())
-    if not slugs:
+    if (slug or "").strip().lower() != EAT_DRINK_ROUTE:
         return []
-    try:
-        rows = (
-            db.query(Provider.google_primary_category, Provider.google_categories)
-            .filter(
-                Provider.category.in_(slugs),
-                Provider.is_active.is_(True),
-                Provider.draft.is_(False),
-            )
-            .all()
-        )
-    except Exception:
-        return []
-    counts: dict[str, int] = {}
-    for primary, cats in rows:
-        c = derive_cuisine(primary, cats)
-        if c:
-            counts[c] = counts.get(c, 0) + 1
+    counts = _eat_drink_cuisine_counts(db)
     return [
         {"slug": s, "label": cuisine_label(s) or s}
         for s in cuisine_slugs_in_order()

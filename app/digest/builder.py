@@ -21,6 +21,7 @@ from datetime import date
 
 from sqlalchemy.orm import Session
 
+from app.core.timezone import now_lake_havasu
 from app.db.models import Event
 from app.digest.saved_venue import saved_venue_events_for_user
 from app.events.queries import event_window_for_chip, events_in_window
@@ -78,9 +79,12 @@ def build_weekend_digest(
 ) -> WeekendDigest:
     """Build (do not send) the weekend digest for ``user_id``.
 
-    ``today`` is injectable for deterministic tests; defaults to ``date.today()``.
+    ``today`` is injectable for deterministic tests; defaults to the Lake
+    Havasu (America/Phoenix) date — anchoring on server-UTC ``date.today()``
+    shifted the weekend window a day forward for any build after ~5 PM Phoenix
+    (a Friday-evening build would lose Friday's events).
     """
-    today = today or date.today()
+    today = today or now_lake_havasu().date()
     window_start, window_end = event_window_for_chip("this-weekend", today=today)
 
     weekend_pairs = events_in_window(

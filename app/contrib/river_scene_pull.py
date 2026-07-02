@@ -15,7 +15,10 @@ import httpx
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.contrib.approval_service import approve_contribution_as_event
+from app.contrib.approval_service import (
+    approve_contribution_as_event,
+    should_auto_approve_event,
+)
 from app.contrib.event_reconciler import reconcile_event
 from app.contrib.river_scene import (
     REQUEST_TIMEOUT,
@@ -221,7 +224,13 @@ def run_pull(
                         continue
                     created = cs.create_contribution(db, payload)
                     imported += 1
-                    if payload.source == "river_scene_import":
+                    # Gate on the trust-tier registry (approval_service), not a
+                    # source-string check — the registry is the one source of
+                    # truth for go/no-go (env-overridable via
+                    # EVENT_AUTO_APPROVE_SOURCES) and enforces the min-info bar
+                    # (title/date/start_time). golakehavasu_pull gates the same
+                    # way.
+                    if should_auto_approve_event(created):
                         try:
                             approve_fields = EventApprovalFields(
                                 title=payload.submission_name,
