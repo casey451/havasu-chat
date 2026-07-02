@@ -65,6 +65,9 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "bmx", "motocross", "pump track", "pump-track", "balance bike", "strider",
         "basketball", "volleyball", "soccer", "baseball", "softball", "kickball",
         "flag football", "track and field", "disc golf", "skate", "skateboard",
+        # 2026-07-01 audit: the Parks & Rec "Dodgeball USA" program fell to the
+        # "Other classes" residue and was rerouted to Around Town — it's a sport.
+        "dodgeball",
     )),
     ("Strength & Cardio", (
         "strength", "weight", "crossfit", "cross fit", "bootcamp", "boot camp",
@@ -77,6 +80,12 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "tai chi", "qigong", "qi gong", "meditation", "mindfulness",
         "stretch", "mobility", "low impact", "low-impact", "arthritis", "balance",
     )),
+    # Last-resort generic fitness word (2026-07-01 audit): the Senior Center's
+    # bare "Exercise Class" carried no typed keyword, fell out of the fitness
+    # bucket, and mis-filed under Seniors → Social, Music & Meals. Checked
+    # AFTER every specific subgroup so "Water Exercise" stays Aquatic fitness
+    # and "Arthritis Foundation Exercise" stays Mind & Body.
+    ("Strength & Cardio", ("exercise",)),
 )
 SUBGROUP_ORDER: tuple[str, ...] = (
     "Yoga", "Pilates", "Strength & Cardio", "Mind & Body", "Aquatic fitness",

@@ -943,16 +943,35 @@ def _event_pill_type(title: str, tags: list[str] | None, *, featured: bool) -> s
     return _event_css_type(title=title or "", tags=tags, tier=tier)
 
 
-def _pill_sort_key(pill: dict[str, str]) -> tuple[int, int]:
+def _pill_sort_key(pill: dict[str, Any]) -> tuple[int, int, int]:
     """Order pills so one-offs/specials win the 2 visible slots (DL-16).
 
     Recurring classes sink to the bottom so they fall into the "+N" overflow
-    count rather than crowding out a one-off festival.
+    count rather than crowding out a one-off festival. A recurring-in-PRACTICE
+    series row (``series`` — see :func:`calendar_month`) sinks below genuine
+    one-offs the same way, EXCEPT when it tiers special, so a real multi-day
+    festival/tournament keeps its slot while a nightly venue promo doesn't.
     """
     ptype = pill.get("type")
     type_rank = {"special": 0, "water": 1, "aquatic": 2, "class": 3}.get(ptype, 1)
     recurring_rank = 1 if pill.get("recurring") else 0
-    return (recurring_rank, type_rank)
+    series_rank = 1 if (pill.get("series") and ptype != "special") else 0
+    return (recurring_rank, series_rank, type_rank)
+
+
+#: A one-off title seen on at least this many distinct days of one month is a
+#: de-facto recurring series for pill ranking (a weekly venue night hits 4-5
+#: days, a nightly promo ~30; a genuine one-off or 2-day event never trips it).
+_SERIES_MIN_DAYS = 3
+
+
+def _is_venue_hours_row(tags: list[str] | None) -> bool:
+    """True for a DB venue-hours line (``facet:hours`` — "Indoor Golf
+    Simulators", the funzone/golf all-day hours rows). A place being open is
+    not an event: the day view renders hours from the curated registries and
+    filters these DB twins (see app.home.events_views); the month grid has no
+    hours concept at all, so they never become cell pills or counts."""
+    return any(str(t).strip().lower() == "facet:hours" for t in (tags or []))
 
 
 def calendar_month(
@@ -1000,10 +1019,33 @@ def calendar_month(
     event_keys: set[tuple[str, date, time | None]] = set()
     from app.events.event_type_tags import is_civic_meeting
 
+    # Recurring-in-practice series (2026-07-01 month audit): venue specials
+    # published as distinct dated ONE-OFF rows (Family Night Golf, Cosmic
+    # Bowling, Glow in the Park, Junior Jump Time) carry is_recurring=False on
+    # every row, so each day's copy claimed a visible pill slot and the month
+    # read as the same few venue promos repeated 31 times. A normalized title
+    # occurring on >= _SERIES_MIN_DAYS distinct days this month is flagged
+    # ``series`` so the pill sort demotes it below genuine one-offs — it keeps
+    # its cell count and still surfaces on days with nothing else on.
+    series_days: dict[str, set[date]] = {}
+    for occ_date, evs in occ_by_date.items():
+        for ev in evs:
+            if ev.is_recurring or _is_venue_hours_row(ev.tags):
+                continue
+            _key = (ev.title or "").strip().lower()
+            if _key:
+                series_days.setdefault(_key, set()).add(occ_date)
+    series_titles = {t for t, d in series_days.items() if len(d) >= _SERIES_MIN_DAYS}
+
     for occ_date, evs in occ_by_date.items():
         bucket = by_day.setdefault(occ_date.day, [])
         for ev in evs:
             event_keys.add(((ev.title or "").strip().lower(), occ_date, ev.start_time))
+            # Venue-hours rows (facet:hours) are places being OPEN, not events
+            # (2026-07-01 month audit): never a month-cell pill or count. The
+            # day view already filters these DB twins of the curated registries.
+            if _is_venue_hours_row(ev.tags):
+                continue
             # Government meetings (City Council, Board of Adjustment…) are not
             # leisure plans (2026-07-01 audit A3): keep them off the month
             # cells' pills/counts. The day view still lists them under its own
@@ -1017,6 +1059,9 @@ def calendar_month(
                         ev.title or "", ev.tags, featured=bool(ev.featured)
                     ),
                     "recurring": bool(ev.is_recurring),
+                    # De-facto recurring series (see above): sorts after genuine
+                    # one-offs in the visible pill slots.
+                    "series": (ev.title or "").strip().lower() in series_titles,
                     # Per-event start time for the v4 calendar chips (Casey
                     # 2026-06-29: show the time on the chip, not a color square).
                     # None for time-TBD events so the chip shows just the title.

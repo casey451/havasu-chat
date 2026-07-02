@@ -39,6 +39,10 @@ CAT_ICON: dict[str, str] = {
     "seniors": "person",
     "fitness": "activity",
     "classes": "activity",
+    # "learn" is the Classes & Workshops bucket (app.home.event_buckets); the
+    # historical "classes" key is Fitness & Sports (2026-07-01 month audit —
+    # learn used to fall through every one of these maps to the civic fallback).
+    "learn": "activity",
     "movies": "film",
     "civic": "bank",
 }
@@ -51,6 +55,9 @@ CAT_COLOR: dict[str, str] = {
     "seniors": "var(--c-seniors)",
     "fitness": "var(--c-fitness)",
     "classes": "var(--c-fitness)",
+    # Classes & Workshops wears the palette's until-now-unmapped --c-classes
+    # accent, so workshops stop rendering in the civic gray fallback.
+    "learn": "var(--c-classes)",
     "movies": "var(--c-movies)",
     "civic": "var(--c-civic)",
     # calendar month-cell pill types (sandstone._event_css_type) → v4 accents
@@ -69,6 +76,7 @@ CAT_LABEL: dict[str, str] = {
     "seniors": "Seniors",
     "fitness": "Fitness",
     "classes": "Fitness",
+    "learn": "Workshop",
     "movies": "Movie",
     "civic": "City",
 }
@@ -84,6 +92,7 @@ CAT_THUMB: dict[str, str] = {
     "seniors": "im-court",
     "fitness": "im-court",
     "classes": "im-art",
+    "learn": "im-art",
     "movies": "im-movie",
     "civic": "im-civic",
 }
@@ -477,6 +486,12 @@ def _agenda(db: Session, day: date, *, now: datetime | None = None) -> dict[str,
             src.extend(g.get("rows", []))
         for r in src:
             _tl = r.get("time_label") or ""
+            # A venue-hours row (a curated ``ongoing`` row or its DB
+            # ``facet:hours`` twin) is a place being OPEN, not an event — the
+            # agenda used to caption every billiards hall / trampoline park
+            # "Event" (2026-07-01 month audit). Label it honestly instead.
+            _tags = {str(t).strip().lower() for t in (r.get("tags") or [])}
+            _hours = bool(r.get("ongoing")) or "facet:hours" in _tags
             rows.append(
                 {
                     # Drop the "Time TBD" placeholder so the agenda shows a clean
@@ -487,7 +502,7 @@ def _agenda(db: Session, day: date, *, now: datetime | None = None) -> dict[str,
                     "title": r.get("title") or "",
                     "url": r.get("url"),
                     "cat": key,
-                    "cat_label": CAT_LABEL.get(key, "Event"),
+                    "cat_label": "Open today" if _hours else CAT_LABEL.get(key, "Event"),
                     "color": category_color(key),
                     "_h": _first_hour(r.get("time_label") or ""),
                 }
