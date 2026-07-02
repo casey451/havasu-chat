@@ -178,22 +178,10 @@ def fetch_nws_forecast_daily() -> dict[str, Any]:
     }
 
 
-def fetch_nws_sunset() -> dict[str, Any]:
-    points = _grid_points()
-    forecast_url = (points.get("properties") or {}).get("forecast")
-    if not forecast_url:
-        raise RuntimeError("NWS points missing forecast for sunset")
-    forecast = _get(forecast_url)
-    periods = (forecast.get("properties") or {}).get("periods") or []
-    sunset_local: str | None = None
-    for period in periods:
-        if not isinstance(period, dict):
-            continue
-        name = (period.get("name") or "").lower()
-        if "tonight" in name or "this evening" in name:
-            sunset_local = period.get("startTime")
-            break
-    return {"sunset_iso": sunset_local, "periods": periods[:2]}
+# fetch_nws_sunset was deleted 2026-07-02 (audit): it fetched a points+forecast
+# pair every cron tick (~192 NWS calls/day) for a "tonight period startTime"
+# sunset that nothing read — api_payload's sunset comes from Open-UV's true
+# astronomical value or the computed app/conditions/sun.py fallback.
 
 
 def parse_iso_datetime(value: str | None) -> datetime | None:
