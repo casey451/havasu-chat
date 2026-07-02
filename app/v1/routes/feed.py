@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import limiter, public_api_rate_limit
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.events.queries import events_in_window, intent_window_for_when
@@ -15,7 +16,8 @@ router = APIRouter()
 
 
 @router.get("/api/feed")
-def get_feed(db: Session = Depends(get_db)) -> dict:
+@limiter.limit(public_api_rate_limit)
+def get_feed(request: Request, db: Session = Depends(get_db)) -> dict:
     from datetime import timedelta
 
     now = now_lake_havasu()

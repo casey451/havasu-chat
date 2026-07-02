@@ -945,6 +945,12 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
     if _has_temporal_filter(filters):
         return []
 
+    # Providers can't answer a day-of-week ask; this guard used to sit AFTER
+    # the 80-row eager-loaded query + Python category filter, discarding the
+    # whole result (audit 2026-07-01).
+    if filters.day_of_week:
+        return []
+
     fmin, fmax = _age_bounds(filters)
     if fmin is not None or fmax is not None:
         return []
@@ -1054,9 +1060,6 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
 
     if filters.category and filters.category.strip():
         rows = [p for p in rows if _category_match_provider(p, filters.category or "")]
-
-    if filters.day_of_week:
-        return []
 
     return rows
 

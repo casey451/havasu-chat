@@ -53,15 +53,25 @@ def _fmt_compact_ts(dt: datetime | None) -> str:
     return f"{mon} {dt.day}, {h12}:{dt.minute:02d}{ampm}"
 
 
-def _catalog_hint_pill(db: Session, mentioned_name: str) -> str:
-    """Non-authoritative substring hint vs provider/program/event names."""
-    m = (mentioned_name or "").strip().lower()
-    if len(m) < 3:
-        return '<span class="pill pill-muted">?</span>'
+def _catalog_names(db: Session) -> list[str]:
+    """All provider/program/event names, fetched ONCE per page render.
+
+    Audit 2026-07-01: this used to run inside :func:`_catalog_hint_pill`, i.e.
+    three full-table name scans PER ROW of the mentions list (~600 queries on a
+    200-row page). Callers fetch the list once and pass it to every pill.
+    """
     names: list[str] = []
     names.extend(str(x) for x in db.execute(select(Provider.provider_name)).scalars().all() if x)
     names.extend(str(x) for x in db.execute(select(Program.title)).scalars().all() if x)
     names.extend(str(x) for x in db.execute(select(Event.title)).scalars().all() if x)
+    return names
+
+
+def _catalog_hint_pill(names: list[str], mentioned_name: str) -> str:
+    """Non-authoritative substring hint vs provider/program/event names."""
+    m = (mentioned_name or "").strip().lower()
+    if len(m) < 3:
+        return '<span class="pill pill-muted">?</span>'
     for c in names:
         cl = c.strip().lower()
         if len(cl) < 3:
@@ -200,13 +210,14 @@ def register_mentions_html_routes(router: APIRouter) -> None:
             )
             table_body = f'<p class="empty">{empty_msg}</p>'
         else:
+            catalog_names = _catalog_names(db)
             trs: list[str] = []
             for r in rows:
                 link = f'<a href="/admin/mentioned-entities/{r.id}">{_esc(r.mentioned_name)}</a>'
                 ctx = (r.context_snippet or "")[:80]
                 if (r.context_snippet or "") and len(r.context_snippet) > 80:
                     ctx += "…"
-                hint = _catalog_hint_pill(db, r.mentioned_name)
+                hint = _catalog_hint_pill(catalog_names, r.mentioned_name)
                 actions = ""
                 if r.status == "unreviewed":
                     actions = (
@@ -307,7 +318,7 @@ def register_mentions_html_routes(router: APIRouter) -> None:
 <div class="kv"><span class="k">Context</span> {_esc(row.context_snippet or "—")}</div>
 <div class="kv"><span class="k">Detected</span> {_esc(_fmt_compact_ts(row.detected_at))}</div>
 <div class="kv"><span class="k">Status</span> {_mention_status_pill(row.status)}</div>
-<div class="kv"><span class="k">Catalog hint</span> {_catalog_hint_pill(db, row.mentioned_name)}</div>
+<div class="kv"><span class="k">Catalog hint</span> {_catalog_hint_pill(_catalog_names(db), row.mentioned_name)}</div>
 {promoted}
 </div>
 {log_block}

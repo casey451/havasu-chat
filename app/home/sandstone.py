@@ -13,6 +13,7 @@ from __future__ import annotations
 
 import calendar as _calendar
 import re
+import weakref
 from collections import defaultdict
 from datetime import date, datetime, time, timedelta
 from typing import Any
@@ -58,10 +59,22 @@ _TIER_WATER = TIER_WATER
 _group_for_tier = group_for_tier
 
 
+# Per-Session memo for _live_events_by_day (audit 2026-07-01): one render used
+# to run the full recurring-event fetch + RRULE expansion + render dedup for
+# the SAME window several times (/events-ui week view computed the current week
+# twice; the v4 home re-derives overlapping windows). Sessions are per-request
+# (get_db) and these are read-only surfaces, so caching by (session, window) is
+# safe; the WeakKeyDictionary lets the Session (and its memo) be garbage-
+# collected at request end.
+_LIVE_EVENTS_MEMO: weakref.WeakKeyDictionary = weakref.WeakKeyDictionary()
+
+
 def _live_events_by_day(
     db: Session, *, window_start: date, window_end: date
 ) -> dict[date, list[Event]]:
     """Live events bucketed by *occurrence* date across the inclusive window.
+
+    Memoized per (Session, window) — see ``_LIVE_EVENTS_MEMO`` above.
 
     Events with a real schedule (``rrule``/``rdate``) are expanded via
     :func:`app.events.recurrence.occurrences_in_window`, so a weekly class shows
@@ -75,6 +88,13 @@ def _live_events_by_day(
     collapse to a single survivor via
     :func:`app.events.dedup.dedup_cross_source_occurrences`.
     """
+    try:
+        memo = _LIVE_EVENTS_MEMO.setdefault(db, {})
+    except TypeError:  # a non-weakref-able test double — skip memoization
+        memo = {}
+    memo_key = (window_start, window_end)
+    if memo_key in memo:
+        return memo[memo_key]
     stmt = select(Event).where(
         Event.status == "live",
         or_(
@@ -113,6 +133,7 @@ def _live_events_by_day(
     by_day: dict[date, list[Event]] = {}
     for ev, occ_date in dedup_cross_source_occurrences(pairs):
         by_day.setdefault(occ_date, []).append(ev)
+    memo[memo_key] = by_day
     return by_day
 
 

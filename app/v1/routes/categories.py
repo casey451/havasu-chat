@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import limiter, public_api_rate_limit
 from app.db.database import get_db
 from app.db.models import Event, Provider
 from app.v1.categories import MASTER_BUCKETS, bucket_for_legacy_category
@@ -14,7 +15,8 @@ router = APIRouter()
 
 
 @router.get("/api/categories")
-def list_categories(db: Session = Depends(get_db)) -> dict:
+@limiter.limit(public_api_rate_limit)
+def list_categories(request: Request, db: Session = Depends(get_db)) -> dict:
     providers = list(
         db.scalars(
             select(Provider.category).where(
