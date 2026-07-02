@@ -30,6 +30,13 @@ SUPPRESSED_BUSINESS_SLUGS: frozenset[str] = frozenset(
         # kept resurfacing on the daily partner re-scrape at the top of the
         # Jet Ski & Watersports leaf. The two real wakesurf shops stay.
         slugify("Wake Surf Adventures"),
+        # 2026-07-01 Phase 3 (consolidated audit 3.3): non-businesses the 06-30
+        # deactivation could not hold down — the partner re-scrape reactivated
+        # the Marine Association safety PROGRAM row within a day (re-verified
+        # active on 07-01). Suppress durably; the deactivations ride the gated
+        # apply script.
+        slugify("Lake Havasu Marine Association Designated Operator Program"),
+        slugify("Outdoor Enthusiasts"),
     }
 )
 

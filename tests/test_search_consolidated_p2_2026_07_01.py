@@ -68,11 +68,19 @@ def test_dermatologist_unchanged() -> None:
     assert leaf_query._QUERY_TO_LEAF["dermatologists"] == "dermatology-and-skin"
 
 
-def test_pediatrics_is_declared_pending() -> None:
-    # The drift guard (test_leaf_query_additions) requires every routed slug to
-    # be live in the taxonomy seed OR declared pending; pediatrics is pending
-    # until the Phase-3 data op seeds it.
-    assert "pediatrics" in leaf_query.PENDING_LEAF_SLUGS
+def test_pediatrics_is_declared_in_seed() -> None:
+    # Phase 3 promoted pediatrics (with medical-specialists-and-imaging and
+    # firearms-and-shooting-sports) from PENDING_LEAF_SLUGS into the taxonomy
+    # seed; the gated data op creates the Category rows in prod.
+    import json
+    from pathlib import Path
+
+    seed = json.loads(
+        (Path(__file__).resolve().parents[1] / "docs" / "proposals" / "taxonomy-seed.json")
+        .read_text(encoding="utf-8")
+    )
+    assert "pediatrics" in (seed.get("health-and-medical") or {}).get("leaves", {})
+    assert "pediatrics" not in leaf_query.PENDING_LEAF_SLUGS
 
 
 def test_doctor_terms_still_reach_primary_care() -> None:

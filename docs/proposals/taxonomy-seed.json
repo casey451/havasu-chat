@@ -254,6 +254,18 @@
     "count": 0,
     "gate_ok": false,
     "new": true
+   },
+   "medical-specialists-and-imaging": {
+    "name": "Medical Specialists & Imaging",
+    "count": 12,
+    "gate_ok": true,
+    "new": true
+   },
+   "pediatrics": {
+    "name": "Pediatrics",
+    "count": 3,
+    "gate_ok": true,
+    "new": true
    }
   }
  },
@@ -734,6 +746,12 @@
     "count": 3,
     "gate_ok": true,
     "new": false
+   },
+   "firearms-and-shooting-sports": {
+    "name": "Firearms & Shooting Sports",
+    "count": 1,
+    "gate_ok": true,
+    "new": true
    }
   }
  },
