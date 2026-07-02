@@ -7,10 +7,13 @@ landings, with its own ``<h1>`` and — crucially — an independently sellable
 **placement key** (:func:`placement_key_for`, ``"cuisine:{slug}"``) so a
 restaurant can pay to top its cuisine page without topping all of Eat & Drink.
 
-Publish gate (mirrors the trade/leaf pattern): a cuisine page resolves, joins
-the sitemap, and is monetizable only at/above
-:data:`CUISINE_PAGE_MIN_PROVIDERS` active non-draft listings. Thin cuisines
-404 and stay out of the sitemap so near-empty templated pages are never exposed.
+Publish gates (split 2026-07-01, consolidated audit A4): the RENDER gate
+(:data:`CUISINE_PAGE_MIN_PROVIDERS`) says when the page resolves at all — kept
+low so a real cuisine with a couple of spots ("italian", "thai") answers the
+search instead of 404ing while its chip renders everywhere. The SITEMAP gate
+(:data:`CUISINE_SITEMAP_MIN_PROVIDERS`) keeps the old, higher bar for
+:func:`qualifying_cuisines` (sitemap + monetization surfaces), so thin pages
+stay unindexed even though they render.
 """
 
 from __future__ import annotations
@@ -25,9 +28,14 @@ from app.categories.subcategories import (
 )
 from app.db.models import Provider
 
-#: Scaled-content thin-page gate — a cuisine page publishes only at/above this
-#: many active non-draft Eat & Drink providers of that cuisine.
-CUISINE_PAGE_MIN_PROVIDERS = 7
+#: RENDER gate — a cuisine page resolves (and search routing targets it) only
+#: at/above this many active non-draft Eat & Drink providers of that cuisine.
+CUISINE_PAGE_MIN_PROVIDERS = 2
+
+#: SITEMAP/monetization gate — the old bar, unchanged: only cuisines this deep
+#: join the sitemap (:func:`qualifying_cuisines`), so a 2-provider page renders
+#: for a searcher but is never advertised to crawlers as scaled content.
+CUISINE_SITEMAP_MIN_PROVIDERS = 7
 
 #: The plural ``CATEGORY_FILTERS`` route the cuisine pages draw their pool from.
 EAT_DRINK_ROUTE = "eat-drink"
@@ -87,13 +95,14 @@ def is_publishable_cuisine(db: Session, cuisine_slug: str) -> bool:
 
 
 def qualifying_cuisines(db: Session) -> list[tuple[str, str, int]]:
-    """``(slug, label, count)`` for every cuisine clearing the gate, in canonical
-    display order. Used by the sitemap so under-minimum cuisines stay unlisted.
-    One pool scan total (not one per cuisine)."""
+    """``(slug, label, count)`` for every cuisine clearing the SITEMAP gate, in
+    canonical display order. Used by the sitemap (and monetization surfaces) so
+    render-gate-only cuisines stay unlisted. One pool scan total (not one per
+    cuisine)."""
     counts = _eat_drink_cuisine_counts(db)
     out: list[tuple[str, str, int]] = []
     for slug in cuisine_slugs_in_order():
         n = counts.get(slug, 0)
-        if n >= CUISINE_PAGE_MIN_PROVIDERS:
+        if n >= CUISINE_SITEMAP_MIN_PROVIDERS:
             out.append((slug, cuisine_label(slug) or slug, n))
     return out

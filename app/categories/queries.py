@@ -1146,11 +1146,16 @@ def _provider_card(
 
 
 def available_cuisines_for_route(db: Session | None, slug: str) -> list[dict[str, str]]:
-    """Cuisine chips present among a route's providers (C-2), in canonical order.
+    """Cuisine chips for a route's providers (C-2), in canonical order.
 
-    Returns ``[]`` for non-food routes (no cuisine tokens match) or on any DB
-    hiccup — the template then renders no cuisine row. One light two-column query.
+    2026-07-01 (consolidated audit A4): a chip renders only for a cuisine that
+    clears the RENDER gate (``CUISINE_PAGE_MIN_PROVIDERS``) — presence alone
+    used to show chips for one-provider cuisines whose facet view was near
+    empty. Returns ``[]`` for non-food routes (no cuisine tokens match) or on
+    any DB hiccup — the template then renders no cuisine row. One light
+    two-column query.
     """
+    from app.categories.cuisine_pages import CUISINE_PAGE_MIN_PROVIDERS
     from app.categories.subcategories import cuisine_label, cuisine_slugs_in_order
 
     if db is None:
@@ -1170,15 +1175,15 @@ def available_cuisines_for_route(db: Session | None, slug: str) -> list[dict[str
         )
     except Exception:
         return []
-    present: set[str] = set()
+    counts: dict[str, int] = {}
     for primary, cats in rows:
         c = derive_cuisine(primary, cats)
         if c:
-            present.add(c)
+            counts[c] = counts.get(c, 0) + 1
     return [
         {"slug": s, "label": cuisine_label(s) or s}
         for s in cuisine_slugs_in_order()
-        if s in present
+        if counts.get(s, 0) >= CUISINE_PAGE_MIN_PROVIDERS
     ]
 
 

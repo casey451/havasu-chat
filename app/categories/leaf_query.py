@@ -61,6 +61,9 @@ PENDING_LEAF_SLUGS: frozenset[str] = frozenset(
         # enough approved businesses to clear that threshold, not just one row.
         # (garage-doors + painters are intentionally NOT here — the 2026-06-19
         # pass already seeded them above, so they are live, not pending.)
+        # 2026-07-01 consolidated audit A2: pediatricians leave the 159-row
+        # primary-care leaf for their own home; seeded by the Phase-3 data op.
+        "pediatrics",
         "locksmiths",
         "flooring",
         "fencing",
@@ -841,7 +844,9 @@ _QUERY_TO_LEAF_SEARCH_ALIASES_2026_06_28: dict[str, tuple[str, ...]] = {
         "recycling", "recycling center", "water company", "electric company",
         "power company", "gas company"),
     "gifts-and-boutiques": ("gift shops", "gift store", "gift stores"),
-    "primary-care": ("pediatrician", "pediatricians", "pediatrics"),
+    # ("pediatrician" et al. pointed here 2026-06-28 as a stopgap; moved to the
+    # dedicated ``pediatrics`` leaf in the 2026-07-01 dict below — the 159-row
+    # primary-care dump was the audit's A2 complaint.)
 }
 
 # 2026-06-30 search-audit expansion (ASKHAVA_SEARCH_AUDIT_2026-06-30 §A3 / PART
@@ -901,6 +906,23 @@ _QUERY_TO_LEAF_SEARCH_ADD_2026_07_01: dict[str, tuple[str, ...]] = {
         "iphone repair", "phone screen repair"),
     "jet-ski-and-watersports": ("waverunner rental", "waverunner rentals",
         "sea doo rental", "sea doo rentals"),
+    # A2: the missing specialty terms. medical-specialists-and-imaging already
+    # carries cardiologist/podiatrist/etc. (2026-06-20 block above) and
+    # self-activates when the Phase-3 data op seeds the leaf; these add the
+    # obgyn family and the lab terms (which also ends the "lab" → Fit Lab 928
+    # gym collision — the gym row is correctly categorized and stays put).
+    # "women s health" is the _normalize output of "women's health".
+    "medical-specialists-and-imaging": ("obgyn", "ob gyn", "obstetrician",
+        "gynecologist", "womens health", "women s health",
+        "lab", "labs", "medical lab", "medical labs", "blood work", "lab work"),
+    # Pediatricians get their own leaf (seeded in Phase 3; a deliberate no-op
+    # until then per _resolve_gated) instead of the 159-doctor primary-care leaf.
+    "pediatrics": ("pediatrician", "pediatricians", "pediatrics"),
+    # Master site audit §1 (2026-07-01 PM): "pool supply" had no route to the
+    # 15-listing pools leaf ("pool", "pool service", "pool pump" etc. were all
+    # wired; the supply/store phrasings weren't) — it fell to chat and, for
+    # "pool store", the bare "store" token bought the shopping junk fallback.
+    "pools-and-spas": ("pool supply", "pool supplies", "pool store", "pool stores"),
 }
 
 # Evergreen browse asks whose right destination is a DEPARTMENT landing or a
