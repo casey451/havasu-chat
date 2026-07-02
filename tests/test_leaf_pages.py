@@ -1,4 +1,4 @@
-﻿"""Workstream B.1 — generalized taxonomy leaf pages.
+"""Workstream B.1 — generalized taxonomy leaf pages.
 
 Covers resolve_leaf (department/leaf slug resolution against the level-0/level-1
 tree), the category_id + is_primary listing join, the >=3 thin-page gate, the

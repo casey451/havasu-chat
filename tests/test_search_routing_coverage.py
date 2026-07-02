@@ -1,4 +1,4 @@
-﻿"""Query-routing regression harness (2026-06-19).
+"""Query-routing regression harness (2026-06-19).
 
 Locks that the many ways people phrase a category — synonyms, singular/plural,
 the combined Golf hub, pool cleaning, the new monetization trades, and common
