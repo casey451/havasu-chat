@@ -166,7 +166,7 @@ def _render_contribute_page(
 
       <label for="submitter_email">Email (optional)</label>
       <input type="email" name="submitter_email" id="submitter_email" autocomplete="email" placeholder="So we can reach you if we have questions" value="{_esc(p.get("submitter_email", ""))}"/>
-      <p class="field-note">We only use your email to follow up on this submission -- never for marketing.</p>
+      <p class="field-note">We only use your email to follow up on this submission — never for marketing.</p>
 
       <p class="req-legend"><span class="req" aria-hidden="true">*</span> Required</p>
       <button type="submit" class="submit">Submit for review</button>

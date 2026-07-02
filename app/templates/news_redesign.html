@@ -21,7 +21,7 @@
   {% for it in news.items %}
   <a class="newsrow" href="{{ it.url }}" target="_blank" rel="noopener nofollow">
     <span class="nr-body">
-      <span class="nr-title">{{ it.title }}</span>
+      <span class="nr-title">{% if it.region_label %}<span class="nr-region">{{ it.region_label }}</span> {% endif %}{{ it.title }}</span>
       <span class="nr-meta">{{ it.source_label }}{% if it.published_label %} · {{ it.published_label }}{% endif %}</span>
     </span>
     <span class="nr-go" aria-hidden="true">{{ icon('arrow', 16) }}</span>
