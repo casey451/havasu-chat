@@ -48,47 +48,35 @@ def test_is_discovery_query() -> None:
 
 # ── /calendar page ──────────────────────────────────────────────────────────
 
-def test_calendar_renders_lake_and_noindex() -> None:
+# The legacy calendar_lake.html list view (refine form, "Hava understood"
+# chips, per-day columns) was deleted with the 2026-07-02 HOME_REDESIGN flag
+# collapse — /calendar serves the v4 month grid (calendar_redesign.html),
+# which test_home_redesign.py covers structurally. Here we keep the /calendar
+# contracts that survived the reskin: noindex + a11y.
+
+
+def test_calendar_renders_v4_and_noindex() -> None:
     r = TestClient(app).get("/calendar")
     assert r.status_code == 200
     b = r.text
     assert 'data-theme="lake"' in b
-    assert "/static/styles/lake_calendar.css" in b
-    assert 'name="robots" content="noindex' in b
+    assert "/static/styles/lake_redesign.css" in b
+    assert 'class="calmonth"' in b  # the v4 month grid
     assert "noindex" in (r.headers.get("x-robots-tag") or "")
-    assert b.count("<h1") == 1
-    assert 'role="search"' in b  # the refine form
-    assert 'aria-label="Time of day"' in b  # segmented controls
 
 
-def test_calendar_understood_chips_from_query() -> None:
-    b = TestClient(app).get("/calendar?q=live+music+this+weekend").text
-    assert "Hava understood" in b
-    assert "Live music" in b  # derived title
-    assert "Music" in b  # type chip
-    assert "“live music this weekend”" in b  # readback
+def test_calendar_old_filter_params_do_not_422() -> None:
+    # Bookmarked legacy list-view links (?q=/&days=/&part=…) keep resolving.
+    r = TestClient(app).get("/calendar?q=live+music+this+weekend&days=Today&part=evening")
+    assert r.status_code == 200
 
 
 def test_calendar_structural_a11y() -> None:
-    for path in ("/calendar", "/calendar?q=kids+tomorrow", "/calendar?q=live+music+tonight"):
+    for path in ("/calendar", "/calendar?cal=2026-08"):
         checker = _A11yChecker()
         checker.feed(TestClient(app).get(path).text)
         issues = checker.finish()
         assert not issues, f"{path}: " + "; ".join(sorted(set(issues)))
-
-
-def _sample_groups() -> list[dict]:
-    return [{
-        "key": "events", "label": "Around town", "icon": "", "count": 1, "open": True,
-        "rows": [{"time_label": "6:00 PM", "title": "Sunset Paddle", "venue": "Site Six", "url": "/events/1", "recurring": False}],
-    }]
-
-
-def test_calendar_columns_bind_real_rows() -> None:
-    with patch("app.home.events_views.day_groups", return_value=_sample_groups()):
-        b = TestClient(app).get("/calendar?days=Today").text
-    assert 'class="col"' in b
-    assert "Sunset Paddle" in b and "Site Six" in b
 
 
 # ── concierge intent-router (flag-gated) ────────────────────────────────────

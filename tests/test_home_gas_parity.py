@@ -54,20 +54,20 @@ def _fake_read(payload: dict):
 def test_home_gas_chip_matches_gas_cheapest() -> None:
     fake = _fake_read(_divergent_payload())
     with (
-        patch("app.home.router.read_source", side_effect=fake),
+        patch("app.home.redesign.read_source", side_effect=fake),
         patch("app.api.routes.gas.read_source", side_effect=fake),
     ):
         with TestClient(app) as client:
-            home = client.get("/home?theme=lake").text
-            gas = client.get("/gas?theme=lake").text
+            home = client.get("/home").text
+            gas = client.get("/gas").text
 
-    # Home chip shows the pull-curated cheapest ($4.19), same as /gas — never the
-    # raw-stations minimum ($3.95) the excluded phantom station would have given.
+    # The v4 home gas expander shows the pull-curated cheapest ($4.19), same as
+    # /gas — never the raw-stations minimum ($3.95) the excluded phantom station
+    # would have given. (v4 reads via redesign.gas_top5, same data["cheapest"].)
     assert "$4.19" in home
     assert "$3.95" not in home
     assert "$4.19" in gas
-    # P3 weather grouping: gas renders as its own line below the band, not inside it.
-    assert "home-gas" in home
+    assert 'id="gasPanel"' in home  # the v4 gas top-5 expander
 
 
 def test_home_band_excludes_gas_other_surfaces_keep_it() -> None:

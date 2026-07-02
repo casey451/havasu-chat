@@ -175,8 +175,8 @@ def test_root_redirects_to_home() -> None:
     assert r.status_code == 200
     assert str(r.url).endswith("/home")
     # Lake Ink & Brass home: the base tokens stylesheet + the hero lede.
-    assert "/static/styles/lake.css" in r.text
-    assert '<h1 class="asklede">Everything in Lake Havasu, in one place.</h1>' in r.text
+    assert "/static/styles/lake_redesign.css" in r.text  # v4 home (flag collapsed)
+    assert 'role="search"' in r.text  # the v4 hero search
 
 
 def test_jinja2_templates_directory_resolves() -> None:

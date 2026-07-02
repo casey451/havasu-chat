@@ -468,25 +468,21 @@ def test_calendar_catches_civic_row_misfiled_into_events(monkeypatch):
         ]
 
 
-def test_calendar_page_renders_collapsed_civic_section(monkeypatch):
-    from fastapi.testclient import TestClient
+def test_civic_meetings_route_to_the_community_tier_not_the_headliners():
+    # The legacy /calendar list (and its cal-civic <details>) was deleted with
+    # the 2026-07-02 HOME_REDESIGN flag collapse — it was never served on prod
+    # (v4 has been on since ~06-23). The surviving civic contract on the v4
+    # surfaces: a Board of Adjustment meeting never ranks as a headline event
+    # (sandstone._event_tier routes is_civic titles to the COMMUNITY tier) and
+    # the month grid excludes it outright (test_month_grid_cells_exclude_civic).
+    import app.home.sandstone as sandstone
 
-    from app.home import events_views
-    from app.main import app
-
-    market = _row("Farmers Market", venue="Main Street")
-    board = _row("Board of Adjustment Meeting", venue="City Hall")
-    monkeypatch.setattr(
-        events_views, "day_groups", _fake_day_groups([market], [board])
+    civic = sandstone._event_tier(
+        title="Board of Adjustment Meeting", tags=[], featured=False, recurring=False
     )
-    r = TestClient(app).get("/calendar")
-    assert r.status_code == 200
-    html = r.text
-    # The meeting renders only inside the collapsed Local Government details.
-    assert "cal-civic" in html
-    assert "Local Government" in html
-    assert "Board of Adjustment Meeting" in html
-    assert "Farmers Market" in html
+    assert civic == sandstone._TIER_COMMUNITY
+    # ...and never as the headline tier a Farmers Market special could take.
+    assert civic != sandstone._TIER_SPECIAL
 
 
 def test_month_grid_cells_exclude_civic(monkeypatch):

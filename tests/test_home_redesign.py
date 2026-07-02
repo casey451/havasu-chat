@@ -1,10 +1,10 @@
-"""Home + calendar redesign (``home_redesign`` flag, dark rollout).
+"""Home + calendar v4 (the collapsed ``home_redesign`` reskin).
 
-Verifies: the flag is OFF by default (old home served, instant rollback intact);
-the ``?home_redesign=1`` preview override swaps in the v4 templates and sticks via
-cookie; the redesigned /home and /calendar render the v4 structure from real data;
-the view-model adapters behave; and both surfaces clear the same WCAG 2.1 AA
-structural contract as every other page.
+The flag was collapsed 2026-07-02 (v4 permanently on in prod since ~06-23):
+/home and /calendar serve the v4 templates unconditionally, with no
+``?home_redesign=`` override, no cookie, and no legacy branch. Verifies the v4
+structure renders from real data, the view-model adapters behave, and both
+surfaces clear the same WCAG 2.1 AA structural contract as every other page.
 """
 
 from __future__ import annotations
@@ -18,54 +18,25 @@ from test_ada_compliance import _A11yChecker
 
 from app.db.database import get_db
 from app.home import redesign
-from app.home.flags import home_redesign_enabled
 from app.main import app
 
 
-# ── flag plumbing ──────────────────────────────────────────────────────────────
-def test_flag_off_by_default_serves_old_home() -> None:
+# ── v4 is the only home ─────────────────────────────────────────────────────────
+def test_home_serves_v4_unconditionally() -> None:
     r = TestClient(app).get("/home")
-    assert r.status_code == 200
-    assert "/static/styles/lake_redesign.css" not in r.text
-    assert "/static/styles/lake_home.css" in r.text
-
-
-def test_query_override_serves_redesign_and_sets_cookie() -> None:
-    c = TestClient(app)
-    r = c.get("/home?home_redesign=1")
     assert r.status_code == 200
     assert "/static/styles/lake_redesign.css" in r.text
     assert 'data-theme="lake"' in r.text
-    # the preview override is persisted so navigation stays in the redesign
-    assert "home_redesign" in r.cookies or "home_redesign" in r.headers.get("set-cookie", "")
-    # cookie now sticks the redesign without the param
-    assert "/static/styles/lake_redesign.css" in c.get("/home").text
-
-
-def test_query_override_off_forces_old_even_with_cookie() -> None:
-    c = TestClient(app)
-    c.get("/home?home_redesign=1")  # set cookie
-    assert "/static/styles/lake_redesign.css" not in c.get("/home?home_redesign=0").text
-
-
-def test_flag_resolution_orders(monkeypatch) -> None:
-    class _Req:
-        def __init__(self, qp: dict[str, str], cookies: dict[str, str]):
-            self.query_params = qp
-            self.cookies = cookies
-
-    monkeypatch.delenv("HOME_REDESIGN", raising=False)
-    assert home_redesign_enabled(_Req({}, {})) is False  # type: ignore[arg-type]
-    assert home_redesign_enabled(_Req({"home_redesign": "1"}, {})) is True  # type: ignore[arg-type]
-    assert home_redesign_enabled(_Req({"home_redesign": "0"}, {"home_redesign": "1"})) is False  # type: ignore[arg-type]
-    assert home_redesign_enabled(_Req({}, {"home_redesign": "1"})) is True  # type: ignore[arg-type]
-    monkeypatch.setenv("HOME_REDESIGN", "1")
-    assert home_redesign_enabled(_Req({}, {})) is True  # type: ignore[arg-type]
+    # No flag machinery left: the old preview override is inert, and no
+    # home_redesign cookie is set.
+    assert "home_redesign" not in (r.headers.get("set-cookie") or "")
+    off = TestClient(app).get("/home?home_redesign=0")
+    assert "/static/styles/lake_redesign.css" in off.text
 
 
 # ── redesigned home render ──────────────────────────────────────────────────────
 def _home() -> str:
-    return TestClient(app).get("/home?home_redesign=1").text
+    return TestClient(app).get("/home").text
 
 
 def test_home_redesign_structure() -> None:
@@ -162,7 +133,7 @@ def test_home_redesign_has_header_landmark() -> None:
 
 # ── redesigned calendar render ──────────────────────────────────────────────────
 def _cal(qs: str = "") -> str:
-    return TestClient(app).get(f"/calendar?home_redesign=1{qs}").text
+    return TestClient(app).get(f"/calendar?{qs.lstrip('&')}").text
 
 
 def test_calendar_redesign_structure() -> None:

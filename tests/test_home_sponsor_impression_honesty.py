@@ -57,18 +57,10 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-def test_v4_home_does_not_count_spotlight_impressions(db: Session, client: TestClient) -> None:
+def test_home_does_not_count_spotlight_impressions(db: Session, client: TestClient) -> None:
+    # The v4 home (the only home since the 2026-07-02 flag collapse) renders no
+    # Featured/Spotlight slot -> no impression may be counted on a page view.
     sp = _add_spotlight(db)
-    resp = client.get("/home?home_redesign=1")
+    resp = client.get("/home")
     assert resp.status_code == 200
-    # v4 renders no Featured/Spotlight slot -> no impression may be counted.
     assert _impressions(db, sp.id) == 0
-
-
-def test_legacy_home_still_counts_spotlight_impressions(db: Session, client: TestClient) -> None:
-    sp = _add_spotlight(db)
-    resp = client.get("/home?home_redesign=0")
-    assert resp.status_code == 200
-    # The legacy template renders the Featured slot, so the fetch (and its
-    # impression bump) is correct there — exactly one per page view.
-    assert _impressions(db, sp.id) == 1
