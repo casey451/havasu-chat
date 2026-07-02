@@ -385,23 +385,52 @@ def _fetch_tier3_records(
     return _fetch_provider_rows(db, intent_result.entity, query=query)
 
 
-def _programs_for(db: Session, provider_id: str) -> Sequence[Program]:
-    return db.scalars(
-        select(Program).where(Program.provider_id == provider_id, Program.is_active.is_(True))
-    ).all()
+def _programs_by_provider(
+    db: Session, provider_ids: Sequence[str]
+) -> dict[str, list[Program]]:
+    """Active programs for ALL of ``provider_ids`` in one query, grouped.
+
+    Audit 2026-07-01 (N+1): the per-provider variant ran once per row of the
+    Tier-3 snapshot — ~10 extra queries on every LLM fallback.
+    """
+    out: dict[str, list[Program]] = {pid: [] for pid in provider_ids}
+    if not provider_ids:
+        return out
+    for prog in db.scalars(
+        select(Program).where(
+            Program.provider_id.in_(list(provider_ids)), Program.is_active.is_(True)
+        )
+    ).all():
+        out.setdefault(prog.provider_id, []).append(prog)
+    return out
 
 
-def _events_future_for(db: Session, provider_id: str, today: date) -> Sequence[Event]:
-    return db.scalars(
+_MAX_FUTURE_EVENTS_PER_PROVIDER = 8
+
+
+def _future_events_by_provider(
+    db: Session, provider_ids: Sequence[str], today: date
+) -> dict[str, list[Event]]:
+    """Upcoming live events for ALL of ``provider_ids`` in one query, grouped
+    and capped at ``_MAX_FUTURE_EVENTS_PER_PROVIDER`` each (the cap the old
+    per-provider LIMIT 8 enforced in SQL)."""
+    out: dict[str, list[Event]] = {pid: [] for pid in provider_ids}
+    if not provider_ids:
+        return out
+    rows = db.scalars(
         select(Event)
         .where(
-            Event.provider_id == provider_id,
+            Event.provider_id.in_(list(provider_ids)),
             Event.status == "live",
             Event.date >= today,
         )
         .order_by(Event.date.asc(), Event.start_time.asc())
-        .limit(8)
     ).all()
+    for ev in rows:
+        bucket = out.setdefault(ev.provider_id, [])
+        if len(bucket) < _MAX_FUTURE_EVENTS_PER_PROVIDER:
+            bucket.append(ev)
+    return out
 
 
 # P2-2: one venue's recurring slots (the Aquatic Center's daily Open Swim) must not
@@ -579,12 +608,12 @@ def _event_probe_row(e: Event) -> dict[str, Any]:
 
 
 def _probe_rows_for_providers(
-    db: Session, providers: Sequence[Provider], today: date
+    providers: Sequence[Provider], events_by_provider: dict[str, list[Event]]
 ) -> list[dict[str, Any]]:
     rows: list[dict[str, Any]] = []
     for p in providers:
         rows.append(_provider_probe_row(p))
-        for ev in _events_future_for(db, p.id, today):
+        for ev in events_by_provider.get(p.id, []):
             rows.append(_event_probe_row(ev))
     return rows
 
@@ -646,11 +675,9 @@ def build_context_and_rows_for_tier3(
                     lines.append(f"  hours: {hrs}")
             parts.append("\n".join(lines))
         body = "\n\n".join(parts)
-        probe_rows: list[dict[str, Any]] = []
-        for ent in entities:
-            prov = prov_by_ent.get(ent.id)
-            if prov is not None:
-                probe_rows.extend(_probe_rows_for_providers(db, [prov], today))
+        ent_providers = [p for p in (prov_by_ent.get(e.id) for e in entities) if p is not None]
+        ent_events = _future_events_by_provider(db, [p.id for p in ent_providers], today)
+        probe_rows = _probe_rows_for_providers(ent_providers, ent_events)
         return _trim_to_word_budget(body, MAX_CONTEXT_WORDS), probe_rows
 
     providers = _fetch_tier3_records(intent_result, db, query=query)
@@ -674,7 +701,12 @@ def build_context_and_rows_for_tier3(
         )
         return _trim_to_word_budget(body, MAX_CONTEXT_WORDS), ev_rows
 
-    probe_rows = _probe_rows_for_providers(db, providers, today)
+    # One grouped query each for programs + future events (was 2 per provider,
+    # plus the probe pass re-running the events query per provider again).
+    provider_ids = [p.id for p in providers]
+    programs_by_provider = _programs_by_provider(db, provider_ids)
+    events_by_provider = _future_events_by_provider(db, provider_ids, today)
+    probe_rows = _probe_rows_for_providers(providers, events_by_provider)
 
     parts: list[str] = []
     parts.append("Context — Lake Havasu catalog snapshot (programs and events may be partial):")
@@ -697,7 +729,7 @@ def build_context_and_rows_for_tier3(
             lines.append(f"  hours: {hrs}")
         if p.verified:
             lines.append("  verified: yes")
-        for prog in _programs_for(db, p.id):
+        for prog in programs_by_provider.get(p.id, []):
             if prog.age_min is not None or prog.age_max is not None:
                 ages = f"{prog.age_min if prog.age_min is not None else '?'}-{prog.age_max if prog.age_max is not None else '?'}"
             else:
@@ -715,7 +747,7 @@ def build_context_and_rows_for_tier3(
                     sn = sn[:117] + "..."
                 seg += f" | note: {sn}"
             lines.append(seg)
-        for ev in _events_future_for(db, p.id, today):
+        for ev in events_by_provider.get(p.id, []):
             ev_suffix = _hedge_suffix_for(ev, now=now) if flag_on else ""
             lines.append(
                 f"  Upcoming event: {ev.title} on {ev.date.isoformat()} "

@@ -726,22 +726,20 @@ def admin_dashboard(
 
     sort_eff = _effective_sort(tab, sort)
 
-    pending_q = db.query(Event).filter(Event.status == "pending_review")
+    # Only the ACTIVE tab's rows are rendered (audit 2026-07-01): both tabs
+    # used to be fully materialized on every dashboard hit — including each
+    # event's 1536-float embedding JSON — with one list discarded unrendered.
+    status = "live" if tab == "live" else "pending_review"
+    q = db.query(Event).filter(Event.status == status)
     if sort_eff == "newest":
-        pending = pending_q.order_by(desc(Event.created_at)).all()
+        rows = q.order_by(desc(Event.created_at)).all()
     elif sort_eff == "oldest":
-        pending = pending_q.order_by(asc(Event.created_at)).all()
+        rows = q.order_by(asc(Event.created_at)).all()
     else:
-        pending = pending_q.order_by(asc(Event.date), asc(Event.start_time)).all()
+        rows = q.order_by(asc(Event.date), asc(Event.start_time)).all()
 
-    live_q = db.query(Event).filter(Event.status == "live")
-    if sort_eff == "newest":
-        live = live_q.order_by(desc(Event.created_at)).all()
-    elif sort_eff == "oldest":
-        live = live_q.order_by(asc(Event.created_at)).all()
-    else:
-        live = live_q.order_by(asc(Event.date), asc(Event.start_time)).all()
-
+    pending = [] if tab == "live" else rows
+    live = rows if tab == "live" else []
     return HTMLResponse(_dashboard_html_simple(pending, live, tab, sort_eff))
 
 

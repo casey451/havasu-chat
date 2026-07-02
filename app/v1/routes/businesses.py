@@ -4,10 +4,11 @@ from __future__ import annotations
 
 import math
 
-from fastapi import APIRouter, Depends, HTTPException, Query
-from sqlalchemy import select
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import limiter, public_api_rate_limit
 from app.db.database import get_db
 from app.db.models import Provider
 from app.providers import queries as provider_queries
@@ -27,7 +28,9 @@ def _haversine_miles(lat1: float, lng1: float, lat2: float, lng2: float) -> floa
 
 
 @router.get("/api/businesses")
+@limiter.limit(public_api_rate_limit)
 def list_businesses(
+    request: Request,
     db: Session = Depends(get_db),
     category: str | None = None,
     subcategory: str | None = None,
@@ -57,6 +60,25 @@ def list_businesses(
     if q and q.strip():
         needle = f"%{q.strip()}%"
         stmt = stmt.where(Provider.provider_name.ilike(needle))
+
+    # Fast path (audit 2026-07-01): with no legacy-bucket filter and no geo
+    # sort, page in SQL instead of materializing the whole active catalog per
+    # request — the unfiltered call was also the cheapest full-directory
+    # scrape, now rate-limited above.
+    if not category and (near_lat is None or near_lng is None):
+        total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
+        if sort == "rating":
+            stmt = stmt.order_by(Provider.google_rating.desc().nullslast())
+        else:
+            stmt = stmt.order_by(func.lower(Provider.provider_name).asc())
+        page = list(db.scalars(stmt.offset(offset).limit(limit)).all())
+        return {
+            "items": [business_from_provider(p) for p in page],
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }
+
     rows = list(db.scalars(stmt).all())
     if category:
         bucket = category.strip().lower()

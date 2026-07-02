@@ -2,10 +2,11 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import limiter, public_api_rate_limit
 from app.db.database import get_db
 from app.db.models import ChatLog
 
@@ -13,7 +14,9 @@ router = APIRouter()
 
 
 @router.get("/api/chat/history")
+@limiter.limit(public_api_rate_limit)
 def chat_history(
+    request: Request,
     session_id: str = Query(..., min_length=1),
     limit: int = Query(50, ge=1, le=200),
     db: Session = Depends(get_db),

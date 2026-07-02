@@ -477,19 +477,24 @@ def _cross_listed_cards(
         return [], []
     cards: list[dict[str, Any]] = []
     providers: list[Provider] = []
+    # One Provider IN(...) fetch for the whole curated set — this used to
+    # issue one query per cross-listed slug (13 on the boat-repair leaf,
+    # audit 2026-07-01).
+    prov_by_entity = {
+        p.entity_id: p
+        for p in db.query(Provider)
+        .filter(
+            Provider.entity_id.in_([e.id for e in entities]),
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+            Provider.is_local.isnot(False),
+        )
+        .all()
+    }
     for e in entities:
         if e.id in exclude_entity_ids:
             continue
-        prov = (
-            db.query(Provider)
-            .filter(
-                Provider.entity_id == e.id,
-                Provider.is_active.is_(True),
-                Provider.draft.is_(False),
-                Provider.is_local.isnot(False),
-            )
-            .first()
-        )
+        prov = prov_by_entity.get(e.id)
         if prov is not None:
             cards.append(cat_queries._provider_card(db, prov, now=now))
             providers.append(prov)

@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from typing import Any
 from uuid import uuid4
 
-from sqlalchemy import delete, select
+from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
 from app.db.entity_backfill import _WEEKDAY_KEYS, _parse_hours_time
@@ -57,13 +57,26 @@ def _utc_now_naive() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-def _entity_slug_pool(db: Session) -> set[str]:
-    return set(db.scalars(select(Entity.slug)).all())
+def _entity_slug_conflicts(db: Session, base: str) -> set[str]:
+    """Existing entity slugs that could collide with ``base`` or its -N suffixes.
+
+    Audit 2026-07-01: this used to load the ENTIRE slug namespace per insert
+    (the before_flush hook fires for every new Event/Program), making bulk
+    ingests O(n^2) in catalog size. Slugs are slugify() output ([a-z0-9-]), so
+    a plain prefix LIKE is safe (no wildcard characters to escape).
+    """
+    return set(
+        db.scalars(
+            select(Entity.slug).where(
+                or_(Entity.slug == base, Entity.slug.like(f"{base}-%"))
+            )
+        ).all()
+    )
 
 
 def _allocate_entity_slug(db: Session, title_or_name: str, *, max_len: int = 96) -> str:
     base = slugify(title_or_name)[:max_len]
-    used = _entity_slug_pool(db)
+    used = _entity_slug_conflicts(db, base)
     for obj in db.new:
         if isinstance(obj, Entity) and obj.slug:
             used.add(obj.slug)

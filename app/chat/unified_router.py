@@ -618,22 +618,10 @@ def _handle_ask(
                 telemetry["cache_status"] = "bypass"
                 telemetry["tier1_ms"] = int((time.perf_counter() - t_t1_start) * 1000)
             return tier1, "1", None, None, None
-    # Live-conditions answer: value-seeking weather/water/AQI/wind/lake-level
-    # questions ("water temp today", "too windy to kayak") answer deterministically
-    # from the conditions cache, consistently across phrasings (Phase 6, P1-4).
-    # Best-effort: a place question with a weather modifier won't match the
-    # value-seeking detector and falls through unchanged.
-    try:
-        from app.chat.conditions_answer import answer_conditions
-
-        conditions_text = answer_conditions(query, db)
-    except Exception:
-        logging.exception("unified_router: conditions answer failed")
-        conditions_text = None
-    if conditions_text is not None:
-        if telemetry is not None:
-            telemetry["cache_status"] = "bypass"
-        return conditions_text, "1", None, None, None
+    # (The conditions-answer probe that used to run here was deleted 2026-07-02:
+    # route()'s ask branch — the only caller of _handle_ask — already checks
+    # answer_conditions and returns on a hit, so this inner probe could never
+    # fire and just re-ran its regexes on every ask.)
     # Leaf-page hand-off: when the ask is really "show me <category we have a
     # page for>" ("i need a dog groomer", "looking for a plumber"), answer with
     # a short voice line + a page_link component pointing at the leaf page

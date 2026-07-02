@@ -242,14 +242,17 @@ def _query_providers(
         for tok in exclude_name_tokens:
             q = q.filter(~Provider.provider_name.ilike(f"%{tok}%"))
 
+    rows = list(q.all())
     if district:
         # District is sparsely populated (Phase-0 audit: ~0% on the dev DB), so
-        # treat area as a soft preference: filter by it, but fall back to the
-        # un-filtered set rather than erasing all results.
-        district_rows = list(q.filter(Provider.district.ilike(f"%{district}%")).all())
-        rows = district_rows if district_rows else list(q.all())
-    else:
-        rows = list(q.all())
+        # treat area as a soft preference: narrow to it, but fall back to the
+        # un-filtered set rather than erasing all results. One fetch either way
+        # (this used to run the full bucket query twice when the district
+        # matched nothing — audit 2026-07-01).
+        d = district.lower()
+        district_rows = [p for p in rows if d in (p.district or "").lower()]
+        if district_rows:
+            rows = district_rows
 
     if rank_terms:
         # Re-order this already-filtered bucket by within-category relevance:
