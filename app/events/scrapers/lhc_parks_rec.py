@@ -92,7 +92,10 @@ class LhcParksRecClient(EventIngestClient):
         time_m = re.search(r"Event Time:\s*</strong>\s*([^<]+)", desc, re.I)
         loc_m = re.search(r"Location:</strong>\s*([^<]+)", desc, re.I)
         start_date = dateutil_parser.parse(date_m.group(1)).date() if date_m else None
-        start_time = time(9, 0)
+        # No "Event Time" in the RSS description -> the 00:00 midnight sentinel
+        # (is_time_tbd renders it as "Time TBD"). Never fabricate a 9 AM start —
+        # the WP-4 contract is real times or an honest TBD.
+        start_time = time(0, 0)
         end_iso = None
         if time_m:
             parts = time_m.group(1).split("-")
@@ -109,7 +112,10 @@ class LhcParksRecClient(EventIngestClient):
             "location": loc_m.group(1).strip() if loc_m else "Lake Havasu City",
             "description": desc,
             "link": hit.source_stable_id,
-            "cancelled": "(Canceled)" in hit.raw_hit.name,
+            # ``hit`` IS the RawHit here (the enriched wrapper has .raw_hit;
+            # this raw one has .name directly) — .raw_hit.name crashed every
+            # RSS-fallback enrich with AttributeError.
+            "cancelled": "(Canceled)" in hit.name,
         }
         return EnrichedHit(raw_hit=hit, enriched=enriched)
 

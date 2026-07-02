@@ -144,14 +144,18 @@ def build_today_payload(db: Session, *, now: datetime | None = None) -> dict[str
         )
     )
 
-    # Water temperature (USGS 09426630, feature-gated upstream).
+    # Water temperature. The source is chosen upstream (RISE Parker Dam
+    # preferred, USGS gage fallback — api_payload.py), so echo ITS attribution
+    # instead of hardcoding the dead gage: a Parker Dam reading labeled
+    # "USGS 09426630" violates the honest-spatial-attribution rule the
+    # conditions tile chip already follows.
     water_temp_f = api.get("water_temp_f")
     fields.append(
         _field(
             "water_temp",
             "Water temp",
             f"{float(water_temp_f):.0f}°F" if water_temp_f is not None else None,
-            attribution="USGS 09426630",
+            attribution=api.get("water_temp_attribution") or "USGS 09426630",
             is_stale=bool(api.get("water_temp_is_stale")),
             staleness_label=api.get("water_temp_staleness_label"),
         )

@@ -113,3 +113,31 @@ def test_url_builders_combine_sort_and_open():
     assert ctrl["url_top"] == f"{BASE}?open=1"
     assert ctrl["url_open_off"] == f"{BASE}?sort=az"
     assert "open=1" in ctrl["url_open_on"]
+
+
+def test_featured_sort_keeps_query_match_above_open_reviewed():
+    # #666 regression: the ?q= relevance float marks matched cards
+    # is_query_match; the Featured re-sort must keep them ahead of the
+    # open/has_reviews demotion (a closed, not-yet-reviewed on-topic shop
+    # used to sink under every generic open/reviewed row).
+    cards = [
+        {"name": "Generic Open Reviewed", "is_open": True, "has_reviews": True},
+        {
+            "name": "On-topic But Closed",
+            "is_open": False,
+            "has_reviews": False,
+            "is_query_match": True,
+        },
+        {"name": "Another Generic", "is_open": True, "has_reviews": True},
+    ]
+    visible, _ = _apply_list_controls({}, cards, base_path=BASE)
+    assert visible[0]["name"] == "On-topic But Closed"
+
+
+def test_featured_sort_sponsored_still_outranks_query_match():
+    cards = [
+        {"name": "Match", "is_open": True, "has_reviews": True, "is_query_match": True},
+        {"name": "Paid Pin", "is_open": False, "has_reviews": False, "is_sponsored": True},
+    ]
+    visible, _ = _apply_list_controls({}, cards, base_path=BASE)
+    assert visible[0]["name"] == "Paid Pin"
