@@ -87,6 +87,36 @@ _BOILERPLATE_RES = (
 )
 
 
+# CVB site-footer chrome (2026-07-01 master audit §5.3): the golakehavasu event
+# scraper's "Overview" DOM walk runs past the section into the site footer, so
+# 29/73 CVB-sourced events ended in "…Stay Connected Go Lake Havasu Visitor
+# Center 422 English Village | … (800) 242-8278 … Who We Are". Cut everything
+# from the footer marker on. "Stay Connected" alone is too generic to cut on;
+# it only counts when the visitor-center block follows.
+_CVB_FOOTER_RE = re.compile(
+    r"(?:Stay\s+Connected\s+)?Go\s+Lake\s+Havasu\s+Visitor\s+Center\s+"
+    r"422\s+English\s+Village",
+    re.IGNORECASE,
+)
+_TRAILING_STAY_CONNECTED_RE = re.compile(r"\s*Stay\s+Connected\s*$", re.IGNORECASE)
+
+
+def strip_cvb_boilerplate(text: str | None) -> str:
+    """Truncate ``text`` at the CVB site-footer block; pass clean text through.
+
+    Idempotent; ``""`` for None/blank input. Exposed separately (not only via
+    :func:`clean_event_description`) so the backfill pass can report exactly
+    which rows carried the footer.
+    """
+    s = (text or "").strip()
+    if not s:
+        return ""
+    m = _CVB_FOOTER_RE.search(s)
+    if m:
+        s = s[: m.start()].rstrip(" \t\n|·–—-")
+    return _TRAILING_STAY_CONNECTED_RE.sub("", s).strip()
+
+
 def _strip_placeholder_sentences(text: str) -> str:
     for rx in _PLACEHOLDER_SENTENCE_RES:
         text = rx.sub(" ", text)
@@ -129,7 +159,8 @@ def clean_event_description(raw: str | None) -> str:
     """
     if not raw:
         return ""
-    text = _strip_placeholder_sentences(str(raw))
+    text = strip_cvb_boilerplate(str(raw))
+    text = _strip_placeholder_sentences(text)
     text = _strip_boilerplate(text)
     kept: list[str] = []
     for line in text.replace("\r\n", "\n").replace("\r", "\n").split("\n"):

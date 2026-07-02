@@ -790,6 +790,13 @@ def serve_family(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
     return _serve_mode_landing(request, db, "family")
 
 
+@router.get("/kids", response_model=None)
+def serve_kids_redirect() -> RedirectResponse:
+    """The nav and old links say /kids; the surface lives at /family
+    (2026-07-01 master audit §6.5: /kids 404'd)."""
+    return RedirectResponse(url="/family", status_code=301)
+
+
 # Phase 3.2 label unification: the /map scope tabs now read their labels from the
 # canonical department source (app.categories.display_labels.map_scope_label), so
 # a category reads identically on /map, the directory, and the home grid (the live
