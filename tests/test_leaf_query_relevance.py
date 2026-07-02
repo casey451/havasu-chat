@@ -65,22 +65,23 @@ def test_float_query_matches_floats_relevant_first() -> None:
         _p("c", "Lake Havasu Wakesurf Co."),
         _p("d", "Wakesurf Havasu"),
     ]
-    out = _float_query_matches(rows, "wake surfing", set())
+    out, match_ids = _float_query_matches(rows, "wake surfing", set())
     assert [p.id for p in out[:2]] == ["c", "d"]  # wakesurf shops floated
     assert {p.id for p in out} == {"a", "b", "c", "d"}  # no rows lost
+    assert match_ids == {"c", "d"}
 
 
 def test_float_query_matches_keeps_paid_pins_first() -> None:
     rows = [_p("pin", "Sponsored Jetski"), _p("c", "Wakesurf Havasu"), _p("x", "Boat Tours")]
-    out = _float_query_matches(rows, "wakesurf", {"pin"})
+    out, _ = _float_query_matches(rows, "wakesurf", {"pin"})
     assert out[0].id == "pin"  # paid pin stays on top
     assert out[1].id == "c"  # then the relevant match
 
 
 def test_float_query_matches_noop_without_query_or_match() -> None:
     rows = [_p("a", "Jet Ski Rentals"), _p("b", "Boat Tours")]
-    assert _float_query_matches(rows, None, set()) == rows
-    assert _float_query_matches(rows, "wakesurf", set()) == rows  # nothing matches
+    assert _float_query_matches(rows, None, set()) == (rows, frozenset())
+    assert _float_query_matches(rows, "wakesurf", set()) == (rows, frozenset())  # nothing matches
 
 
 # --- Phase 6 (2026-07-01): Google types join the match haystack ---------------
@@ -111,7 +112,7 @@ def test_oil_change_floats_quick_lube_on_auto_repair_leaf() -> None:
         _p("b", "Havasu Collision Center", google_primary="auto_body_shop"),
         _p("c", "Quick Lube Havasu", google_primary="oil_change_service"),
     ]
-    out = _float_query_matches(rows, "oil change", set())
+    out, _ = _float_query_matches(rows, "oil change", set())
     assert out[0].id == "c"
 
 
@@ -121,8 +122,8 @@ def test_mini_golf_floats_venue_on_family_fun_leaf() -> None:
         _p("b", "VR Escape Reality",
            google_types=["escape_room", "miniature_golf_course", "axe_throwing"]),
     ]
-    assert _float_query_matches(rows, "mini golf", set())[0].id == "b"
-    assert _float_query_matches(rows, "axe throwing", set())[0].id == "b"
+    assert _float_query_matches(rows, "mini golf", set())[0][0].id == "b"
+    assert _float_query_matches(rows, "axe throwing", set())[0][0].id == "b"
 
 
 def test_bare_on_topic_query_keeps_order() -> None:
@@ -132,7 +133,7 @@ def test_bare_on_topic_query_keeps_order() -> None:
         _p("a", "Lake Havasu Jet Ski Rentals"),
         _p("b", "Havasu Jet Ski Adventures"),
     ]
-    assert [p.id for p in _float_query_matches(rows, "jet ski rentals", set())] == ["a", "b"]
+    assert [p.id for p in _float_query_matches(rows, "jet ski rentals", set())[0]] == ["a", "b"]
 
 
 def test_chat_leaf_redirect_carries_query() -> None:

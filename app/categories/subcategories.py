@@ -195,8 +195,13 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("trail", "trails-offroad"),
     ("off_road", "trails-offroad"),
     ("beach", "parks-beaches"),
+    # Overnight-stay types must outrank the bare "park" substring rule below:
+    # "rv_park" CONTAINS "park", and first-match-wins, so the stay block's own
+    # rv_park/campground entries (line ~300) were unreachable — RV parks and
+    # campgrounds filed as parks-beaches instead of rv-parks (→ lodging).
+    ("rv_park", "rv-parks"),
+    ("campground", "rv-parks"),
     ("park", "parks-beaches"),
-    ("campground", "parks-beaches"),
     # sports/fitness
     ("pickleball", "racquet-sports"),
     ("tennis", "racquet-sports"),
@@ -284,7 +289,8 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("bank", "professional"),
     ("consultant", "professional"),
     ("hair", "beauty"),
-    ("barber", "beauty"),
+    # ("barber", "beauty") lives in the eat-drink block above (it must precede
+    # the bare "bar" token); a duplicate here was unreachable.
     ("nail", "beauty"),
     ("beauty", "beauty"),
     ("salon", "beauty"),
@@ -300,10 +306,9 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("school", "kids-lessons"),
     ("university", "kids-lessons"),
     ("childcare", "kids-lessons"),
-    # stay
+    # stay ("rv_park"/"campground" live earlier, above the bare "park" rule
+    # that would otherwise swallow them — see the recreation block)
     ("vacation", "vacation-rentals"),
-    ("rv_park", "rv-parks"),
-    ("campground", "rv-parks"),
     ("resort", "hotels"),
     ("motel", "hotels"),
     ("hotel", "hotels"),
@@ -475,9 +480,22 @@ LEGACY_CATEGORY_TO_PRIMARY: dict[str, str] = {
     "lake_recreation": "on-the-water",
     "boat_rental": "on-the-water",
     "boat_repair": "on-the-water",
+    # These direct folds must agree with the _LEGACY_TO_SUBCAT →
+    # SUBCATEGORY_TO_PRIMARY derivation (which is what actually places a row on
+    # a listing): a divergent entry makes an un-backfilled (NULL-primary) row
+    # COUNT under one department while LISTING under another — the
+    # count-vs-listing drift WP-12 exists to prevent. fitness_sports/fitness
+    # used to fold to health-wellness-care while gyms (their derived
+    # subcategory) lands on classes-sports-recreation.
+    # tests/test_audit_categories_fixes.py asserts the two paths agree map-wide.
+    # KNOWN EXCEPTION: "recreation" folds here to classes-sports-recreation
+    # (CATEGORY_FILTERS + /api/map_data expect that) while its derived
+    # subcategory (parks-beaches) lands on outdoors-parks-trails — the legacy
+    # bucket genuinely straddles both departments and only a per-row recat can
+    # split it; documented in the test's exception list.
     "recreation": "classes-sports-recreation",
-    "fitness_sports": "health-wellness-care",
-    "fitness": "health-wellness-care",
+    "fitness_sports": "classes-sports-recreation",
+    "fitness": "classes-sports-recreation",
     "childcare_education": "classes-sports-recreation",
     "education": "classes-sports-recreation",
     "edu": "classes-sports-recreation",

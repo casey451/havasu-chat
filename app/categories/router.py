@@ -942,10 +942,15 @@ def _apply_list_controls(
         # below a closed/no-review one (the audit's "closed studio with no reviews
         # shown first" bug). Python's stable sort preserves the incoming order
         # within each tier; sponsored pins were already applied upstream.
+        # ``is_query_match`` (the #666 relevance float from a ?q= arrival)
+        # outranks the open/has_reviews demotion — otherwise a closed or
+        # not-yet-reviewed on-topic match sank right back under the generic
+        # rows the float lifted it above.
         working = sorted(
             working,
             key=lambda c: (
                 0 if c.get("is_sponsored") else 1,
+                0 if c.get("is_query_match") else 1,
                 0 if c.get("is_open") is True else 1,
                 0 if c.get("has_reviews") else 1,
             ),

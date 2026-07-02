@@ -3,7 +3,7 @@ from __future__ import annotations
 import json
 import os
 import re
-from datetime import date, time, timedelta
+from datetime import time, timedelta
 
 try:
     from openai import OpenAI
@@ -14,6 +14,7 @@ from app.bootstrap_env import ensure_dotenv_loaded
 from app.core import embeddings
 from app.core.llm_http import LLM_CLIENT_READ_TIMEOUT_SEC
 from app.core.openai_client import get_openai_client
+from app.core.timezone import now_lake_havasu
 
 ensure_dotenv_loaded()
 
@@ -229,7 +230,10 @@ def _extract_title(message: str) -> str:
 
 def _extract_date(message: str) -> str:
     lowered = message.lower()
-    today = date.today()
+    # Lake Havasu wall-clock, not server-UTC date.today() — after ~5 PM Phoenix
+    # a UTC host has already rolled to tomorrow, shifting "today"/"tomorrow"
+    # and weekday resolution a day early (same class as the P1-8 slots.py fix).
+    today = now_lake_havasu().date()
 
     if "today" in lowered:
         return today.isoformat()
