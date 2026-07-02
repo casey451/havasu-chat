@@ -1,8 +1,8 @@
 """Portal router — aggregates all portal pages under /admin/portal.
 
-NOT registered anywhere. Activation is a deliberate two-line change in
-app/main.py (see README.md in this directory). Prefix chosen to avoid
-any collision with the existing /admin routes.
+Registered in app/main.py (Track E, live since 2026-06-10). Prefix chosen to
+avoid any collision with the classic /admin routes. (This docstring previously
+claimed the router was unwired — audit doc-rot fix 2026-07-02.)
 """
 
 from __future__ import annotations

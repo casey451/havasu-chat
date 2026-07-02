@@ -12,10 +12,10 @@ This mirrors app/conditions/usgs_water_temp.py: an alternate water-temp source
 behind its own feature flag (``FEATURE_FLAG_WATER_TEMP_RISE_6127``, default OFF).
 When OFF the fetcher returns an empty payload and makes NO HTTP request.
 
-INERT build-only module: NOT wired into the live fetcher registry (that
-registration is the integration step). NEEDS_PROD_VERIFY: the RISE result
-endpoint failed from the research sandbox's datacenter IP — re-verify from prod
-(or via the proxy env pattern) before wiring.
+LIVE since 2026-06-29: wired into the fetcher registry
+(app/conditions/fetcher.py) and PREFERRED by api_payload over the
+sentinel-stuck Bill Williams USGS gage. (This docstring previously described
+the pre-wiring inert state — audit doc-rot fix 2026-07-02.)
 """
 
 from __future__ import annotations
