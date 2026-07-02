@@ -12,7 +12,10 @@
            static_url, plausible_domain.
 -#}
 {% from "_partials/lake_logo.svg.html" import logo_nav %}
-<html lang="en" data-theme="lake">
+{#- data-redesign="1" is permanent: the v4 reskin flag was collapsed 2026-07-02
+   (lake_redesign_site.css scopes all its rules under html[data-redesign="1"]).
+   It used to be injected by a middleware that buffered every HTML response. -#}
+<html lang="en" data-theme="lake" data-redesign="1">
 <head>
   {% include '_partials/plausible.html' %}
   <meta charset="utf-8">
@@ -53,6 +56,9 @@
   {# F11: the unified v4 masthead + footer chrome (shared site_header/site_footer
      partials). Self-contained so it renders identically over lake.css content. #}
   <link rel="stylesheet" href="{{ static_url('/static/styles/site_chrome.css') }}">
+  {# The sitewide v4 override (scoped under html[data-redesign="1"]) — baked in
+     since the 2026-07-02 flag collapse; previously middleware-injected. #}
+  <link rel="stylesheet" href="{{ static_url('/static/styles/lake_redesign_site.css') }}">
   {% block head_extra %}{% endblock %}
 </head>
 <body data-theme="lake" data-mode="{% block mode %}ask{% endblock %}"{% block body_attrs %}{% endblock %}>

@@ -41,10 +41,8 @@ from app.events.dedup import dedup_cross_source_event_rows
 from app.events.time_labels import TIME_TBD_LABEL, is_time_tbd, time_sort_key
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
-from app.home import events_views, flags, redesign, sandstone, sponsor_store
-from app.home.today_feed import today_feed
+from app.home import events_views, redesign, sandstone, sponsor_store
 from app.monetization import serving
-from app.movies.queries import movies_today
 from app.news import store as news_store
 from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
 
@@ -601,27 +599,31 @@ def serve_home(
     cal: str | None = None,
     date: str | None = None,
 ) -> HTMLResponse:
-    """Render /home — the Sandstone editorial home (Ask mode).
+    """Render /home — the v4 home (Ask mode).
 
     Every count/badge traces to a live query or is omitted (the anti-confabulation
-    contract in 01_UI_BUILD_GUIDE.md §4). The optional ``cal=YYYY-MM`` param drives
-    the server-rendered month calendar's prev/next without any client JS.
+    contract in 01_UI_BUILD_GUIDE.md §4).
 
     The optional ``date=YYYY-MM-DD`` param (the home day-picker tiles, FIX_DAYPICKER
     item 4) re-renders the unified feed for that day on the SAME home page — no
     font/page jump, no stale "Happening today" heading. It defaults to today and
     only steers the feed + its date label; the 7-day strip stays today-anchored and
-    highlights the selected tile. Past-item muting keys off the real clock vs the
-    selected day (``today_feed``'s ``now`` no-ops off the current date), so a future
-    day shows nothing muted.
+    highlights the selected tile.
+
+    2026-07-02 flag collapse: v4 (HOME_REDESIGN) had been permanently on in prod
+    since ~06-23, so the flag, the ?home_redesign= preview override, and the
+    pre-v4 ``home_lake.html`` branch (with its own conditions strip, month
+    calendar, and Featured slot) are gone. ``cal`` is accepted-and-ignored so
+    old bookmarked ?cal= links don't 422.
+
+    The Tier-2 Featured/Spotlight sponsor slot has no v4 surface, so it is not
+    fetched (fetching counts an impression — impressions must equal renders).
+    A SOLD homepage-featured Placement is therefore not served; wiring a
+    Featured slot into home_redesign.html is a design decision.
     """
+    del cal  # pre-v4 month-calendar param; accepted so old links don't 422
     now = now_lake_havasu()
     feed_day = _parse_iso_date(date) or now.date()
-    # P3 weather grouping: the top conditions band shows weather only (date · temp
-    # · UV · wind); gas renders as its own simple line below it on the home page.
-    utility_chips = _utility_chips(db, include_gas=False)
-    gas_chip = _gas_chip(db)
-    cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
     # G ad ladder: Tier-1 marquee (above the fold) + Tier-3 promoted (after the
     # Explore grid). Both real-or-omit — None when unsold, never a fake sponsor.
     # §7.1: a sold homepage rotating PLACEMENT wins the marquee; otherwise fall
@@ -631,111 +633,29 @@ def serve_home(
     taken: set[str] = set()
     if marquee and marquee.get("is_placement") and marquee.get("id"):
         taken.add(marquee["id"])
-
-    # ── home_redesign (dark): the v4 reskin, served only when the flag resolves on
-    # (env HOME_REDESIGN, or the ?home_redesign=1 preview override). The old home
-    # stays intact below for instant rollback (flip the flag off). Same live data,
-    # re-templated; see app/home/redesign.py + flags.py.
-    if flags.home_redesign_enabled(request):
-        # The v4 templates render only the marquee + promoted slots — the Tier-2
-        # Featured/Spotlight slot has no v4 surface, so its fetches (which bump
-        # Sponsor.impressions and emit placement-impression analytics) live in
-        # the legacy branch below. Impressions must equal renders — that's what
-        # keeps the clicks/impressions ratio honest (sponsor_store module doc).
-        # NOTE: a SOLD homepage-featured Placement is therefore not served while
-        # v4 is live; wiring a Featured slot into home_redesign.html is a design
-        # decision, not a data fix.
-        promoted = serving.serve_homepage_promoted(db, exclude_ids=taken) or sponsor_store.active_promoted(db)
-        resp = templates.TemplateResponse(
-            request=request,
-            name="home_redesign.html",
-            context={
-                "today_label": now.strftime("%A, %B ") + str(now.day),
-                "selected_iso": feed_day.isoformat(),
-                "feed_day_label": _long_day_label(feed_day),
-                "is_today": feed_day == now.date(),
-                "cond_tiles": redesign.conditions_tiles(db, now=now),
-                "gas": redesign.gas_top5(db, now=now),
-                "week": sandstone.week_strip(db, today=now.date(), selected=feed_day),
-                "feed": redesign.feed_view_model(db, day=feed_day, now=now),
-                # (F6 2026-07-01: the headline now reads feed.total — the same
-                # number as the "All today" pill on the same screen — so the
-                # separate real_happenings_by_day headline count is gone.)
-                "marquee": marquee,
-                "promoted": promoted,
-                "directory_tiles": sandstone.directory_primary_tiles(),
-                "explore_tiles": sandstone.explore_tiles(db),
-                # Local news ticker headlines (honest-omit when the pull is empty).
-                "news": news_store.ticker_view(db),
-                "active_tab": "today",
-            },
-        )
-        flags.apply_preview_cookie(request, resp)
-        return resp
-
-    # Phase 6C: the home Featured (Tier-2) + Promoted (Tier-3) slots run on the
-    # SAME Placement homepage-rotating pool as the marquee, drawing DISTINCT
-    # businesses per load (each slot excludes the ids the higher slots took). Each
-    # falls back to its legacy sponsor when the pool has nothing left, so the home
-    # page stays dormant-safe — an empty pool means today's behavior. Fetched only
-    # here (legacy branch) because only home_lake.html renders the Featured slot —
-    # active_spotlights/serve_homepage_featured count an impression per call.
-    spotlights = sponsor_store.active_spotlights(db)
-    featured_placement = serving.serve_homepage_featured(db, exclude_ids=taken, limit=3)
-    if featured_placement:
-        featured_cards = featured_placement
-        taken.update(c["id"] for c in featured_placement if c.get("id"))
-    else:
-        featured_cards = sandstone.featured_cards(spotlights)
     promoted = serving.serve_homepage_promoted(db, exclude_ids=taken) or sponsor_store.active_promoted(db)
-
-    # Hero copy defaults to the locked prototype wording (with its italic accent);
-    # owners can retune the eyebrow/headline per season via env without a redeploy.
-    hero_eyebrow_override = os.getenv("HOME_HERO_EYEBROW") or None
-    hero_headline_override = os.getenv("HOME_HERO_HEADLINE") or None
-    template_name = "home_lake.html"
     return templates.TemplateResponse(
         request=request,
-        name=template_name,
+        name="home_redesign.html",
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
-            "now_label": now.strftime("%I:%M %p").lstrip("0"),
-            "hero_eyebrow_override": hero_eyebrow_override,
-            "hero_headline_override": hero_headline_override,
-            "utility_chips": utility_chips,
-            "gas_chip": gas_chip,
-            "primary_nav": sandstone.primary_nav(),
-            "mega_columns": sandstone.mega_columns(db),
-            "week": sandstone.week_strip(db, today=now.date()),
-            # The home feed renders the SAME organized day-group structure as the
-            # /events-ui Calendar surface, so the two stay consistent (Casey
-            # 2026-06-23). It is the Calendar surface, so it is events-only too
-            # (two-surface spec §1, 2026-06-26): only dated happenings — venue
-            # hours + recurring class rosters live on Places & Ongoing, not the
-            # home preview. ``now`` stays the real clock for today's auto-expiry.
-            "today_groups": events_views.day_groups(
-                db, day=feed_day, now=now, events_only=True
-            ),
-            "today_highlights": events_views.day_highlights(db, day=now.date(), now=now, limit=3),
-            # ``today_feed`` is still computed for its collapsed "At the movies"
-            # group (the per-film showtime rollup), which the day-group view does
-            # not build; the home template renders only that group from it.
-            "today_feed": today_feed(db, day=feed_day, now=now),
-            # FIX_DAYPICKER item 4: the feed's small date label ("Saturday,
-            # June 20") + the iso the day-picker highlights as selected.
-            "feed_day_label": _long_day_label(feed_day),
             "selected_iso": feed_day.isoformat(),
+            "feed_day_label": _long_day_label(feed_day),
+            "is_today": feed_day == now.date(),
+            "cond_tiles": redesign.conditions_tiles(db, now=now),
+            "gas": redesign.gas_top5(db, now=now),
+            "week": sandstone.week_strip(db, today=now.date(), selected=feed_day),
+            "feed": redesign.feed_view_model(db, day=feed_day, now=now),
+            # (F6 2026-07-01: the headline now reads feed.total — the same
+            # number as the "All today" pill on the same screen — so the
+            # separate real_happenings_by_day headline count is gone.)
             "marquee": marquee,
             "promoted": promoted,
-            "featured_cards": featured_cards,
-            "calendar": sandstone.calendar_month(
-                db, year=cal_year, month=cal_month, today=now.date()
-            ),
-            "explore_tiles": sandstone.explore_tiles(db),
-            "service_tiles": sandstone.service_tiles(db),
-            # Phase 3: the slim home directory's six high-traffic front doors.
-            "directory_tiles": sandstone.directory_primary_tiles(),
-            "movies_today": movies_today(db, day=now.date(), now=now),
+            # (directory_tiles / explore_tiles were dropped 2026-07-02: no v4
+            # template renders them — they were pre-v4 context computed per
+            # request, incl. DB queries, for nothing.)
+            # Local news ticker headlines (honest-omit when the pull is empty).
+            "news": news_store.ticker_view(db),
             "active_tab": "today",
         },
     )

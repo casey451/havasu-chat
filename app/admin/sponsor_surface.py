@@ -556,10 +556,11 @@ def merchant_upgrade_get(
         )
         .first()
     )
-    _lake = getattr(request.state, "theme", "desert") == "lake"
+    # Lake is the only theme (desert deleted 2026-06-24); the desert branch
+    # pointed at a template that no longer exists (TemplateNotFound -> 500).
     return _TEMPLATES.TemplateResponse(
         request=request,
-        name="merchant_upgrade_form_lake.html" if _lake else "merchant_upgrade_form.html",
+        name="merchant_upgrade_form_lake.html",
         context={
             "entity": ent,
             "slots": [s.value for s in AdSlot],
@@ -615,9 +616,8 @@ def merchant_upgrade_post(
             )
         )
         db.commit()
-    _lake = getattr(request.state, "theme", "desert") == "lake"
     return _TEMPLATES.TemplateResponse(
         request=request,
-        name="merchant_upgrade_form_lake.html" if _lake else "merchant_upgrade_form.html",
+        name="merchant_upgrade_form_lake.html",
         context={"entity": ent, "slots": [s.value for s in AdSlot], "pending": True},
     )

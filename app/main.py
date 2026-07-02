@@ -74,11 +74,6 @@ from app.core.provider_name import (
     register_template_globals as _register_template_globals,
 )
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter, public_html_rate_limit
-from app.core.theme import (
-    THEME_COOKIE,
-    VALID_THEMES,
-    resolve_request_theme,
-)
 from app.core.timezone import now_lake_havasu, occurrence_end_dt, to_lake_naive
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.jobs_store import count_stale_running, requeue_stale_claims
@@ -91,7 +86,6 @@ from app.events.tag_display import public_event_tags
 from app.events.time_labels import is_time_tbd
 from app.events.title_clean import clean_event_title
 from app.feedback.routes import router as feedback_router
-from app.home import flags as home_redesign_flags
 from app.home.calendar_route import router as calendar_page_router
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.lake_preview import router as lake_preview_router
@@ -497,47 +491,31 @@ app = FastAPI(title="Havasu Chat", lifespan=lifespan)
 app.add_middleware(SessionMiddleware)
 
 
-# Lake Ink & Brass redesign (Phase 0): resolve the active theme per request and
-# stamp it on ``request.state.theme`` so routes pick the base layout / CSS bundle
-# and templates read ``request.state.theme`` directly. Order of precedence lives
-# in app/core/theme.py: ?theme= query → theme cookie → THEME_DEFAULT env →
-# "desert". Stays dark (desert) the whole build; the flip sets THEME_DEFAULT=lake.
-class ThemeMiddleware(BaseHTTPMiddleware):
-    """Resolve + persist the redesign theme flag on every request."""
-
-    async def dispatch(self, request: Request, call_next):
-        query_theme = request.query_params.get("theme")
-        cookie_theme = request.cookies.get(THEME_COOKIE)
-        theme = resolve_request_theme(query_theme, cookie_theme)
-        request.state.theme = theme
-        response = await call_next(request)
-        # Persist a valid ?theme= override so QA click-through keeps the skin
-        # without re-appending the query string on every link.
-        normalized_q = (query_theme or "").strip().lower()
-        if normalized_q in VALID_THEMES and normalized_q != (cookie_theme or "").lower():
-            response.set_cookie(
-                THEME_COOKIE,
-                theme,
-                max_age=2_592_000,  # 30 days
-                path="/",
-                httponly=True,
-                samesite="lax",
-                secure=request.url.scheme == "https",
-            )
-        return response
+# ThemeMiddleware was deleted 2026-07-02 (audit flag-collapse): lake has been
+# the only theme since the desert lineage was deleted 2026-06-24, so the
+# per-request ?theme=/cookie/THEME_DEFAULT resolution could only ever produce
+# "lake". Templates hardcode data-theme="lake" in the two base layouts.
 
 
 class AdminLakeSkinMiddleware(BaseHTTPMiddleware):
-    """Phase 6: reskin the admin/portal pages to Lake Ink & Brass behind the THEME
-    flag. The admin surface is three rendering families (inline-HTML _nav_shell
-    pages, the Jinja .d-admin templates, and the CSS-var-driven admin_portal) —
-    each builds its own <head>+<style>, so this is the single uniform injection
-    point: for an /admin HTML response when the flag resolves to lake, append the
-    lake_admin.css link (which overrides those styles) + noindex before </head>.
-    Dark behind the flag: desert admin is byte-identical (no injection)."""
+    """Reskin the admin/portal pages to Lake Ink & Brass. The admin surface is
+    three rendering families (inline-HTML _nav_shell pages, the Jinja .d-admin
+    templates, and the CSS-var-driven admin_portal) — each builds its own
+    <head>+<style>, so this is the single uniform injection point: for an
+    /admin HTML response, append the lake_admin.css link (which overrides those
+    styles) + the v4 sitewide override + noindex before </head>.
+
+    This is the LAST body-rewriting middleware: it survives the 2026-07-02
+    flag-collapse only because the admin shells are ~15 separate hand-built
+    <head>s; the planned admin-shell consolidation bakes these links into the
+    one shared shell and deletes this class. It also carries the v4 sitewide
+    skin for admin pages (lake_redesign_site.css + data-redesign) that the
+    deleted HomeRedesignSkinMiddleware used to inject everywhere.
+    """
 
     _INJECT = (
         '<link rel="stylesheet" href="/static/styles/lake_admin.css">'
+        '<link rel="stylesheet" href="/static/styles/lake_redesign_site.css">'
         '<meta name="robots" content="noindex">'
     )
 
@@ -552,6 +530,11 @@ class AdminLakeSkinMiddleware(BaseHTTPMiddleware):
         text = body.decode("utf-8", "replace")
         if "</head>" in text:
             text = text.replace("</head>", self._INJECT + "</head>", 1)
+        # lake_redesign_site.css scopes under html[data-redesign="1"]; the
+        # hand-built admin <html> tags don't carry it, so stamp it here (the
+        # deleted sitewide skin middleware used to).
+        if "data-redesign" not in text:
+            text = text.replace("<html", '<html data-redesign="1"', 1)
         data = text.encode("utf-8")
         keep = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
         return Response(
@@ -562,60 +545,11 @@ class AdminLakeSkinMiddleware(BaseHTTPMiddleware):
         )
 
 
-class HomeRedesignSkinMiddleware(BaseHTTPMiddleware):
-    """Sitewide v4 reskin (home_redesign, dark rollout).
-
-    When the flag resolves on, stamp ``data-redesign="1"`` on the <html> element
-    and inject the ``lake_redesign_site.css`` override link into every HTML
-    response (public + portal + admin) — the single uniform injection point, the
-    same technique :class:`AdminLakeSkinMiddleware` uses for lake_admin.css. The
-    CSS is fully scoped under ``html[data-redesign="1"]`` so a flag-off render is
-    byte-identical (instant rollback). The standalone v4 home/calendar already
-    ship their own ``lake_redesign.css`` (they extend base_redesign), so they are
-    skipped to avoid double-skinning.
-    """
-
-    _LINK = '<link rel="stylesheet" href="/static/styles/lake_redesign_site.css">'
-
-    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
-        response = await call_next(request)
-        if "text/html" not in (response.headers.get("content-type") or ""):
-            return response
-        if not home_redesign_flags.home_redesign_enabled(request):
-            return response
-        body = b"".join([section async for section in response.body_iterator])
-        text = body.decode("utf-8", "replace")
-        # The standalone v4 home/calendar already carry lake_redesign.css — leave
-        # them untouched (but still rebuild the response since the iterator is
-        # consumed; also persist a preview cookie if a ?home_redesign= override
-        # was used).
-        already_v4 = "lake_redesign.css" in text
-        if not already_v4 and "data-redesign" not in text:
-            if 'data-theme="lake"' in text:
-                text = text.replace(
-                    'data-theme="lake"', 'data-theme="lake" data-redesign="1"', 1
-                )
-            else:
-                text = text.replace("<html", '<html data-redesign="1"', 1)
-            if "</head>" in text:
-                text = text.replace("</head>", self._LINK + "</head>", 1)
-        data = text.encode("utf-8")
-        keep = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
-        new_response = Response(
-            content=data,
-            status_code=response.status_code,
-            headers=keep,
-            background=response.background,
-        )
-        home_redesign_flags.apply_preview_cookie(request, new_response)
-        return new_response
-
-
+# HomeRedesignSkinMiddleware was deleted 2026-07-02 (audit flag-collapse): the
+# v4 reskin is permanently on, so the data-redesign stamp + the
+# lake_redesign_site.css link are baked into base_lake.html directly instead of
+# buffering and string-rewriting every HTML response body sitewide.
 app.add_middleware(AdminLakeSkinMiddleware)
-app.add_middleware(ThemeMiddleware)
-# Outermost of the skin middlewares: runs LAST on the response so it injects the
-# sitewide override after AdminLakeSkin's lake_admin.css (source order → wins).
-app.add_middleware(HomeRedesignSkinMiddleware)
 
 
 # Launch hardening (v48): minimal security headers on HTML responses. CSP is

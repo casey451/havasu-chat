@@ -1,10 +1,11 @@
-"""Sitewide v4 reskin (home_redesign) — the HomeRedesignSkinMiddleware.
+"""Sitewide v4 reskin — baked into the base layout (flag collapsed 2026-07-02).
 
-When the flag is on, every HTML page (public + portal + admin) gets
-``data-redesign="1"`` + the scoped ``lake_redesign_site.css`` injected, so the
-whole site matches the v4 home. Flag off → byte-identical (no injection). The
-standalone v4 home/calendar (their own lake_redesign.css) are skipped. Reskinned
-pages must still clear the structural WCAG 2.1 AA contract.
+Every page extending ``base_lake.html`` carries ``data-redesign="1"`` on <html>
+plus the scoped ``lake_redesign_site.css`` link directly in the template — the
+HomeRedesignSkinMiddleware that used to buffer and string-rewrite every HTML
+response is gone. The standalone v4 home/calendar (base_redesign, their own
+lake_redesign.css) are not double-skinned. Reskinned pages must still clear the
+structural WCAG 2.1 AA contract.
 """
 
 from __future__ import annotations
@@ -18,30 +19,28 @@ from app.main import app
 _INNER = ["/events-ui", "/categories", "/about", "/help", "/contact"]
 
 
-def test_flag_off_no_injection() -> None:
-    c = TestClient(app)
-    for url in _INNER:
-        b = c.get(url).text
-        assert "lake_redesign_site.css" not in b
-        assert 'data-redesign="1"' not in b
-
-
 @pytest.mark.parametrize("url", _INNER)
-def test_flag_on_injects_reskin(url: str) -> None:
-    b = TestClient(app).get(f"{url}?home_redesign=1").text
+def test_reskin_is_baked_into_base_layout(url: str) -> None:
+    b = TestClient(app).get(url).text
     assert 'data-redesign="1"' in b
     assert "/static/styles/lake_redesign_site.css" in b
     # the shared Lake CSS is still present (overrides layer on top of it)
     assert "/static/styles/lake.css" in b
 
 
+def test_reskin_needs_no_flag_and_sets_no_cookie() -> None:
+    r = TestClient(app).get("/about")
+    assert 'data-redesign="1"' in r.text
+    assert "home_redesign" not in (r.headers.get("set-cookie") or "")
+
+
 def test_standalone_v4_home_not_double_skinned() -> None:
-    b = TestClient(app).get("/home?home_redesign=1").text
+    b = TestClient(app).get("/home").text
     assert "/static/styles/lake_redesign.css" in b  # its own v4 sheet
-    assert "/static/styles/lake_redesign_site.css" not in b  # not double-injected
+    assert "/static/styles/lake_redesign_site.css" not in b  # not double-linked
 
 
-@pytest.mark.parametrize("url", ["/about?home_redesign=1", "/events-ui?home_redesign=1"])
+@pytest.mark.parametrize("url", ["/about", "/events-ui"])
 def test_reskinned_pages_a11y(url: str) -> None:
     checker = _A11yChecker()
     checker.feed(TestClient(app).get(url).text)

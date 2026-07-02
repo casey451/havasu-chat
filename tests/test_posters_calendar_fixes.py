@@ -18,9 +18,11 @@ from app.home import events_views
 from app.main import app
 
 
-def test_home_full_calendar_button_points_to_week_view() -> None:
-    body = TestClient(app).get("/home?theme=lake").text
-    assert 'class="day daycal" href="/events-ui?view=week"' in body
+def test_home_calendar_button_points_to_calendar() -> None:
+    # v4 (flag collapsed 2026-07-02): the week strip's Calendar button targets
+    # the v4 /calendar month grid, not the legacy week view.
+    body = TestClient(app).get("/home").text
+    assert 'class="calbtn" href="/calendar"' in body
 
 
 def test_swipe_weeks_builder_shape_and_today_flagging() -> None:

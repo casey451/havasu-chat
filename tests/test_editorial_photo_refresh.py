@@ -14,7 +14,6 @@ import uuid
 from datetime import datetime
 
 import pytest
-from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
 from app.core.timezone import now_lake_havasu
@@ -27,7 +26,6 @@ from app.home.router import (
     _events_for_window,
     _hero_context,
 )
-from app.main import app
 
 # Real Unsplash CDN asset URLs look like ``photo-<digits>-<hex>``; the page-slug
 # form (``photo-IbBDRgpNkkQ``) is not a CDN asset and 404s.
@@ -128,18 +126,6 @@ def test_events_window_carries_category_accent() -> None:
             db.commit()
 
 
-def test_home_renders_text_hero(monkeypatch: pytest.MonkeyPatch) -> None:
-    """The Lake home uses an editorial *text* hero (no background photo).
-
-    The configurable-photo hero was a Lake Light feature; the redesign's home
-    leads with a centered headline + single search. The hero composer
-    (``_hero_context``) keeps its own unit test above for reuse on the
-    mode-landing heroes.
-    """
-    monkeypatch.delenv("HOME_HERO_IMAGE_URL", raising=False)
-    with TestClient(app) as client:
-        r = client.get("/home")
-    assert r.status_code == 200
-    # Lake text hero: the display lede, still no background photo.
-    assert 'class="lead"' in r.text
-    assert '<h1 class="asklede">Everything in Lake Havasu, in one place.</h1>' in r.text
+# (test_home_renders_text_hero was deleted with the 2026-07-02 flag collapse:
+# the asklede text hero belonged to the pre-v4 home_lake.html. _hero_context
+# keeps its unit test above for the mode-landing heroes.)

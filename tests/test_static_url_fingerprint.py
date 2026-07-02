@@ -14,10 +14,10 @@ from app.core.static_assets import _STATIC_ROOT, static_url
 
 
 def test_appends_content_hash_for_real_asset() -> None:
-    css = _STATIC_ROOT / "styles" / "desert.css"
+    css = _STATIC_ROOT / "styles" / "lake.css"
     assert css.is_file(), "fixture asset missing"
-    out = static_url("/static/styles/desert.css")
-    m = re.fullmatch(r"/static/styles/desert\.css\?v=([0-9a-f]{8})", out)
+    out = static_url("/static/styles/lake.css")
+    m = re.fullmatch(r"/static/styles/lake.css\?v=([0-9a-f]{8})", out)
     assert m, out
     # Fingerprint is the short SHA-1 of the file bytes.
     expected = hashlib.sha1(css.read_bytes()).hexdigest()[:8]
@@ -47,7 +47,7 @@ def test_biz_photos_not_fingerprinted() -> None:
 
 
 def test_existing_query_uses_ampersand() -> None:
-    out = static_url("/static/styles/desert.css?foo=1")
+    out = static_url("/static/styles/lake.css?foo=1")
     assert "?foo=1&v=" in out
 
 
