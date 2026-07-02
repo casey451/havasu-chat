@@ -26,10 +26,10 @@ from app.contrib.ingest_reconciler import slugify
 # deactivation from being undone. Add a slug here to durably retire a listing.
 SUPPRESSED_BUSINESS_SLUGS: frozenset[str] = frozenset(
     {
-        # 2026-07-01: dormant CVB listing, placeholder address, no category/reviews;
-        # kept resurfacing on the daily partner re-scrape at the top of the
-        # Jet Ski & Watersports leaf. The two real wakesurf shops stay.
-        slugify("Wake Surf Adventures"),
+        # ("Wake Surf Adventures" was suppressed here 2026-07-01 as dormant;
+        # UNSUPPRESSED 2026-07-01 PM per Casey [ASK #7] — the business is active
+        # (4.7★ Birdeye, live site/Facebook). The reinstate ships as a gated
+        # data op that re-attributes the existing row before re-scrapes match.)
         # 2026-07-01 Phase 3 (consolidated audit 3.3): non-businesses the 06-30
         # deactivation could not hold down — the partner re-scrape reactivated
         # the Marine Association safety PROGRAM row within a day (re-verified

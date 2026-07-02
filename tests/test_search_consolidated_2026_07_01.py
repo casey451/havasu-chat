@@ -131,9 +131,9 @@ def test_rent_words_enable_service_intent_but_not_golf_cart():
     # rent word is filler)...
     assert _service_intent_slug("jet skis rental") == "jet-ski-and-watersports"
     assert _service_intent_slug("need a pontoon rental") == "boat-and-watercraft-rentals"
-    # ...but "golf cart rental" stays unrouted (leftover "cart" is content) —
-    # its real home ships in Phase 4.
-    assert _service_intent_slug("golf cart rental") is None
+    # ...and "golf cart rental" — unrouted in Phase 1 — got its real home in
+    # Phase 4 (an exact key on the golf-carts leaf, Premier Golf Cars).
+    assert _service_intent_slug("golf cart rental") == "golf-carts"
 
 
 # ===========================================================================

@@ -367,8 +367,11 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "boat storage": "boat-and-rv-storage-service",
     "rv storage": "boat-and-rv-storage-service",
     "powersports": "powersports-and-atv",
-    "atv rentals": "powersports-and-atv",
-    "utv rentals": "powersports-and-atv",
+    # 2026-07-01 Phase 4: rental intent leaves the dealer leaf for the new
+    # utv-and-offroad-rentals home (bare vehicle nouns "powersports"/"atv"/
+    # "utv" stay on powersports-and-atv — dealers).
+    "atv rentals": "utv-and-offroad-rentals",
+    "utv rentals": "utv-and-offroad-rentals",
     # 2026-06-19: off-road RETAIL/upfit shops (parts, accessories, lift kits) —
     # Casey's "off road stores and sales". Distinct from off-road-and-ohv (trails)
     # and powersports-and-atv (vehicle sales/rentals). NEW leaf under Auto, RV & Marine.
@@ -679,8 +682,11 @@ _QUERY_TO_LEAF_EXPANSION_2026_06_20: dict[str, tuple[str, ...]] = {
         "pool contractors", "pool installation", "pool maintenance", "pool repair",
         "pool resurfacing", "pool servicing", "pool tech", "pool techs", "spa repair",
         "swimming pool", "swimming pools"),
-    "powersports-and-atv": ("atv", "atv rental", "dirt bikes", "ohv rentals", "side by side",
-        "side by sides", "utv", "utv rental"),
+    # 2026-07-01 Phase 4: the rental phrasings ("atv rental", "utv rental",
+    # "ohv rentals") moved to utv-and-offroad-rentals (see the rentals dict
+    # below); the dealer leaf keeps the bare vehicle nouns.
+    "powersports-and-atv": ("atv", "dirt bikes", "side by side",
+        "side by sides", "utv"),
     "preschools-and-childcare": ("child care", "day care", "daycares", "preschool"),
     "primary-care": ("doctor", "family doctor", "family physician", "general practitioner",
         "medical clinic", "medical clinics", "physicians", "primary care doctor",
@@ -917,6 +923,34 @@ _QUERY_TO_LEAF_SEARCH_ADD_2026_07_01: dict[str, tuple[str, ...]] = {
     # Pediatricians get their own leaf (seeded in Phase 3; a deliberate no-op
     # until then per _resolve_gated) instead of the 159-doctor primary-care leaf.
     "pediatrics": ("pediatrician", "pediatricians", "pediatrics"),
+}
+
+# 2026-07-01 Phase 4 (consolidated plan — rental categories). Real homes for the
+# rental intents the topical gate now answers honestly-empty: golf carts (leaf
+# exists; Premier Golf Cars is already on it), the new bikes-and-e-bikes and
+# utv-and-offroad-rentals leaves (created by scripts/backfill_rentals_2026_07_01
+# .py, declared in the taxonomy seed), and the specialty lake rentals that live
+# on existing water leaves. Same rules: category NOUNS only, setdefault-merged.
+_QUERY_TO_LEAF_RENTALS_2026_07_01: dict[str, tuple[str, ...]] = {
+    "golf-carts": ("golf cart rental", "golf cart rentals", "golf carts rental"),
+    "bikes-and-e-bikes": ("bike shop", "bike shops", "bike store", "bike stores",
+        "bike rental", "bike rentals", "e bike rental", "e bike rentals",
+        "ebike rental", "ebike rentals", "e bike", "e bikes", "ebike", "ebikes",
+        "bicycle shop", "bicycle shops", "bike repair", "bicycle repair",
+        "bicycles", "bikes"),
+    "utv-and-offroad-rentals": ("atv rental", "utv rental", "ohv rentals",
+        "ohv rental", "side by side rental", "side by side rentals",
+        "rzr rental", "rzr rentals", "off road rental", "off road rentals",
+        "atv tours", "utv tours", "offroad tours", "off road tours",
+        "rzr tours"),
+    "boat-and-watercraft-rentals": ("houseboat", "houseboats", "houseboat rental",
+        "houseboat rentals", "beach chair rental", "beach chair rentals",
+        "beach gear rental"),
+    "boat-tours-and-charters": ("yacht rental", "yacht rentals", "yacht charter",
+        "yacht charters"),
+    # [ASK #5] resolved 2026-07-01: fold RV rentals into rv-sales-and-service
+    # (JR RV Rentals + the backfilled Lake Havasu RV & Boat Rentals live there).
+    "rv-sales-and-service": ("rv rental", "rv rentals"),
     # Master site audit §1 (2026-07-01 PM): "pool supply" had no route to the
     # 15-listing pools leaf ("pool", "pool service", "pool pump" etc. were all
     # wired; the supply/store phrasings weren't) — it fell to chat and, for
@@ -968,6 +1002,9 @@ for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ADD2_2026_06_30.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ADD_2026_07_01.items():
+    for _term in _terms:
+        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
+for _leaf_slug, _terms in _QUERY_TO_LEAF_RENTALS_2026_07_01.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 for _term, _leaf_slug in _QUERY_TO_LEAF_BARE_FORMS_2026_06_20.items():

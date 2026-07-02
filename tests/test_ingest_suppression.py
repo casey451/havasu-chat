@@ -12,10 +12,15 @@ _VISITOR_CENTER = "Go Lake Havasu Visitor Center, 422 English Village | Lake Hav
 
 
 def test_suppressed_business_matches_by_normalized_name() -> None:
-    assert is_suppressed_business("Wake Surf Adventures")
-    assert is_suppressed_business("wake surf adventures")  # case/spacing-insensitive
-    assert is_suppressed_business("  Wake  Surf  Adventures ")
-    # The real wakesurf shops are NOT suppressed.
+    # Wake Surf Adventures was UNSUPPRESSED 2026-07-01 PM (Casey [ASK #7] —
+    # the business is active); the Phase-3 non-businesses hold the entry now.
+    assert is_suppressed_business("Lake Havasu Marine Association Designated Operator Program")
+    assert is_suppressed_business(
+        "lake havasu marine association designated operator program"
+    )  # case-insensitive
+    assert is_suppressed_business("  Outdoor  Enthusiasts ")  # spacing-insensitive
+    # Real businesses are NOT suppressed.
+    assert not is_suppressed_business("Wake Surf Adventures")
     assert not is_suppressed_business("Lake Havasu Wakesurf Co.")
     assert not is_suppressed_business("Wakesurf Havasu")
     assert not is_suppressed_business(None)

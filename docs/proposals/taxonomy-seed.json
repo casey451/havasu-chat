@@ -182,6 +182,18 @@
     "count": 1,
     "gate_ok": false,
     "new": false
+   },
+   "bikes-and-e-bikes": {
+    "name": "Bikes & E-Bikes",
+    "count": 3,
+    "gate_ok": true,
+    "new": true
+   },
+   "utv-and-offroad-rentals": {
+    "name": "UTV & Off-Road Rentals",
+    "count": 3,
+    "gate_ok": true,
+    "new": true
    }
   }
  },
