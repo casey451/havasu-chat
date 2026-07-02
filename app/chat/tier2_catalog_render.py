@@ -9,7 +9,10 @@ from __future__ import annotations
 import calendar
 import html
 from datetime import date
+from datetime import time as dt_time
 from typing import Any, Dict, List
+
+from app.events.time_labels import format_full_time
 
 # Visible blank line after header for pre-wrap chat bubbles (DESIGN 3).
 _HEADER_BODY_SEPARATOR = "\n\n"
@@ -78,12 +81,9 @@ def _parse_hhmm(s: Any) -> tuple[int, int] | None:
 
 
 def _format_clock_12h(hour: int, minute: int) -> str:
-    """12-hour with AM/PM; midnight -> 12:00 AM, noon -> 12:00 PM."""
-    suffix = "AM" if hour < 12 else "PM"
-    h12 = hour % 12
-    if h12 == 0:
-        h12 = 12
-    return f"{h12}:{minute:02d} {suffix}"
+    """12-hour with AM/PM — delegates to the shared time_labels formatter
+    (consolidated 2026-07-02)."""
+    return format_full_time(dt_time(hour, minute))
 
 
 def _format_hhmm_12h(hm: Any) -> str | None:

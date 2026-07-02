@@ -362,62 +362,12 @@ def leaf_listing(
     # Phase F §7.2 honesty gate: pin active paid sticky-tier placements to the
     # top of this niche and label them Sponsored. No-op (organic order, no
     # badges) until a placement is sold for this leaf — zero effect on the live
-    # site today.
-    from app.monetization.serving import (
-        ItemRating,
-        active_category_creatives,
-        active_category_tiers,
-        arrange_listing,
-        listing_day,
+    # site today. (Shared ordering helper — consolidated 2026-07-02.)
+    from app.monetization.serving import apply_placements_and_shuffle
+
+    providers, sponsored_ids, new_unrated_ids, creatives = apply_placements_and_shuffle(
+        db, providers, category_slug=leaf.slug, now=now, sort=sort
     )
-    from app.portal.products import daily_shuffle_enabled, mobile_paid_cap, rating_gate
-
-    try:
-        tiers = active_category_tiers(db, leaf.slug)
-    except Exception:
-        tiers = {}  # placement lookup must never empty the organic leaf grid
-    sponsored_ids = set(tiers.values())
-    try:
-        creatives = active_category_creatives(db, leaf.slug) if tiers else {}
-    except Exception:
-        creatives = {}
-
-    new_unrated_ids: frozenset[str] = frozenset()
-    by_id = {p.id: p for p in providers}
-    # "Top rated" (?sort=favorites) is an explicit user override that keeps the
-    # dampened-rating order; the daily Featured shuffle only drives the default.
-    apply_shuffle = daily_shuffle_enabled() and (sort or "").strip().lower() != "favorites"
-    if apply_shuffle:
-        # §2.1/§2.2: ≤cap paid pinned, daily-shuffled >gate pool, "New / Not yet
-        # rated" tail, then the low band — the same ordering as the dept grid.
-        arr = arrange_listing(
-            [
-                ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
-                for p in providers
-            ],
-            tiers,
-            category_slug=leaf.slug,
-            day=listing_day(now),
-            threshold=rating_gate(),
-            cap=mobile_paid_cap(),
-        )
-        providers = [by_id[k] for k in arr.order if k in by_id]
-        new_unrated_ids = arr.new_unrated
-    elif tiers:
-        # Shuffle off: keep organic order but pin paid under the same mobile cap.
-        arr = arrange_listing(
-            [
-                ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
-                for p in providers
-            ],
-            tiers,
-            category_slug=leaf.slug,
-            day=listing_day(now),
-            threshold=rating_gate(),
-            cap=mobile_paid_cap(),
-            shuffle=False,
-        )
-        providers = [by_id[k] for k in arr.order if k in by_id]
 
     # Query-aware relevance: float providers matching the originating search to
     # the top (ahead of the shuffle's new/unrated tail), paid pins kept first.

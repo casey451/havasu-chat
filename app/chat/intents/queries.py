@@ -35,6 +35,7 @@ from app.conditions.constants import SOURCE_GAS
 from app.core.liveness import liveness_dampener
 from app.core.timezone import now_lake_havasu
 from app.db.models import Category, EntityCategory, Event, Offering, Program, Provider
+from app.events.time_labels import format_full_time
 from app.programs.pricing import format_offering_price, format_program_price
 from app.providers.queries import is_open_now
 
@@ -496,12 +497,9 @@ def _venue_core_tokens(venue: str) -> list[str]:
 
 
 def _fmt_time(t: time) -> str:
-    """12-hour 'H:MM AM' label. Cross-platform — ``%-I`` is glibc-only and
-    raises ``ValueError: Invalid format string`` on Windows (and ``%#I`` is the
-    MSVC spelling), so compute the hour/meridiem directly instead of strftime."""
-    hour12 = t.hour % 12 or 12
-    meridiem = "AM" if t.hour < 12 else "PM"
-    return f"{hour12}:{t.minute:02d} {meridiem}"
+    """12-hour 'H:MM AM' label — delegates to the shared time_labels formatter
+    (consolidated 2026-07-02)."""
+    return format_full_time(t)
 
 
 def _query_venue_schedule(

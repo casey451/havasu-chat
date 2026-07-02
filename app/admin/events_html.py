@@ -10,7 +10,7 @@ from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, verify_admin_cookie
+from app.admin.auth import admin_guard as _guard
 from app.admin.nav_html import admin_phase5_nav_html
 from app.admin.url_safety import safe_href
 from app.core.field_tracking import EVENT_TRACKED_FIELDS
@@ -26,11 +26,6 @@ _VISION_SOURCES: frozenset[str] = frozenset(
     {"parks_rec_calendar", "parks_rec_flyers", "senior_center_flyers"}
 )
 
-
-def _guard(request: Request) -> RedirectResponse | None:
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    return RedirectResponse(url="/admin/login", status_code=302)
 
 
 def _esc(s: str | None) -> str:

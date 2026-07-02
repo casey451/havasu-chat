@@ -17,8 +17,8 @@ from app.admin.auth import (
     MAX_AGE_SECONDS,
     admin_password_ok,
     sign_admin_cookie,
-    verify_admin_cookie,
 )
+from app.admin.auth import admin_guard as _guard
 from app.admin.categories_html import register_categories_html_routes
 from app.admin.category_flags_html import register_category_flags_html_routes
 from app.admin.contributions_html import register_contribution_html_routes
@@ -59,16 +59,6 @@ _CLAIM_VERIFICATION_METHODS: frozenset[str] = frozenset(
     }
 )
 
-
-def _guard(request: Request) -> RedirectResponse | None:
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    current_user = getattr(request.state, "current_user", None)
-    if current_user is not None and getattr(current_user, "role", None) == "admin":
-        return None
-    if current_user is not None:
-        raise HTTPException(status_code=403, detail="admin_only")
-    return RedirectResponse(url="/admin/login", status_code=302)
 
 
 def _utc_now() -> datetime:

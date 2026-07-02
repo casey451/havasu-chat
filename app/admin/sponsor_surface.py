@@ -29,7 +29,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, verify_admin_cookie
+from app.admin.auth import admin_guard as _admin_guard
 from app.admin_portal.audit_models import record_audit
 from app.auth.claims import entity_is_claimable, find_existing_claim, get_entity_by_slug
 from app.auth.dependencies import get_current_user
@@ -67,17 +67,6 @@ register_template_globals(_TEMPLATES)
 # Slots a merchant may request. All four tiers are valid request targets.
 _REQUESTABLE_SLOTS: frozenset[str] = frozenset(s.value for s in AdSlot)
 
-
-def _admin_guard(request: Request) -> RedirectResponse | None:
-    """Mirror of admin.router._guard (cookie OR admin-role user)."""
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    current_user = getattr(request.state, "current_user", None)
-    if current_user is not None and getattr(current_user, "role", None) == "admin":
-        return None
-    if current_user is not None:
-        raise HTTPException(status_code=403, detail="admin_only")
-    return RedirectResponse(url="/admin/login", status_code=302)
 
 
 def _naive_utc_now() -> datetime:

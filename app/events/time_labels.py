@@ -55,6 +55,34 @@ def format_short_time(t: time) -> str:
     return f"{hour12} {meridiem}"
 
 
+def format_short_time_hhmm(hm: str) -> str:
+    """``"09:00"`` -> "9 AM"; ``"17:30"`` -> "5:30 PM"; junk passes through.
+
+    String-input twin of :func:`format_short_time` — consolidated 2026-07-02
+    (the chat tiers each carried their own copy with drifting edge cases).
+    """
+    raw = (hm or "").strip() if isinstance(hm, str) else ""
+    if not raw:
+        return ""
+    try:
+        hour_str, minute_str = raw.split(":", 1)
+        parsed = time(int(hour_str), int(minute_str[:2]))
+    except (ValueError, AttributeError):
+        return raw
+    return format_short_time(parsed)
+
+
+def format_full_time(t: time) -> str:
+    """Always-minutes 12-hour label: ``18:00`` -> "6:00 PM", ``09:05`` -> "9:05 AM".
+
+    Cross-platform (no ``%-I``/``%#I`` strftime divergence). The full-minutes
+    twin of :func:`format_short_time` for surfaces that keep ":00".
+    """
+    hour12 = t.hour % 12 or 12
+    meridiem = "AM" if t.hour < 12 else "PM"
+    return f"{hour12}:{t.minute:02d} {meridiem}"
+
+
 def short_time_label(start_time: time | None, end_time: time | None = None) -> str | None:
     """Short 12-hour label, or ``None`` when the time is unknown.
 
