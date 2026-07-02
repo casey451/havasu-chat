@@ -699,9 +699,12 @@ def fallback_day_agenda_voice(rows: list[dict[str, Any]], target: date) -> str:
     word = _spell_count(n)
     location_clause = _top_location_clause(rows)
 
+    # "one things" -> "one thing" (singular n) — same fix week_strip carries.
+    thing_word = "thing" if n == 1 else "things"
+
     if location_clause:
-        return f"{target.strftime('%A')}'s {descriptor} — {word} things, {location_clause}."
-    return f"{target.strftime('%A')}'s {descriptor} — {word} things on the calendar."
+        return f"{target.strftime('%A')}'s {descriptor} — {word} {thing_word}, {location_clause}."
+    return f"{target.strftime('%A')}'s {descriptor} — {word} {thing_word} on the calendar."
 
 
 def _busy_descriptor(n: int) -> str:

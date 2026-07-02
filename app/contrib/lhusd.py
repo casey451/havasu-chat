@@ -30,6 +30,7 @@ from bs4 import BeautifulSoup
 
 from app.contrib.news_item import NewsItem
 from app.contrib.rate_limiter import SourceLimiter
+from app.core.timezone import to_lake_naive
 from app.events.scrapers.ical_parse import ICalEvent, parse_ical_events
 
 if TYPE_CHECKING:
@@ -81,12 +82,15 @@ def _strip_html(value: Any) -> str | None:
 
 
 def _parse_dt(value: Any) -> datetime | None:
+    """Parse to NAIVE Phoenix wall-clock (offset-aware values are converted
+    first — stripping a UTC offset without converting shifts times by 7h)."""
     if not value:
         return None
     try:
-        return datetime.fromisoformat(str(value).replace("Z", "+00:00")).replace(tzinfo=None)
+        dt = datetime.fromisoformat(str(value).replace("Z", "+00:00"))
     except ValueError:
         return None
+    return to_lake_naive(dt)
 
 
 def parse_live_feeds(payload: Any) -> list[NewsItem]:
