@@ -21,6 +21,7 @@
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span>{% if parent_href %}<a href="{{ parent_href }}">{{ parent_label }}</a>{% else %}<span>{{ parent_label }}</span>{% endif %}<span class="sep" aria-hidden="true">›</span><span aria-current="page">{{ trade_label }}</span></nav>
   <div class="pagehead">
     <h1>{% if trade_count != 1 %}{{ trade_count }} {% endif %}Best {{ trade_label }} in Lake Havasu City, AZ</h1>
+    {% if search_echo %}<p class="sub search-echo">Showing results for “{{ search_echo }}” — best matches first.</p>{% endif %}
     {% if trade_intro %}<p class="sub">{{ trade_intro }}</p>{% endif %}
   </div>
 

@@ -662,13 +662,9 @@ def serve_home(
                 "gas": redesign.gas_top5(db, now=now),
                 "week": sandstone.week_strip(db, today=now.date(), selected=feed_day),
                 "feed": redesign.feed_view_model(db, day=feed_day, now=now),
-                # F6/F9: the honest "N happening" headline count for the selected
-                # day — real dated happenings only (excludes the venue class
-                # roster that made far-future days read a flat ~95). feed_day may
-                # be far future, so compute it directly rather than off the strip.
-                "happenings": sandstone.real_happenings_by_day(
-                    db, window_start=feed_day, window_end=feed_day
-                ).get(feed_day, 0),
+                # (F6 2026-07-01: the headline now reads feed.total — the same
+                # number as the "All today" pill on the same screen — so the
+                # separate real_happenings_by_day headline count is gone.)
                 "marquee": marquee,
                 "promoted": promoted,
                 "featured_cards": featured_cards,
