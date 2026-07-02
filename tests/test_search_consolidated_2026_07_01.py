@@ -430,42 +430,6 @@ def _row(title, venue="", time_label="9 AM"):
             "venue": venue, "url": None, "recurring": False, "tags": []}
 
 
-def test_calendar_default_columns_exclude_civic(monkeypatch):
-    from app.home import calendar_view, events_views
-
-    market = _row("Farmers Market", venue="Main Street")
-    board = _row("Board of Adjustment Meeting", venue="City Hall")
-    monkeypatch.setattr(
-        events_views, "day_groups", _fake_day_groups([market], [board])
-    )
-    cal = calendar_view.build_calendar(db=None, q="", today=date(2026, 7, 1))
-    for col in cal["columns"]:
-        titles = [e["title"] for e in col["entries"]]
-        assert "Board of Adjustment Meeting" not in titles
-        assert "Farmers Market" in titles
-        civic_titles = [e["title"] for e in col["civic_entries"]]
-        assert civic_titles == ["Board of Adjustment Meeting"]
-        # The headline count answers "how many plans", not agenda items.
-        assert col["count"] == 1
-    assert cal["total"] == 7  # one leisure row per day of the 7-day window
-
-
-def test_calendar_catches_civic_row_misfiled_into_events(monkeypatch):
-    # A civic meeting that rode into a leisure bucket (venue-signal rows the
-    # bucket heuristic misses) is still peeled out via is_civic_meeting.
-    from app.home import calendar_view, events_views
-
-    hearing = _row("Public Hearing: Zoning Variance", venue="City Hall")
-    monkeypatch.setattr(
-        events_views, "day_groups", _fake_day_groups([hearing], [])
-    )
-    cal = calendar_view.build_calendar(db=None, q="", today=date(2026, 7, 1))
-    assert cal["total"] == 0
-    for col in cal["columns"]:
-        assert col["entries"] == []
-        assert [e["title"] for e in col["civic_entries"]] == [
-            "Public Hearing: Zoning Variance"
-        ]
 
 
 def test_civic_meetings_route_to_the_community_tier_not_the_headliners():

@@ -61,10 +61,6 @@ class LhusdEvent:
     url: str | None = None
     raw: dict = field(default_factory=dict)
 
-    def dedupe_key(self) -> str:
-        return f"lhusd:{self.summary.lower()}:{self.start.date().isoformat()}"
-
-
 def _first(d: dict[str, Any], keys: tuple[str, ...]) -> Any:
     for k in keys:
         v = d.get(k)

@@ -53,7 +53,6 @@ from app.core.rate_limit import limiter, public_html_rate_limit
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import Provider
-from app.home import sandstone as home_sandstone
 from app.home import sponsor_store
 from app.home.queries import _provider_image_url
 from app.home.router import _utility_chips as _home_utility_chips
@@ -86,8 +85,6 @@ def _chrome_context(db: Session) -> dict[str, Any]:
             return []
 
     return {
-        "primary_nav": _safe(home_sandstone.primary_nav),
-        "mega_columns": _safe(lambda: home_sandstone.mega_columns(db)),
         "utility_chips": _safe(lambda: _home_utility_chips(db)),
     }
 

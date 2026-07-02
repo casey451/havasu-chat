@@ -156,42 +156,8 @@ def real_happenings_by_day(
 # with no gate-clearing leaf) is omitted: honest omission, never a dead link.
 
 
-def _department_rows(db: Session) -> list[dict[str, Any]]:
-    """``{slug, name, count}`` per department in taxonomy order; [] on error."""
-    from app.categories import leaf_pages
-    from app.categories.display_labels import display_label
-
-    try:
-        return [
-            {
-                "slug": dept.slug,
-                "name": display_label(dept.slug, dept.name),
-                "count": total,
-            }
-            for dept, _leaf_n, total in leaf_pages.all_departments(db)
-        ]
-    except Exception:  # pragma: no cover - defensive; never block the page
-        return []
 
 
-def explore_tiles(db: Session) -> list[dict[str, Any]]:
-    """Every taxonomy department with its live leaf-summed count, in taxonomy
-    order. Counts are primary-link based, so they never overlap or double
-    count a business across tiles."""
-    return [
-        {
-            "label": row["name"],
-            "route": row["slug"],
-            "url": f"/categories/{row['slug']}",
-            "count": row["count"],
-        }
-        for row in _department_rows(db)
-    ]
-
-
-# The "Need something done?" strip: the service-side departments, in the order
-# locals reach for them. Slugs reference the live tree; a missing department
-# is skipped.
 _SERVICE_DEPARTMENT_SLUGS: tuple[str, ...] = (
     "home-and-property-services",
     "auto-rv-and-marine",
@@ -202,178 +168,14 @@ _SERVICE_DEPARTMENT_SLUGS: tuple[str, ...] = (
 )
 
 
-def service_tiles(db: Session) -> list[dict[str, Any]]:
-    """Secondary service shortcuts (no counts — the strip reads as a directory)."""
-    by_slug = {row["slug"]: row for row in _department_rows(db)}
-    return [
-        {"label": by_slug[slug]["name"], "url": f"/categories/{slug}"}
-        for slug in _SERVICE_DEPARTMENT_SLUGS
-        if slug in by_slug
-    ]
 
 
-# ---------------------------------------------------------------------------
-# Explore mega-menu — six columns spanning all 15 taxonomy departments
-# ---------------------------------------------------------------------------
-
-_MEGA_GROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
-    ("Eat & Drink", ("eat-and-drink",)),
-    ("Lake & Boating", ("on-the-water",)),
-    (
-        "Things to do",
-        (
-            "things-to-do-and-attractions",
-            "family-and-education",
-        ),
-    ),
-    (
-        "Health & self-care",
-        (
-            "health-and-medical",
-            "beauty-and-personal-care",
-            "fitness-and-wellness",
-            "tattoo",
-        ),
-    ),
-    (
-        "Services & shopping",
-        (
-            "home-and-property-services",
-            "auto-rv-and-marine",
-            "professional-and-financial",
-            "shopping-and-retail",
-            "pets",
-        ),
-    ),
-    ("Living here", ("city-and-government", "worship-and-nonprofits", "lodging")),
-)
 
 
-def mega_columns(db: Session) -> list[dict[str, Any]]:
-    """Mega-menu columns; every link is a live ``/categories/{department}``
-    landing. Departments missing from the DB are omitted; a column with no
-    surviving links collapses away."""
-    by_slug = {row["slug"]: row for row in _department_rows(db)}
-    columns: list[dict[str, Any]] = []
-    for heading, slugs in _MEGA_GROUPS:
-        links = [
-            {"label": by_slug[slug]["name"], "url": f"/categories/{slug}"}
-            for slug in slugs
-            if slug in by_slug
-        ]
-        if links:
-            columns.append({"heading": heading, "links": links})
-    return columns
 
 
-# Header high-value direct links (recognition-over-recall): department
-# landings only.
-def primary_nav() -> list[dict[str, str]]:
-    return [
-        {"label": "Eat & Drink", "url": "/categories/eat-and-drink"},
-        {"label": "Lake & Boating", "url": "/categories/on-the-water"},
-        {"label": "Things to Do", "url": "/categories/things-to-do-and-attractions"},
-        {"label": "For Kids", "url": "/categories/family-and-education"},
-    ]
 
 
-# Phase 3 (slim directory): the six highest-traffic department front doors for
-# the home "Find a place or service" block. Curated navigation to canonical
-# department landings (like :func:`primary_nav`) — unconditional, no counts. The
-# rest of the taxonomy is reachable via the "see all" link + /categories.
-def directory_primary_tiles() -> list[dict[str, str]]:
-    return [
-        {"label": "Eat & Drink", "url": "/categories/eat-and-drink"},
-        {"label": "Lake & Boating", "url": "/categories/on-the-water"},
-        {"label": "Things to Do", "url": "/categories/things-to-do-and-attractions"},
-        {"label": "Home Services", "url": "/categories/home-and-property-services"},
-        {"label": "Health", "url": "/categories/health-and-medical"},
-        {"label": "Auto & Boat", "url": "/categories/auto-rv-and-marine"},
-    ]
-
-
-# ---------------------------------------------------------------------------
-# Today module — real cards only, honest omission of unbuilt sources
-# ---------------------------------------------------------------------------
-
-def today_cards(
-    *,
-    utility_chips: list[dict[str, Any]],
-    tonight_card: dict[str, Any] | None = None,
-) -> list[dict[str, Any]]:
-    """Assemble the 'Today around the lake' cards from live data only.
-
-    - 'Tonight' (``tonight_card``) is the next not-yet-started event, with a
-      label that swaps Tonight/Today/Tomorrow per DL-16. The router builds it so
-      the time-of-day logic stays testable; omitted when there is nothing ahead.
-    - 'Water' summarizes live conditions (omitted when conditions are down).
-    - Happy-hours ('On now') and kid-event tagging do NOT exist yet, so those
-      cards are omitted entirely rather than faked with the mock's "12 happy
-      hours" / "6 kid events" numbers.
-    """
-    cards: list[dict[str, Any]] = []
-
-    if tonight_card:
-        cards.append(tonight_card)
-
-    water = _water_card(utility_chips)
-    if water:
-        cards.append(water)
-
-    return cards
-
-
-def _water_card(utility_chips: list[dict[str, Any]]) -> dict[str, Any] | None:
-    by_kind = {c.get("kind"): c for c in utility_chips}
-    weather = by_kind.get("weather")
-    water_temp = by_kind.get("water")
-    if not weather and not water_temp:
-        return None
-    title_bits = []
-    if water_temp and water_temp.get("value"):
-        title_bits.append(f"Water {water_temp['value']}")
-    if weather and weather.get("value"):
-        title_bits.append(f"Air {weather['value']}")
-    sub = ""
-    if weather and weather.get("detail"):
-        sub = str(weather["detail"])
-    elif water_temp and water_temp.get("detail"):
-        sub = str(water_temp["detail"])
-    if not title_bits:
-        return None
-    return {
-        "kind": "water",
-        "k": "Water",
-        "title": " · ".join(title_bits),
-        "sub": sub,
-        "href": "/today",
-        "live": False,
-    }
-
-
-# ---------------------------------------------------------------------------
-# This-week strip — next 7 days, one-off headlines + class rollup (DL-16 evo)
-# ---------------------------------------------------------------------------
-#
-# Replaces the old "Today around the lake" card pair (Tonight + Water). The strip
-# shows the next 7 days; each day card headlines up to two named ONE-OFF events,
-# while recurring classes (recurring Event rows and venue Schedule classes)
-# collapse into a "N classes" rollup line — never a headline — so a one-off
-# festival is never drowned by 50 aquatic-center class instances.
-#
-# Owner-approved headline ranking (highest first):
-#   special/festival > music/nightlife > community > water > other one-off
-# Tiering is heuristic — keyword + tag + featured signals — and is deliberately
-# a *ranking* prior, never a filter: every event still appears in its day's
-# tap-through (/events-ui?date=) and rollup count.
-
-# Tier constants (``_TIER_*``) and the tier->bucket mapping (``_group_for_tier``)
-# now live in :mod:`app.home.event_buckets`, imported at the top of this module
-# so the home week-strip and the events page bucket identically (Slice C). They
-# are re-exported here under their historical private names for the call sites
-# and tests that import ``sandstone._TIER_*``. ``_TIER_CSS`` (month-calendar pill
-# colors) still lives here — it is the legacy per-tier palette, distinct from the
-# shared bucket palette.
 _TIER_CSS = {
     _TIER_SPECIAL: "special",
     _TIER_MUSIC: "music",
@@ -828,110 +630,8 @@ def event_recurrence_label(
     return recurrence_label(weekdays, time_label)
 
 
-def _event_passthrough_fields(ev: Event) -> dict[str, Any]:
-    """Optional Event display fields (another lane), guarded for absence.
-
-    ``cost`` / ``cost_description`` / ``host`` / ``image_url`` are additive
-    columns; ``getattr`` keeps this safe on a model (or test stub) that predates
-    them. Templates render each only when truthy."""
-    return {
-        "cost": getattr(ev, "cost", None),
-        "cost_description": getattr(ev, "cost_description", None),
-        "host": getattr(ev, "host", None),
-        "image_url": getattr(ev, "image_url", None),
-    }
 
 
-def aggregate_event_cards(
-    db: Session, *, window_start: date, window_end: date
-) -> list[dict[str, Any]]:
-    """One card per event across the window, recurring occurrences collapsed.
-
-    For the week/month/all-events aggregate surfaces. Each card carries a
-    ``recurrence_label`` (str|None) derived from the union of the event's
-    occurrence weekdays in the window, plus the optional cost/host/image_url
-    pass-through fields. A non-recurring event yields a single card anchored on
-    its one occurrence with ``recurrence_label=None``; a recurring event yields a
-    single card anchored on its FIRST occurrence in the window with the cadence
-    label. Cards are ordered by (tier, time) of the anchor occurrence, then title.
-    """
-    by_day = _live_events_by_day(db, window_start=window_start, window_end=window_end)
-
-    # Group occurrences by event id, tracking weekdays + the anchor (earliest)
-    # occurrence date so the card links to a real upcoming instance.
-    grouped: dict[Any, dict[str, Any]] = {}
-    for occ_date, evs in sorted(by_day.items()):
-        for ev in evs:
-            g = grouped.get(ev.id)
-            if g is None:
-                grouped[ev.id] = {
-                    "event": ev,
-                    "weekdays": {occ_date.weekday()},
-                    "dates": [occ_date],
-                    "anchor": occ_date,
-                }
-            else:
-                g["weekdays"].add(occ_date.weekday())
-                g["dates"].append(occ_date)
-
-    def _tier(ev: Event) -> int:
-        return _event_tier(
-            title=ev.title,
-            tags=ev.tags,
-            featured=bool(ev.featured),
-            recurring=bool(ev.is_recurring),
-        )
-
-    cards: list[dict[str, Any]] = []
-    for g in grouped.values():
-        ev = g["event"]
-        # An event is "recurring" for the card when the row is flagged recurring
-        # OR it actually occurs on more than one day in this window (a series
-        # stored as repeated single rows still collapses to one card).
-        is_recurring = bool(ev.is_recurring) or len(g["dates"]) > 1
-        time_label = short_time_label(ev.start_time, ev.end_time)
-        rec_label = (
-            recurrence_label(g["weekdays"], time_label) if is_recurring else None
-        )
-        card: dict[str, Any] = {
-            "id": ev.id,
-            "title": clean_event_title(ev.title, location_name=ev.location_name),
-            "venue": ev.location_name,
-            "url": f"/events/{ev.id}",
-            "time": time_label,
-            "type": _group_for_tier(
-                _tier(ev), recurring=is_recurring, title=ev.title, tags=ev.tags
-            ),
-            "anchor_iso": g["anchor"].isoformat(),
-            "occurrence_count": len(g["dates"]),
-            "recurring": is_recurring,
-            "recurrence_label": rec_label,
-        }
-        card.update(_event_passthrough_fields(ev))
-        cards.append(card)
-
-    cards.sort(
-        key=lambda c: (
-            grouped_anchor_sort_key(grouped, c["id"]),
-            (c["title"] or "").lower(),
-        )
-    )
-    return cards
-
-
-def grouped_anchor_sort_key(grouped: dict[Any, dict[str, Any]], event_id: Any) -> tuple[int, int, time]:
-    """(tier, time-bucket, time) of an aggregated card's anchor occurrence."""
-    ev = grouped[event_id]["event"]
-    tier = _event_tier(
-        title=ev.title, tags=ev.tags, featured=bool(ev.featured),
-        recurring=bool(ev.is_recurring),
-    )
-    return (tier, *time_sort_key(ev.start_time, ev.end_time))
-
-
-# ---------------------------------------------------------------------------
-# Server-rendered month calendar (real Event rows; JS-free prev/next)
-# ---------------------------------------------------------------------------
 
 def _event_pill_type(title: str, tags: list[str] | None, *, featured: bool) -> str:
     """Month-cell pill color. Reuses the shared tier classifier so it can never
@@ -1157,49 +857,7 @@ def parse_cal_param(value: str | None, *, default: datetime) -> tuple[int, int]:
 # Featured row — real sponsors or the honest "claim this spot" empty state
 # ---------------------------------------------------------------------------
 
-def featured_cards(spotlights: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Real spotlight sponsors, always followed by one labeled claim slot.
 
-    Never invents sponsors: an unsold surface renders only the claim CTA.
-    """
-    cards: list[dict[str, Any]] = []
-    for sp in spotlights:
-        sponsor_id = sp.get("id")
-        cards.append(
-            {
-                "empty": False,
-                "name": sp.get("headline") or sp.get("name"),
-                "eyebrow": sp.get("eyebrow") or "",
-                "deal": sp.get("pitch") or sp.get("line") or "",
-                "image_url": sp.get("image_url"),
-                "url": f"/sponsor/click?id={sponsor_id}&slot=spotlight" if sponsor_id else None,
-            }
-        )
-    cards.append({"empty": True})
-    return cards
-
-
-# ---------------------------------------------------------------------------
-# Mode landings — Lake / Night / Family (01_UI_BUILD_GUIDE.md §4.10)
-# ---------------------------------------------------------------------------
-#
-# Each landing is a hero + a sub-tile strip. Sub-tiles are NAVIGATION: every
-# tile resolves to a real ``/categories/{route}`` page when one fits, or a
-# ``/chat?q=<intent>`` search when no category route is close enough — never a
-# dead/404 link. The hero "live counters" from the prototype ("12 happy hours",
-# "6 kid events", "4 live music") are NOT real data yet, so they are omitted
-# entirely; the Lake hero's mini-conditions row uses ONLY live conditions
-# (lake level / water temp / wind / sunset / air temp), and any tile without a
-# live source is left out rather than faked (no hardcoded "448.7 ft").
-
-# Theme accent per mode for the active-state stamp on the header toggle and the
-# page's ``data-mode``. The palette itself lives in sandstone.css tokens.
-MODE_LABELS: dict[str, str] = {
-    "ask": "Ask",
-    "lake": "Lake",
-    "night": "Night",
-    "family": "Family",
-}
 
 
 def _chat_url(query: str) -> str:
@@ -1219,24 +877,7 @@ def _tile(emoji: str, title: str, blurb: str, url: str) -> dict[str, str]:
 # ``/categories/on-the-water`` department landing. Where the sub-tile is a
 # finer intent than that page exposes today, we deep-link a /chat search so
 # the user still lands on real results instead of a generic page.
-def _lake_tiles() -> list[dict[str, str]]:
-    water = "/categories/on-the-water"
-    return [
-        _tile("⛵", "Boat Rentals", "Pontoons, wave runners", _chat_url("boat rental")),
-        _tile("🛟", "Launch Ramps", "Fees, parking, status", _chat_url("boat launch ramp")),
-        _tile("⛽", "Marinas & Fuel", "On-water fuel, slips", _chat_url("marina fuel")),
-        _tile("🧊", "Gear & Ice", "Coolers, bait, tubes", _chat_url("boating gear and ice")),
-        _tile("🧭", "Tours & Charters", "Guided, fishing", _chat_url("lake tours and charters")),
-        _tile("🔧", "Watercraft Service", "Repair, storage", water),
-    ]
 
-
-# -- Night ------------------------------------------------------------------
-# Bars / breweries+wineries / live music / happy hours / late kitchens /
-# get-home-safe. Bars, breweries and late kitchens point at the
-# ``/categories/eat-and-drink`` department; the time/event-specific intents
-# (live music tonight, happy hours on now) have no category page, so they
-# search.
 def _night_tiles() -> list[dict[str, str]]:
     # Deep-link the drink tiles to the bars-and-breweries LEAF — both used to
     # dump onto the unfiltered Eat & Drink department (audit, mode pages #3).
@@ -1270,16 +911,6 @@ def _family_tiles() -> list[dict[str, str]]:
 
 
 _MODE_CONFIG: dict[str, dict[str, Any]] = {
-    "lake": {
-        "eyebrow": "Lake Life",
-        "heading": "Everything for a day on the water",
-        "blurb": (
-            "Conditions, ramps, rentals, fuel and ice — the lake organized "
-            "around getting you out there."
-        ),
-        "sec_head": "Out on the water",
-        "tiles": _lake_tiles,
-    },
     "night": {
         "eyebrow": "Night",
         "heading": "Where the night goes",
@@ -1303,44 +934,6 @@ _MODE_CONFIG: dict[str, dict[str, Any]] = {
 }
 
 
-def lake_mini_conditions(db: Session) -> list[dict[str, str]]:
-    """Live mini-conditions for the Lake hero: wind / water temp / sunset (plus
-    air temp). Each tile is omitted when its source has no live value — NEVER
-    the prototype's hardcoded 448.7 ft / 74°F / 8 mph SW.
-
-    Task 0 (source-expansion): the "Lake level" tile was removed from the hero
-    strip; Wind now leads in its position. Lake level is still surfaced on the
-    full conditions strip and /today, just not on the Lake-mode hero.
-    """
-    from app.conditions.api_payload import build_conditions_api_payload
-
-    try:
-        api = build_conditions_api_payload(db)
-    except Exception:  # pragma: no cover - never block the page on conditions
-        return []
-
-    tiles: list[dict[str, str]] = []
-
-    wind = api.get("wind_speed_mph")
-    if isinstance(wind, (int, float)):
-        tiles.append({"value": f"{int(round(float(wind)))} mph", "label": "Wind"})
-
-    water = api.get("water_temp_f")
-    if isinstance(water, (int, float)):
-        tiles.append({"value": f"{float(water):.0f}°F", "label": "Water temp"})
-
-    sunset = api.get("sunset_local")
-    if isinstance(sunset, str) and sunset.strip():
-        tiles.append({"value": sunset.strip(), "label": "Sunset"})
-
-    air = api.get("current_temp_f")
-    if isinstance(air, (int, float)) and not water:
-        # Air temp is a useful fallback only when water temp is unavailable, so
-        # the strip never goes empty when one upstream source is down.
-        tiles.append({"value": f"{int(round(float(air)))}°F", "label": "Air temp"})
-
-    return tiles
-
 
 def mode_landing(db: Session, mode: str) -> dict[str, Any]:
     """Assemble a mode-landing context.
@@ -1352,7 +945,6 @@ def mode_landing(db: Session, mode: str) -> dict[str, Any]:
     if mode not in _MODE_CONFIG:
         raise KeyError(mode)
     cfg = _MODE_CONFIG[mode]
-    mini = lake_mini_conditions(db) if mode == "lake" else []
     return {
         "mode": mode,
         "eyebrow": cfg["eyebrow"],
@@ -1360,5 +952,5 @@ def mode_landing(db: Session, mode: str) -> dict[str, Any]:
         "blurb": cfg["blurb"],
         "sec_head": cfg["sec_head"],
         "tiles": cfg["tiles"](),
-        "mini_conditions": mini,
+        "mini_conditions": [],
     }

@@ -1061,10 +1061,6 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
     return rows
 
 
-def _query_providers(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
-    return [_provider_dict(p) for p in _query_providers_orm(db, filters)[:MAX_ROWS]]
-
-
 def _sample_mixed(db: Session, cap: int) -> list[dict[str, Any]]:
     """Browse-mode sample: future events, then programs, then providers."""
     today = _today()

@@ -97,13 +97,10 @@ def _shell_context(db: Session) -> dict[str, Any]:
     ``utility_chips`` is supplied). Built from the canonical home builders;
     imported lazily to avoid a module-load cycle with app.home.router.
     """
-    from app.home import sandstone
     from app.home.router import _utility_chips
 
     return {
         "utility_chips": _utility_chips(db),
-        "primary_nav": sandstone.primary_nav(),
-        "mega_columns": sandstone.mega_columns(db),
     }
 
 

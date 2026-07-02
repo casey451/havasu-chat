@@ -139,14 +139,6 @@ def test_derive_subcategory_without_name_unchanged() -> None:
     assert derive_subcategory(category="x", google_primary_category="plumber") == "home-services"
 
 
-def test_subcategories_for_category_route_maps_bucket_destinations() -> None:
-    # /categories/services is the Services bucket destination → Services chips.
-    labels = {s.slug for s in subcats.subcategories_for_category_route("services")}
-    assert {"home-services", "auto", "pets", "storage"} <= labels
-    # A non-bucket tile route has no second level.
-    assert subcats.subcategories_for_category_route("beauty-care") == []
-
-
 # --- derivation -------------------------------------------------------------
 
 

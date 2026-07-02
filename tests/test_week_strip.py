@@ -365,32 +365,12 @@ def _mk_event(**kw):
     return ev
 
 
-def test_midnight_fallback_renders_time_tbd_not_12am() -> None:
-    from app.events.time_labels import TIME_TBD_LABEL
-    from app.home.router import _window_event_dict
-
-    d = _window_event_dict(_mk_event(), recurring=False, schedule_label="")
-    assert d["time_label"] == TIME_TBD_LABEL
-    assert "12:00 AM" not in d["time_label"]
 
 
-def test_real_midnight_span_keeps_label() -> None:
-    """An explicit end time means the midnight start is real, not a fallback."""
-    from app.home.router import _window_event_dict
 
-    d = _window_event_dict(
-        _mk_event(end_time=time(2, 0)), recurring=False, schedule_label=""
-    )
-    assert d["time_label"] == "12:00 AM - 2:00 AM"
-
-
-def test_nonmidnight_time_label_unchanged() -> None:
-    from app.home.router import _window_event_dict
-
-    d = _window_event_dict(
-        _mk_event(start_time=time(19, 0)), recurring=False, schedule_label=""
-    )
-    assert d["time_label"] == "7:00 PM"
+# (The _window_event_dict midnight-TBD label tests were deleted 2026-07-02 with
+# the pre-v4 window feed; the same contract is covered by the is_time_tbd unit
+# tests and the live week-strip/permalink assertions below.)
 
 
 def test_permalink_datetime_midnight_fallback_is_date_only() -> None:
@@ -403,31 +383,4 @@ def test_permalink_datetime_midnight_fallback_is_date_only() -> None:
     )
 
 
-def test_midnight_zero_span_also_tbd() -> None:
-    """allevents often fills endDate with midnight too — a 00:00-00:00 zero
-    span is still 'time unknown', not a midnight event."""
-    from app.events.time_labels import TIME_TBD_LABEL
-    from app.home.router import _window_event_dict
-    from app.main import _format_event_datetime
 
-    ev = _mk_event(end_time=time(0, 0))
-    d = _window_event_dict(ev, recurring=False, schedule_label="")
-    assert d["time_label"] == TIME_TBD_LABEL
-    assert _format_event_datetime(ev) == "Saturday, December 5"
-
-
-def test_null_start_time_renders_time_tbd_and_sorts_last() -> None:
-    """WP-4 NULL start times: shared helper says TBD and sorts after timed."""
-    from app.events.time_labels import (
-        TIME_TBD_LABEL,
-        is_time_tbd,
-        short_time_label,
-        time_sort_key,
-    )
-    from app.home.router import _window_event_dict
-
-    d = _window_event_dict(_mk_event(start_time=None), recurring=False, schedule_label="")
-    assert d["time_label"] == TIME_TBD_LABEL
-    assert is_time_tbd(None) is True
-    assert short_time_label(None) is None  # never "12 AM"
-    assert time_sort_key(None) > time_sort_key(time(23, 59))  # TBD sorts last

@@ -443,13 +443,6 @@ def _query_events(
 # ---------------------------------------------------------------------------
 
 
-def _safe_time_label(t) -> str:
-    if t is None:
-        return ""
-    suffix = "AM" if t.hour < 12 else "PM"
-    h12 = t.hour % 12 or 12
-    return f"{h12}:{t.minute:02d} {suffix}" if t.minute else f"{h12} {suffix}"
-
 
 def _offering_by_program(db: Session, programs: list[Program]) -> dict[str, Offering]:
     """Map program id -> its entity's first priced ``Offering``.

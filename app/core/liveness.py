@@ -22,7 +22,6 @@ Acceptable — pulls are roughly monthly and the backfill recomputes. Pass
 from __future__ import annotations
 
 import math
-from dataclasses import dataclass
 from datetime import UTC, datetime
 
 # --- liveness component weights (sum to 1.0) ---
@@ -65,14 +64,6 @@ TIER_OK = "ok"
 # liveness is treated as 1.0 (no dampening) so non-Google entities are unaffected.
 DAMPENER_FLOOR = 0.5
 
-
-@dataclass(frozen=True)
-class LivenessInput:
-    """ORM-neutral inputs for :func:`compute_liveness` / :func:`liveness_tier`."""
-
-    rating: float | None
-    review_count: int | None
-    newest_review_at: datetime | None
 
 
 def _days_since(newest_review_at: datetime, ref_now: datetime) -> float:
@@ -176,7 +167,6 @@ __all__ = [
     "DAMPENER_FLOOR",
     "GLOBAL_MEAN",
     "MAX_COUNT",
-    "LivenessInput",
     "compute_liveness",
     "liveness_dampener",
     "liveness_tier",

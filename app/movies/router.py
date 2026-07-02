@@ -18,7 +18,6 @@ from sqlalchemy.orm import Session
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
-from app.home import sandstone
 from app.movies import posters
 from app.movies.queries import has_free_kids, showtimes_for_day
 
@@ -104,8 +103,6 @@ def serve_movies(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
             "date_chips": _date_chips(today, selected),
             "theaters": showtimes_for_day(db, day=selected, now=now),
             "free_kids": has_free_kids(db, day=selected),
-            "primary_nav": sandstone.primary_nav(),
-            "mega_columns": sandstone.mega_columns(db),
             "active_tab": "movies",
         },
     )

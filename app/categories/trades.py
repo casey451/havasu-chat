@@ -541,10 +541,6 @@ def trade_listing(
     return cards, len(providers), providers
 
 
-def trade_provider_count(db: Session, trade: Trade) -> int:
-    """ACTIVE non-draft provider count for ``trade`` (the thin-page gate input)."""
-    return len(_trade_provider_rows(db, trade))
-
 
 def qualifying_trades(db: Session) -> list[tuple[Trade, int]]:
     """``(trade, count)`` for every promoted trade clearing the thin-page gate.

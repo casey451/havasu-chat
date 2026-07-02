@@ -14,7 +14,6 @@ from app.events.class_occurrences import (
     program_anchor,
 )
 from app.home import events_views, sandstone
-from app.home.today_feed import today_feed
 
 
 def _node_rows(node: dict) -> list[dict]:
@@ -336,22 +335,17 @@ def test_schedule_twins_keep_distinct_same_slot_classes() -> None:
 
 
 def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
-    """A permalink-less program (no provider page) still appears in the home
-    feed, but renders WITHOUT a "Details →" link — we no longer fabricate a
-    self-referential ``/events-ui?date=…#program-…`` anchor that just points back
-    at the same bare row (no real source)."""
+    """A permalink-less program (no provider page) still appears in the feed,
+    but renders WITHOUT a "Details →" link — we no longer fabricate a
+    self-referential ``/events-ui?date=…#program-…`` anchor that just points
+    back at the same bare row. (Retargeted 2026-07-02 from the deleted
+    pre-v4 ``today_feed`` to ``day_groups`` — the live feed pipeline.)"""
     title = f"Pony Lead Line Rides {uuid.uuid4().hex[:6]}"
     venue = _make_permalinkless_program(title, ["saturday"])
     day = date(2026, 12, 5)  # a Saturday
     with SessionLocal() as db:
-        feed = today_feed(db, day=day)
-    rows = []
-    for g in feed["groups"]:
-        if g["key"] == "movies":
-            continue
-        rows.extend(g.get("rows") or [])
-        for sub in g.get("subgroups") or []:
-            rows.extend(sub.get("rows") or [])
+        groups = events_views.day_groups(db, day=day, events_only=False)
+    rows = _all_rows(groups)
     row = next((r for r in rows if r.get("venue") == venue), None)
     assert row is not None, "permalink-less program should still appear in the feed"
     assert not row.get("url"), "should render without a fabricated Details link"
