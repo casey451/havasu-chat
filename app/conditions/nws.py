@@ -48,25 +48,41 @@ def _get(path: str, *, timeout: float = 10.0) -> dict[str, Any]:
 
 
 def fetch_nws_alerts_lhc_zone() -> dict[str, Any]:
-    zone_id = os.environ.get("LHC_NWS_ZONE_ID", "AZZ002")
-    payload = _get(f"/alerts/active?zone={zone_id}")
-    features = payload.get("features") or []
+    """Active NWS alerts for the configured zone(s).
+
+    ``LHC_NWS_ZONE_ID`` accepts a comma/semicolon-separated list. The default
+    covers BOTH the city zone (AZZ002) and the lake zone (AZZ036) — Lake Wind
+    Advisories are issued for AZZ036, so fetching only AZZ002 meant the
+    ``lake_hazard`` alert type could never fire on its namesake advisory
+    (see nws_extras.lake_wind_advisory_zone_covered).
+    """
+    zone_id = os.environ.get("LHC_NWS_ZONE_ID", "AZZ002,AZZ036")
+    zones = [z.strip().upper() for z in zone_id.replace(";", ",").split(",") if z.strip()]
     alerts: list[dict[str, Any]] = []
-    for feat in features:
-        if not isinstance(feat, dict):
-            continue
-        props = feat.get("properties") or {}
-        if not isinstance(props, dict):
-            continue
-        alerts.append(
-            {
-                "event": props.get("event"),
-                "headline": props.get("headline"),
-                "description": props.get("description"),
-                "severity": props.get("severity"),
-                "ends": props.get("ends"),
-            }
-        )
+    seen: set[tuple[Any, Any]] = set()
+    for zone in zones:
+        payload = _get(f"/alerts/active?zone={zone}")
+        for feat in payload.get("features") or []:
+            if not isinstance(feat, dict):
+                continue
+            props = feat.get("properties") or {}
+            if not isinstance(props, dict):
+                continue
+            # An alert can span both zones — dedupe on NWS id (fall back to
+            # event+headline) so it surfaces once.
+            key = (feat.get("id") or props.get("id"), props.get("headline"))
+            if key in seen:
+                continue
+            seen.add(key)
+            alerts.append(
+                {
+                    "event": props.get("event"),
+                    "headline": props.get("headline"),
+                    "description": props.get("description"),
+                    "severity": props.get("severity"),
+                    "ends": props.get("ends"),
+                }
+            )
     return {"zone_id": zone_id, "alerts": alerts, "active_nws_alerts": alerts}
 
 

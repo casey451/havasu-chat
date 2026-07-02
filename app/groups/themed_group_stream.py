@@ -12,7 +12,7 @@ from app.api.routes import category_pages as cat_pages
 from app.core.conditions_temperature import read_current_temperature_f
 from app.core.ranking import _cap_event_share, compute_event_card_rank
 from app.db.models import Category, Entity, EntityCategory, Event
-from app.events.queries import events_in_window
+from app.events.queries import event_window_for_chip, events_in_window
 from app.groups import themed_groups as tg
 from app.providers import queries as provider_queries
 from app.providers.view_models import HavaCardViewModel
@@ -33,30 +33,22 @@ def _event_in_category_bundle(event: Event, cat_slugs: set[str], db: Session) ->
     return bool(set(rows) & cat_slugs)
 
 
+_KNOWN_WHEN_CHIPS = frozenset({"today", "this-weekend", "this-week", "next-month"})
+
+
 def _when_window(when: str | None, today: date) -> tuple[date, date] | None:
     """Date window for the events 'when' chips, or ``None`` for no/unknown filter.
 
-    today → just today; this-weekend → the coming Sat–Sun; this-week → today
-    through the coming Sunday; next-month → the next calendar month.
+    Shares :func:`event_window_for_chip`'s semantics (this-weekend =
+    Friday-through-Sunday) so the same chip means the same dates everywhere.
     """
-    if not when:
+    if not when or when not in _KNOWN_WHEN_CHIPS:
         return None
-    wd = today.weekday()  # Mon=0 .. Sun=6
-    if when == "today":
-        return (today, today)
-    if when == "this-weekend":
-        if wd >= 5:  # already Sat or Sun
-            return (today, today + timedelta(days=6 - wd))
-        sat = today + timedelta(days=5 - wd)
-        return (sat, sat + timedelta(days=1))
-    if when == "this-week":
-        return (today, today + timedelta(days=6 - wd))
-    if when == "next-month":
-        ny, nm = (today.year + 1, 1) if today.month == 12 else (today.year, today.month + 1)
-        start = date(ny, nm, 1)
-        end = date(ny, 12, 31) if nm == 12 else date(ny, nm + 1, 1) - timedelta(days=1)
-        return (start, end)
-    return None
+    # Delegate to event_window_for_chip so the same chip means the same dates
+    # on every surface — this module used to keep its own copy with strict
+    # Sat–Sun weekend semantics, so a Friday-night concert showed under "this
+    # weekend" on the events pages but not on a themed-group page.
+    return event_window_for_chip(when, today=today)
 
 
 def get_themed_group_card_stream(
