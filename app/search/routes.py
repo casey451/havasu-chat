@@ -607,14 +607,23 @@ def _keyword_event_rows(db: Session, *, q_clean: str, limit: int) -> list[Event]
 
     A deliberately plain keyword query (ILIKE on title/description); the event
     corpus has no FTS search_vector, so we keep this simple and dialect-neutral.
-    Soonest dates first.
+    Soonest UPCOMING dates first — passed one-off events never retract, so
+    without a date floor the crawlable results list led with the oldest past
+    events. Recurring rows keep matching regardless of their (past) anchor
+    date since their occurrences are ongoing.
     """
     needle = f"%{q_clean}%"
+    today = now_lake_havasu().date()
     ev_stmt = (
         select(Event)
         .where(
             Event.status == "live",
             or_(Event.title.ilike(needle), Event.description.ilike(needle)),
+            or_(
+                Event.date >= today,
+                Event.is_recurring.is_(True),
+                Event.rrule.isnot(None),
+            ),
         )
         .order_by(Event.date.asc(), Event.start_time.asc(), Event.id.asc())
         .limit(limit)

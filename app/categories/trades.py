@@ -44,7 +44,7 @@ TRADE_LEAF_DEPARTMENT_SLUG = "home-and-property-services"
 #: live, the leaf pages are the canonical SEO surface for these trades; a
 #: trade URL 301s to its twin whenever the twin ships (clears the leaf gate),
 #: so two pages never compete for the same search term ("lake havasu
-#: plumbers"). ``garage-door`` has no leaf twin — its curated page stays.
+#: plumbers").
 LEAF_TWINS: dict[str, str] = {
     "plumbers": "plumbing",
     "hvac": "hvac",
@@ -55,6 +55,11 @@ LEAF_TWINS: dict[str, str] = {
     "landscapers": "landscaping-and-lawn",
     "cleaning": "cleaning",
     "handyman": "handyman",
+    # The garage-doors leaf was seeded in the 2026-06-19 monetization pass
+    # (this map predates it — "no leaf twin" was true then), so without this
+    # entry /…/garage-door and the leaf both published and competed for the
+    # same search term.
+    "garage-door": "garage-doors",
 }
 
 
