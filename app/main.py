@@ -30,6 +30,7 @@ from fastapi.responses import (
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi.errors import RateLimitExceeded
+from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -916,17 +917,23 @@ def _format_event_datetime(event: Event) -> str:
     weekday = display.strftime("%A")
     month = display.strftime("%B")
     day = display.day
+    # 2026-07-01 master audit §5.4: a next-calendar-year date rendered as
+    # "Thursday, January 14" reads as PAST in July. Show the year whenever the
+    # displayed date isn't in the current calendar year.
+    year_suffix = (
+        f", {display.year}" if display.year != now_lake_havasu().year else ""
+    )
     if is_time_tbd(event.start_time, event.end_time):
         # WP-4 allows NULL times at ingest (never fabricate noon), and a bare
         # 00:00 start with no real end is the aggregator-ingest "no time given"
         # fallback, not a real midnight event — show the date only. The single
         # definition of that contract lives in app/events/time_labels.py.
-        return f"{weekday}, {month} {day}"
+        return f"{weekday}, {month} {day}{year_suffix}"
     hour_24 = event.start_time.hour
     minute = event.start_time.minute
     suffix = "AM" if hour_24 < 12 else "PM"
     hour_12 = hour_24 % 12 or 12
-    return f"{weekday}, {month} {day}, {hour_12}:{minute:02d} {suffix}"
+    return f"{weekday}, {month} {day}{year_suffix}, {hour_12}:{minute:02d} {suffix}"
 
 
 def _event_is_past(event: Event) -> bool:
@@ -1299,6 +1306,12 @@ def _build_sitemap_pages_xml() -> str:
         "/today",
         "/events-ui",
         "/categories",
+        # Editorial guide pages (2026-07-01 master audit §6.5: the strongest
+        # editorial content on the site was invisible to crawlers).
+        "/lake",
+        "/night",
+        "/family",
+        "/seniors",
         "/privacy",
         "/terms",
         "/contribute",
@@ -1434,10 +1447,28 @@ def _build_sitemap_providers_xml() -> str:
 def _build_sitemap_events_xml() -> str:
     base = _base_url()
     today_iso = datetime.now(timezone.utc).date().isoformat()
+    # Lake Havasu LOCAL date for the past/future split — a July-1 event is not
+    # past while it is still July 1 in Arizona, even once UTC rolls over.
+    today_local = now_lake_havasu().date()
     entries: list[str] = []
     try:
         with SessionLocal() as db:
-            events = db.query(Event.id, Event.created_at).filter(Event.status == "live").all()
+            # 2026-07-01 master audit §5.1: never advertise a past event to
+            # crawlers — half the event sitemap was past-dated. A one-off stays
+            # listed through its (end) date; a recurring series is evergreen
+            # (its ``date`` is just the RRULE anchor, often long past).
+            events = (
+                db.query(Event.id, Event.created_at)
+                .filter(
+                    Event.status == "live",
+                    or_(
+                        Event.is_recurring.is_(True),
+                        Event.rrule.isnot(None),
+                        func.coalesce(Event.end_date, Event.date) >= today_local,
+                    ),
+                )
+                .all()
+            )
         for event_id, created_at in events:
             entries.append(
                 _sitemap_url_entry(
