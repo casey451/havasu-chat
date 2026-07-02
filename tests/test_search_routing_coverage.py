@@ -76,7 +76,9 @@ _NAV_CASES: dict[str, str] = {
     "emergency vet": "veterinarians",
     "trash pickup": "utilities",
     "recycling": "utilities",
-    "pediatrician": "primary-care",
+    # 2026-07-01 audit A2: pediatrician left the 159-row primary-care leaf for
+    # its own pediatrics leaf (pending until the Phase-3 data op seeds it).
+    "pediatrician": "pediatrics",
     "gift shops": "gifts-and-boutiques",
     "pool pump": "pools-and-spas",
 }
