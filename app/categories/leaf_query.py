@@ -918,6 +918,11 @@ _QUERY_TO_LEAF_SEARCH_ADD_2026_07_01: dict[str, tuple[str, ...]] = {
     # Pediatricians get their own leaf (seeded in Phase 3; a deliberate no-op
     # until then per _resolve_gated) instead of the 159-doctor primary-care leaf.
     "pediatrics": ("pediatrician", "pediatricians", "pediatrics"),
+    # Master site audit §1 (2026-07-01 PM): "pool supply" had no route to the
+    # 15-listing pools leaf ("pool", "pool service", "pool pump" etc. were all
+    # wired; the supply/store phrasings weren't) — it fell to chat and, for
+    # "pool store", the bare "store" token bought the shopping junk fallback.
+    "pools-and-spas": ("pool supply", "pool supplies", "pool store", "pool stores"),
 }
 
 # Evergreen browse asks whose right destination is a DEPARTMENT landing or a

@@ -81,6 +81,32 @@ def test_doctor_terms_still_reach_primary_care() -> None:
     assert leaf_query._QUERY_TO_LEAF["family doctor"] == "primary-care"
 
 
+# --- master site audit §1 — "pool supply missed 3" ----------------------------
+
+
+def test_pool_supply_phrasings_route_to_pools_leaf() -> None:
+    for raw in ("pool supply", "pool supplies", "pool store", "pool stores",
+                "best pool supply in lake havasu"):
+        norm = leaf_query._normalize(raw)
+        assert norm in leaf_query._QUERY_TO_LEAF, (raw, norm)
+        assert leaf_query._QUERY_TO_LEAF[norm] == "pools-and-spas", (raw, norm)
+
+
+def test_pool_store_never_returns_shopping_junk() -> None:
+    # The topical gate (#668) must empty a pool-less shopping bucket for "pool
+    # store" — the audit's live junk was Botero Carts / Fabrics Unlimited /
+    # Floral & Flirt on a "SHOPS 5 OF 12" card. DB-free: terms extraction +
+    # word-boundary matching are the whole decision.
+    from app.chat.intents import queries as q
+
+    assert q._provider_activity_terms("pool store") == ["pool"]
+    pat = q._topic_pattern("pool")
+    for junk in ("botero golf carts", "fabrics unlimited", "floral and flirt",
+                 "concierge health az"):
+        assert not pat.search(junk), junk
+    assert pat.search("neat pool and supply")
+
+
 # --- seeded-leaf routing (isolated in-memory DB) ------------------------------
 
 
