@@ -501,7 +501,9 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             enrich_section = f'<div class="section"><h2>Enrichment</h2>{"".join(enrich_bits)}</div>'
         sub_url = c.submission_url or ""
         url_line = (
-            f'<a href="{_esc(sub_url)}" target="_blank" rel="noopener noreferrer">{_esc(sub_url)}</a>'
+            # safe_href, not just _esc: submission_url is public user input and
+            # html.escape does not neutralize javascript:/data: URL schemes.
+            f'<a href="{_esc(safe_href(sub_url))}" target="_blank" rel="noopener noreferrer">{_esc(sub_url)}</a>'
             if sub_url
             else "—"
         )

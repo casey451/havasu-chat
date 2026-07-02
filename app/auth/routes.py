@@ -306,7 +306,9 @@ def api_boat_mode_preference(
     return JSONResponse(
         content={
             "boat_mode_preference": body.enabled,
-            "preferred_mode": user.preferred_mode,
+            # Echo the freshly written row, not the middleware-expunged `user`
+            # snapshot, which still carries the PRE-request value.
+            "preferred_mode": row.preferred_mode,
         }
     )
 

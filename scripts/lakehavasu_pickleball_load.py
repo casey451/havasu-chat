@@ -235,6 +235,9 @@ def ingest_facilities(
         )
     for payload in payloads:
         decision = decide_ingest(db, payload)
+        if decision.action == "skip":
+            counts["suppressed"] = counts.get("suppressed", 0) + 1
+            continue
         kwargs = _provider_kwargs(decision.payload, category_id=cat_id)
 
         if decision.action == "update" and decision.existing_id:

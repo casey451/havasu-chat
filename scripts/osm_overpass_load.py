@@ -267,6 +267,9 @@ def ingest_rows(
             # never shown to a user, and never silently lost.
             decision = decide_ingest(session, payload)
             rec = decision.reconcile
+            if decision.action == "skip":
+                counts["suppressed"] = counts.get("suppressed", 0) + 1
+                continue
             if decision.should_hide:
                 log_ambiguous_reconcile(rec, context="osm_overpass_load insert branch")
                 pend = dict(kwargs)

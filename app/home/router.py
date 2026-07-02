@@ -622,34 +622,30 @@ def serve_home(
     utility_chips = _utility_chips(db, include_gas=False)
     gas_chip = _gas_chip(db)
     cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
-    spotlights = sponsor_store.active_spotlights(db)
     # G ad ladder: Tier-1 marquee (above the fold) + Tier-3 promoted (after the
     # Explore grid). Both real-or-omit — None when unsold, never a fake sponsor.
     # §7.1: a sold homepage rotating PLACEMENT wins the marquee; otherwise fall
     # back to the legacy sponsor marquee, then the unsold claim. Dormant until a
     # placement exists — serve_homepage_placement returns None on an empty pool.
     marquee = serving.serve_homepage_placement(db) or sponsor_store.active_marquee(db)
-    # Phase 6C: the home Featured (Tier-2) + Promoted (Tier-3) slots now run on the
-    # SAME Placement homepage-rotating pool as the marquee, drawing DISTINCT
-    # businesses per load (each slot excludes the ids the higher slots took). Each
-    # falls back to its legacy sponsor when the pool has nothing left, so the home
-    # page stays dormant-safe — an empty pool means today's behavior.
     taken: set[str] = set()
     if marquee and marquee.get("is_placement") and marquee.get("id"):
         taken.add(marquee["id"])
-    featured_placement = serving.serve_homepage_featured(db, exclude_ids=taken, limit=3)
-    if featured_placement:
-        featured_cards = featured_placement
-        taken.update(c["id"] for c in featured_placement if c.get("id"))
-    else:
-        featured_cards = sandstone.featured_cards(spotlights)
-    promoted = serving.serve_homepage_promoted(db, exclude_ids=taken) or sponsor_store.active_promoted(db)
 
     # ── home_redesign (dark): the v4 reskin, served only when the flag resolves on
     # (env HOME_REDESIGN, or the ?home_redesign=1 preview override). The old home
     # stays intact below for instant rollback (flip the flag off). Same live data,
     # re-templated; see app/home/redesign.py + flags.py.
     if flags.home_redesign_enabled(request):
+        # The v4 templates render only the marquee + promoted slots — the Tier-2
+        # Featured/Spotlight slot has no v4 surface, so its fetches (which bump
+        # Sponsor.impressions and emit placement-impression analytics) live in
+        # the legacy branch below. Impressions must equal renders — that's what
+        # keeps the clicks/impressions ratio honest (sponsor_store module doc).
+        # NOTE: a SOLD homepage-featured Placement is therefore not served while
+        # v4 is live; wiring a Featured slot into home_redesign.html is a design
+        # decision, not a data fix.
+        promoted = serving.serve_homepage_promoted(db, exclude_ids=taken) or sponsor_store.active_promoted(db)
         resp = templates.TemplateResponse(
             request=request,
             name="home_redesign.html",
@@ -667,7 +663,6 @@ def serve_home(
                 # separate real_happenings_by_day headline count is gone.)
                 "marquee": marquee,
                 "promoted": promoted,
-                "featured_cards": featured_cards,
                 "directory_tiles": sandstone.directory_primary_tiles(),
                 "explore_tiles": sandstone.explore_tiles(db),
                 # Local news ticker headlines (honest-omit when the pull is empty).
@@ -677,6 +672,22 @@ def serve_home(
         )
         flags.apply_preview_cookie(request, resp)
         return resp
+
+    # Phase 6C: the home Featured (Tier-2) + Promoted (Tier-3) slots run on the
+    # SAME Placement homepage-rotating pool as the marquee, drawing DISTINCT
+    # businesses per load (each slot excludes the ids the higher slots took). Each
+    # falls back to its legacy sponsor when the pool has nothing left, so the home
+    # page stays dormant-safe — an empty pool means today's behavior. Fetched only
+    # here (legacy branch) because only home_lake.html renders the Featured slot —
+    # active_spotlights/serve_homepage_featured count an impression per call.
+    spotlights = sponsor_store.active_spotlights(db)
+    featured_placement = serving.serve_homepage_featured(db, exclude_ids=taken, limit=3)
+    if featured_placement:
+        featured_cards = featured_placement
+        taken.update(c["id"] for c in featured_placement if c.get("id"))
+    else:
+        featured_cards = sandstone.featured_cards(spotlights)
+    promoted = serving.serve_homepage_promoted(db, exclude_ids=taken) or sponsor_store.active_promoted(db)
 
     # Hero copy defaults to the locked prototype wording (with its italic accent);
     # owners can retune the eyebrow/headline per season via env without a redeploy.

@@ -144,7 +144,9 @@ def post_chat_onboarding(
 
 
 @router.post("/api/chat/feedback", response_model=ChatFeedbackResponse)
+@limiter.limit("120/minute")
 def post_chat_feedback(
+    request: Request,
     payload: ChatFeedbackRequest,
     db: Session = Depends(get_db),
 ) -> ChatFeedbackResponse | JSONResponse:
