@@ -47,12 +47,14 @@ PENDING_LEAF_SLUGS: frozenset[str] = frozenset(
         #   off-road-shops-and-accessories, marine-supply, garage-doors, painters.
         # These remain genuinely unseeded (synonyms are deliberate no-ops until a
         # future taxonomy pass seeds them):
-        "medical-specialists-and-imaging",
+        # 2026-07-01 consolidated Phase 3: medical-specialists-and-imaging,
+        # firearms-and-shooting-sports, and pediatrics moved to
+        # docs/proposals/taxonomy-seed.json — the Phase-3 data op creates the
+        # Category rows, so they are no longer pending.
         "laundry-and-dry-cleaning",
         "funeral-cremation-and-cemeteries",
         "mobile-home-services",
         "pet-waste-removal",
-        "firearms-and-shooting-sports",
         # 2026-06-20 search-coverage: brand-new service leaves with no taxonomy
         # home yet. Created by scripts/create_missing_service_leaves_2026_06_20.py;
         # routed below. Self-activate once the leaf clears the publish gate in
@@ -61,9 +63,6 @@ PENDING_LEAF_SLUGS: frozenset[str] = frozenset(
         # enough approved businesses to clear that threshold, not just one row.
         # (garage-doors + painters are intentionally NOT here — the 2026-06-19
         # pass already seeded them above, so they are live, not pending.)
-        # 2026-07-01 consolidated audit A2: pediatricians leave the 159-row
-        # primary-care leaf for their own home; seeded by the Phase-3 data op.
-        "pediatrics",
         "locksmiths",
         "flooring",
         "fencing",

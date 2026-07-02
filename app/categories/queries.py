@@ -629,10 +629,14 @@ def _card_area(provider: Provider) -> str:
     """Second meta-line locator for a card (D7): district label, else the street
     line of the address (everything before the first comma). ``""`` when neither
     is known -- the template then omits the line rather than printing noise."""
+    from app.contrib.ingest_suppression import clean_placeholder_address
+
     district = (getattr(provider, "district", None) or "").strip()
     if district:
         return district
-    address = (getattr(provider, "address", None) or "").strip()
+    # Render guard (2026-07-01 Phase 3): the CVB visitor-center placeholder is
+    # never a business location — omit the line rather than show a fake pin.
+    address = (clean_placeholder_address(getattr(provider, "address", None)) or "").strip()
     if address:
         # First address segment is the street line ("2126 McCulloch Blvd N").
         return address.split(",", 1)[0].strip()

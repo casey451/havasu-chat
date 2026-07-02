@@ -334,13 +334,18 @@ def _primary_leaf_name_by_entity() -> dict[str, str]:
 
 def _provider_to_row(p: Provider) -> dict[str, Any]:
     """Tier2 provider-row shape consumed by build_business_list."""
+    from app.contrib.ingest_suppression import clean_placeholder_address
+
     return {
         "type": "provider",
         "id": p.id,
         "name": p.provider_name,
         "slug": p.slug,
         "phone": p.phone,
-        "address": p.address,
+        # The CVB visitor-center placeholder is never a business location —
+        # render nothing rather than a shared fake address (2026-07-01 Phase 3;
+        # ingest + the data op null it at the source, this is the render guard).
+        "address": clean_placeholder_address(p.address),
         "category": p.category,
         "primary_category_label": _primary_leaf_name_by_entity().get(p.entity_id),
         "google_primary_category": p.google_primary_category,
