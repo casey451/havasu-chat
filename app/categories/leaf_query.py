@@ -958,6 +958,20 @@ _QUERY_TO_LEAF_RENTALS_2026_07_01: dict[str, tuple[str, ...]] = {
     "pools-and-spas": ("pool supply", "pool supplies", "pool store", "pool stores"),
 }
 
+# 2026-07-01 Phase 5 (consolidated plan — backfill polish). Terms for rows the
+# Phase-5 data op re-homes/inserts (weight-loss target per [ASK #6] default =
+# med-spas-and-aesthetics, where Sculpted MD / Desert Oasis live), plus the
+# things-to-do polish: Copper Canyon is already a beaches row, "Lighthouses"
+# (the 28-replica trail) already a landmarks row.
+_QUERY_TO_LEAF_BACKFILLS_2026_07_01: dict[str, tuple[str, ...]] = {
+    "med-spas-and-aesthetics": ("weight loss", "weight loss clinic",
+        "weight loss clinics"),
+    "nonprofits-and-charities": ("animal shelter", "animal shelters",
+        "humane society"),
+    "beaches-and-swim-areas": ("cliff jumping", "copper canyon"),
+    "landmarks-and-sights": ("lighthouse", "lighthouses"),
+}
+
 # Evergreen browse asks whose right destination is a DEPARTMENT landing or a
 # static page, not a single leaf (the dicts above can only target leaf slugs).
 # Consulted by the /chat router ahead of the leaf match via
@@ -1005,6 +1019,9 @@ for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ADD_2026_07_01.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 for _leaf_slug, _terms in _QUERY_TO_LEAF_RENTALS_2026_07_01.items():
+    for _term in _terms:
+        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
+for _leaf_slug, _terms in _QUERY_TO_LEAF_BACKFILLS_2026_07_01.items():
     for _term in _terms:
         _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 for _term, _leaf_slug in _QUERY_TO_LEAF_BARE_FORMS_2026_06_20.items():
