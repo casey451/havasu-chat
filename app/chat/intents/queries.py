@@ -199,6 +199,12 @@ def _query_providers(
     q = db.query(Provider).filter(
         Provider.is_active.is_(True),
         Provider.draft.is_(False),
+        # [ASK #8] (2026-07-01, Casey: region-tag + exclude): rows classified
+        # out-of-area are already excluded from leaf pages via ``is_local``;
+        # honor the same flag on the chat bucket queries so a Kingman golf
+        # course or Parker casino can't ride into a Lake Havasu answer.
+        # NULL/unknown is kept — never assume an un-geocoded row is far.
+        Provider.is_local.isnot(False),
     )
     bucket_conds = []
     if subcats:
