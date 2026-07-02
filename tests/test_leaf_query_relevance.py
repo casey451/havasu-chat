@@ -21,8 +21,23 @@ from app.categories.leaf_pages import (
 from app.main import app
 
 
-def _p(pid: str, name: str, *, subcategory: str = "", category: str = "") -> SimpleNamespace:
-    return SimpleNamespace(id=pid, provider_name=name, subcategory=subcategory, category=category)
+def _p(
+    pid: str,
+    name: str,
+    *,
+    subcategory: str = "",
+    category: str = "",
+    google_primary: str = "",
+    google_types: list[str] | None = None,
+) -> SimpleNamespace:
+    return SimpleNamespace(
+        id=pid,
+        provider_name=name,
+        subcategory=subcategory,
+        category=category,
+        google_primary_category=google_primary,
+        google_categories=google_types,
+    )
 
 
 def test_relevance_terms_drops_stop_and_locality() -> None:
@@ -66,6 +81,58 @@ def test_float_query_matches_noop_without_query_or_match() -> None:
     rows = [_p("a", "Jet Ski Rentals"), _p("b", "Boat Tours")]
     assert _float_query_matches(rows, None, set()) == rows
     assert _float_query_matches(rows, "wakesurf", set()) == rows  # nothing matches
+
+
+# --- Phase 6 (2026-07-01): Google types join the match haystack ---------------
+
+
+def test_provider_matches_terms_via_google_types() -> None:
+    # The niche signal often lives ONLY in the Google types: a quick-lube shop
+    # named "Havasu Auto Care" carries oil_change_service; VR Escape Reality's
+    # mini-golf/axe-throwing signals are types, not name words.
+    lube = _p("1", "Havasu Auto Care", google_primary="oil_change_service")
+    vr = _p("2", "VR Escape Reality",
+            google_types=["amusement_center", "miniature_golf_course", "axe_throwing"])
+    generic = _p("3", "Desert Automotive", google_primary="car_repair")
+    assert _provider_matches_terms(lube, ["oil", "change"])
+    assert not _provider_matches_terms(generic, ["oil", "change"])
+    assert _provider_matches_terms(vr, ["mini", "golf"])
+    assert _provider_matches_terms(vr, ["axe", "throwing"])
+    assert not _provider_matches_terms(generic, ["axe", "throwing"])
+    # None/absent google fields cost nothing (pre-Phase-6 rows).
+    bare = SimpleNamespace(id="4", provider_name="Plain Shop",
+                           subcategory="", category="")
+    assert not _provider_matches_terms(bare, ["oil"])
+
+
+def test_oil_change_floats_quick_lube_on_auto_repair_leaf() -> None:
+    rows = [
+        _p("a", "Big Desert Transmission", google_primary="transmission_shop"),
+        _p("b", "Havasu Collision Center", google_primary="auto_body_shop"),
+        _p("c", "Quick Lube Havasu", google_primary="oil_change_service"),
+    ]
+    out = _float_query_matches(rows, "oil change", set())
+    assert out[0].id == "c"
+
+
+def test_mini_golf_floats_venue_on_family_fun_leaf() -> None:
+    rows = [
+        _p("a", "Havasu Lanes", google_primary="bowling_alley"),
+        _p("b", "VR Escape Reality",
+           google_types=["escape_room", "miniature_golf_course", "axe_throwing"]),
+    ]
+    assert _float_query_matches(rows, "mini golf", set())[0].id == "b"
+    assert _float_query_matches(rows, "axe throwing", set())[0].id == "b"
+
+
+def test_bare_on_topic_query_keeps_order() -> None:
+    # "jet ski rentals" matches every row on the jet-ski leaf — the stable
+    # partition then preserves the existing (shuffle) order.
+    rows = [
+        _p("a", "Lake Havasu Jet Ski Rentals"),
+        _p("b", "Havasu Jet Ski Adventures"),
+    ]
+    assert [p.id for p in _float_query_matches(rows, "jet ski rentals", set())] == ["a", "b"]
 
 
 def test_chat_leaf_redirect_carries_query() -> None:

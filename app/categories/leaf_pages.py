@@ -273,12 +273,25 @@ def _relevance_terms(query: str | None) -> list[str]:
 
 def _provider_matches_terms(p: Provider, terms: list[str]) -> bool:
     """True when any distinctive query term appears in the provider's name /
-    subcategory / category. Matches on substring, or a shared 4-char stem, so
-    "wake"~"wakesurf" (substring) and "surfing"~"wakesurf" ("surf" stem) both
-    hit."""
+    subcategory / category / Google types. Matches on substring, or a shared
+    4-char stem, so "wake"~"wakesurf" (substring) and "surfing"~"wakesurf"
+    ("surf" stem) both hit.
+
+    Google types joined 2026-07-01 (Phase 6): the niche signal often lives ONLY
+    there — "oil change" matches a quick-lube's ``oil_change_service`` type and
+    "mini golf" a venue's ``miniature_golf_course`` while neither appears in
+    the name. NULL/absent types cost nothing.
+    """
+    google_types = getattr(p, "google_categories", None) or []
     hay = " ".join(
         str(v or "").lower()
-        for v in (p.provider_name, getattr(p, "subcategory", ""), getattr(p, "category", ""))
+        for v in (
+            p.provider_name,
+            getattr(p, "subcategory", ""),
+            getattr(p, "category", ""),
+            getattr(p, "google_primary_category", ""),
+            *google_types,
+        )
     )
     for t in terms:
         if t in hay:
