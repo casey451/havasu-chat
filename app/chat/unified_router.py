@@ -1031,6 +1031,12 @@ def route(
         timing_ms: dict | None = None,
         intent_logged: bool = False,
     ) -> ChatResponse:
+        # Never-empty guarantee (2026-07-01 master audit §6.6): a blank answer
+        # ("wake surf charter", the /search no-match handoff) is worse than any
+        # honest line. Whatever path produced an empty string, the user gets
+        # the graceful fallback — with a card, the component still renders.
+        if not (response or "").strip():
+            response = _GRACEFUL if component_type == "none" else "Here's what I found:"
         ms = _ms()
         chat_log_id: str | None = None
         try:

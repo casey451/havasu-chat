@@ -1164,6 +1164,10 @@ def _render_leaf_page(
             "trade_count": total,
             "trade_intro": intro,
             "trade_faqs": faqs,
+            # 2026-07-01 master audit §9.2-4: a leaf reached from search says
+            # what it is answering ("wake surfing" landing on the broad Jet Ski
+            # leaf otherwise looks like the query was ignored).
+            "search_echo": search_q,
             "category_cards": visible_cards,
             "card_groups": card_groups,
             "list_controls": list_controls,

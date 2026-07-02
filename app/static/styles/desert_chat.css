@@ -1255,3 +1255,8 @@ body.ll-chat .retry-btn {
     transform: none;
   }
 }
+
+/* Restored-turn re-run affordance (2026-07-01 master audit §6.6): result cards
+   aren't persisted across reloads, so a restored turn offers a one-tap re-run. */
+.restored-note{margin:6px 0 0;font-size:12.5px}
+.restored-note .restored-again{color:var(--brass-deep,#8a6d3b);font-weight:600;text-decoration:underline;cursor:pointer}

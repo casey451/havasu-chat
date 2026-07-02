@@ -1317,6 +1317,23 @@
         if (t.query) appendUserTurn(t.query);
         const turn = appendHavaTurn();
         fillHavaTurn(turn, { response: t.content, chat_log_id: t.id });
+        // Result cards aren't persisted, so a restored turn shows only its
+        // voice line ("Where to shop.") — misleading on its own (2026-07-01
+        // master audit §6.6). Offer a one-tap re-run that rebuilds the card.
+        if (t.query) {
+          const note = el("p", "restored-note");
+          const again = el("a", "restored-again");
+          again.href = "#";
+          again.textContent = "Show results again";
+          (function (q) {
+            again.addEventListener("click", function (e) {
+              e.preventDefault();
+              submit(q);
+            });
+          })(t.query);
+          note.appendChild(again);
+          turn.said.appendChild(note);
+        }
       }
     } catch (_) {
       // Restore is cosmetic — never block a fresh conversation.

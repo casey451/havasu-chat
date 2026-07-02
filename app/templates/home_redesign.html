@@ -154,7 +154,12 @@
 
 {# ── Feed heading + jump-to-category ─────────────────────────────────── #}
 <div class="calbar">
-  <h1 class="serif" id="feedTitle">Happening {{ 'today' if is_today else feed_day_label }} <span class="n">· <span class="num">{{ happenings }}</span> event{{ '' if happenings == 1 else 's' }}</span></h1>
+  {#- F6 (2026-07-01 master audit §6.7): this headline count and the "All today"
+      pill below sit on the same screen and MUST agree — both now read
+      feed.total, the count of what the feed actually renders (events + classes
+      + venue hours), so they can never drift again. "going on" keeps the noun
+      honest for that mix ("events" was wrong for two-thirds of it). -#}
+  <h1 class="serif" id="feedTitle">Happening {{ 'today' if is_today else feed_day_label }} <span class="n">· <span class="num">{{ feed.total }}</span> going on</span></h1>
   <div class="dd" id="jump">
     <button type="button" class="dd-btn" aria-haspopup="true" aria-expanded="false">Jump to <span class="cv">{{ icon('chev', 14) }}</span></button>
     <div class="dd-menu" role="menu">
