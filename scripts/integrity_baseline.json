@@ -1,6 +1,6 @@
 {
- "zero_leaf_providers": 53,
- "zero_contact_providers": 4,
- "same_phone_clusters": 169,
- "past_live_oneoffs": 224
+ "zero_leaf_providers": 40,
+ "zero_contact_providers": 1,
+ "same_phone_clusters": 167,
+ "past_live_oneoffs": 0
 }
