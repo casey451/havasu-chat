@@ -1,8 +1,10 @@
 """Hava -- ``GET /movies`` route: showtimes at Lake Havasu City theaters.
 
 Self-contained like the other page routers (own Jinja env + template globals).
-Showtimes come from ``Event`` rows tagged ``movie`` (see app/movies/queries.py),
-populated by the Star Cinemas scraper (and Movies Havasu in the follow-up).
+Showtimes come from the dedicated ``movie_showtimes`` table
+(app/movies/store.py, populated by scripts/scrape_movies_havasu.py on a cron).
+(This docstring previously said Event rows tagged ``movie`` — audit doc-rot
+fix 2026-07-02.)
 """
 
 from __future__ import annotations

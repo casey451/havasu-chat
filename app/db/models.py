@@ -39,7 +39,11 @@ class Provider(Base):
     __tablename__ = "providers"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    provider_name: Mapped[str] = mapped_column(String, nullable=False)
+    # Indexed (audit 2026-07-01): exact-match lookups on the chat path
+    # (session.record_entity) and admin/API ilike searches filter on it, and
+    # slug allocation prefix-probes it; there was no index. Migration
+    # aud1provname01.
+    provider_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
     category: Mapped[str] = mapped_column(String, nullable=False)
     # P0 Task 2: second-level group slug (e.g. "home-services", "dog groomer"
     # bucket). One of app/categories/subcategories.py's group slugs. Nullable —
