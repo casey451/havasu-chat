@@ -17,7 +17,6 @@ from app.conditions.constants import (
     SOURCE_NWS_ALERTS,
     SOURCE_NWS_CURRENT,
     SOURCE_NWS_FORECAST,
-    SOURCE_NWS_SUNSET,
     SOURCE_OPENUV,
     SOURCE_RISE_WATER_TEMP,
     SOURCE_USGS,
@@ -34,7 +33,6 @@ _FETCHERS: dict[str, Callable[[], dict[str, Any]]] = {
     SOURCE_NWS_ALERTS: nws.fetch_nws_alerts_lhc_zone,
     SOURCE_NWS_CURRENT: nws.fetch_nws_current,
     SOURCE_NWS_FORECAST: nws.fetch_nws_forecast_daily,
-    SOURCE_NWS_SUNSET: nws.fetch_nws_sunset,
     SOURCE_USGS: usgs.fetch_usgs_lake_havasu,
     # UV index (robust). Prefers the key-gated Open-UV source and falls back to
     # the keyless EPA Envirofacts forecast when OPENUV_API_KEY is unset, so a UV
@@ -77,6 +75,22 @@ def fetch_one_source(
     if not force and should_skip_fetch(row, now=now):
         logger.info("conditions.circuit_skipped", extra={"source": source})
         return False
+    # TTL freshness gate (2026-07-02 audit): don't re-fetch a source whose last
+    # SUCCESSFUL payload is still inside its TTL. The 15-min cron used to hit
+    # every source every tick regardless — ~96 Open-UV calls/day against its
+    # 50/day free tier (exhausting the key mid-day) and ~96 daily-forecast
+    # pulls for a value that changes once a day. ``fetched_at`` only advances
+    # on success (cache.upsert_source), so failures still retry on the next
+    # tick under the circuit-breaker's pacing. ``--force`` bypasses.
+    ttl = TTL_BY_SOURCE.get(source)
+    if not force and row is not None and ttl and row.fetched_at is not None:
+        age_s = (now - row.fetched_at).total_seconds()
+        if 0 <= age_s < ttl:
+            logger.info(
+                "conditions.fresh_skipped",
+                extra={"source": source, "age_s": int(age_s), "ttl_s": ttl},
+            )
+            return True
 
     fn = _FETCHERS[source]
 

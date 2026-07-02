@@ -44,6 +44,21 @@ def _to_local_naive(dt: datetime) -> datetime:
     return dt.astimezone(LAKE_HAVASU_TZ).replace(tzinfo=None)
 
 
+_TEXT_ESCAPE_RE = re.compile(r"\\([\\;,nN])")
+
+
+def _unescape_text(value: str) -> str:
+    """RFC 5545 §3.3.11 TEXT unescaping (``\\,`` ``\\;`` ``\\n`` ``\\\\``).
+
+    Feeds emit ``LOCATION:Library\\, Room A``; without this the literal
+    backslash lands in the stored venue/summary. Single-pass regex so adjacent
+    escapes (``\\\\,``) resolve correctly.
+    """
+    return _TEXT_ESCAPE_RE.sub(
+        lambda m: "\n" if m.group(1) in "nN" else m.group(1), value
+    )
+
+
 def _parse_ical_datetime(value: str, tzid: str | None = None) -> datetime:
     value = value.strip()
     if "T" in value:
@@ -96,18 +111,24 @@ def parse_ical_events(text: str) -> list[ICalEvent]:
         if line == "END:VEVENT":
             if in_event and cur.get("SUMMARY"):
                 tz = (props.get("DTSTART") or {}).get("TZID")
-                start = _parse_ical_datetime(cur.get("DTSTART", ""), tz)
-                end_raw = cur.get("DTEND")
-                end = _parse_ical_datetime(end_raw, tz) if end_raw else None
+                try:
+                    start = _parse_ical_datetime(cur.get("DTSTART", ""), tz)
+                    end_raw = cur.get("DTEND")
+                    end = _parse_ical_datetime(end_raw, tz) if end_raw else None
+                except ValueError:
+                    # One garbled DTSTART/DTEND must not fail the whole feed —
+                    # skip the VEVENT and keep parsing.
+                    in_event = False
+                    continue
                 uid = cur.get("UID", cur.get("SUMMARY", ""))
                 out.append(
                     ICalEvent(
-                        summary=cur.get("SUMMARY", "").strip(),
+                        summary=_unescape_text(cur.get("SUMMARY", "")).strip(),
                         uid=uid.strip(),
                         start=start,
                         end=end,
-                        description=_html_to_text(cur.get("DESCRIPTION", "")),
-                        location=cur.get("LOCATION", "").strip(),
+                        description=_html_to_text(_unescape_text(cur.get("DESCRIPTION", ""))),
+                        location=_unescape_text(cur.get("LOCATION", "")).strip(),
                         url=cur.get("URL") or None,
                         raw=dict(cur),
                     )

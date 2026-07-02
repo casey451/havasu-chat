@@ -232,7 +232,16 @@ def _catalog_gap_response(intent_result: IntentResult, db: Session | None = None
     """
     sub = intent_result.sub_intent
     raw = intent_result.raw_query or ""
-    if re.search(r"\bwait(?:\s+time)?\b", raw, re.I):
+    # Require an explicit wait-TIME shape. A bare \bwait\b hijacked queries
+    # like "I can't wait for the balloon festival — anything going on?" into
+    # the wait-time gap template (with allow_tier3_fallback=False, that was
+    # the final answer).
+    if re.search(
+        r"\b(?:wait\s*times?|how long (?:is|are) the waits?|current wait|"
+        r"what(?:'s| is) the wait)\b",
+        raw,
+        re.I,
+    ):
         return f"I don't have live wait-time data in the catalog yet. {_GAP_TAIL}"
     if sub not in _GAP_TIER1_FACTUAL:
         return None

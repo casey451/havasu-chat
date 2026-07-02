@@ -6,8 +6,18 @@ SOURCE_AIRNOW = "airnow_86403"
 SOURCE_NWS_CURRENT = "nws_current"
 SOURCE_NWS_ALERTS = "nws_alerts_lhc_zone"
 SOURCE_NWS_FORECAST = "nws_forecast_daily"
+# Retired fetch source (2026-07-02 audit): the NWS "tonight period" sunset was
+# fetched every cron tick (~192 NWS calls/day for a points+forecast pair) but
+# read by NOTHING — api_payload's sunset comes from Open-UV or the computed
+# astronomical sun.py. The key constant stays so stale cache rows keep a name;
+# it is no longer in SOURCE_KEYS and has no fetcher.
 SOURCE_NWS_SUNSET = "nws_sunset"
 SOURCE_USGS = "usgs_09427500"
+# Gas is WRITTEN by the gas-prices workflow (scripts/gas_prices_pull.py), not
+# fetched by the conditions cron — it has no _FETCHERS entry, so it must stay
+# OUT of SOURCE_KEYS. It used to be listed there, which made every 15-minute
+# `--all` tick raise "unknown conditions source: gas_prices_lhc" (~96 error
+# logs/day, masking real failures).
 SOURCE_GAS = "gas_prices_lhc"
 
 # V1.5 wave 3 (2026-05-23): USGS water-temperature alt-source for station
@@ -45,17 +55,18 @@ SOURCE_OPENUV = "openuv_index"
 # app/contrib/news_herald.py).
 SOURCE_NEWS_LOCAL = "news_local"
 
+# The sources the conditions cron actually fetches: every key here MUST have a
+# _FETCHERS entry in app/conditions/fetcher.py (SOURCE_GAS and SOURCE_NEWS_LOCAL
+# are written by their own dedicated pulls; SOURCE_NWS_SUNSET is retired).
 SOURCE_KEYS: tuple[str, ...] = (
     SOURCE_AIRNOW,
     SOURCE_NWS_CURRENT,
     SOURCE_NWS_ALERTS,
     SOURCE_NWS_FORECAST,
-    SOURCE_NWS_SUNSET,
     SOURCE_USGS,
     SOURCE_USGS_WATER_TEMP,
     SOURCE_RISE_WATER_TEMP,
     SOURCE_OPENUV,
-    SOURCE_GAS,
 )
 
 TTL_BY_SOURCE: dict[str, int] = {
@@ -63,7 +74,6 @@ TTL_BY_SOURCE: dict[str, int] = {
     SOURCE_NWS_CURRENT: 1800,
     SOURCE_NWS_ALERTS: 900,
     SOURCE_NWS_FORECAST: 86400,
-    SOURCE_NWS_SUNSET: 86400,
     SOURCE_USGS: 3600,
     # Same 3600s TTL as the lake-gauge USGS source -- water temperature is a
     # slow-moving signal (instrument cadence is hourly at most for 00010).
