@@ -92,7 +92,7 @@ def test_pending_requires_admin(db_session) -> None:
     """Unauthenticated request is redirected to admin login, not served."""
     anon = TestClient(app)
     resp = anon.get("/admin/providers/pending", follow_redirects=False)
-    assert resp.status_code == 303
+    assert resp.status_code == 302  # unified guard status (2026-07-02)
     assert "/admin/login" in resp.headers.get("location", "")
 
 

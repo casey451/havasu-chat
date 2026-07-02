@@ -682,3 +682,62 @@ def serve_homepage_promoted(db, *, exclude_ids: set[str]) -> dict | None:
         "cta_label": cta_label,
         "is_placement": True,
     }
+
+
+def apply_placements_and_shuffle(
+    db,
+    providers,
+    *,
+    category_slug: str,
+    now,
+    sort: str | None = None,
+):
+    """Shared placement-pin + daily-shuffle ordering for provider listings.
+
+    Consolidated 2026-07-02 (audit): leaf pages and trade pages carried
+    byte-similar copies of this block (category_listing keeps a third,
+    facets-entangled variant — same TODO). Returns
+    ``(ordered_providers, sponsored_ids, new_unrated_ids, creatives)``:
+
+    * paid sticky-tier placements pinned first (mobile cap enforced),
+    * the daily Featured shuffle over the rated pool when enabled and the
+      user hasn't chosen an explicit sort ("favorites" keeps the incoming
+      dampened-rating order),
+    * "New / not yet rated" ids surfaced so cards can label them,
+    * per-provider ad creatives for the sold tiers.
+
+    Placement lookups must never empty an organic listing — any lookup error
+    degrades to the incoming order with no pins.
+    """
+    from app.portal.products import daily_shuffle_enabled, mobile_paid_cap, rating_gate
+
+    try:
+        tiers = active_category_tiers(db, category_slug)
+    except Exception:
+        tiers = {}
+    sponsored_ids = set(tiers.values())
+    try:
+        creatives = active_category_creatives(db, category_slug) if tiers else {}
+    except Exception:
+        creatives = {}
+
+    new_unrated_ids: frozenset[str] = frozenset()
+    by_id = {p.id: p for p in providers}
+    apply_shuffle = daily_shuffle_enabled() and (sort or "").strip().lower() != "favorites"
+    if apply_shuffle or tiers:
+        arr = arrange_listing(
+            [
+                ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
+                for p in providers
+            ],
+            tiers,
+            category_slug=category_slug,
+            day=listing_day(now),
+            threshold=rating_gate(),
+            cap=mobile_paid_cap(),
+            shuffle=apply_shuffle,
+        )
+        providers = [by_id[k] for k in arr.order if k in by_id]
+        if apply_shuffle:
+            new_unrated_ids = arr.new_unrated
+    return providers, sponsored_ids, new_unrated_ids, creatives

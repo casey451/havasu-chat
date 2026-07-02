@@ -35,6 +35,7 @@ from app.core.provider_name import clean_name as _clean_provider_name
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
 from app.events.tag_display import public_event_tags
+from app.events.time_labels import format_short_time_hhmm
 from app.home.queries import _format_phone
 from app.providers.queries import is_open_status_from_structured_hours
 
@@ -1193,20 +1194,8 @@ def is_single_business_card_query(intent_result: IntentResult, rows: list[dict[s
 
 
 def _format_time_display(hhmm: str) -> str:
-    raw = hhmm.strip()
-    if not raw:
-        return ""
-    try:
-        hour_str, minute_str = raw.split(":", 1)
-        hour = int(hour_str)
-        minute = int(minute_str)
-    except (ValueError, AttributeError):
-        return raw
-    suffix = "AM" if hour < 12 else "PM"
-    display_hour = hour % 12 or 12
-    if minute:
-        return f"{display_hour}:{minute:02d} {suffix}"
-    return f"{display_hour} {suffix}"
+    """Delegates to the shared time_labels compact formatter (consolidated 2026-07-02)."""
+    return format_short_time_hhmm(hhmm)
 
 
 def _format_event_when(row: dict[str, Any]) -> str | None:

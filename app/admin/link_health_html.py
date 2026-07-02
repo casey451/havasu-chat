@@ -18,17 +18,11 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, verify_admin_cookie
+from app.admin.auth import admin_guard as _guard
 from app.admin.nav_html import admin_phase5_nav_html
 from app.admin.url_safety import safe_href
 from app.db.database import get_db
 from app.db.models import LinkHealth, Provider
-
-
-def _guard(request: Request) -> RedirectResponse | None:
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    return RedirectResponse(url="/admin/login", status_code=302)
 
 
 def _esc(s: str | None) -> str:

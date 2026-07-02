@@ -22,24 +22,13 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, verify_admin_cookie
+from app.admin.auth import admin_guard as _guard
 from app.db.database import get_db
 from app.db.entity_dual_write import create_provider_and_entity
 from app.db.models import Provider
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-
-def _guard(request: Request) -> RedirectResponse | None:
-    """Mirror app.admin.router._guard: cookie OR request.state admin user."""
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    current_user = getattr(request.state, "current_user", None)
-    if current_user is not None and getattr(current_user, "role", None) == "admin":
-        return None
-    if current_user is not None:
-        raise HTTPException(status_code=403, detail="admin_only")
-    return RedirectResponse(url="/admin/login", status_code=303)
 
 
 def _esc(value: object) -> str:

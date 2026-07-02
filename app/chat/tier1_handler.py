@@ -27,6 +27,7 @@ from app.contrib.hours_helper import (
 )
 from app.core.timezone import now_lake_havasu
 from app.db.models import Event, Program, Provider
+from app.events.time_labels import format_short_time_hhmm
 
 _TIER1_SUB_INTENTS: frozenset[str] = frozenset(
     {
@@ -190,19 +191,8 @@ _PYTHON_WEEKDAY_TO_KEY: tuple[str, ...] = (
 
 
 def _fmt_clock(hm: str) -> str:
-    """``"09:00"`` → ``"9 AM"``; ``"17:30"`` → ``"5:30 PM"``; ``"00:00"`` → ``"12 AM"``."""
-    if not isinstance(hm, str) or len(hm) != 5 or hm[2] != ":":
-        return hm or ""
-    try:
-        h = int(hm[:2])
-        m = int(hm[3:5])
-    except ValueError:
-        return hm
-    suffix = "AM" if h < 12 else "PM"
-    h12 = h % 12 or 12
-    if m == 0:
-        return f"{h12} {suffix}"
-    return f"{h12}:{m:02d} {suffix}"
+    """``"09:00"`` → ``"9 AM"``; delegates to the shared time_labels formatter."""
+    return format_short_time_hhmm(hm)
 
 
 def _structured_for_provider(provider: Provider) -> dict | None:
