@@ -10,7 +10,7 @@
   <div class="nb-track" data-newsticker>
     {% for it in news.items %}
     <a class="nb-item{% if loop.first %} on{% endif %}" href="{{ it.url }}" target="_blank" rel="noopener nofollow">
-      <span class="nb-h">{{ it.title }}</span>
+      <span class="nb-h">{% if it.region_label %}<span class="nr-region">{{ it.region_label }}</span> {% endif %}{{ it.title }}</span>
       <span class="nb-src">{{ it.source_label }}{% if it.published_label %} · {{ it.published_label }}{% endif %}</span>
     </a>
     {% endfor %}

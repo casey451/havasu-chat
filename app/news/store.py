@@ -226,10 +226,42 @@ def _view(db: Session, *, limit: int | None, now: datetime | None) -> NewsView:
             seen_title.add(title_key)
         entry = dict(it)
         entry["published_label"] = _relative_label(it.get("published_at"), now)
+        entry["region_label"] = _region_label(title, str(it.get("summary") or ""))
         out.append(entry)
         if limit is not None and len(out) >= limit:
             break
     return NewsView(items=out, is_stale=bool(row.is_stale), updated_at=row.fetched_at)
+
+
+# 2026-07-01 master audit §6.2: the local pull (River Scene et al.) covers the
+# whole Parker/La Paz strip, so out-of-town items ran as bare Havasu headlines
+# ("Horseshoe tournament July 4 at Manataba Park" — that's Parker). Label them
+# honestly instead of dropping them (they're legitimately nearby news). Word-
+# boundary matched; "Parker Dam" alone reads as the local landmark and counts.
+_REGION_SIGNALS: tuple[tuple[str, str], ...] = (
+    ("Parker", r"\bparker\b(?!\s+dam)"),
+    ("Parker", r"\bmanataba\b|\bla paz county\b|\bla paz\b|\bquartzsite\b|\bposton\b|\bbouse\b"),
+    ("Kingman", r"\bkingman\b"),
+    ("Bullhead City", r"\bbullhead\b"),
+    ("Needles", r"\bneedles\b"),
+)
+_REGION_RES: tuple[tuple[str, re.Pattern[str]], ...] = tuple(
+    (label, re.compile(pattern, re.IGNORECASE)) for label, pattern in _REGION_SIGNALS
+)
+
+
+def _region_label(title: str, summary: str = "") -> str | None:
+    """Out-of-town region label for a headline, or ``None`` for Havasu items.
+
+    A headline that names Lake Havasu explicitly stays unlabeled even when it
+    also mentions a neighbor (a Havasu story about a Parker game is local)."""
+    blob = f"{title} {summary}"
+    if re.search(r"\b(lake havasu|havasu city|lhc)\b", blob, re.IGNORECASE):
+        return None
+    for label, rx in _REGION_RES:
+        if rx.search(blob):
+            return label
+    return None
 
 
 def ticker_view(db: Session, *, limit: int = 6, now: datetime | None = None) -> NewsView:

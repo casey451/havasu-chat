@@ -416,3 +416,7 @@ body.scrolled .head-stack{box-shadow:0 6px 18px -10px rgba(19,32,29,.28)}
   border:1px solid var(--hair);border-radius:var(--rad)}
 .newsempty h3{font-family:var(--disp);font-weight:500;font-size:18px;margin:0 0 6px}
 .newsempty p{font-size:13px;color:var(--ink2);margin:0}
+
+/* Out-of-town news region chip (2026-07-01 master audit §6.2): Parker / La Paz
+   items ran as bare Havasu headlines — label them honestly. */
+.nr-region{display:inline-block;padding:1px 7px;margin-right:2px;border:1px solid var(--hair2);border-radius:999px;font-family:var(--ui);font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink3);vertical-align:2px}
