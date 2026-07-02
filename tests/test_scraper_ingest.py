@@ -104,3 +104,48 @@ def test_decision_carries_normalized_payload(db_session):
     d = decide_ingest(db_session, _payload("  Spaced   Name  ", lat=34.95, lng=-114.95))
     # caller should persist d.payload (normalized), not the raw input
     assert d.payload.name == "Spaced Name"
+
+
+def _suppress(monkeypatch, name):
+    from app.contrib import ingest_suppression
+    from app.contrib.ingest_reconciler import slugify
+
+    monkeypatch.setattr(
+        ingest_suppression,
+        "SUPPRESSED_BUSINESS_SLUGS",
+        frozenset({slugify(name)}),
+    )
+
+
+def test_suppressed_identity_is_skipped_before_insert(db_session, monkeypatch):
+    # The durable blocklist must be enforced INSIDE the funnel so every
+    # decide_ingest source inherits it (it used to live only in the
+    # golakehavasu partners loader — a suppressed identity could re-enter
+    # via Places/OSM/pickleball/golf).
+    _suppress(monkeypatch, "Wake Surf Adventures")
+    d = decide_ingest(db_session, _payload("Wake Surf Adventures", lat=34.9, lng=-114.9))
+    assert d.action == "skip"
+    assert d.should_hide is False
+    assert d.existing_id is None
+    assert "suppressed" in (d.reason or "")
+
+
+def test_suppressed_identity_cannot_match_and_reactivate(db_session, monkeypatch):
+    # Even with an exact google_place_id match on an existing row, a
+    # suppressed name must return skip — never "update" (which loaders use to
+    # merge and set is_active=True, undoing the deactivation).
+    prov = _make_google_provider(db_session, "Wake Surf Adventures", gpid="ChIJ-wsa-1")
+    assert prov is not None
+    _suppress(monkeypatch, "Wake Surf Adventures")
+    d = decide_ingest(
+        db_session,
+        _payload("Wake Surf Adventures", google_place_id="ChIJ-wsa-1", lat=_LAT, lng=_LNG),
+    )
+    assert d.action == "skip"
+
+
+def test_suppression_matches_normalized_name(db_session, monkeypatch):
+    # Blocklist keys on slugify(name), so spacing/case variants still skip.
+    _suppress(monkeypatch, "Wake Surf Adventures")
+    d = decide_ingest(db_session, _payload("  WAKE  surf   Adventures ", lat=34.9, lng=-114.9))
+    assert d.action == "skip"

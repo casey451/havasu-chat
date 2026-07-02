@@ -23,6 +23,22 @@ router = APIRouter(prefix="/api/admin", tags=["v1-admin-crud"])
 
 DbSession = Annotated[Session, Depends(get_db)]
 
+# Mirror of the ck_events_status CHECK constraint (alembic a9b0c1d2e3f4 as
+# amended by f6a7b8c9d0e2). Writing anything else raises IntegrityError -> 500
+# on prod Postgres, so validate at the API boundary instead.
+EVENT_STATUSES = frozenset(
+    {"draft", "live", "cancelled", "expired", "pending_review", "deleted", "duplicate"}
+)
+
+
+def _validate_event_status(status: str) -> str:
+    if status not in EVENT_STATUSES:
+        raise HTTPException(
+            status_code=422,
+            detail=f"invalid status {status!r}; allowed: {sorted(EVENT_STATUSES)}",
+        )
+    return status
+
 
 AdminAuth = Annotated[None, Depends(require_admin)]
 
@@ -89,7 +105,7 @@ def admin_list_businesses(
     if q and q.strip():
         stmt = stmt.where(Provider.provider_name.ilike(f"%{q.strip()}%"))
     rows = list(db.scalars(stmt).offset(offset).limit(limit).all())
-    total = len(list(db.scalars(stmt).all()))
+    total = db.scalar(select(func.count()).select_from(stmt.subquery())) or 0
     return {
         "items": [business_from_provider(p) for p in rows],
         "total": total,
@@ -182,9 +198,10 @@ def admin_list_events(
     if status:
         count_stmt = count_stmt.where(Event.status == status)
     rows = list(db.scalars(stmt.order_by(Event.date.desc()).offset(offset).limit(limit)).all())
+    total = db.scalar(count_stmt) or 0
     return {
         "items": [event_from_row(e) for e in rows],
-        "total": len(rows),
+        "total": total,
         "limit": limit,
         "offset": offset,
     }
@@ -200,7 +217,7 @@ def admin_create_event(_: AdminAuth, db: DbSession, body: EventWrite) -> dict:
         location_name=body.location_name.strip(),
         description=body.description or body.title,
         event_url=body.event_url or "https://havasu-chat.example.com",
-        status=body.status,
+        status=_validate_event_status(body.status),
         source="manual",
         created_by="admin",
         verified=True,
@@ -240,7 +257,7 @@ def admin_patch_event(
     if body.event_url is not None:
         ev.event_url = body.event_url
     if body.status is not None:
-        ev.status = body.status
+        ev.status = _validate_event_status(body.status)
     db.commit()
     db.refresh(ev)
     return event_from_row(ev)
@@ -251,6 +268,8 @@ def admin_delete_event(_: AdminAuth, db: DbSession, event_id: str) -> dict:
     ev = db.get(Event, event_id)
     if ev is None:
         raise HTTPException(status_code=404, detail="not_found")
-    ev.status = "hidden"
+    # "deleted" is the soft-delete status in ck_events_status; the previous
+    # "hidden" value violated the CHECK constraint (IntegrityError -> 500).
+    ev.status = "deleted"
     db.commit()
-    return {"ok": True, "id": event_id, "status": "hidden"}
+    return {"ok": True, "id": event_id, "status": "deleted"}

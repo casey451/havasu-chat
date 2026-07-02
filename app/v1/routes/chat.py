@@ -19,14 +19,18 @@ def chat_history(
     db: Session = Depends(get_db),
 ) -> dict:
     sid = session_id.strip()[:128]
+    # Fetch the NEWEST `limit` rows, then flip back to chronological order.
+    # Ascending-then-limit returned the oldest rows, so restoring a session
+    # longer than `limit` turns replayed its beginning, not its latest turns.
     rows = list(
         db.scalars(
             select(ChatLog)
             .where(ChatLog.session_id == sid)
-            .order_by(ChatLog.created_at.asc())
+            .order_by(ChatLog.created_at.desc())
             .limit(limit)
         ).all()
     )
+    rows.reverse()
     messages = [
         {
             "role": r.role,

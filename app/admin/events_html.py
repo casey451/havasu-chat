@@ -12,6 +12,7 @@ from sqlalchemy.orm import Session
 
 from app.admin.auth import COOKIE_NAME, verify_admin_cookie
 from app.admin.nav_html import admin_phase5_nav_html
+from app.admin.url_safety import safe_href
 from app.core.field_tracking import EVENT_TRACKED_FIELDS
 from app.db.database import get_db
 from app.db.models import Event, FieldHistory
@@ -108,11 +109,12 @@ def register_events_html_routes(router: APIRouter) -> None:
         # the human filling a missing time locks it against the next re-scrape with
         # no extra click. ``?flash=saved`` confirms a prior save.
         force_lock = request.query_params.get("lock") in {"1", "true", "yes", "on"}
-        saved = request.query_params.get("flash") == "saved"
+        flash = request.query_params.get("flash") or ""
         return HTMLResponse(
             _render_edit_form(
                 event, freq=freq, byday=byday, until=until, exdates=exdates,
-                force_lock=force_lock, saved=saved,
+                force_lock=force_lock, saved=(flash == "saved"),
+                error=(flash == "bad_datetime"),
             )
         )
 
@@ -148,9 +150,19 @@ def register_events_html_routes(router: APIRouter) -> None:
         }
         event.title = title.strip()
         event.normalized_title = event.title.lower()
-        event.date = date.fromisoformat(event_date.strip())
-        event.start_time = time.fromisoformat(start_time.strip()[:8])
-        event.end_time = time.fromisoformat(end_time.strip()[:8]) if end_time.strip() else None
+        # Malformed date/time input (direct POST bypasses the form's client
+        # validation) re-renders the edit form with a flash instead of a 500.
+        try:
+            event.date = date.fromisoformat(event_date.strip())
+            event.start_time = time.fromisoformat(start_time.strip()[:8])
+            event.end_time = (
+                time.fromisoformat(end_time.strip()[:8]) if end_time.strip() else None
+            )
+        except ValueError:
+            db.rollback()
+            return RedirectResponse(
+                url=f"/admin/events/{event_id}/edit?flash=bad_datetime", status_code=303
+            )
         event.description = description.strip()
         event.status = status.strip() or "live"
         event.cancellation_reason = (
@@ -187,9 +199,12 @@ def register_events_html_routes(router: APIRouter) -> None:
         if redir := _guard(request):
             return redir
         source = (request.query_params.get("source") or "").strip()
+        # "pending_review" is the actual status vocabulary (ck_events_status);
+        # a bare "pending" matches nothing, which silently hid every
+        # pending-review event with a TBD time from this queue.
         rows = (
             db.query(Event)
-            .filter(Event.status.in_(("live", "pending")))
+            .filter(Event.status.in_(("live", "pending_review")))
             .order_by(Event.date.asc())
             .all()
         )
@@ -216,10 +231,16 @@ def _render_edit_form(
     exdates: str,
     force_lock: bool = False,
     saved: bool = False,
+    error: bool = False,
 ) -> str:
     flash = (
         '<p style="color:#1a7f37;font-weight:600">✓ Saved.</p>' if saved else ""
     )
+    if error:
+        flash = (
+            '<p style="color:#b42318;font-weight:600">✗ Not saved — the date or'
+            " time was not valid (date YYYY-MM-DD, time HH:MM).</p>"
+        )
     nav = admin_phase5_nav_html()
     lock_checked = "checked" if (event.operator_override or force_lock) else ""
     cancelled_sel = "selected" if event.status == "cancelled" else ""
@@ -267,7 +288,9 @@ label{{display:block;margin-top:1rem;font-weight:600}} input,textarea,select{{wi
 def _missing_time_row_html(ev: Event) -> str:
     flyer = ev.source_url or ev.event_url or ""
     flyer_cell = (
-        f'<a href="{_esc(flyer)}" target="_blank" rel="noopener">flyer/source ↗</a>'
+        # safe_href, not just _esc: these URLs come from scrapers and html.escape
+        # does not neutralize javascript:/data: URL schemes.
+        f'<a href="{_esc(safe_href(flyer))}" target="_blank" rel="noopener">flyer/source ↗</a>'
         if flyer
         else '<span style="color:#999">none</span>'
     )

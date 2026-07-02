@@ -116,6 +116,68 @@ def test_missing_times_lists_tbd_and_save_drops_it(client: TestClient) -> None:
         _cleanup(ids)
 
 
+def test_missing_times_includes_pending_review(client: TestClient) -> None:
+    # Regression (audit 2026-07-01): the queue filtered on a nonexistent
+    # status "pending", so pending_review events with TBD times never
+    # surfaced. The vocabulary is live/pending_review (ck_events_status).
+    s = uuid.uuid4().hex[:6]
+    pending_title = f"ZZ Pending Flyer {s}"
+    ids = [_add_event(title=pending_title, start=_TBD, source="parks_rec_flyers")]
+    with SessionLocal() as db:
+        db.query(Event).filter(Event.id == ids[0]).update({"status": "pending_review"})
+        db.commit()
+    try:
+        client.cookies.clear()
+        _login(client)
+        r = client.get("/admin/events/missing-times")
+        assert r.status_code == 200
+        assert pending_title in r.text
+    finally:
+        _cleanup(ids)
+
+
+def test_edit_save_rejects_malformed_datetime_without_500(client: TestClient) -> None:
+    # Malformed date/time on a direct POST must re-render with a flash, not 500,
+    # and must not modify the row.
+    s = uuid.uuid4().hex[:6]
+    title = f"ZZ BadDate {s}"
+    ids = [_add_event(title=title, start=time(19, 0), source="allevents")]
+    try:
+        client.cookies.clear()
+        _login(client)
+        save = client.post(
+            f"/admin/events/{ids[0]}/edit",
+            data={"title": title, "date": "not-a-date", "start_time": "19:00"},
+            follow_redirects=False,
+        )
+        assert save.status_code == 303
+        assert "flash=bad_datetime" in save.headers.get("location", "")
+        with SessionLocal() as db:
+            ev = db.get(Event, ids[0])
+            assert ev.date == _DAY  # unchanged
+        form = client.get(f"/admin/events/{ids[0]}/edit?flash=bad_datetime")
+        assert "Not saved" in form.text
+    finally:
+        _cleanup(ids)
+
+
+def test_flyer_link_neutralizes_javascript_scheme() -> None:
+    # safe_href regression: scraped source URLs must not reach an admin href
+    # with a javascript:/data: scheme (html.escape alone doesn't stop them).
+    from app.admin.events_html import _missing_time_row_html
+
+    ev = Event(
+        title="ZZ Evil", normalized_title="zz evil", date=_DAY,
+        start_time=_TBD, end_time=None, location_name="x",
+        location_normalized="x", description="x",
+        event_url="", source_url="javascript:alert(1)", tags=[],
+        status="live", source="allevents", verified=True, is_recurring=False,
+    )
+    row_html = _missing_time_row_html(ev)
+    assert 'href="javascript:' not in row_html
+    assert 'href="#"' in row_html
+
+
 def test_missing_times_source_filter(client: TestClient) -> None:
     s = uuid.uuid4().hex[:6]
     vis = f"ZZ Flyer Event {s}"

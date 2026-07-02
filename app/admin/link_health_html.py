@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session
 
 from app.admin.auth import COOKIE_NAME, verify_admin_cookie
 from app.admin.nav_html import admin_phase5_nav_html
+from app.admin.url_safety import safe_href
 from app.db.database import get_db
 from app.db.models import LinkHealth, Provider
 
@@ -129,8 +130,13 @@ def register_link_health_html_routes(router: APIRouter) -> None:
                 # Layer 2: local-LLM verdict + suggested replacement URL, if assessed.
                 assess = _esc(r.llm_assessment) if r.llm_assessment else ""
                 if r.llm_suggested_url:
+                    # safe_href on both cells: these are scraped/LLM-produced URLs
+                    # and html.escape does not neutralize javascript:/data: schemes.
                     su = _esc(r.llm_suggested_url)
-                    assess += f'<br><a class="ext" href="{su}" target="_blank" rel="noopener nofollow">→ {su}</a>'
+                    assess += (
+                        f'<br><a class="ext" href="{_esc(safe_href(r.llm_suggested_url))}"'
+                        f' target="_blank" rel="noopener nofollow">→ {su}</a>'
+                    )
                 assess = assess or "—"
                 body += (
                     "<tr>"
@@ -139,7 +145,7 @@ def register_link_health_html_routes(router: APIRouter) -> None:
                     f'<td><span class="pill">{status}</span></td>'
                     f'<td class="num">{r.consecutive_failures}</td>'
                     f"<td>{_esc(_fmt_dt(r.last_checked_at))}</td>"
-                    f'<td><a class="ext" href="{_esc(r.url)}" target="_blank" rel="noopener nofollow">{_esc(r.url)}</a></td>'
+                    f'<td><a class="ext" href="{_esc(safe_href(r.url))}" target="_blank" rel="noopener nofollow">{_esc(r.url)}</a></td>'
                     f"<td>{assess}</td>"
                     "</tr>"
                 )
