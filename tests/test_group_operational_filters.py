@@ -59,7 +59,11 @@ def test_events_when_filters_keep_route_healthy(client: TestClient, qs: str) -> 
 def test_when_window_maps_chips_to_dates() -> None:
     mon = date(2026, 6, 29)  # a Monday
     assert _when_window("today", mon) == (mon, mon)
-    assert _when_window("this-weekend", mon) == (date(2026, 7, 4), date(2026, 7, 5))
+    # this-weekend now shares event_window_for_chip's Friday-inclusive contract
+    # (a Friday-night concert counts as "this weekend" on EVERY surface — the
+    # old local copy here was strict Sat–Sun and disagreed with the events
+    # pages).
+    assert _when_window("this-weekend", mon) == (date(2026, 7, 3), date(2026, 7, 5))
     assert _when_window("this-week", mon) == (mon, date(2026, 7, 5))
     assert _when_window("next-month", mon) == (date(2026, 7, 1), date(2026, 7, 31))
     assert _when_window(None, mon) is None
