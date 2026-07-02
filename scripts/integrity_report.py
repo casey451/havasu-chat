@@ -108,10 +108,13 @@ def main(argv: list[str] | None = None) -> int:
         if len(orphans) > 10:
             print(f"    … +{len(orphans) - 10} more")
 
-        # B — no actionable contact
+        # B — no actionable contact. A phone, a real address, OR a website is
+        # actionable (2026-07-02 refinement: delivery/appointment operators like
+        # Steelhead Aquatics legitimately run website-only).
         ghosts = [
             p for p in actives
             if not (p.phone or "").strip()
+            and not (p.website or "").strip()
             and (not (p.address or "").strip() or is_placeholder_address(p.address))
         ]
         counts["zero_contact_providers"] = len(ghosts)
