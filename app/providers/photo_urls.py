@@ -48,16 +48,6 @@ def _google_photo_url_cached(ref: str, max_width_px: int) -> str | None:
     return f"{_PHOTO_MEDIA_BASE}/{ref}/media?maxWidthPx={max_width_px}&key={key}"
 
 
-def google_photo_url(ref: str, *, max_width_px: int = 1200) -> str | None:
-    """Build a browser-fetchable Photo Media URL for a Places photo resource name."""
-    url = _google_photo_url_cached(ref, max_width_px)
-    if url is not None:
-        logger.info(
-            "google_photo_url.issued",
-            extra={"ref": ref, "max_width_px": max_width_px},
-        )
-    return url
-
 
 def _is_renderable_http_url(candidate: object) -> bool:
     return isinstance(candidate, str) and (
@@ -215,8 +205,4 @@ def resolve_photo_ref(ref: str, *, max_width: int = 1200) -> str | None:
     return resolved
 
 
-def resolve_photo_refs(refs: list[str] | None, *, max_width: int = 1200) -> list[str | None] | None:
-    """Resolve each ref in parallel to ``google_photo_urls`` column shape."""
-    if not refs:
-        return None
-    return [resolve_photo_ref(ref, max_width=max_width) for ref in refs]
+

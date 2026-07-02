@@ -170,6 +170,11 @@ _SPECIFIC_QUALITY_SUB_INTENTS: frozenset[str] = frozenset(
     }
 )
 
+# KNOWN WIRING GAP (audit 2026-07-01, BACKLOG.md): neither the intent
+# classifier nor the LLM router currently emits GENERAL_QUESTION/RECOMMENDATION/
+# DISCOVERY, so GENERIC_CATEGORY can only be selected in tests — generic-category
+# sponsored placement never fires in prod until the regime is mapped onto
+# sub-intents the classifier actually emits (a monetization decision, tracked).
 _GENERIC_CATEGORY_SUB_INTENTS: frozenset[str] = frozenset(
     {"GENERAL_QUESTION", "RECOMMENDATION", "DISCOVERY"}
 )

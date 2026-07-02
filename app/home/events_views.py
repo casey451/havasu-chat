@@ -66,11 +66,10 @@ from app.events.title_clean import clean_event_title, clean_venue_label
 from app.home.event_buckets import (
     GROUP_DEFS,
     GROUP_NOUNS,
-    TIER_SPECIAL,
     group_for_tier,
     is_dropin_rec,
 )
-from app.home.family_venues import class_today_rows, funzone_hours_rows, open_today_rows
+from app.home.family_venues import class_today_rows, funzone_hours_rows
 from app.home.sandstone import (
     _event_tier,
     _live_events_by_day,
@@ -626,182 +625,13 @@ def day_groups(
 # Surface B — Places & Ongoing top-level categories (two-surface spec §3), in
 # order. These are render groups for the Places browse tab only; they are NOT
 # part of the shared Calendar GROUP_DEFS. Subcategories (§4) land in Phase 3.
-PLACES_GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
-    ("things-to-do", "Things to Do", "\U0001F3B3"),   # bowling/billiards/trampoline/on-water/workshops
-    ("sports-fitness", "Sports & Fitness", "\U0001F3C3"),  # golf/pickleball/gymnastics/martial/yoga/dance
-    ("seniors", "Seniors", "\U0001F9D3"),              # gated Senior-Center programming (§5.2)
-)
 
 
-def _places_top_key(primary_key: str) -> str:
-    """Map a Calendar primary-group key to its Places & Ongoing top-level (§3).
 
-    Sports/fitness classes (``classes``) → "Sports & Fitness"; gated senior
-    programming (``seniors``) → "Seniors"; everything else (funzone venues →
-    ``events``, lake rentals → ``water``, standing studios → ``learn``) →
-    "Things to Do".
-    """
-    if primary_key == "classes":
-        return "sports-fitness"
-    if primary_key == "seniors":
-        return "seniors"
-    return "things-to-do"
-
-
-# Things-to-Do subcategory labels that aren't venue-type sections (spec §4).
 PLACES_ON_THE_WATER_LABEL = "On the Water"
 PLACES_WORKSHOPS_LABEL = "Classes & Workshops"
 
 
-def _places_subgroups(key: str, rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Subcategory split for one Places top-level (spec §4). Sports & Fitness
-    splits by activity (Golf / Pickleball / Gymnastics / Martial arts / Yoga /
-    Dance, each with its Youth third level); Seniors by its internal sections;
-    Things to Do by venue type (Bowling / Billiards / Trampoline / Arcade) plus
-    On the Water and a single Classes & Workshops section. Empty subsections are
-    omitted by the shared splits (honest-omission)."""
-    if key == "sports-fitness":
-        return split_class_subgroups(rows)
-    if key == "seniors":
-        return split_senior_subgroups(rows)
-    # Things to Do: partition by primary first so lake-rental and studio-workshop
-    # rows aren't misfiled by the venue-type classifier.
-    events_rows = [r for r in rows if r.get("_pk") == "events"]
-    water_rows = [r for r in rows if r.get("_pk") == "water"]
-    learn_rows = [r for r in rows if r.get("_pk") == "learn"]
-    subs = split_events_subgroups(events_rows) if events_rows else []
-    if water_rows:
-        subs.append(
-            {"label": PLACES_ON_THE_WATER_LABEL, "rows": water_rows, "count": len(water_rows)}
-        )
-    if learn_rows:
-        subs.append(
-            {"label": PLACES_WORKSHOPS_LABEL, "rows": learn_rows, "count": len(learn_rows)}
-        )
-    return subs
-
-
-def _places_dedupe_key(row: dict[str, Any]) -> tuple[str, str]:
-    """De-dup identity for a Places row: one entry per (title, venue). Places is
-    a browse-anytime list, so a weekly class / venue-hours row that recurs every
-    day in the window collapses to a single entry (spec §3)."""
-    return (
-        (row.get("title") or "").strip().lower(),
-        (row.get("venue") or "").strip().lower(),
-    )
-
-
-def places_groups(
-    db: Session,
-    *,
-    today: date,
-    days: int = 7,
-    family: bool = False,
-) -> list[dict[str, Any]]:
-    """Surface B — Places & Ongoing: the standing venues + weekly class schedules
-    (two-surface spec §3), de-duplicated to one row per place/class across the
-    window and grouped into the three top-level Places categories.
-
-    This is the complement of the events-only Calendar (:func:`day_groups` with
-    ``events_only=True``): it collects exactly the rows the Calendar drops —
-    ``_row_is_event`` False (venue hours, curated ``ongoing`` rows, drop-in rec,
-    recurring fitness/workshop class rosters). Subcategories and collapse/empty-
-    hiding refinements are Phase 3; this builds the top-level browse groups.
-
-    De-dup keeps the FIRST row seen per ``(title, venue)``; sources are scanned
-    curated-first (funzone venue hours, then youth studio classes, then venue
-    Schedule classes, then DB rows, then family open-hours) so the richest /
-    most-specific row wins for a venue that appears in more than one source.
-    """
-    end = today + timedelta(days=days - 1)
-    by_top: dict[str, list[dict[str, Any]]] = {key: [] for key, _l, _i in PLACES_GROUP_DEFS}
-    seen: set[tuple[str, str]] = set()
-
-    def _consider(row: dict[str, Any], *, recurring: bool) -> None:
-        if not row.get("title"):
-            return
-        if _row_is_event(row):
-            return  # belongs on the Calendar surface, not Places
-        if family and not is_family_event(row.get("title"), row.get("tags"), row.get("venue")):
-            return
-        key = _places_dedupe_key(row)
-        if key in seen:
-            return
-        seen.add(key)
-        title = row.get("title") or ""
-        venue = row.get("venue")
-        tags = row.get("tags")
-        activity = row.get("activity")
-        is_senior = is_senior_event(title, tags, venue)
-        gkey = _group_for(title=title, tags=tags, featured=False, recurring=recurring)
-        primary = _occurrence_group_keys(
-            gkey, title=title, venue=venue, activity=activity, tags=tags, is_senior=is_senior
-        )[0]
-        row["_pk"] = primary  # remembered for the Places subcategory split (§4)
-        # Youth peels into a third-level "Youth <activity>" sub (§4); off under the
-        # family narrow (the whole view is already kids) and never for seniors. A
-        # row that already declares youth (youth-studio classes) keeps it.
-        if family:
-            row["youth"] = False
-        elif "youth" not in row:
-            row["youth"] = not is_senior and is_youth_event(title, tags, venue)
-        by_top[_places_top_key(primary)].append(row)
-
-    # Curated venue-hours rows first (real "12–11 PM" times + venue-kind tags), so
-    # they win de-dup over any DB/family twin of the same venue.
-    day = today
-    while day <= end:
-        for r in funzone_hours_rows(day):
-            _consider(r, recurring=False)
-        for r in golf_hours_rows(day):
-            _consider(r, recurring=False)
-        for r in class_today_rows(day):
-            _consider(r, recurring=True)
-        day += timedelta(days=1)
-    for occ in class_occurrences_in_window(db, window_start=today, window_end=end):
-        _consider(
-            {
-                "sort": time_sort_key(occ.start_time, occ.end_time),
-                "time_label": _row_time_label(occ.title or "", occ.start_time, occ.end_time),
-                "title": clean_event_title(occ.title, location_name=occ.venue),
-                "venue": clean_venue_label(occ.venue),
-                "url": occ.url,
-                "recurring": True,
-                "activity": occ.provider_activity,
-            },
-            recurring=True,
-        )
-    for _d, evs in _live_events_by_day(db, window_start=today, window_end=end).items():
-        for ev in evs:
-            if _is_funzone_db_hours(ev.tags) or _is_golf_db_hours(ev.tags):
-                continue  # superseded by the curated funzone/golf-hours rows above
-            _consider(_event_row(ev), recurring=bool(ev.is_recurring))
-    day = today
-    while day <= end:
-        for r in open_today_rows(day):
-            _consider(r, recurring=False)
-        day += timedelta(days=1)
-
-    groups: list[dict[str, Any]] = []
-    for key, label, icon in PLACES_GROUP_DEFS:
-        rows = sorted(by_top[key], key=lambda r: (r.get("title") or "").lower())
-        if not rows:
-            continue  # hide empty categories (spec §5.3)
-        subs = _places_subgroups(key, rows)
-        for sub in subs:
-            sub["open"] = False  # subcategories collapsed until expanded (§5.3)
-        groups.append(
-            {
-                "key": key,
-                "label": label,
-                "icon": icon,
-                "count": len(rows),
-                "rows": rows,
-                "subgroups": subs,
-                "open": True,  # top-level header expanded; subcategories collapsed
-            }
-        )
-    return groups
 
 
 def calendar_day_view_model(
@@ -1087,32 +917,4 @@ def swipe_weeks(
     return weeks
 
 
-def day_highlights(
-    db: Session, *, day: date, now: datetime | None = None, limit: int = 3
-) -> list[dict[str, Any]]:
-    """Top one-off events for the home "Today's highlights" strip — the unique,
-    not-recurring things, ranked by tier (special first) then time. Recurring
-    classes and all-day drop-in rec never headline. Empty day -> []."""
-    events = _live_events_by_day(db, window_start=day, window_end=day).get(day, [])
-    ranked: list[tuple[int, tuple[int, time], Event]] = []
-    for ev in events:
-        if ev.is_recurring:
-            continue
-        if _occurrence_expired(day, ev.start_time, ev.end_time, now):
-            continue
-        tier = _event_tier(
-            title=ev.title or "", tags=ev.tags, featured=bool(ev.featured), recurring=False
-        )
-        ranked.append((tier, time_sort_key(ev.start_time, ev.end_time), ev))
-    ranked.sort(key=lambda t: (t[0], t[1]))
-    out: list[dict[str, Any]] = []
-    for tier, _sk, ev in ranked[:limit]:
-        out.append(
-            {
-                "title": clean_event_title(ev.title, location_name=ev.location_name),
-                "time_label": short_time_label(ev.start_time, ev.end_time),
-                "venue": ev.location_name,
-                "special": tier == TIER_SPECIAL,
-            }
-        )
-    return out
+

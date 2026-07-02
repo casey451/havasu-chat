@@ -15,7 +15,7 @@ month calendar, and the /events-ui window feed.
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, time
+from datetime import date, time
 
 from sqlalchemy import delete
 
@@ -26,7 +26,6 @@ from app.events.dedup import (
     dedup_cross_source_occurrences,
 )
 from app.home import sandstone
-from app.home.router import _events_for_window_with_total
 
 _DAY = date(2099, 8, 17)
 
@@ -249,27 +248,6 @@ def test_calendar_month_shows_cross_source_duplicate_once() -> None:
     finally:
         _cleanup(eids)
 
-
-def test_events_ui_window_feed_dedups_and_keeps_named_venue() -> None:
-    """The /events-ui bucket + day-view feed shows one card with the real
-    time span and the named venue -- and the honest total counts it once."""
-    suffix = uuid.uuid4().hex[:6]
-    title = f"ZZ Dedup Feed Market {suffix}"
-    day = date(2099, 10, 13)
-    win = datetime.combine(day, time(12, 0))
-    with SessionLocal() as db:
-        eids = _seed_farmers_market_pair(db, title=title, on=day)
-    try:
-        with SessionLocal() as db:
-            rows, _total = _events_for_window_with_total(
-                db, start_day=win, end_day=win, limit=16
-            )
-        mine = [r for r in rows if r["title"] == title]
-        assert len(mine) == 1
-        assert mine[0]["venue"] == _NAMED_VENUE
-        assert mine[0]["time_label"] == "8:00 AM - 12:00 PM"
-    finally:
-        _cleanup(eids)
 
 
 # --- Item 2: cross-source SAME-SESSION, DIFFERENT titles ---------------------

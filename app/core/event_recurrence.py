@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import re
-from typing import Any
 
 # Multiword phrases: substring match in combined blob.
 _RECURRENCE_PHRASES: tuple[str, ...] = (
@@ -54,15 +53,4 @@ def is_recurring_heuristic(text_blob: str) -> bool:
     return False
 
 
-def is_recurring_from_event_model(event: Any) -> bool:
-    """Convenience: blob from a SQLAlchemy Event (or any object with title/description/tags)."""
-    tags = getattr(event, "tags", None)
-    if tags is None:
-        tags = []
-    return is_recurring_heuristic(
-        event_text_blob(
-            str(getattr(event, "title", "") or ""),
-            str(getattr(event, "description", "") or ""),
-            list(tags) if not isinstance(tags, list) else tags,
-        )
-    )
+

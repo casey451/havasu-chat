@@ -53,16 +53,19 @@ def test_night_landing_has_no_lime_and_real_dark_palette() -> None:
 
 
 def test_mode_landing_data_contract() -> None:
+    # ("lake" left _MODE_CONFIG 2026-07-02: /lake has 301'd to the category
+    # page since IA v2, so its landing config/tiles/mini-conditions were dead.)
     with SessionLocal() as db:
-        lake = sandstone.mode_landing(db, "lake")
+        family = sandstone.mode_landing(db, "family")
         night = sandstone.mode_landing(db, "night")
     # Every landing ships exactly six navigation sub-tiles, each with a real url.
-    assert len(lake["tiles"]) == 6
-    for tile in lake["tiles"]:
-        assert tile["url"].startswith(("/categories/", "/chat?q="))
-    # Lake hero may carry live mini-conditions; Night never shows a fake counter.
-    assert isinstance(lake["mini_conditions"], list)
+    assert len(family["tiles"]) == 6
+    for tile in family["tiles"]:
+        assert tile["url"].startswith(("/categories/", "/chat?q=", "/events-ui", "/calendar"))
+    # Night/Family never show a fake counter (anti-confabulation §4.10).
     assert night["mini_conditions"] == []
+    with SessionLocal() as db, pytest.raises(KeyError):
+        sandstone.mode_landing(db, "lake")
 
 
 def test_unknown_mode_raises() -> None:

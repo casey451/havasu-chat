@@ -5,15 +5,12 @@ import time
 import unittest
 from datetime import UTC, date, datetime, timedelta
 from datetime import time as time_type
-from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 from sqlalchemy import update
 
 from app.core.session import (
-    blocking_session_expired,
     clear_session_state,
-    get_session,
 )
 from app.db.database import SessionLocal
 from app.db.models import ChatLog, Contribution, Event, LlmMentionedEntity, Program
@@ -47,14 +44,8 @@ class Phase8StabilizationTests(unittest.TestCase):
         clear_session_state("phase8-stale")
         clear_session_state("phase8-health")
 
-    def test_blocking_session_expires(self) -> None:
-        sid = "phase8-stale"
-        s = get_session(sid)
-        s["awaiting_confirmation"] = True
-        start = 1_000_000.0
-        s["blocking_mono"] = start
-        with patch("app.core.session.time.monotonic", return_value=start + 301):
-            self.assertTrue(blocking_session_expired(s))
+    # (test_blocking_session_expires was deleted 2026-07-02 with the Track-A
+    # flow/await state machine — blocking_session_expired no longer exists.)
 
     def test_health_reports_db_and_event_count(self) -> None:
         r = self.__class__.client.get("/health")

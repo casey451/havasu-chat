@@ -89,33 +89,6 @@ def canonical_event_identity(url: str | None) -> str | None:
     return f"url:{cleaned.lower()}" if cleaned else None
 
 
-def find_duplicate_by_canonical_url(
-    db: Session,
-    *,
-    candidate_urls: list[str | None],
-) -> Event | None:
-    """Return an existing Event sharing a canonical-URL identity, else ``None``.
-
-    ``candidate_urls`` are the incoming event's click-through URLs (event_url,
-    source_stable_url, organizer URL, etc.). Each is reduced to a canonical
-    identity via :func:`canonical_event_identity`; if any existing Event's own
-    URLs reduce to the same key, that Event is the cross-source duplicate.
-
-    Scans live events only. ``O(events)``; acceptable at the current catalog size
-    and only invoked on the at-ingest reconcile path.
-    """
-    wanted: set[str] = {
-        key for u in candidate_urls if (key := canonical_event_identity(u)) is not None
-    }
-    if not wanted:
-        return None
-    for ev in db.scalars(select(Event).where(Event.status == "live")).all():
-        for existing_url in (ev.event_url, getattr(ev, "source_url", None)):
-            key = canonical_event_identity(existing_url)
-            if key is not None and key in wanted:
-                return ev
-    return None
-
 
 # --------------------------------------------------------------------------- #
 # Recurring-series instance dedupe (venue + title + weekday)
@@ -137,32 +110,6 @@ def recurring_series_key(
         return None
     return (v, t, weekday)
 
-
-def find_recurring_series_instance(
-    db: Session,
-    *,
-    venue_name: str | None,
-    title: str | None,
-    start_date: date,
-) -> Event | None:
-    """Return an existing same-weekday instance of this recurring series, if any.
-
-    Recurring scrapes re-emit every weekly occurrence; a re-import of the same
-    series for the *same calendar date* must collapse onto the existing row rather
-    than minting a second "Saturday Farmers Market" for that day. Match key is
-    ``(venue, title, weekday)`` constrained to the same date (so distinct weeks
-    stay distinct occurrences -- this is instance dedupe, not series collapse).
-    """
-    key = recurring_series_key(venue_name, title, start_date.weekday())
-    if key is None:
-        return None
-    for ev in db.scalars(select(Event).where(Event.date == start_date)).all():
-        cand_key = recurring_series_key(
-            ev.location_name, ev.normalized_title or ev.title, ev.date.weekday()
-        )
-        if cand_key == key:
-            return ev
-    return None
 
 
 def find_duplicate(

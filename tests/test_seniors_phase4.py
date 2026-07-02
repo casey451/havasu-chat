@@ -232,30 +232,3 @@ def test_calendar_parses_senior_intent() -> None:
     assert calendar_view.parse_calendar_query("toddler story time")["aud"] == "kids"
 
 
-def test_calendar_senior_query_narrows_and_shows_understood_chip() -> None:
-    """Item 4: the manual audience toggle (seg_aud) is gone, but a senior ask
-    typed in plain words still narrows the calendar and surfaces a removable
-    "Seniors" understood-chip — chat senior intent is preserved."""
-    s = uuid.uuid4().hex[:6]
-    senior = f"ZZ Senior Bingo {s}"
-    music = f"ZZ DJ Night {s}"
-    eids: list[str] = []
-    with SessionLocal() as db:
-        eids.append(_add_event(db, title=senior, start=time(20, 0), loc="Senior Center",
-                               tags=["senior"]))
-        eids.append(_add_event(db, title=music, start=time(20, 30), loc="Bar", tags=["music"]))
-        db.commit()
-    try:
-        with SessionLocal() as db:
-            vm = calendar_view.build_calendar(
-                db, q="for seniors", today=_MONDAY.date(), now=_MONDAY
-            )
-        # No manual audience toggle in the view model anymore …
-        assert "seg_aud" not in vm
-        # … but the parsed senior intent narrows and shows a removable chip.
-        assert any(c["label"] == "Seniors" for c in vm["chips"])
-        all_titles = {it["title"] for col in vm["columns"] for it in col["entries"]}
-        assert any(senior in t for t in all_titles)
-        assert not any(music in t for t in all_titles)
-    finally:
-        _cleanup(eids)

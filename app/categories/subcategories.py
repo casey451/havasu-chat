@@ -125,12 +125,6 @@ def bucket_for_category_route(route_slug: str | None) -> str | None:
     return _ROUTE_TO_BUCKET.get(route_slug.strip().lower())
 
 
-def subcategories_for_category_route(route_slug: str | None) -> list[Subcategory]:
-    """Chip set for a plural category page — empty when the route isn't a bucket
-    destination (tile routes like ``beauty-care`` show no second level)."""
-    bucket_id = bucket_for_category_route(route_slug)
-    return subcategories_for_bucket(bucket_id) if bucket_id else []
-
 
 # ---------------------------------------------------------------------------
 # Backfill / on-ingest derivation

@@ -22,7 +22,6 @@ from app.core.rate_limit import limiter, public_html_rate_limit
 from app.db.database import get_db
 from app.db.models import Claim, Entity, Provider, User
 from app.events.queries import venue_events_for_profile
-from app.home import sandstone as home_sandstone
 from app.providers import queries, view_models
 
 _TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
@@ -108,7 +107,5 @@ def serve_provider_profile(
             "venue_events": venue_events,
             "provider_name": vm.provider_name,
             # Sandstone header chrome (shared base): real nav + mega-menu.
-            "primary_nav": home_sandstone.primary_nav(),
-            "mega_columns": home_sandstone.mega_columns(db),
         },
     )
