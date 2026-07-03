@@ -303,6 +303,7 @@ _WOULD_RENAME = {
     "skipped_reactivate_pending_review": "would_skip_reactivate_pending_review",
     "retired_duplicates": "would_retire",
     "reconcile_skipped_ambiguous": "would_reconcile_skipped_ambiguous",
+    "recategorized_leaf": "would_recategorize_leaf",
 }
 
 
