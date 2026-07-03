@@ -4,14 +4,16 @@ One concept at three zoom levels — "show the general category and how many,
 click to see more":
 
 * **Today / day detail** — a category accordion for a single lake-local date.
-  Groups, in owner-approved order: Around town (one-off, non-class), Kids &
-  Family (every kid/family occurrence PLUS "what's open for kids today" venue
-  hours — see app.home.family_venues), Music & nightlife, On the water (the
-  LAKE only), Aquatic Center (pool: open swim, swim lessons, aqua classes),
-  Fitness & classes (recurring Event rows + venue Schedule classes). Kids &
-  Family and Aquatic Center are cross-cutting overlays (see _group_for_tier):
-  a kid/pool occurrence leaves its activity group for these. Empty groups are
-  omitted; the Around town group opens by default.
+  Groups, in owner-approved order (see :data:`app.home.event_buckets.GROUP_DEFS`):
+  Things to Do (one-off, non-class), Kids & Family (every kid/family occurrence
+  PLUS "what's open for kids today" venue hours — see app.home.family_venues),
+  Seniors, Local Government, Music & Nightlife, Lake & Boating (the LAKE only),
+  Fitness & Sports (recurring Event rows + venue Schedule classes). Kids &
+  Family and Seniors are cross-cutting overlays (see _group_for_tier): a
+  kid/senior occurrence is re-listed there in addition to its activity group.
+  There is **no** separate Aquatic Center / pool group — pool activities fold
+  into Kids & Family (open/family/rec swim) or Fitness & Sports (lap swim, water
+  aerobics, aqua zumba). Empty groups are omitted; Things to Do opens by default.
 * **Week** — 7 rows starting today: weekday + date, the top one-off headline
   (ranked via the shared :func:`app.home.sandstone._event_tier`; never a
   recurring class), and an honest per-group rollup ("2 events · 1 music ·
