@@ -31,7 +31,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 |----|--------|--------|------|-----------|-------|
 | 1 gas-truth      | feat/v44-01-gas-truth        | ✅ merged | pytest 12477✅ ruff✅ mypy✅ | commit 2a59edcd → merge e8663045 | GasService single source |
 | 2 date-keys      | feat/v44-02-date-keys        | ✅ merged | pytest 12482✅ ruff✅ | commit 20001edb → merge 41d4614b | rollover regression + no-cache pin (tests only) |
-| 3 count-parity   | feat/v44-03-count-parity     | ⏳ | — | — | day_counts one base |
+| 3 count-parity   | feat/v44-03-count-parity     | 🔨 gating | parity 3✅ affected 29✅ ruff✅ mypy✅; full suite next | — | day_counts one base (summary headers); cells keep audit display |
 | 4 conditions     | feat/v44-04-conditions       | ⏳ | — | — | water+sunset, retire clouds |
 | 5 ads-rail       | feat/v44-05-ads-rail         | ⏳ | — | — | one paid unit + working rail |
 | 6 gas-ui         | feat/v44-06-gas-ui           | ⏳ | — | — | grade switch + /gas page |
@@ -54,6 +54,18 @@ gate results recorded here; do not redo a row marked ✅ merged.
 - **PR-1 honest label is gas-specific:** added `_gas_label` in the service; left the
   shared `staleness_label` untouched (all other conditions tiles + its tests use it).
 
+- **PR-3 cells keep the audit display (decision 15).** §2.1 base is class-dominated
+  (real July days: total 48–100, of which 70+ are recurring class sessions). Wiring
+  the month cell "+N more = base − chips" would render "+90 more" in every cell —
+  reversing the 2026-07-01 audit that moved classes to a "N classes" badge to kill
+  that flood, and breaking the glanceable-calendar guardrail. So PR-3 unifies the
+  SUMMARY HEADERS users compare (home headline `feed.total` == agenda "N events &
+  classes" == `day_counts(d).total`) and fixes the F6 agenda divergence (was
+  `len(rows)`, e.g. 42 vs base 48); the glanceable month cell keeps its two honest
+  numbers. `day_counts` is exposed for PR-7 dots. Files: NEW `app/home/day_counts.py`;
+  `redesign.feed_view_model` + `_agenda` route through it (reusing the vm, no double
+  build). Test: `tests/test_count_parity.py`.
+
 - **PR-2 = tests + no-cache pin, no app cache change (decision 15).** Investigated
   exhaustively: routes (/home, /calendar, /events-ui) already resolve today/month
   via `now_lake_havasu()` fresh per request; HTML ships `no-cache, max-age=0,
@@ -66,6 +78,20 @@ gate results recorded here; do not redo a row marked ✅ merged.
   not add new perf infra" — so PR-2 correctly ADDS the rollover regression tests
   (the acceptance criterion) + a test pinning `no-cache` on the date-scoped routes
   (the edge-cache guard), and changes no app code. New: `tests/test_date_keyed_pages.py`.
+
+**PR-4 scouting (done):** cond strip = `redesign.conditions_tiles` (builds
+temp/wind/uv/**clouds**/water_temp/gas) → rendered by `base_redesign.html` cond loop
+(home + calendar pass `cond_tiles`). The `_utility_chips` strip (other pages) already
+excludes clouds. Sunset infra EXISTS: `app/conditions/sun.py::sunset_utc` (NOAA) +
+`api_payload` already exposes `payload["sunset_local"]` ("7:42 PM") and
+`payload["water_temp_f"]`/`water_temp_is_stale` — REUSE these, don't reimplement the
+DATA_CONTRACTS §3.2 formula. PR-4 = in `conditions_tiles`: drop the clouds block, add a
+sunset tile (value = `sunset_local` split → "7:42" + unit "pm", icon `sunset`), mark
+water tile `is_water:True` (label "Water", icon `wave`, teal tint), reorder to
+Temp·Water·Wind·UV·Sunset·Gas; template: add `water` class + render new tiles; CSS
+`.cond .c.water` tint (DESIGN_SPEC §1); add `wave`+`sunset` monoline icons to
+`redesign_icons.html` (§8); honest-omit water when absent; update visual refs. Clouds
+plumbing residue swept in PR-9.
 
 ## PR-1 implementation (files touched)
 - NEW `app/gas/__init__.py`, `app/gas/service.py` — `GasStation`/`GasBoard`,

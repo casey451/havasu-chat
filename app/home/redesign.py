@@ -26,6 +26,7 @@ from app.db.models import Event
 from app.events.tag_display import public_event_tags
 from app.gas.service import board_from_cache
 from app.home import events_views, sandstone
+from app.home.day_counts import day_counts
 
 # ── category accents / icons (v4 CICON + CCOLOR, mapped onto the app's real
 # bucket keys). The app's "classes" bucket is Fitness & sports, so it borrows the
@@ -379,7 +380,9 @@ def feed_view_model(
         if s.get("key") == "learn":
             s["subgroups"] = []
 
-    return {"sections": sections, "total": vm["total"]}
+    # The headline count comes from the single day-count service (v4.4 PR-3), the
+    # same base the calendar agenda header uses — so they can never disagree.
+    return {"sections": sections, "total": day_counts(db, day, now=now, family=family, vm=vm).total}
 
 
 # ── calendar (glanceable month grid + selected-day agenda) ─────────────────────
@@ -461,7 +464,8 @@ def calendar_month_view(
 def _agenda(db: Session, day: date, *, now: datetime | None = None) -> dict[str, Any]:
     # UNIFY (Rule 0b 2026-06-26): the agenda shows the full unified tree (hours +
     # classes inline) — the same builder every calendar surface consumes.
-    groups = events_views.calendar_day_view_model(db, day=day, now=now)["sections"]
+    vm = events_views.calendar_day_view_model(db, day=day, now=now)
+    groups = vm["sections"]
     rows: list[dict[str, Any]] = []
     for g in groups:
         key = g["key"]
@@ -495,12 +499,17 @@ def _agenda(db: Session, day: date, *, now: datetime | None = None) -> dict[str,
                 }
             )
     rows.sort(key=lambda it: (it["_h"] is None, it["_h"] or 0))
+    # "N events & classes" header = the single day-count base (v4.4 PR-3), the same
+    # number the home headline shows — reusing the vm we already built so the day
+    # is never counted twice.
+    total = day_counts(db, day, now=now, vm=vm).total
+    shown = rows[:8]
     return {
         "iso": day.isoformat(),
         "heading": day.strftime("%A, %B ") + str(day.day),
-        "total": len(rows),
-        "rows": rows[:8],
-        "more": max(0, len(rows) - 8),
+        "total": total,
+        "rows": shown,
+        "more": max(0, total - len(shown)),
     }
 
 
