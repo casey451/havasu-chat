@@ -31,6 +31,11 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 # resolving — and so importing ``app.db.models`` registers them with ``Base``.
 # Each slice module imports only ``Base`` (never ``models`` / ``entity_dual_write``),
 # so these imports are cycle-free regardless of load order.
+from app.db.alerts_models import (  # noqa: F401 — re-export
+    AlertDispatched,
+    AlertSubscription,
+    DigestSubscription,
+)
 from app.db.auth_models import (  # noqa: F401 — re-export
     AuthSession,
     Claim,
@@ -39,6 +44,7 @@ from app.db.auth_models import (  # noqa: F401 — re-export
     UserFavorite,
 )
 from app.db.database import Base
+from app.db.jobs_models import Job, LinkHealth, ScrapeCapture  # noqa: F401 — re-export
 from app.db.photo_models import Photo  # noqa: F401 — re-export
 from app.db.types import TZAwareDateTime
 from app.schemas.event import EventCreate
@@ -1411,83 +1417,6 @@ class District(Base):
     )
 
 
-class AlertSubscription(Base):
-    """User opt-in for conditions / traffic alerts (Phase 3.1 storage; dispatcher Phase 8)."""
-
-    __tablename__ = "alert_subscriptions"
-    __table_args__ = (
-        CheckConstraint(
-            "alert_type IN ('heat_advisory', 'aqi_alert', 'lake_hazard', 'event_traffic')",
-            name="ck_alert_subscriptions_alert_type",
-        ),
-        CheckConstraint(
-            "delivery_channel IN ('email', 'sms')",
-            name="ck_alert_subscriptions_delivery_channel",
-        ),
-        UniqueConstraint(
-            "user_id",
-            "alert_type",
-            "delivery_channel",
-            name="uq_alert_subscriptions_user_type_channel",
-        ),
-        Index("ix_alert_subscriptions_user_id", "user_id"),
-        Index("ix_alert_subscriptions_alert_type", "alert_type"),
-    )
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    alert_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    delivery_channel: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="email", server_default="email"
-    )
-    paused_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-
-    user: Mapped["User"] = relationship(
-        "User", back_populates="alert_subscriptions", foreign_keys=[user_id]
-    )
-    dispatches: Mapped[list["AlertDispatched"]] = relationship(
-        "AlertDispatched", back_populates="subscription", passive_deletes=True
-    )
-
-
-class AlertDispatched(Base):
-    """Audit trail for alert sends (Phase 3.1)."""
-
-    __tablename__ = "alerts_dispatched"
-    __table_args__ = (
-        CheckConstraint(
-            "delivery_status IN ('queued', 'sent', 'failed', 'bounced')",
-            name="ck_alerts_dispatched_delivery_status",
-        ),
-        Index("ix_alerts_dispatched_subscription_id", "subscription_id"),
-        Index("ix_alerts_dispatched_dispatched_at", "dispatched_at"),
-        Index("ix_alerts_dispatched_delivery_status", "delivery_status"),
-    )
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    subscription_id: Mapped[str] = mapped_column(
-        String(36),
-        ForeignKey("alert_subscriptions.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    alert_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    trigger_data: Mapped[dict | list] = mapped_column(JSON, nullable=False)
-    dispatched_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-    delivery_status: Mapped[str] = mapped_column(String(20), nullable=False)
-    body_snippet: Mapped[str | None] = mapped_column(String(280), nullable=True)
-
-    subscription: Mapped["AlertSubscription"] = relationship(
-        "AlertSubscription", back_populates="dispatches", foreign_keys=[subscription_id]
-    )
-
-
 class ExternalConditionsCache(Base):
     """Keyed cache row per upstream conditions source (Phase 3.1)."""
 
@@ -1605,57 +1534,6 @@ class Outbox(Base):
         server_default=func.now(),
     )
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-
-class DigestSubscription(Base):
-    """User opt-in for the "This weekend in Havasu" digest (Phase A3).
-
-    Deliberately separate from :class:`AlertSubscription` (conditions/traffic
-    alerts, owned by a sibling lane). This row is purely an opt-in record;
-    the digest *builder* (:mod:`app.digest.builder`) and dry-run *render*
-    (:mod:`app.digest.render`) are decoupled from delivery — actual send
-    cadence/cron is a flagged Casey product decision and is NOT wired here.
-
-    Opt-in posture: a row exists only when the user has explicitly opted in
-    (``enabled`` defaults True on insert; toggling off sets it False rather
-    than deleting, to preserve the opt-in history). No auto-enrollment.
-    """
-
-    __tablename__ = "digest_subscriptions"
-    __table_args__ = (
-        CheckConstraint(
-            "delivery_channel IN ('email')",
-            name="ck_digest_subscriptions_delivery_channel",
-        ),
-        UniqueConstraint(
-            "user_id",
-            "delivery_channel",
-            name="uq_digest_subscriptions_user_channel",
-        ),
-        Index("ix_digest_subscriptions_user_id", "user_id"),
-    )
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    delivery_channel: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="email", server_default="email"
-    )
-    enabled: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default=true()
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-        nullable=False,
-    )
-
-    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
 
 
 class UpgradeRequestStatus(str, Enum):
@@ -1796,85 +1674,6 @@ class AdReservation(Base):
     )
 
 
-class ScrapeCapture(Base):
-    """Image inbox for OpenClaw Facebook-post screenshots (the capture bridge).
-
-    OpenClaw stays dumb — it uploads a screenshot (or, when it couldn't capture,
-    a metadata-only ``flagged`` row) plus the source URL here. A Cowork skill
-    later pulls the queue, judges each shot, and marks it ``reviewed`` /
-    ``discarded``; publishing happens in a future phase and never touches this
-    table. Rows start ``new`` (image present) or ``flagged`` (no image).
-    """
-
-    __tablename__ = "scrape_captures"
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('new', 'reviewed', 'discarded', 'flagged')",
-            name="ck_scrape_captures_status",
-        ),
-        Index("ix_scrape_captures_status", "status"),
-        Index("ix_scrape_captures_created_at", "created_at"),
-    )
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    business_name: Mapped[str | None] = mapped_column(String, nullable=True)
-    source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
-    captured_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    image_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    status: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="new", server_default="new"
-    )
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-
-
-class Job(Base):
-    """Admin-queued scraper-pipeline job — the one-click Jobs portal's work item.
-
-    Casey clicks a button in the admin Jobs page → a ``queued`` row lands here.
-    Worker agents poll ``GET /api/ingest/jobs/pending?worker=...`` with the
-    machine-ingest bearer token, atomically claim the oldest job matching their
-    type map (OpenClaw → ``fb_capture_sweep``; Cowork → the other four), do the
-    work, then PATCH the row to ``running`` / ``done`` / ``failed`` with a
-    ``result_summary``. Additive + standalone — no FKs; ``params`` carries any
-    per-job knobs as JSON. See docs/scraper/ADMIN_JOBS_SPEC.md.
-    """
-
-    __tablename__ = "jobs"
-    __table_args__ = (
-        CheckConstraint(
-            "job_type IN ('schedule_hunt', 'fb_capture_sweep', 'capture_review', "
-            "'publish_approved', 'discovery_audit')",
-            name="ck_jobs_job_type",
-        ),
-        CheckConstraint(
-            "status IN ('queued', 'claimed', 'running', 'done', 'failed')",
-            name="ck_jobs_status",
-        ),
-        Index("ix_jobs_status", "status"),
-        Index("ix_jobs_job_type", "job_type"),
-        Index("ix_jobs_created_at", "created_at"),
-    )
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    job_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="queued", server_default="queued"
-    )
-    requested_by: Mapped[str | None] = mapped_column(String, nullable=True)
-    claimed_by: Mapped[str | None] = mapped_column(String, nullable=True)
-    params: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
-    result_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-    claimed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-
-
 class MovieShowtime(Base):
     """A single movie showtime at a local theater (the /movies surface).
 
@@ -1929,50 +1728,6 @@ class MovieShowtime(Base):
         nullable=False,
     )
     scraped_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
-
-
-class LinkHealth(Base):
-    """One stored outbound URL's health, tracked across sweeps.
-
-    Populated by ``app.monitoring.link_health`` running on the VPS. Keyed by URL
-    (many rows can share one). ``consecutive_failures`` lets the sweep confirm a
-    link is *really* broken across multiple runs before it surfaces, filtering
-    transient blips and big-site rate-limits. Monitoring-only: nothing user-facing
-    reads it, and the sweep never edits the source provider/event rows -- a dead
-    link is *flagged* here for human review, not auto-removed.
-    """
-
-    __tablename__ = "link_health"
-
-    id: Mapped[int] = mapped_column(primary_key=True, autoincrement=True)
-    url: Mapped[str] = mapped_column(String(2048), nullable=False, unique=True, index=True)
-    kind: Mapped[str] = mapped_column(String(32), nullable=False)
-    entity_id: Mapped[str | None] = mapped_column(String, nullable=True)
-    label: Mapped[str | None] = mapped_column(String, nullable=True)
-    category: Mapped[str] = mapped_column(String(24), nullable=False)
-    http_status: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    detail: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    consecutive_failures: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
-    first_checked_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-    last_checked_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-    last_ok_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    # True once a link has failed on >= the confirm threshold consecutive sweeps.
-    confirmed_broken: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False, index=True)
-    # Set true when a previously-confirmed-broken link has been emailed, so the
-    # summary only ever pages once per breakage (resets when it recovers).
-    notified: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
-    # Layer 2: a local-LLM read of the site's root domain for a confirmed-broken
-    # link -- a short human verdict ("business still present, page moved" etc.) and
-    # a suggested replacement URL, shown on the admin page to speed the fix. Never
-    # auto-applied. ``llm_checked_at`` gates re-assessment so the slow model pass
-    # only revisits links it hasn't judged.
-    llm_assessment: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    llm_suggested_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    llm_checked_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 # Phase 4.1 ships the ``Outbox`` ORM class above this line. The provider-slug
