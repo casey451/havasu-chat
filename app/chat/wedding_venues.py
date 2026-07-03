@@ -89,7 +89,7 @@ def wedding_venue_rows(db: Session, *, limit: int = _MAX_ITEMS) -> list[dict[str
 
     Matches the curated venue set by EXACT normalized name against active,
     non-draft rows, deduped to one row per venue (best-rated wins)."""
-    from app.chat.tier2_db_query import _provider_dict
+    from app.chat.tier2_db_query import provider_dict
 
     try:
         name_clauses = [Provider.provider_name.ilike(n) for n in _VENUE_NAMES]
@@ -123,7 +123,7 @@ def wedding_venue_rows(db: Session, *, limit: int = _MAX_ITEMS) -> list[dict[str
             str(p.provider_name or ""),
         ),
     )
-    return [_provider_dict(p) for p in kept[:limit]]
+    return [provider_dict(p) for p in kept[:limit]]
 
 
 def try_wedding_venues(

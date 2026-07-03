@@ -28,12 +28,10 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -41,9 +39,9 @@ from app.categories.trades import needles_for_trade as _needles_for_trade  # noq
 from app.categories.trades import provider_matches_trade as _provider_matches_trade
 from app.core.conditions_temperature import read_current_temperature_f
 from app.core.liveness import liveness_dampener
-from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.ranking import CardRankInput, compute_card_rank
 from app.core.rate_limit import limiter, public_html_rate_limit
+from app.core.templates import make_templates
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
 from app.db.models import Category, District, Entity, EntityCategory, Provider
 from app.events import series as event_series
@@ -53,10 +51,7 @@ from app.providers.queries import _parse_hours_time, is_open_now
 
 router = APIRouter(tags=["category"])
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 
 @dataclass(frozen=True)

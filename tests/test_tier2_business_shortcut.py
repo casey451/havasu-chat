@@ -487,26 +487,26 @@ def test_handler_handles_plural_query_against_singular_google_tag(db_session: Se
         db_session.commit()
 
 
-def test_pluralize_for_header_singular_to_plural() -> None:
-    assert shortcut._pluralize_for_header("barber") == "barbers"
-    assert shortcut._pluralize_for_header("coffee shop") == "coffee shops"
-    assert shortcut._pluralize_for_header("haircut") == "haircuts"
+def testpluralize_for_header_singular_to_plural() -> None:
+    assert shortcut.pluralize_for_header("barber") == "barbers"
+    assert shortcut.pluralize_for_header("coffee shop") == "coffee shops"
+    assert shortcut.pluralize_for_header("haircut") == "haircuts"
 
 
-def test_pluralize_for_header_already_plural_unchanged() -> None:
-    assert shortcut._pluralize_for_header("barbers") == "barbers"
-    assert shortcut._pluralize_for_header("coffee shops") == "coffee shops"
+def testpluralize_for_header_already_plural_unchanged() -> None:
+    assert shortcut.pluralize_for_header("barbers") == "barbers"
+    assert shortcut.pluralize_for_header("coffee shops") == "coffee shops"
 
 
-def test_pluralize_for_header_y_to_ies() -> None:
-    assert shortcut._pluralize_for_header("bakery") == "bakeries"
+def testpluralize_for_header_y_to_ies() -> None:
+    assert shortcut.pluralize_for_header("bakery") == "bakeries"
     # vowel-y stays additive.
-    assert shortcut._pluralize_for_header("attorney") == "attorneys"
+    assert shortcut.pluralize_for_header("attorney") == "attorneys"
 
 
-def test_pluralize_for_header_sh_ch_x() -> None:
-    assert shortcut._pluralize_for_header("church") == "churches"
-    assert shortcut._pluralize_for_header("car wash") == "car washes"
+def testpluralize_for_header_sh_ch_x() -> None:
+    assert shortcut.pluralize_for_header("church") == "churches"
+    assert shortcut.pluralize_for_header("car wash") == "car washes"
 
 
 def test_voice_answer_never_sees_spotlight_status() -> None:

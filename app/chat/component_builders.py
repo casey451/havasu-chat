@@ -429,9 +429,9 @@ def build_business_list(
 
 
 def _pretty_category_label(category: str) -> str:
-    from app.chat.tier2_business_shortcut import _pluralize_for_header
+    from app.chat.tier2_business_shortcut import pluralize_for_header
 
-    plural = _pluralize_for_header(category or "businesses")
+    plural = pluralize_for_header(category or "businesses")
     return plural.title() if plural.islower() else plural
 
 

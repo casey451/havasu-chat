@@ -11,13 +11,11 @@ from __future__ import annotations
 import base64
 import json
 import re
-from pathlib import Path
 from typing import Any
 from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import Float, and_, case, cast, exists, false, func, literal, or_, select
 from sqlalchemy.orm import Session, aliased, joinedload
 
@@ -26,7 +24,7 @@ from app.chat.normalizer import spell_correct
 from app.chat.query_intent import INTENT_AI, classify_query_intent
 from app.chat.tier2_schema import Tier2Filters
 from app.chat.tier2_synonyms import _category_needle_set
-from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.templates import make_templates
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.entity_types import (
@@ -44,10 +42,7 @@ from app.search.ranking import _verification_bonus_sql
 
 router = APIRouter(tags=["search"])
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 _CURSOR_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 

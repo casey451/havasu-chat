@@ -28,8 +28,6 @@ from pathlib import Path
 import pytest
 from fastapi.testclient import TestClient
 
-from app.main import app
-
 _CSS_DIR = Path(__file__).resolve().parents[1] / "app" / "static" / "styles"
 
 NAMELESS_INPUT_TYPES = {"hidden", "submit", "button", "image", "reset"}
@@ -171,9 +169,7 @@ class _A11yChecker(HTMLParser):
         return out
 
 
-@pytest.fixture(scope="module")
-def client() -> TestClient:
-    return TestClient(app)
+# ``client`` comes from the shared module-scoped fixture in tests/conftest.py.
 
 
 @pytest.mark.parametrize("path", ROUTES)

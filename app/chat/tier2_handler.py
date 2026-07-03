@@ -21,7 +21,7 @@ from app.chat import (
 )
 from app.chat.chat_request_context import ChatRequestContext
 from app.chat.intent_classifier import IntentResult
-from app.chat.tier2_db_query import _event_dict
+from app.chat.tier2_db_query import event_dict
 from app.chat.tier2_schema import Tier2Filters
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
@@ -46,11 +46,11 @@ _OPEN_NOW_EMPTY_LISTING_TEMPLATE = (
 def _open_now_empty_listing(category: str) -> str:
     """Render the honest empty listing for a single ``category`` (e.g. "restaurant").
 
-    Pluralizes via :func:`tier2_business_shortcut._pluralize_for_header` so the
+    Pluralizes via :func:`tier2_business_shortcut.pluralize_for_header` so the
     label reads naturally for one-word ("restaurants") and two-word ("coffee
     shops") categories alike.
     """
-    label = tier2_business_shortcut._pluralize_for_header(category or "places")
+    label = tier2_business_shortcut.pluralize_for_header(category or "places")
     return _OPEN_NOW_EMPTY_LISTING_TEMPLATE.format(category_label=label)
 
 
@@ -292,7 +292,7 @@ def _event_rows_for_intent(
         if key in seen:
             continue
         seen.add(key)
-        row = _event_dict(event)
+        row = event_dict(event)
         row["date"] = occ_date.isoformat()
         rows.append(row)
         if len(rows) >= 8:

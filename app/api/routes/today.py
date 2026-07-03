@@ -8,25 +8,20 @@ Honest "Unavailable" states surface when a source is missing or stale.
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.conditions.today_payload import build_today_payload
-from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.rate_limit import limiter, public_html_rate_limit
+from app.core.templates import make_templates
 from app.core.timezone import format_now_lake_havasu, now_lake_havasu
 from app.db.database import get_db
 
 router = APIRouter(tags=["today"])
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 
 @router.get("/today", response_class=HTMLResponse)
