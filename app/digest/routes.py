@@ -8,6 +8,7 @@ auto-enrollment), and toggling off flips ``enabled`` rather than deleting.
 
 from __future__ import annotations
 
+import os
 from datetime import UTC, datetime
 
 from fastapi import APIRouter, Depends, Request
@@ -26,6 +27,18 @@ from app.db.database import get_db
 from app.db.models import DigestSubscription, Entity
 
 router = APIRouter(tags=["digest"])
+
+
+def _digest_signups_enabled() -> bool:
+    """Whether the weekend-digest opt-in accepts NEW subscriptions.
+
+    OFF by default (2026-07-03): the digest builder + render exist but no sender
+    is wired — there is no send cron — so accepting an opt-in would promise a
+    delivery we never make. Gated so we don't collect emails we can't fulfil.
+    Flip ``FEATURE_FLAG_WEEKEND_DIGEST=true`` once the sender ships. Opt-OUT is
+    always honored regardless of this flag (an existing subscriber can turn off).
+    """
+    return os.environ.get("FEATURE_FLAG_WEEKEND_DIGEST", "").strip().lower() == "true"
 
 
 class FollowVenueBody(BaseModel):
@@ -87,7 +100,9 @@ def api_digest_subscription_get(
         )
     ).first()
     enabled = bool(sub is not None and sub.enabled)
-    return JSONResponse(content={"opted_in": enabled})
+    # ``available`` tells a future opt-in UI whether sign-ups are live (a sender
+    # is wired) so it can hide/disable the toggle honestly.
+    return JSONResponse(content={"opted_in": enabled, "available": _digest_signups_enabled()})
 
 
 @router.post("/api/digest/subscription")
@@ -99,6 +114,11 @@ def api_digest_subscription_set(
     user = _require_user(request)
     if user is None:
         return JSONResponse(status_code=401, content={"detail": "login_required"})
+    # Opt-IN (and re-enabling) is gated until a sender ships — don't collect a
+    # subscription we can't deliver. Opt-OUT falls through so an existing
+    # subscriber can always turn off.
+    if body.enabled and not _digest_signups_enabled():
+        return JSONResponse(content={"opted_in": False, "available": False})
     sub = db.scalars(
         select(DigestSubscription).where(
             DigestSubscription.user_id == user.id,

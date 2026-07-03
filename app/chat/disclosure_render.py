@@ -170,13 +170,22 @@ _SPECIFIC_QUALITY_SUB_INTENTS: frozenset[str] = frozenset(
     }
 )
 
-# KNOWN WIRING GAP (audit 2026-07-01, BACKLOG.md): neither the intent
-# classifier nor the LLM router currently emits GENERAL_QUESTION/RECOMMENDATION/
-# DISCOVERY, so GENERIC_CATEGORY can only be selected in tests — generic-category
-# sponsored placement never fires in prod until the regime is mapped onto
-# sub-intents the classifier actually emits (a monetization decision, tracked).
+# Generic-category placement fires on a category *browse* with no resolved
+# entity — "show me barbers", not "tell me about Hava Cafe".
+#
+# ``LIST_BY_CATEGORY`` is the REAL prod trigger: the intent classifier emits it
+# for exactly that shape (intent_classifier ``_ask_sub_intent``). Adding it here
+# (2026-07-03) closes the audit's wiring gap — before this the set held only
+# GENERAL_QUESTION/RECOMMENDATION/DISCOVERY, which the classifier never emits, so
+# generic-category placement was unreachable in prod. Those three are kept: they
+# cost nothing (never emitted by the current classifier) and stay valid for a
+# future LLM-router that does emit them. Still inert until a sponsor exists AND
+# ``FEATURE_FLAG_DISCLOSURE_RENDERER=true`` — placement is real-or-omit, so an
+# empty pool renders nothing. The catch-all ``OPEN_ENDED`` is deliberately NOT
+# in this set; it stays SPECIFIC_QUALITY (the safe zero-sponsored default) so a
+# vague "what should I do" is never monetized.
 _GENERIC_CATEGORY_SUB_INTENTS: frozenset[str] = frozenset(
-    {"GENERAL_QUESTION", "RECOMMENDATION", "DISCOVERY"}
+    {"LIST_BY_CATEGORY", "GENERAL_QUESTION", "RECOMMENDATION", "DISCOVERY"}
 )
 
 _EMERGENCY_URGENT_SUB_INTENTS: frozenset[str] = frozenset(

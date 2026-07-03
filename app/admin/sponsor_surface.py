@@ -64,8 +64,20 @@ _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] /
 register_template_filters(_TEMPLATES)
 register_template_globals(_TEMPLATES)
 
-# Slots a merchant may request. All four tiers are valid request targets.
-_REQUESTABLE_SLOTS: frozenset[str] = frozenset(s.value for s in AdSlot)
+# Slots a merchant may request. The Tier-2 "spotlight" (Featured) slot is retired
+# from sellable inventory (2026-07-03): the v4 home renders no Featured surface,
+# so a sold spotlight would never display — booking one would violate the
+# impressions-equal-renders contract. The tier's serving code + tests stay
+# (dormant) in case a v4 Featured surface is built later; it just can't be booked
+# or requested. The admin inventory view below still iterates every AdSlot tier
+# so any historical/dormant spotlight rows remain visible.
+_RETIRED_SLOTS: frozenset[str] = frozenset({AdSlot.SPOTLIGHT.value})
+_REQUESTABLE_SLOTS: frozenset[str] = frozenset(
+    s.value for s in AdSlot if s.value not in _RETIRED_SLOTS
+)
+# Sellable slots in canonical tier order (retired tiers dropped), for the
+# merchant upgrade form's slot picker.
+_SELLABLE_SLOT_VALUES: list[str] = [s.value for s in AdSlot if s.value in _REQUESTABLE_SLOTS]
 
 
 
@@ -552,7 +564,7 @@ def merchant_upgrade_get(
         name="merchant_upgrade_form_lake.html",
         context={
             "entity": ent,
-            "slots": [s.value for s in AdSlot],
+            "slots": _SELLABLE_SLOT_VALUES,
             "pending": existing is not None,
         },
     )
@@ -608,5 +620,5 @@ def merchant_upgrade_post(
     return _TEMPLATES.TemplateResponse(
         request=request,
         name="merchant_upgrade_form_lake.html",
-        context={"entity": ent, "slots": [s.value for s in AdSlot], "pending": True},
+        context={"entity": ent, "slots": _SELLABLE_SLOT_VALUES, "pending": True},
     )
