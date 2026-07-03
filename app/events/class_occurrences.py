@@ -207,8 +207,15 @@ def class_occurrences_in_window(
         prov_activity = provider_activity_label(
             prov.provider_name if prov is not None else ent.name, cat_slugs
         )
-        d = window_start
-        while d <= window_end:
+        # Seasonal window (2026-07-03): honour an explicit start_date/end_date so a
+        # season-limited schedule (e.g. summer "Open Swim", June–July) stops
+        # rendering once it ends instead of projecting forever. Both are nullable;
+        # a NULL bound means "unbounded" (every existing class row is NULL/NULL,
+        # so this is inert for them). Clamp the iteration to the season.
+        lo = max(window_start, sched.start_date) if sched.start_date else window_start
+        hi = min(window_end, sched.end_date) if sched.end_date else window_end
+        d = lo
+        while d <= hi:
             if d.weekday() in weekdays:
                 out.append(
                     ClassOccurrence(
