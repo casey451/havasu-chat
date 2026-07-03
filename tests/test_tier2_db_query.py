@@ -949,7 +949,7 @@ def test_event_row_includes_empty_event_url(db: Session, monkeypatch: pytest.Mon
     assert matching[0]["event_url"] == ""
 
 
-def test_event_dict_midnight_or_null_start_is_tbd_not_12am() -> None:
+def testevent_dict_midnight_or_null_start_is_tbd_not_12am() -> None:
     """§1: a null/midnight placeholder start emits start_time=None (so the chat
     agenda sorts it to the end / shows no time), never a literal "00:00" that
     renders as "12 am". A real start is preserved."""
@@ -960,6 +960,6 @@ def test_event_dict_midnight_or_null_start_is_tbd_not_12am() -> None:
     midnight = Event(start_time=time(0, 0), end_time=None, **base)
     nullish = Event(start_time=time(0, 0), end_time=time(0, 0), **base)
     real = Event(start_time=time(19, 0), end_time=time(21, 0), **base)
-    assert tier2_db_query._event_dict(midnight)["start_time"] is None
-    assert tier2_db_query._event_dict(nullish)["start_time"] is None
-    assert tier2_db_query._event_dict(real)["start_time"] == "19:00"
+    assert tier2_db_query.event_dict(midnight)["start_time"] is None
+    assert tier2_db_query.event_dict(nullish)["start_time"] is None
+    assert tier2_db_query.event_dict(real)["start_time"] == "19:00"

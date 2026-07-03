@@ -203,7 +203,7 @@ def _strip_locality_and_punct(s: str) -> str:
     return cleaned.strip()
 
 
-def _pluralize_for_header(category: str) -> str:
+def pluralize_for_header(category: str) -> str:
     """Coerce the listing header to plural form for natural phrasing.
 
     "find me a barber" → category="barber" → header "A few barbers in Lake Havasu City"
@@ -353,7 +353,7 @@ def _business_listing_voice(
     provider_rows = [r for r in rows if r.get("type") == "provider"]
     if not provider_rows:
         return None, []
-    cat_label = _pluralize_for_header(category)
+    cat_label = pluralize_for_header(category)
     count = len(provider_rows)
     count_word = str(count) if count != 1 else "1"
     header = f"Here are {count_word} {cat_label} in Lake Havasu City."
@@ -370,7 +370,7 @@ def _render_business_listing_prose(rows: list[dict[str, Any]], category: str) ->
     provider_rows = [r for r in rows if r.get("type") == "provider"]
     if not provider_rows:
         return None
-    cat_label = _pluralize_for_header(category)
+    cat_label = pluralize_for_header(category)
     lines: list[str] = []
     for row in provider_rows[:5]:
         name = str(row.get("name") or "").strip()

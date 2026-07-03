@@ -15,10 +15,8 @@ from app.db.database import SessionLocal
 from app.db.models import Entity, Event, Provider
 from app.main import app
 
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
+# ``client`` comes from the shared module-scoped fixture in tests/conftest.py
+# (audit 2026-07-01: one client per module instead of a per-file construction).
 
 
 @pytest.fixture(autouse=True)

@@ -13,12 +13,10 @@ from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
 from datetime import date as dt_date
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
@@ -28,8 +26,8 @@ from app.conditions.cache import read_source
 from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
 from app.conditions.view_model import build_conditions_strip_view_model
-from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.rate_limit import limiter
+from app.core.templates import make_templates
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import AdSlot, Provider, Sponsor
@@ -39,10 +37,7 @@ from app.home import events_views, redesign, sandstone, sponsor_store
 from app.monetization import serving
 from app.news import store as news_store
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 router = APIRouter(tags=["home"])
 
@@ -563,7 +558,7 @@ def sponsor_click(
     """
     ad_slot = _parse_slot(slot)
     row = (
-        sponsor_store._live_filter_for_slot(db.query(Sponsor), ad_slot)
+        sponsor_store.live_filter_for_slot(db.query(Sponsor), ad_slot)
         .filter(Sponsor.id == id)
         .first()
     )

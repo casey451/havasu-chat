@@ -368,7 +368,7 @@ def _mk_event(**kw):
 
 
 
-# (The _window_event_dict midnight-TBD label tests were deleted 2026-07-02 with
+# (The _windowevent_dict midnight-TBD label tests were deleted 2026-07-02 with
 # the pre-v4 window feed; the same contract is covered by the is_time_tbd unit
 # tests and the live week-strip/permalink assertions below.)
 

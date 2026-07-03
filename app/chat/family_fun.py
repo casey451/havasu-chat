@@ -152,7 +152,7 @@ def _is_excluded(p: Provider) -> bool:
 
 def family_fun_rows(db: Session, *, limit: int = _MAX_ITEMS) -> list[dict[str, Any]]:
     """Live family-fun provider rows, best-rated first. Never raises."""
-    from app.chat.tier2_db_query import _provider_dict
+    from app.chat.tier2_db_query import provider_dict
 
     try:
         name_clauses = [
@@ -190,7 +190,7 @@ def family_fun_rows(db: Session, *, limit: int = _MAX_ITEMS) -> list[dict[str, A
             str(p.provider_name or ""),
         )
     )
-    return [_provider_dict(p) for p in keep[:limit]]
+    return [provider_dict(p) for p in keep[:limit]]
 
 
 def try_family_fun(

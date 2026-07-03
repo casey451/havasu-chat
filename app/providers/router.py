@@ -8,26 +8,20 @@ so a single string change there propagates here.
 
 from __future__ import annotations
 
-from pathlib import Path
-
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.auth.favorites import is_favorited
 from app.chat.disclosure_render import DISCLOSURE_WORD
-from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.rate_limit import limiter, public_html_rate_limit
+from app.core.templates import make_templates
 from app.db.database import get_db
 from app.db.models import Claim, Entity, Provider, User
 from app.events.queries import venue_events_for_profile
 from app.providers import queries, view_models
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 router = APIRouter(tags=["providers"])
 

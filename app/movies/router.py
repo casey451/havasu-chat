@@ -10,23 +10,18 @@ fix 2026-07-02.)
 from __future__ import annotations
 
 from datetime import date, timedelta
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.templates import make_templates
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.movies import posters
 from app.movies.queries import has_free_kids, showtimes_for_day
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 router = APIRouter(tags=["movies"])
 

@@ -32,13 +32,11 @@ import re
 import time as _time
 from collections.abc import Callable
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.categories import cuisine_pages, leaf_copy, leaf_pages, leaf_seo
@@ -48,8 +46,8 @@ from app.categories import trades as trade_pages
 from app.categories.cross_surface import cross_surface_sections
 from app.categories.display_labels import display_label
 from app.categories.queries import CategoryFacets
-from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.rate_limit import limiter, public_html_rate_limit
+from app.core.templates import make_templates
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import Provider
@@ -61,10 +59,7 @@ from app.providers import queries as provider_queries
 from app.seo.urls import absolute_url
 from app.v1.categories import BUCKET_SLUG_REDIRECTS
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 router = APIRouter(tags=["categories"])
 

@@ -1,7 +1,9 @@
 from __future__ import annotations
 
-# Force redeploy 2026-04-16
 from app.bootstrap_env import ensure_dotenv_loaded
+
+# Force redeploy 2026-04-16
+from app.core.templates import make_templates
 
 ensure_dotenv_loaded()
 
@@ -25,7 +27,6 @@ from fastapi.responses import (
     Response,
 )
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -62,12 +63,6 @@ from app.billing.router import router as billing_router
 from app.categories.router import router as direction_c_categories_router
 from app.chat.entity_matcher import refresh_entity_matcher
 from app.core.event_quality import friendly_errors
-from app.core.provider_name import (
-    register_template_filters as _register_template_filters,
-)
-from app.core.provider_name import (
-    register_template_globals as _register_template_globals,
-)
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.jobs_store import count_stale_running, requeue_stale_claims
@@ -167,18 +162,11 @@ def _configure_logging() -> None:
 _configure_logging()
 logger = logging.getLogger(__name__)
 
-_TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-# CLUSTER-08 name hygiene: ``clean_name`` strips vendor marketing tails
-# (everything from the first ``|`` onward) at render time so dirty Google
-# Places names never reach the page. The codebase has ~10 ``Jinja2Templates``
-# instances (one per router module); each must call the shared registrar so
-# the filter resolves regardless of which router rendered the template.
-_register_template_filters(templates)
-# Q5 Plausible analytics: ``plausible_domain`` Jinja global gates the
-# ``_partials/plausible.html`` include in every page <head>. Unset env var
-# → global is ``None`` → script tag never renders (local dev no-op).
-_register_template_globals(templates)
+# make_templates() runs both registrars (CLUSTER-08 clean_name filter + the Q5
+# Plausible ``plausible_domain`` global that gates _partials/plausible.html), so
+# every render resolves them regardless of which router built the instance.
+# (Legal-doc paths moved to app/legal_docs.py, re-exported in the import block.)
+templates = make_templates()
 _SENSITIVE_EVENT_KEYS = frozenset({"query", "message", "normalized_query"})
 
 

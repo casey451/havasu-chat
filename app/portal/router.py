@@ -8,17 +8,15 @@ is a later increment once the owner picks a processor + configures keys.
 
 from __future__ import annotations
 
-from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, File, Form, HTTPException, Request, UploadFile
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.admin.url_safety import safe_href
 from app.auth.dependencies import get_current_user
-from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.templates import make_templates
 from app.db.database import get_db
 from app.db.monetization_models import PlacementStatus
 from app.home.queries import CATEGORY_LABELS
@@ -26,10 +24,7 @@ from app.monetization import serving
 from app.portal import creative_store, products
 from app.portal import placements as placement_logic
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 router = APIRouter(prefix="/portal", tags=["portal"])
 

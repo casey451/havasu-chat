@@ -17,32 +17,27 @@ Sandstone re-skin (2026-06-02, UI build guide §4.11):
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.conditions.cache import read_source
 from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
-from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.rate_limit import limiter, public_api_rate_limit, public_html_rate_limit
+from app.core.templates import make_templates
 from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.database import get_db
 
 router = APIRouter(tags=["gas"])
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-# Every Jinja2Templates instance must run the shared registrars: without
-# ``canonical_url``/``absolute_url`` globals, desert_base silently skips its
-# whole canonical + Open Graph head block — live /gas shipped with NO
-# canonical and NO og:* tags because this module skipped the calls.
-register_template_filters(templates)
-register_template_globals(templates)
+# make_templates() runs the shared registrars. This page learned why that
+# matters the hard way: without the ``canonical_url``/``absolute_url`` globals,
+# desert_base silently skips its whole canonical + Open Graph head block — live
+# /gas once shipped with NO canonical and NO og:* tags after skipping the calls.
+templates = make_templates()
 
 # Number of cheapest stations to surface above the full table. The prototype's
 # cut-off "top 5" is replaced with a clean 6-up grid (UI build guide §4.11).

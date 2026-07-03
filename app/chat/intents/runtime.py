@@ -440,9 +440,9 @@ def try_intent_layer(
         # and a category listing is the right zero-token answer. Only hold the
         # guard when the turn isn't recommendation-shaped.
         try:
-            from app.chat.unified_router import _RECOMMENDATION_SHAPED
+            from app.chat.unified_router import RECOMMENDATION_SHAPED
 
-            if not _RECOMMENDATION_SHAPED.match(query or ""):
+            if not RECOMMENDATION_SHAPED.match(query or ""):
                 return None
         except Exception:
             logger.exception("intent_layer: recommendation-shape probe failed")
