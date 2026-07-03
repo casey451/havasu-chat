@@ -23,14 +23,14 @@ from sqlalchemy.orm import Session
 from app.analytics import record_event
 from app.categories.display_labels import map_scope_label
 from app.conditions.cache import read_source
-from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
-from app.conditions.staleness import staleness_label
+from app.conditions.constants import SOURCE_GAS
 from app.conditions.view_model import build_conditions_strip_view_model
 from app.core.rate_limit import limiter
 from app.core.templates import make_templates
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import AdSlot, Provider, Sponsor
+from app.gas.service import board_from_cache
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
 from app.home import events_views, redesign, sandstone, sponsor_store
@@ -136,27 +136,21 @@ def _utility_chips(db: Session, *, include_gas: bool = True) -> list[dict[str, A
 
 
 def _gas_snapshot(db: Session) -> dict[str, object]:
+    """Cheapest-gas snapshot for the conditions strip, from the single GasBoard
+    (v4.4 PR-1). The board is the ONE source the strip tile, home panel and /gas
+    page all derive from, so a re-sort can never surface a figure that disagrees
+    with /gas (the live home $3.95 vs /gas $4.19 split). ``read_source`` stays
+    this module's own seam so its unit tests keep patching here."""
     now_utc = datetime.now(UTC).replace(tzinfo=None)
-    row = read_source(db, SOURCE_GAS, now=now_utc)
-    if row is None or not isinstance(row.data, dict):
-        return {"has_data": False}
-    # Render the SAME pre-computed cheapest list the /gas page shows
-    # (``data["cheapest"]``, built by app.contrib.gas_prices), NOT a fresh re-sort
-    # of ``data["stations"]``. A re-sort can disagree with /gas — a station that
-    # the pull excluded from ``cheapest`` (e.g. one missing a real regular price)
-    # could surface as the home chip's "cheapest" while /gas showed a different,
-    # higher figure (live: home $3.95 vs /gas $4.19). One source of truth = the
-    # home chip and /gas always match.
-    cheapest = [s for s in (row.data.get("cheapest") or []) if isinstance(s, dict)]
-    # Gas updates ~daily; use the daily-feed staleness threshold so a fresh fetch
-    # doesn't read "stale" on the home widget (G-2 / H-2).
-    label, stale = staleness_label(
-        row.fetched_at, now_utc, stale_after_hours=GAS_STALE_AFTER_HOURS
-    )
+    board = board_from_cache(read_source(db, SOURCE_GAS, now=now_utc), now=now_utc)
+    cheapest = [
+        {"name": s.name, "station_name": s.name, "prices": {"regular": s.prices.get("reg")}}
+        for s in board.cheapest("reg")
+    ]
     return {
         "has_data": bool(cheapest),
-        "staleness_label": label,
-        "is_stale": bool(stale or row.is_stale),
+        "staleness_label": board.label,
+        "is_stale": board.is_stale,
         "cheapest": cheapest,
     }
 

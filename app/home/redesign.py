@@ -21,10 +21,10 @@ from sqlalchemy.orm import Session
 
 from app.conditions.api_payload import build_conditions_api_payload
 from app.conditions.cache import read_source
-from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
-from app.conditions.staleness import staleness_label
+from app.conditions.constants import SOURCE_GAS
 from app.db.models import Event
 from app.events.tag_display import public_event_tags
+from app.gas.service import board_from_cache
 from app.home import events_views, sandstone
 
 # ── category accents / icons (v4 CICON + CCOLOR, mapped onto the app's real
@@ -247,46 +247,33 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
     return tiles
 
 
-def _maps_url(name: str, cross_street: str | None) -> str:
-    dest = ", ".join(p for p in (name, cross_street, "Lake Havasu City AZ") if p)
-    from urllib.parse import quote_plus
-
-    return f"https://www.google.com/maps/dir/?api=1&destination={quote_plus(dest)}"
-
-
 def gas_top5(db: Session, *, now: datetime | None = None) -> dict[str, Any]:
     """The 5 cheapest current stations for the gas-tile expander (price + name +
-    cross-street + directions). Mirrors the home gas chip's single source of truth
-    (``data['cheapest']`` from the gas pull) so it never disagrees with /gas."""
+    cross-street + directions).
+
+    Built from the single :class:`~app.gas.service.GasBoard` (v4.4 PR-1), the
+    same board the strip tile and /gas page use, so the figures can never
+    disagree. ``read_source`` stays imported here so tests that patch this
+    module's cache seam still feed the board."""
     now_utc = now or datetime.now(UTC).replace(tzinfo=None)
     if now_utc.tzinfo is not None:
         now_utc = now_utc.astimezone(UTC).replace(tzinfo=None)
-    row = read_source(db, SOURCE_GAS, now=now_utc)
-    if row is None or not isinstance(row.data, dict):
-        return {"cheapest": [], "is_stale": False, "staleness_label": None}
-    raw = [s for s in (row.data.get("cheapest") or []) if isinstance(s, dict)]
-    label, stale = staleness_label(
-        row.fetched_at, now_utc, stale_after_hours=GAS_STALE_AFTER_HOURS
-    )
+    board = board_from_cache(read_source(db, SOURCE_GAS, now=now_utc), now=now_utc)
     out: list[dict[str, Any]] = []
-    for s in raw[:5]:
-        price = s.get("prices", {}).get("regular") if isinstance(s.get("prices"), dict) else None
-        if not isinstance(price, (int, float)):
-            continue
-        name = s.get("station_name") or s.get("name") or "Station"
-        cross = s.get("cross_street") or s.get("address")
+    for s in board.cheapest("reg", 5):
+        price = s.prices["reg"]
         out.append(
             {
                 "price": f"${price:.2f}",
-                "name": name,
-                "cross_street": cross,
-                "directions_url": _maps_url(name, cross),
+                "name": s.name,
+                "cross_street": s.address,
+                "directions_url": s.directions_url,
             }
         )
     return {
         "cheapest": out,
-        "is_stale": bool(stale or row.is_stale),
-        "staleness_label": label,
+        "is_stale": board.is_stale,
+        "staleness_label": board.label,
     }
 
 

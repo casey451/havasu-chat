@@ -81,10 +81,12 @@ def test_home_redesign_conditions_bar_with_seeded_data() -> None:
         upsert_source(db, SOURCE_NWS_CURRENT, {"temperature_f": 104, "wind_speed_mph": 12})
         upsert_source(db, SOURCE_OPENUV, {"uv_index": 11})
         upsert_source(db, SOURCE_NWS_FORECAST, {"short_forecast": "Sunny"})
+        # v4.4 PR-1: the gas surfaces derive from the board's ``stations`` (the
+        # single source the real pull always writes), not a bare ``cheapest`` list.
         upsert_source(
             db,
             SOURCE_GAS,
-            {"cheapest": [{"name": "Circle K", "address": "Hwy 95", "prices": {"regular": 3.79}}]},
+            {"stations": [{"name": "Circle K", "address": "Hwy 95", "prices": {"regular": 3.79}}]},
         )
         db.commit()
     finally:
