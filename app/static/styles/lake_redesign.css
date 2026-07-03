@@ -91,6 +91,8 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .cond .c.gas{background:linear-gradient(180deg,rgba(244,236,218,.55),transparent);cursor:pointer}
 .cond .lab{font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center;gap:4px}
 .cond .c.gas .lab{color:var(--brass)} .cond .lab .ic{color:var(--ink3)} .cond .c.gas .lab .ic{color:var(--brass)}
+.cond .c.water{background:linear-gradient(180deg,rgba(231,240,240,.6),transparent)}
+.cond .c.water .lab{color:var(--teal)}
 .cond .val{font-family:var(--disp);font-weight:500;font-size:18px;letter-spacing:-.01em;line-height:1;white-space:nowrap;display:flex;align-items:baseline;gap:2px;color:var(--ink)}
 .cond .val u{font-style:normal;text-decoration:none;font-size:10px;color:var(--ink2);font-weight:600}
 .cond .caret{color:var(--brass);display:inline-flex}

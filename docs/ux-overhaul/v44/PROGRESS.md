@@ -32,7 +32,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | 1 gas-truth      | feat/v44-01-gas-truth        | ✅ merged | pytest 12477✅ ruff✅ mypy✅ | commit 2a59edcd → merge e8663045 | GasService single source |
 | 2 date-keys      | feat/v44-02-date-keys        | ✅ merged | pytest 12482✅ ruff✅ | commit 20001edb → merge 41d4614b | rollover regression + no-cache pin (tests only) |
 | 3 count-parity   | feat/v44-03-count-parity     | ✅ merged | pytest 12485✅ ruff✅ mypy✅ | commit → merge 172d6d07 | day_counts one base (summary headers); cells keep audit display |
-| 4 conditions     | feat/v44-04-conditions       | ⏳ | — | — | water+sunset, retire clouds |
+| 4 conditions     | feat/v44-04-conditions       | 🔨 gating | tiles 25✅ ruff✅ mypy✅; live render confirms sunset+no-clouds; full suite next | — | water+sunset, retire clouds |
 | 5 ads-rail       | feat/v44-05-ads-rail         | ⏳ | — | — | one paid unit + working rail |
 | 6 gas-ui         | feat/v44-06-gas-ui           | ⏳ | — | — | grade switch + /gas page |
 | 7 schedule       | feat/v44-07-schedule-niceties| ⏳ | — | — | previews/tpills/pills/dots |
@@ -79,6 +79,18 @@ gate results recorded here; do not redo a row marked ✅ merged.
   (the acceptance criterion) + a test pinning `no-cache` on the date-scoped routes
   (the edge-cache guard), and changes no app code. New: `tests/test_date_keyed_pages.py`.
 
+- **PR-4 visual refs NOT regenerable here (decision 15 / missing source).** The
+  committed `tests/visual/refs/*.png` are captured by `capture_refs.py` from the
+  MOCK `design-exploration/ask-hava-premium-v4.html` — which is NOT in the repo
+  (README: mock not required; not committed). So refs can't be regenerated. This
+  does NOT block: the visual test self-baselines against a gitignored per-env
+  baseline and is skipped in default CI (`RUN_VISUAL != 1`). Verified instead via
+  live render (havasu-local preview): the conditions strip shows the computed
+  Sunset tile ("7:54" + "pm"), no Clouds, honest-omit working; unit tests pin
+  order + water marking + sunset split + clouds removed. Same applies to PR-5/6/7/8
+  visual deltas — rely on live preview + unit/template tests, note refs can't be
+  mock-regenerated.
+
 **PR-4 scouting (done):** cond strip = `redesign.conditions_tiles` (builds
 temp/wind/uv/**clouds**/water_temp/gas) → rendered by `base_redesign.html` cond loop
 (home + calendar pass `cond_tiles`). The `_utility_chips` strip (other pages) already
@@ -92,6 +104,22 @@ Temp·Water·Wind·UV·Sunset·Gas; template: add `water` class + render new til
 `.cond .c.water` tint (DESIGN_SPEC §1); add `wave`+`sunset` monoline icons to
 `redesign_icons.html` (§8); honest-omit water when absent; update visual refs. Clouds
 plumbing residue swept in PR-9.
+
+**PR-5 scouting (done):** `home_redesign.html` — macros `ad_placeholder(infeed)`
+(l.78), `sponsor_slot(s)` (l.86), `feature-marquee sold` (l.103) / unsold (l.113);
+in-feed ad at l.213 (`loop.index % 2 == 0 ... ad_placeholder(infeed=True)`); rail
+`<aside class="rail">` l.218–222 = `{% if promoted %}sponsor_slot{% endif %}` + 2×
+`ad_placeholder()`. Route (`home/router.py serve_home`) already passes `marquee`
+(serve_homepage_placement or sponsor_store.active_marquee), `promoted`, and
+`news = news_store.ticker_view(db)`. PR-5 = DELETE the 2 rail ad_placeholders + the
+in-feed one + the rail's promoted `sponsor_slot` (§3: promoted never renders on home,
+keep it plumbed for category pages); marquee stays the ONLY ad unit (keep macro for
+sponsor/portal); rail becomes launcher (§4.1: `directory_total` + 8 category counts,
+mini-search → /categories) + news card (§4.2: 3 most recent stored items). Ticker
+mobile-only, news card desktop-only. Need: directory count helper (DATA_CONTRACTS §5,
+per-category count as /categories uses, cached ≤24h, total floor-rounded hundreds) +
+`news_store` recent-3 accessor. CSS from DESIGN_SPEC §4 (.railcard/.dirgrid/.newsit),
+marquee keyline §2, add `search`/`arrow` icons if missing.
 
 ## PR-1 implementation (files touched)
 - NEW `app/gas/__init__.py`, `app/gas/service.py` — `GasStation`/`GasBoard`,

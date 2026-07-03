@@ -116,33 +116,13 @@ def uv_color(uv: float | int) -> str:
     return "#8a4fb8"
 
 
-# ── conditions bar (Temp · Wind · UV · Clouds · Gas) ───────────────────────────
-_SKY_SHORT = (
-    (re.compile(r"mostly\s+sunny|mostly\s+clear", re.I), "Mostly clear"),
-    (re.compile(r"partly\s+sunny|partly\s+cloudy", re.I), "Partly cloudy"),
-    (re.compile(r"mostly\s+cloudy", re.I), "Mostly cloudy"),
-    (re.compile(r"\bsunny\b|\bclear\b|\bfair\b", re.I), "Clear"),
-    (re.compile(r"\bcloud", re.I), "Cloudy"),
-    (re.compile(r"\brain|\bshower|\bstorm|\bthunder", re.I), "Rain"),
-    (re.compile(r"\bwind", re.I), "Windy"),
-)
-
-
-def _short_sky(text: str) -> str:
-    for pat, label in _SKY_SHORT:
-        if pat.search(text):
-            return label
-    # First word, capitalized — never longer than the tile can hold.
-    return (text.split(",")[0].split()[0] if text.split() else text).title()
-
-
+# ── conditions bar (Temp · Water · Wind · UV · Sunset · Gas) ───────────────────
 def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[str, Any]]:
-    """The 5 clean conditions tiles. Each is honest-omit: a tile only renders when
-    its live source has a value.
-
-    NOTE on "Clouds": the conditions pipeline exposes the NWS sky *condition* word
-    (e.g. "Mostly cloudy"), not a numeric cloud-cover %. The v4 mockup showed a
-    placeholder "15%"; we render the real sky word instead (no fabricated number).
+    """The conditions tiles in the v4.4 order Temp · Water · Wind · UV · Sunset ·
+    Gas. Each is honest-omit: a tile only renders when its live source has a value
+    (the strip simply shows fewer columns). Clouds retired (v4.4 Δ2): the pipeline
+    only exposed the NWS sky *word*, not a real cloud-cover %, so it was dropped in
+    favor of Water + Sunset — both honest, computed/measured values.
     """
     # The conditions payload + gas read use naive-UTC time internally (and an
     # in-process cache keyed on it); the caller's ``now`` may be Lake-tz-aware, so
@@ -162,6 +142,24 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
                 "color": None,
                 "is_gas": False,
                 "is_stale": bool(payload.get("temp_is_stale")),
+            }
+        )
+
+    # Water temp — second in the strip (v4.4 §1), carries the teal-soft tint via
+    # ``is_water``. Honest-omit: only when the gage feed has a live reading.
+    water_temp = payload.get("water_temp_f")
+    if isinstance(water_temp, (int, float)):
+        tiles.append(
+            {
+                "key": "water_temp",
+                "icon": "wave",
+                "label": "Water",
+                "value": f"{round(water_temp)}°",
+                "unit": None,
+                "color": None,
+                "is_gas": False,
+                "is_water": True,
+                "is_stale": bool(payload.get("water_temp_is_stale")),
             }
         )
 
@@ -195,37 +193,22 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
             }
         )
 
-    sky = payload.get("sky_condition")
-    if isinstance(sky, str) and sky.strip():
+    # Sunset — computed astronomically (app.conditions.sun), always available and
+    # never stale; ``sunset_local`` is Lake-local wall-clock like "7:42 PM", split
+    # into the "7:42" value + "pm" unit the v4.4 tile renders (§1).
+    sunset_local = payload.get("sunset_local")
+    if isinstance(sunset_local, str) and sunset_local.strip():
+        parts = sunset_local.split()
         tiles.append(
             {
-                "key": "clouds",
-                "icon": "cloud",
-                "label": "Clouds",
-                "value": _short_sky(sky.strip()),
-                "unit": None,
+                "key": "sunset",
+                "icon": "sunset",
+                "label": "Sunset",
+                "value": parts[0],
+                "unit": parts[1].lower() if len(parts) > 1 else None,
                 "color": None,
                 "is_gas": False,
-                "is_stale": bool(payload.get("sky_is_stale")),
-            }
-        )
-
-    # Water temp (USGS 09426630, ~25mi south in the Bill Williams backwater).
-    # Added to the conditions bar at Casey's request (2026-06-29). Honest-omit:
-    # only renders when FEATURE_FLAG_WATER_TEMP_GAGE_09426630 is ON and the gage
-    # has a reading; otherwise the bar simply shows one fewer tile.
-    water_temp = payload.get("water_temp_f")
-    if isinstance(water_temp, (int, float)):
-        tiles.append(
-            {
-                "key": "water_temp",
-                "icon": "wave",
-                "label": "Water",
-                "value": f"{round(water_temp)}°",
-                "unit": None,
-                "color": None,
-                "is_gas": False,
-                "is_stale": bool(payload.get("water_temp_is_stale")),
+                "is_stale": bool(payload.get("sunset_is_stale")),
             }
         )
 
