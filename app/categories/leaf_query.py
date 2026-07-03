@@ -1000,30 +1000,40 @@ def match_direct_destination(q: str | None) -> str | None:
     return _QUERY_TO_URL_2026_07_01.get(norm)
 
 
-for _leaf_slug, _terms in _QUERY_TO_LEAF_EXPANSION_2026_06_20.items():
-    for _term in _terms:
-        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
-for _leaf_slug, _terms in _QUERY_TO_LEAF_NEW_LEAVES_2026_06_20.items():
-    for _term in _terms:
-        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
-for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ALIASES_2026_06_28.items():
-    for _term in _terms:
-        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
-for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ADD_2026_06_30.items():
-    for _term in _terms:
-        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
-for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ADD2_2026_06_30.items():
-    for _term in _terms:
-        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
-for _leaf_slug, _terms in _QUERY_TO_LEAF_SEARCH_ADD_2026_07_01.items():
-    for _term in _terms:
-        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
-for _leaf_slug, _terms in _QUERY_TO_LEAF_RENTALS_2026_07_01.items():
-    for _term in _terms:
-        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
-for _leaf_slug, _terms in _QUERY_TO_LEAF_BACKFILLS_2026_07_01.items():
-    for _term in _terms:
-        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
+# ---------------------------------------------------------------------------
+# Build the one canonical term -> slug routing table.
+#
+# ``_QUERY_TO_LEAF`` above is the hand-authored core (with its own rationale
+# comments); the generation-stamped blocks below it are provenance-tagged
+# additions, each kept as a readable ``slug -> (terms,)`` map (or ``term ->
+# slug`` for the bare-forms block) so a leaf's aliases stay grouped. They fold
+# into the ONE table here via a single ordered merge with first-writer-wins
+# (``setdefault``) — a live entry is never overridden by a later block.
+#
+# The eight near-identical per-block loops this replaced are collapsed to one
+# data-driven pass. ``tests/test_leaf_query_routing_table.py`` locks the result:
+# it asserts no two contributing blocks (base included) route the same term to
+# DIFFERENT slugs — so the merge order is provably irrelevant, no silent drops —
+# and that the merged table is byte-identical to the committed snapshot.
+# ---------------------------------------------------------------------------
+
+#: Ordered ``slug -> (terms,)`` contribution blocks, folded into ``_QUERY_TO_LEAF``.
+_LEAF_TERM_BLOCKS: tuple[dict[str, tuple[str, ...]], ...] = (
+    _QUERY_TO_LEAF_EXPANSION_2026_06_20,
+    _QUERY_TO_LEAF_NEW_LEAVES_2026_06_20,
+    _QUERY_TO_LEAF_SEARCH_ALIASES_2026_06_28,
+    _QUERY_TO_LEAF_SEARCH_ADD_2026_06_30,
+    _QUERY_TO_LEAF_SEARCH_ADD2_2026_06_30,
+    _QUERY_TO_LEAF_SEARCH_ADD_2026_07_01,
+    _QUERY_TO_LEAF_RENTALS_2026_07_01,
+    _QUERY_TO_LEAF_BACKFILLS_2026_07_01,
+)
+
+for _block in _LEAF_TERM_BLOCKS:
+    for _leaf_slug, _terms in _block.items():
+        for _term in _terms:
+            _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
+# Bare-forms is authored ``term -> slug`` (not ``slug -> terms``); same first-wins.
 for _term, _leaf_slug in _QUERY_TO_LEAF_BARE_FORMS_2026_06_20.items():
     _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 
