@@ -29,7 +29,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 ## Work log (one line per item)
 | PR | branch | status | gate | merge sha | notes |
 |----|--------|--------|------|-----------|-------|
-| 1 gas-truth      | feat/v44-01-gas-truth        | 🔨 gating | targeted 43✅, ruff✅, mypy✅; full suite running | — | GasService single source |
+| 1 gas-truth      | feat/v44-01-gas-truth        | ✅ merged | pytest 12477✅ ruff✅ mypy✅ | commit 2a59edcd → merge e8663045 | GasService single source |
 | 2 date-keys      | feat/v44-02-date-keys        | ⏳ | — | — | date-keyed cache |
 | 3 count-parity   | feat/v44-03-count-parity     | ⏳ | — | — | day_counts one base |
 | 4 conditions     | feat/v44-04-conditions       | ⏳ | — | — | water+sunset, retire clouds |
@@ -68,8 +68,12 @@ gate results recorded here; do not redo a row marked ✅ merged.
   `test_gas_prices_page.py`.
 
 ## NEXT ACTION
-PR-1 gating: full suite running (bg bnyqw7lon). If green → commit `feat/v44-01-gas-truth`,
-merge into `v44-integration`, mark PR-1 ✅, then start PR-2.
+PR-1 ✅ merged (e8663045). START PR-2 now: create `feat/v44-02-date-keys` off
+`v44-integration`. Find the in-process data-layer cache that memoizes a
+"today"/"this month" value without the date in its key; resolve today/month
+(America/Phoenix) BEFORE the cache lookup and include it in the key for /home,
+/events-ui, /calendar. Add the rollover regression test (freeze D, warm, advance
+to D+1, assert D+1 reflected). Gate (pytest+ruff+mypy) → merge → log → PR-3.
 
 **PR-2 scouting (done):** HTML responses already carry `Cache-Control: no-cache`
 (`app/main.py:480`), so the stale-page bug is NOT browser/CDN — it's an in-process
