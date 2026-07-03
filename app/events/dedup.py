@@ -15,10 +15,18 @@ from sqlalchemy import false, or_, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Entity, Event, Provider
+from app.events.dedup_match import (
+    DEFAULT_DEDUP_TIME_WINDOW_MINUTES,
+    start_minutes,
+    times_within_window,
+    tokens_subset_match,
+)
 from app.events.scrapers.base import EventPayload, normalize_event_title
 from app.events.time_labels import is_time_tbd
 
-DEDUP_DATETIME_WINDOW_MINUTES = int(os.environ.get("EVENT_DEDUP_DATETIME_WINDOW_MINUTES", "30"))
+DEDUP_DATETIME_WINDOW_MINUTES = int(
+    os.environ.get("EVENT_DEDUP_DATETIME_WINDOW_MINUTES", str(DEFAULT_DEDUP_TIME_WINDOW_MINUTES))
+)
 DEDUP_TITLE_FUZZY_THRESHOLD = int(os.environ.get("EVENT_DEDUP_TITLE_THRESHOLD", "85"))
 
 # Catalog-scan normalization cache. resolve_venue_entity_id re-normalizes the
@@ -131,7 +139,6 @@ def find_duplicate(
             clauses.append(Event.provider_id.in_(prov_ids))
         stmt = stmt.where(or_(*clauses) if clauses else false())
     candidates = list(db.scalars(stmt).all())
-    target_dt = datetime.combine(start_date, start_time_obj) if start_time_obj else None
     norm = normalize_event_title(normalized_title)
 
     # A bare-noon (12:00, no end) placeholder some aggregators emit is really a
@@ -142,14 +149,18 @@ def find_duplicate(
     incoming_tbd = _start_is_tbd_for_dedup(start_time_obj, None)
 
     def _within_window(cand: Event) -> bool:
-        if target_dt and cand.start_time:
-            if incoming_tbd or _start_is_tbd_for_dedup(cand.start_time, cand.end_time):
-                return True
-            cand_dt = datetime.combine(cand.date, cand.start_time)
-            return abs((target_dt - cand_dt).total_seconds()) <= (
-                DEDUP_DATETIME_WINDOW_MINUTES * 60
-            )
-        return True
+        # Either side TBD/bare-noon is time-agnostic → always in window. Candidates
+        # all share ``start_date`` (query filter), so the ±window on the start
+        # times is the same test the old datetime-seconds diff computed; a missing
+        # time on either side is a wildcard (the pre-shared-matcher contract).
+        if incoming_tbd or _start_is_tbd_for_dedup(cand.start_time, cand.end_time):
+            return True
+        return times_within_window(
+            start_time_obj,
+            cand.start_time,
+            window_minutes=DEDUP_DATETIME_WINDOW_MINUTES,
+            missing_is_wildcard=True,
+        )
 
     # T3.1 fast path: most duplicates are *exact* normalized-title matches
     # (same scraper, same source). One dict build replaces a token_sort_ratio
@@ -312,10 +323,6 @@ def _survivor_rank(event: Event) -> tuple[bool, bool, int, int, str]:
     )
 
 
-def _start_minutes(t: time) -> int:
-    return t.hour * 60 + t.minute
-
-
 def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
     """Positions (into the caller's occurrence list) that survive one group.
 
@@ -331,10 +338,10 @@ def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
     ]
     if not timed:
         return {min(members, key=lambda m: _survivor_rank(m[1]))[0]}
-    timed.sort(key=lambda m: _start_minutes(m[1].start_time))
+    timed.sort(key=lambda m: start_minutes(m[1].start_time))
     clusters: list[list[tuple[int, Event]]] = [[timed[0]]]
     for member in timed[1:]:
-        gap = _start_minutes(member[1].start_time) - _start_minutes(clusters[-1][-1][1].start_time)
+        gap = start_minutes(member[1].start_time) - start_minutes(clusters[-1][-1][1].start_time)
         if gap <= _SEPARATE_SESSION_GAP_MINUTES:
             clusters[-1].append(member)
         else:
@@ -401,10 +408,7 @@ def _titles_share_activity(a: Event, b: Event) -> bool:
     "Cosmic Bowling" {cosmic, bowling} vs "… Humane Society … Bowl" — are neither a
     subset of the other, so they stay separate (the over-merge the bare-token rule
     produced)."""
-    ta, tb = _significant_title_tokens(a), _significant_title_tokens(b)
-    if not ta or not tb:
-        return False
-    return ta <= tb or tb <= ta
+    return tokens_subset_match(_significant_title_tokens(a), _significant_title_tokens(b))
 
 
 def _is_specific_venue(ev: Event) -> bool:
@@ -436,10 +440,10 @@ def _times_overlap_for_merge(a: Event, b: Event) -> bool:
         return False
     if a.end_time is not None and b.end_time is not None:
         return (
-            _start_minutes(sa) < _start_minutes(b.end_time)
-            and _start_minutes(sb) < _start_minutes(a.end_time)
+            start_minutes(sa) < start_minutes(b.end_time)
+            and start_minutes(sb) < start_minutes(a.end_time)
         )
-    return abs(_start_minutes(sa) - _start_minutes(sb)) <= _CROSS_SOURCE_START_GAP_MINUTES
+    return abs(start_minutes(sa) - start_minutes(sb)) <= _CROSS_SOURCE_START_GAP_MINUTES
 
 
 def _different_source(a: Event, b: Event) -> bool:
