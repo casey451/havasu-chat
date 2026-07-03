@@ -15,9 +15,15 @@ Examples
 By default the CLI prints a one-line summary per section. Use ``--json``
 to dump structured records for downstream review or DB loading.
 
-This pull is read-only; nothing is written to the catalog yet. Wiring
-into the contributions queue happens in a follow-up commit once we lock
-the Program-vs-Event mapping with the chat layer.
+This particular CLI is read-only (it only fetches + dumps). The catalog wiring
+is already DONE and runs in production: the ``parks-rec-scrapes`` GitHub Action
+calls ``scripts/run_scrapes.py`` (which writes a webtrac snapshot) and then
+``scripts/parks_rec_load.py`` -> ``app.contrib.parks_rec_loader.load_latest_snapshots``,
+which routes recurring sections to a Program (the class/registry path) and
+single-day sections to an Event, via the contribution + auto-approval flow.
+WebTrac is a structured, re-pullable source, so those rows auto-approve; the
+flyer/OCR vision sources do NOT (they land pending for review). Use this CLI for
+ad-hoc inspection / offline parsing, not for loading.
 """
 
 from __future__ import annotations

@@ -48,25 +48,41 @@ def _get(path: str, *, timeout: float = 10.0) -> dict[str, Any]:
 
 
 def fetch_nws_alerts_lhc_zone() -> dict[str, Any]:
-    zone_id = os.environ.get("LHC_NWS_ZONE_ID", "AZZ002")
-    payload = _get(f"/alerts/active?zone={zone_id}")
-    features = payload.get("features") or []
+    """Active NWS alerts for the configured zone(s).
+
+    ``LHC_NWS_ZONE_ID`` accepts a comma/semicolon-separated list. The default
+    covers BOTH the city zone (AZZ002) and the lake zone (AZZ036) — Lake Wind
+    Advisories are issued for AZZ036, so fetching only AZZ002 meant the
+    ``lake_hazard`` alert type could never fire on its namesake advisory
+    (see nws_extras.lake_wind_advisory_zone_covered).
+    """
+    zone_id = os.environ.get("LHC_NWS_ZONE_ID", "AZZ002,AZZ036")
+    zones = [z.strip().upper() for z in zone_id.replace(";", ",").split(",") if z.strip()]
     alerts: list[dict[str, Any]] = []
-    for feat in features:
-        if not isinstance(feat, dict):
-            continue
-        props = feat.get("properties") or {}
-        if not isinstance(props, dict):
-            continue
-        alerts.append(
-            {
-                "event": props.get("event"),
-                "headline": props.get("headline"),
-                "description": props.get("description"),
-                "severity": props.get("severity"),
-                "ends": props.get("ends"),
-            }
-        )
+    seen: set[tuple[Any, Any]] = set()
+    for zone in zones:
+        payload = _get(f"/alerts/active?zone={zone}")
+        for feat in payload.get("features") or []:
+            if not isinstance(feat, dict):
+                continue
+            props = feat.get("properties") or {}
+            if not isinstance(props, dict):
+                continue
+            # An alert can span both zones — dedupe on NWS id (fall back to
+            # event+headline) so it surfaces once.
+            key = (feat.get("id") or props.get("id"), props.get("headline"))
+            if key in seen:
+                continue
+            seen.add(key)
+            alerts.append(
+                {
+                    "event": props.get("event"),
+                    "headline": props.get("headline"),
+                    "description": props.get("description"),
+                    "severity": props.get("severity"),
+                    "ends": props.get("ends"),
+                }
+            )
     return {"zone_id": zone_id, "alerts": alerts, "active_nws_alerts": alerts}
 
 
@@ -101,7 +117,9 @@ def _build_current(props: dict[str, Any]) -> dict[str, Any]:
     return {
         "temperature_f": temp_f,
         "heat_index_f": heat_index_f,
-        "wind_speed_mph": float(wind_speed) * 0.621371 if wind_speed else None,
+        "wind_speed_mph": (
+            float(wind_speed) * 0.621371 if isinstance(wind_speed, (int, float)) else None
+        ),
         "wind_direction_deg": wind_direction,
         "timestamp": props.get("timestamp"),
     }
@@ -176,22 +194,10 @@ def fetch_nws_forecast_daily() -> dict[str, Any]:
     }
 
 
-def fetch_nws_sunset() -> dict[str, Any]:
-    points = _grid_points()
-    forecast_url = (points.get("properties") or {}).get("forecast")
-    if not forecast_url:
-        raise RuntimeError("NWS points missing forecast for sunset")
-    forecast = _get(forecast_url)
-    periods = (forecast.get("properties") or {}).get("periods") or []
-    sunset_local: str | None = None
-    for period in periods:
-        if not isinstance(period, dict):
-            continue
-        name = (period.get("name") or "").lower()
-        if "tonight" in name or "this evening" in name:
-            sunset_local = period.get("startTime")
-            break
-    return {"sunset_iso": sunset_local, "periods": periods[:2]}
+# fetch_nws_sunset was deleted 2026-07-02 (audit): it fetched a points+forecast
+# pair every cron tick (~192 NWS calls/day) for a "tonight period startTime"
+# sunset that nothing read — api_payload's sunset comes from Open-UV's true
+# astronomical value or the computed app/conditions/sun.py fallback.
 
 
 def parse_iso_datetime(value: str | None) -> datetime | None:

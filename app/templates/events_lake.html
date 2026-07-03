@@ -74,12 +74,29 @@
 {#- One day-view row. A permalink-less program (no url) renders as a non-link but
    still carries its #program-… id so the home feed can deep-link to this exact
    row (Item 2); a linked row is the usual anchor. -#}
+{#- ``row.ongoing`` marks a venue's open-hours row (not a dated event). It gets an
+   "Open" badge so a place reading "12 PM–11 PM" is visually distinct from an event
+   with a start time, even though both sit under the same venue-type subsection
+   (site review §1). Events keep their type_label chip; the two are exclusive. -#}
 {%- macro ev_row(row) -%}
+{%- set kind -%}{% if row.ongoing %}<span class="rkind">Open</span>{% elif row.type_label %}<span class="rtype">{{ row.type_label }}</span>{% endif %}{%- endset -%}
 {%- if row.url -%}
-<a class="ev-row" href="{{ row.url }}"><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span>{% if row.type_label %}<span class="rtype">{{ row.type_label }}</span>{% endif %}{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</a>
+<a class="ev-row{% if row.ongoing %} ev-row--open{% endif %}" href="{{ row.url }}"><span class="rtime">{% if row.time_label and 'TBD' not in row.time_label %}{{ row.time_label }}{% endif %}</span><span class="rtitle">{{ row.title }}</span>{{ kind }}{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</a>
 {%- else -%}
-<div class="ev-row ev-row--nolink"{% if row.anchor %} id="{{ row.anchor }}" tabindex="-1"{% endif %}><span class="rtime">{{ row.time_label }}</span><span class="rtitle">{{ row.title }}</span>{% if row.type_label %}<span class="rtype">{{ row.type_label }}</span>{% endif %}{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</div>
+<div class="ev-row ev-row--nolink{% if row.ongoing %} ev-row--open{% endif %}"{% if row.anchor %} id="{{ row.anchor }}" tabindex="-1"{% endif %}><span class="rtime">{% if row.time_label and 'TBD' not in row.time_label %}{{ row.time_label }}{% endif %}</span><span class="rtitle">{{ row.title }}</span>{{ kind }}{% if row.venue %}<span class="rvenue">{{ row.venue }}</span>{% endif %}</div>
 {%- endif -%}
+{%- endmacro -%}
+
+{#- A subcategory node: its rows plus any nested `children` (the youth/facet third
+   level — Phase 1). Recursive so youth nests under its activity/discipline
+   (Martial arts → BJJ → Youth BJJ); youth children carry the kid accent. Mirrors
+   the home feed's `sub_tree` macro so the two surfaces render the same tree. -#}
+{%- macro ev_sub(node, level=2) -%}
+<details class="ev-sub ev-l{{ level }}{% if node.youth %} ev-youth{% endif %}"{% if node.open %} open{% endif %}>
+  <summary><span class="sub-name">{{ node.label }}</span><span class="sc">{{ node.count }}</span><svg class="sub-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
+  {% for row in node.rows %}{{ ev_row(row) }}{% endfor %}
+  {% for child in node.children %}{{ ev_sub(child, level + 1) }}{% endfor %}
+</details>
 {%- endmacro -%}
 
 {% block content %}
@@ -89,12 +106,14 @@
   </nav>
   <div class="pagehead">
     <h1>{{ _h1 }}</h1>
-    {% if mode == 'week' %}<p class="sub">The next seven days around the lake — tap a day for the full lineup.</p>
+    {% if mode == 'week' %}<p class="sub"><span class="ev-sub-d">The next seven days around the lake — tap a day for the full lineup.</span><span class="ev-sub-m">Swipe between weeks — tap a day for the full lineup.</span></p>
     {% elif mode == 'month' %}<p class="sub"><b>{{ calendar.month_oneoff_total or 0 }}</b> events &amp; <b>{{ calendar.month_class_total or 0 }}</b> classes this month — tap a date.</p>
     {% endif %}
   </div>
 
   <div class="ev-controls">
+    {# UNIFY (Rule 0b 2026-06-26): one calendar, no Calendar⇄Places toggle — just
+       the Today / Week / Month zoom levels over the single unified tree. #}
     {# Desktop: full Today / Week / Month tabs. #}
     <nav class="ev-seg" aria-label="Calendar view">
       {% for v in view_links %}
@@ -109,9 +128,13 @@
       <a href="{{ _today_link.url }}" class="{{ 'on' if mode in ('today', 'day') else '' }}"{% if mode in ('today', 'day') %} aria-current="page"{% endif %}>Day</a>
       <a href="{{ _week_link.url }}" class="{{ 'on' if mode in ('week', 'month') else '' }}"{% if mode in ('week', 'month') %} aria-current="page"{% endif %}>Full calendar</a>
     </nav>
-    {# Audience filter tabs (Kids & family / Seniors) removed — the calendar makes
-       everything browsable, so they were redundant. Chat senior intent still
-       narrows results via /calendar (server-side query parser), not a tab. #}
+    {# "For kids" filter (two-surface spec §5.1): a cross-cutting narrow, NOT a
+       category. On → only kid/family rows, on whichever surface is showing; youth
+       stays nested under each activity. Visible on both Calendar and Places. #}
+    <a class="ev-kids {{ 'on' if family_mode else '' }}" href="{{ family_toggle_url }}"
+       role="button" aria-pressed="{{ 'true' if family_mode else 'false' }}">
+      <span aria-hidden="true">🧒</span> For kids
+    </a>
   </div>
 
   {% if mode == 'day' %}
@@ -133,13 +156,23 @@
           <svg class="gchev" width="16" height="16" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg>
         </summary>
         <div class="ev-rows">
-          {% if g.subgroups %}
-            {% for sub in g.subgroups %}
-            <details class="ev-sub">
-              <summary><span class="sub-name">{{ sub.label }}</span><span class="sc">{{ sub.count }}</span><svg class="sub-chev" width="14" height="14" viewBox="0 0 16 16" fill="none" aria-hidden="true"><path d="M4 6l4 4 4-4" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round"/></svg></summary>
-              {% for row in sub.rows %}{{ ev_row(row) }}{% endfor %}
-            </details>
-            {% endfor %}
+          {% if g.is_movies %}
+            {# At the Movies — a first-class Calendar category (two-surface spec
+               §2). Showtimes aren't Event-table rows, so they render as tiles. #}
+            <div class="ev-mv-strip" role="list">
+              {% for m in g.rows %}
+              <a class="ev-mv-tile" role="listitem" href="{{ m.url or '/movies' }}">
+                <span class="ev-mv-poster">{% if m.poster %}<img loading="lazy" src="{{ m.poster }}" alt="">{% endif %}</span>
+                <span class="ev-mv-body">
+                  <span class="ev-mv-title">{{ m.title }}</span>
+                  <span class="ev-mv-meta">{{ m.theater }} · {{ m.times|join(', ') }}</span>
+                </span>
+              </a>
+              {% endfor %}
+            </div>
+            <a class="ev-mv-all" href="/movies">All showtimes →</a>
+          {% elif g.subgroups %}
+            {% for sub in g.subgroups %}{{ ev_sub(sub) }}{% endfor %}
           {% else %}
             {% for row in g.rows %}{{ ev_row(row) }}{% endfor %}
           {% endif %}
@@ -150,7 +183,6 @@
     {% else %}
     <div class="ev-empty"><h3>Nothing posted for {{ day_label }} yet</h3><p>Try the week or month view, or check back soon.</p></div>
     {% endif %}
-    {% include "_partials/movies_today.html" %}
 
   {% elif mode == 'week' %}
     {# Desktop: the flat next-seven-days list. #}

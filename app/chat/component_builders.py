@@ -34,6 +34,8 @@ from app.chat.tier2_schema import Tier2Filters
 from app.core.provider_name import clean_name as _clean_provider_name
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
+from app.events.tag_display import public_event_tags
+from app.events.time_labels import format_short_time_hhmm
 from app.home.queries import _format_phone
 from app.providers.queries import is_open_status_from_structured_hours
 
@@ -427,9 +429,9 @@ def build_business_list(
 
 
 def _pretty_category_label(category: str) -> str:
-    from app.chat.tier2_business_shortcut import _pluralize_for_header
+    from app.chat.tier2_business_shortcut import pluralize_for_header
 
-    plural = _pluralize_for_header(category or "businesses")
+    plural = pluralize_for_header(category or "businesses")
     return plural.title() if plural.islower() else plural
 
 
@@ -496,6 +498,13 @@ def _maps_directions_url(address: str) -> str:
 
 
 def _trade_category_label(row: dict[str, Any]) -> str:
+    # 2026-06-30 search audit 3B: prefer the authoritative primary-leaf category
+    # (from entity_categories) over Google's freeform google_primary_category
+    # ("Rv Park", "Indoor Playground") or the legacy category string — both are
+    # unreliable and produced the wrong card tags the audit flagged.
+    leaf = str(row.get("primary_category_label") or "").strip()
+    if leaf:
+        return leaf
     gpc = str(row.get("google_primary_category") or row.get("category") or "")
     gpc = re.sub(r"_+", " ", gpc).strip()
     if gpc:
@@ -629,6 +638,9 @@ def _pretty_category_from_tags(tags: list[str]) -> str | None:
     (BUILD.md mentions arts/sports/aquatics/food/fitness/recreation) when
     available. Otherwise return the first capitalized tag, or None.
     """
+    # Drop internal taxonomy keys (``activity:golf``, ``facet:special``) so they
+    # never surface as a chat category label (site review §5).
+    tags = public_event_tags(tags)
     if not tags:
         return None
     known = {
@@ -688,9 +700,12 @@ def fallback_day_agenda_voice(rows: list[dict[str, Any]], target: date) -> str:
     word = _spell_count(n)
     location_clause = _top_location_clause(rows)
 
+    # "one things" -> "one thing" (singular n) — same fix week_strip carries.
+    thing_word = "thing" if n == 1 else "things"
+
     if location_clause:
-        return f"{target.strftime('%A')}'s {descriptor} — {word} things, {location_clause}."
-    return f"{target.strftime('%A')}'s {descriptor} — {word} things on the calendar."
+        return f"{target.strftime('%A')}'s {descriptor} — {word} {thing_word}, {location_clause}."
+    return f"{target.strftime('%A')}'s {descriptor} — {word} {thing_word} on the calendar."
 
 
 def _busy_descriptor(n: int) -> str:
@@ -1182,20 +1197,8 @@ def is_single_business_card_query(intent_result: IntentResult, rows: list[dict[s
 
 
 def _format_time_display(hhmm: str) -> str:
-    raw = hhmm.strip()
-    if not raw:
-        return ""
-    try:
-        hour_str, minute_str = raw.split(":", 1)
-        hour = int(hour_str)
-        minute = int(minute_str)
-    except (ValueError, AttributeError):
-        return raw
-    suffix = "AM" if hour < 12 else "PM"
-    display_hour = hour % 12 or 12
-    if minute:
-        return f"{display_hour}:{minute:02d} {suffix}"
-    return f"{display_hour} {suffix}"
+    """Delegates to the shared time_labels compact formatter (consolidated 2026-07-02)."""
+    return format_short_time_hhmm(hhmm)
 
 
 def _format_event_when(row: dict[str, Any]) -> str | None:

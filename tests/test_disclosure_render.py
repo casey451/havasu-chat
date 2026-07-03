@@ -320,7 +320,10 @@ def test_regime_specific_quality_for_all_listed_sub_intents() -> None:
 
 
 def test_regime_generic_category_when_no_entity() -> None:
-    for sub in ("GENERAL_QUESTION", "RECOMMENDATION", "DISCOVERY"):
+    # LIST_BY_CATEGORY is the REAL classifier sub_intent ("show me barbers"); the
+    # other three are retained synthetic labels. All map to GENERIC_CATEGORY when
+    # no entity is resolved (2026-07-03 wiring closed the prod gap).
+    for sub in ("LIST_BY_CATEGORY", "GENERAL_QUESTION", "RECOMMENDATION", "DISCOVERY"):
         regime = select_placement_regime(_intent(sub_intent=sub, entity=None))
         assert regime == PlacementRegime.GENERIC_CATEGORY, sub
 
@@ -328,8 +331,27 @@ def test_regime_generic_category_when_no_entity() -> None:
 def test_regime_generic_category_falls_back_to_specific_when_entity_present() -> None:
     """Even a category-shaped sub_intent collapses to SPECIFIC_QUALITY when an
     entity is resolved — that's a 'tell me about X' query, not a category browse."""
-    regime = select_placement_regime(_intent(sub_intent="GENERAL_QUESTION", entity="Hava Cafe"))
+    regime = select_placement_regime(_intent(sub_intent="LIST_BY_CATEGORY", entity="Hava Cafe"))
     assert regime == PlacementRegime.SPECIFIC_QUALITY
+
+
+def test_regime_open_ended_stays_specific_quality() -> None:
+    """The catch-all OPEN_ENDED is deliberately NOT generic-category — a vague
+    'what should I do' must never be monetized (stays zero-sponsored)."""
+    regime = select_placement_regime(_intent(sub_intent="OPEN_ENDED", entity=None))
+    assert regime == PlacementRegime.SPECIFIC_QUALITY
+
+
+def test_real_classifier_category_browse_routes_to_generic_category() -> None:
+    """End-to-end proof the audit's wiring gap is closed: a real activity-category
+    listing the classifier tags LIST_BY_CATEGORY (no entity) selects the
+    GENERIC_CATEGORY regime — not just the synthetic test labels."""
+    from app.chat.intent_classifier import classify
+
+    result = classify("list of swim classes in havasu")
+    assert result.sub_intent == "LIST_BY_CATEGORY"
+    assert result.entity in (None, "")
+    assert select_placement_regime(result) == PlacementRegime.GENERIC_CATEGORY
 
 
 def test_regime_emergency_urgent_for_listed_sub_intents() -> None:

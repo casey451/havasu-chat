@@ -27,6 +27,17 @@ CASES = [
     ("Inferno (6 AM)", None, "Inferno"),
     ("Rec Gym (Wed 4 PM)", None, "Rec Gym"),
     ("Rowdy Bingo at Grapes N Grains", "Grapes N Grains", "Rowdy Bingo"),
+    # §6 separator-form venue echoes: the venue is already shown beside the
+    # title, so a trailing "— Venue" / "· Venue" / "- Venue" is redundant.
+    ("Golf Course — Lake Havasu Golf Club", "Lake Havasu Golf Club", "Golf Course"),
+    ("Indoor Golf Simulators — Back Nine Golf", "Back Nine Golf", "Indoor Golf Simulators"),
+    (
+        "Universal Sonics Gymnastics & Cheer · Universal Sonics",
+        "Universal Sonics",
+        "Universal Sonics Gymnastics & Cheer",
+    ),
+    # Venue embedded mid-title (not a trailing echo) is preserved.
+    ("Live at Back Nine Golf Tonight", "Back Nine Golf", "Live at Back Nine Golf Tonight"),
     ("Wine & Watercolor with KJ", None, "Wine & Watercolor"),
     # Instructor-suffix coverage for every observed name (2.4):
     ("Aqua Aerobics Renae", None, "Aqua Aerobics"),

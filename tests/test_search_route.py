@@ -69,6 +69,103 @@ def test_api_search_plumber_returns_ranked_json_top_20(db: Session) -> None:
     assert any(mark in n for n in names), names
 
 
+def test_leaf_link_predicate_none_for_non_category(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A query that resolves to no leaf yields no leaf-link branch (None)."""
+    from app.categories import leaf_query
+    from app.search import routes
+
+    monkeypatch.setattr(leaf_query, "match_leaf_query", lambda _db, _q: None)
+    monkeypatch.setattr(leaf_query, "match_leaf_service_intent", lambda _db, _q: None)
+    assert (
+        routes._leaf_link_exists_predicate(None, q_raw="zxqw", entity_type_filter=None)
+        is None
+    )
+
+
+def test_leaf_link_predicate_skips_non_commercial() -> None:
+    """Non-commercial entity-type filters short-circuit before resolving a leaf."""
+    from app.db.entity_types import ENTITY_TYPE_EVENT
+    from app.search import routes
+
+    assert (
+        routes._leaf_link_exists_predicate(
+            None, q_raw="roofer", entity_type_filter=ENTITY_TYPE_EVENT
+        )
+        is None
+    )
+
+
+def test_api_search_category_query_via_leaf_link(db: Session) -> None:
+    """A trade query ("roofer") reaches providers through the canonical EntityCategory
+    leaf link even when their legacy category columns are generic AND the name lacks
+    the trade word — i.e. the intent bridge, not name/synonym matching."""
+    from app.categories import leaf_pages
+    from app.categories import router as cat_router
+    from app.db.models import Category, EntityCategory
+
+    suf = _suffix()
+    from sqlalchemy import select as _select
+
+    dept = db.scalars(
+        _select(Category).where(
+            Category.slug == "home-and-property-services", Category.level == 0
+        )
+    ).first()
+    created_cat_ids: list[int] = []
+    if dept is None:
+        dept = Category(
+            slug="home-and-property-services",
+            name="Home & Property Services",
+            level=0,
+            sort_order=8,
+        )
+        db.add(dept)
+        db.flush()
+        created_cat_ids.append(dept.id)
+    leaf = Category(slug="roofing", name="Roofing", level=1, sort_order=0, parent_id=dept.id)
+    db.add(leaf)
+    db.flush()
+    created_cat_ids.append(leaf.id)
+    gate = max(leaf_pages.LEAF_PAGE_MIN_PROVIDERS, 1)
+    marks = [f"ApexCrew{suf}{i}" for i in range(gate)]
+    ents: list[Entity] = []
+    for i, mark in enumerate(marks):
+        ent = _entity(name=f"{mark} Contracting")  # deliberately NO "roof" in the name
+        p = Provider(
+            provider_name=ent.name,
+            slug=f"apex-{suf}-{i}",
+            category="home_services",  # generic legacy columns — synonym needles can't hit
+            google_primary_category="general_contractor",
+            source="test-search-route",
+            draft=False,
+            is_active=True,
+            entity_id=ent.id,
+        )
+        db.add_all([ent, p])
+        db.flush()
+        db.add(EntityCategory(entity_id=ent.id, category_id=leaf.id, is_primary=True))
+        ents.append(ent)
+    db.commit()
+    cat_router.reset_index_cache()
+    try:
+        with TestClient(app) as client:
+            r = client.get("/api/search", params={"q": "roofer", "limit": 50})
+        assert r.status_code == 200
+        names = [row["name"] for row in r.json()["results"]]
+        assert any(any(m in n for m in marks) for n in names), names
+    finally:
+        for ent in ents:
+            for ec in (
+                db.query(EntityCategory).filter(EntityCategory.entity_id == ent.id).all()
+            ):
+                db.delete(ec)
+        db.query(Category).filter(Category.id.in_(created_cat_ids)).delete(
+            synchronize_session=False
+        )
+        db.commit()
+        cat_router.reset_index_cache()
+
+
 def test_api_search_anonymous_no_auth_gate() -> None:
     with TestClient(app) as client:
         r = client.get("/api/search", params={"q": "test"})
@@ -216,8 +313,8 @@ def test_search_bar_ui_home_and_provider_templates(db: Session) -> None:
         assert h.status_code == 200
         t = h.text
         assert 'name="q"' in t
-        assert "/static/styles/lake.css" in t  # Lake Ink & Brass
-        assert 'id="home-ask-input"' in t
+        assert "/static/styles/lake_redesign.css" in t  # v4 home
+        assert 'id="rd-search"' in t
 
         pr = client.get(f"/provider/{slug}")
         assert pr.status_code == 200

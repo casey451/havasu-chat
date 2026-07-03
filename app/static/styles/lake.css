@@ -115,6 +115,16 @@ a:focus-visible,button:focus-visible,[tabindex]:focus-visible,input:focus-visibl
 .adbar .an{font-family:var(--disp);font-weight:600;font-size:17px}
 .adbar .am{font-size:13px;color:var(--ink-2);margin-top:1px}.adbar .am .open{color:var(--good);font-weight:600}.adbar .am .star{color:var(--brass-deep);font-weight:600}
 .adbar .ar{margin-left:auto;flex:none}
+/* Mobile: the sponsor/ad bar has no responsive layout, so on phones the
+   fixed-width nowrap pill button (.ar/.btn) overflows the row and gets clipped
+   by the card's overflow:hidden + 16px radius (the "off-angle, oversized" bug).
+   Stack to [badge][text] on row one + a full-width button below. */
+@media(max-width:600px){
+  .adbar{flex-wrap:wrap;gap:12px}
+  .adbar .ab{flex:1 1 0}
+  .adbar .ar{flex:1 1 100%;margin-left:0}
+  .adbar .ar .btn{width:100%;justify-content:center}
+}
 
 /* event rows (list) */
 .elist{background:var(--raised);border:1px solid var(--hair);border-radius:18px;overflow:hidden;box-shadow:var(--sh-card)}

@@ -23,6 +23,7 @@ from typing import Any
 from bs4 import BeautifulSoup
 from dateutil import parser as dateutil_parser
 
+from app.core.timezone import to_lake_naive
 from app.events.scrapers.base import normalize_event_title
 
 
@@ -64,12 +65,20 @@ def dedupe_within(records: list[EventRecord]) -> list[EventRecord]:
 
 
 def parse_dt(value: Any) -> datetime | None:
+    """Parse to a NAIVE Lake Havasu (America/Phoenix) wall-clock datetime.
+
+    Aggregator JSON-LD startDate/endDate commonly carries a UTC "Z" or another
+    offset; stripping tzinfo without converting turned a 19:00:00Z event into
+    7 PM instead of noon Phoenix. Offset-carrying values are converted first;
+    naive values are assumed to already be Phoenix wall-clock.
+    """
     if not value:
         return None
     try:
-        return dateutil_parser.parse(str(value)).replace(tzinfo=None)
+        dt = dateutil_parser.parse(str(value))
     except (ValueError, OverflowError, TypeError):
         return None
+    return to_lake_naive(dt)
 
 
 def _iter_jsonld_nodes(data: Any):
@@ -347,6 +356,33 @@ def extract_cost_from_text(text: str | None) -> str | None:
     if _FREE_RE.search(text):
         return "Free"
     return None
+
+
+# A leading price token a feed bled into the venue field: "$45 - Aquatic Center",
+# "$10-$25 — Rotary Park", "Free | London Bridge", "$5 per person - Jane Camlin".
+# Anchored at the start and REQUIRES a trailing separator, so a venue that merely
+# contains a price ("$5 Pizza Place") or leads with a street number ("1420
+# McCulloch") is never touched. An optional unit clause ("per person", "each",
+# "/car") may sit between the price and the separator.
+_COST_PREFIX_RE = re.compile(
+    r"^\s*(?:\$\s?\d[\d,]*(?:\.\d{2})?"
+    r"(?:\s*(?:[-–—]|to)\s*\$?\s?\d[\d,]*(?:\.\d{2})?)?|free)"
+    r"(?:\s+per\s+\w+|\s+each|\s+pp|\s*/\s*\w+)?"
+    r"\s*[-–—:|]\s*",
+    re.IGNORECASE,
+)
+
+
+def strip_cost_prefix(venue: str | None) -> str | None:
+    """Drop a leading price token a feed bled into a venue ("$45 - ", "Free | ").
+
+    Returns the residual venue, or ``None`` when nothing real remains. Conservative:
+    only a price/``free`` token *followed by a separator* is removed, so real venue
+    names (a street number, or an embedded price with no separator) pass through.
+    """
+    if not venue:
+        return None
+    return _COST_PREFIX_RE.sub("", str(venue)).strip() or None
 
 
 # --------------------------------------------------------------------------- #

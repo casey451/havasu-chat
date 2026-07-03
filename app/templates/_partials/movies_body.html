@@ -40,13 +40,16 @@
         {% for film in th.films %}
         <article class="mv-film">
           <div class="mv-poster">
+            {# The title fallback ALWAYS renders behind the poster; when the
+               upstream image 404s/blocks (2026-07-01 master audit §6.3: ~4/11
+               posters were blank cards), onerror removes the broken img and
+               the title shows instead of an empty tile. #}
+            <span class="mv-poster-fallback">{{ film.title }}</span>
             {% if film.poster %}
             {# Eager-load the first row per theater so above-the-fold posters always
                render (lazy-loading can leave them blank on a phone viewport); the
                rest stay lazy. #}
-            <img loading="{{ 'eager' if loop.index <= 4 else 'lazy' }}" src="{{ film.poster }}" alt="{{ film.title }} poster">
-            {% else %}
-            <span class="mv-poster-fallback">{{ film.title }}</span>
+            <img class="mv-poster-img" loading="{{ 'eager' if loop.index <= 4 else 'lazy' }}" src="{{ film.poster }}" alt="{{ film.title }} poster" onerror="this.remove()">
             {% endif %}
             {% if film.rating %}<span class="mv-rate">{{ film.rating }}</span>{% endif %}
           </div>

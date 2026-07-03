@@ -160,6 +160,23 @@ def test_canonical_title_falls_back_to_only_source():
     assert [f.title for f in groups[0].films] == ["Some Indie Film"]
 
 
+def test_duplicate_showtimes_collapse_to_one():
+    """A feed (notably Movies Havasu / internet-ticketing.com) returning the same
+    start time more than once rendered as "10 AM, 10 AM, 12:30 PM". The same time
+    label collapses to a single showtime, preferring an entry with a booking URL."""
+    rows = [
+        ms("Lucky Strike", "movies-havasu", 10, name="Movies Havasu", url=""),
+        ms("Lucky Strike", "movies-havasu", 10, name="Movies Havasu", url="http://book/10am"),
+        ms("Lucky Strike", "movies-havasu", 12, mm=30, name="Movies Havasu", url="http://book/1230"),
+    ]
+    film = group_showtimes(rows, day=DAY)[0].films[0]
+    # "10 AM" appears exactly once, not twice.
+    assert [s.label for s in film.showtimes] == ["10 AM", "12:30 PM"]
+    # The surviving 10 AM entry keeps the real booking URL, not the empty one.
+    ten = next(s for s in film.showtimes if s.label == "10 AM")
+    assert ten.url == "http://book/10am"
+
+
 # --- general events feed still excludes any movie-tagged Event (defensive) -----
 
 

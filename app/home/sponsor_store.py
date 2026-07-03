@@ -56,7 +56,7 @@ from app.db.models import AdSlot, Sponsor, SponsorStatus
 from app.db.sponsor_resolve import resolve_sponsor_linked_provider
 
 
-def _live_filter_for_slot(q: "Query[Sponsor]", slot: AdSlot) -> "Query[Sponsor]":
+def live_filter_for_slot(q: "Query[Sponsor]", slot: AdSlot) -> "Query[Sponsor]":
     """Apply the standard active-record filter to a Sponsor query for a slot."""
     now = now_lake_havasu()
     return q.filter(
@@ -118,7 +118,7 @@ def active_marquee(db: Session) -> dict[str, Any] | None:
     its own failure to sell. See §B5.6 Tier 1.
     """
     row = (
-        _live_filter_for_slot(db.query(Sponsor), AdSlot.MARQUEE)
+        live_filter_for_slot(db.query(Sponsor), AdSlot.MARQUEE)
         .order_by(Sponsor.weight.desc(), Sponsor.created_at.desc())
         .first()
     )
@@ -138,7 +138,7 @@ def active_marquee(db: Session) -> dict[str, Any] | None:
 def active_spotlights(db: Session, *, limit: int = 2) -> list[dict[str, Any]]:
     """Tier 2 — Spotlight cards in *Local pros · Spotlight*. 0 to 2 rows."""
     rows = (
-        _live_filter_for_slot(db.query(Sponsor), AdSlot.SPOTLIGHT)
+        live_filter_for_slot(db.query(Sponsor), AdSlot.SPOTLIGHT)
         .order_by(Sponsor.weight.desc(), Sponsor.created_at.desc())
         .limit(limit)
         .all()
@@ -163,7 +163,7 @@ def active_spotlights(db: Session, *, limit: int = 2) -> list[dict[str, Any]]:
 def active_promoted(db: Session) -> dict[str, Any] | None:
     """Tier 3 — single Promoted in-feed card per page. None when unsold."""
     row = (
-        _live_filter_for_slot(db.query(Sponsor), AdSlot.PROMOTED)
+        live_filter_for_slot(db.query(Sponsor), AdSlot.PROMOTED)
         .order_by(Sponsor.weight.desc(), Sponsor.created_at.desc())
         .first()
     )
@@ -183,7 +183,7 @@ def active_promoted(db: Session) -> dict[str, Any] | None:
 def supporters(db: Session, *, limit: int = 4) -> list[dict[str, Any]]:
     """Tier 4 — Supporters wall in the footer. Up to 4 logos."""
     rows = (
-        _live_filter_for_slot(db.query(Sponsor), AdSlot.SUPPORTER)
+        live_filter_for_slot(db.query(Sponsor), AdSlot.SUPPORTER)
         .order_by(Sponsor.weight.desc(), Sponsor.created_at.desc())
         .limit(limit)
         .all()

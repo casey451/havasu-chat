@@ -11,6 +11,16 @@
 {% block content %}
 <div class="wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/portal">For businesses</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Claim</span></nav>
+  {% if advertise %}
+  <div class="card resume-banner" role="status" style="margin:0 0 18px;padding:16px 18px">
+    {% if offer %}
+    <p style="margin:0 0 4px;font-weight:700">You're buying {{ offer.label }} — {% if offer.price_cents is not none %}${{ "%.0f"|format(offer.price_cents/100) }}/mo{% if offer.indicative %} starting{% endif %}{% else %}price on request{% endif %}.</p>
+    {% else %}
+    <p style="margin:0 0 4px;font-weight:700">You're setting up advertising.</p>
+    {% endif %}
+    <p style="margin:0">Advertising runs on a claimed listing, so claim your business first — it's free — then{% if resume_url %} <a href="{{ resume_url }}">pick up your placement</a>{% else %} come back to buy your placement{% endif %}.</p>
+  </div>
+  {% endif %}
   <section class="bhero">
     <p class="eyebrow">Claim your listing</p>
     <h1>Claim <em>your listing.</em></h1>

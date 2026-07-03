@@ -15,10 +15,18 @@ from sqlalchemy import false, or_, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Entity, Event, Provider
+from app.events.dedup_match import (
+    DEFAULT_DEDUP_TIME_WINDOW_MINUTES,
+    start_minutes,
+    times_within_window,
+    tokens_subset_match,
+)
 from app.events.scrapers.base import EventPayload, normalize_event_title
 from app.events.time_labels import is_time_tbd
 
-DEDUP_DATETIME_WINDOW_MINUTES = int(os.environ.get("EVENT_DEDUP_DATETIME_WINDOW_MINUTES", "30"))
+DEDUP_DATETIME_WINDOW_MINUTES = int(
+    os.environ.get("EVENT_DEDUP_DATETIME_WINDOW_MINUTES", str(DEFAULT_DEDUP_TIME_WINDOW_MINUTES))
+)
 DEDUP_TITLE_FUZZY_THRESHOLD = int(os.environ.get("EVENT_DEDUP_TITLE_THRESHOLD", "85"))
 
 # Catalog-scan normalization cache. resolve_venue_entity_id re-normalizes the
@@ -89,33 +97,6 @@ def canonical_event_identity(url: str | None) -> str | None:
     return f"url:{cleaned.lower()}" if cleaned else None
 
 
-def find_duplicate_by_canonical_url(
-    db: Session,
-    *,
-    candidate_urls: list[str | None],
-) -> Event | None:
-    """Return an existing Event sharing a canonical-URL identity, else ``None``.
-
-    ``candidate_urls`` are the incoming event's click-through URLs (event_url,
-    source_stable_url, organizer URL, etc.). Each is reduced to a canonical
-    identity via :func:`canonical_event_identity`; if any existing Event's own
-    URLs reduce to the same key, that Event is the cross-source duplicate.
-
-    Scans live events only. ``O(events)``; acceptable at the current catalog size
-    and only invoked on the at-ingest reconcile path.
-    """
-    wanted: set[str] = {
-        key for u in candidate_urls if (key := canonical_event_identity(u)) is not None
-    }
-    if not wanted:
-        return None
-    for ev in db.scalars(select(Event).where(Event.status == "live")).all():
-        for existing_url in (ev.event_url, getattr(ev, "source_url", None)):
-            key = canonical_event_identity(existing_url)
-            if key is not None and key in wanted:
-                return ev
-    return None
-
 
 # --------------------------------------------------------------------------- #
 # Recurring-series instance dedupe (venue + title + weekday)
@@ -138,32 +119,6 @@ def recurring_series_key(
     return (v, t, weekday)
 
 
-def find_recurring_series_instance(
-    db: Session,
-    *,
-    venue_name: str | None,
-    title: str | None,
-    start_date: date,
-) -> Event | None:
-    """Return an existing same-weekday instance of this recurring series, if any.
-
-    Recurring scrapes re-emit every weekly occurrence; a re-import of the same
-    series for the *same calendar date* must collapse onto the existing row rather
-    than minting a second "Saturday Farmers Market" for that day. Match key is
-    ``(venue, title, weekday)`` constrained to the same date (so distinct weeks
-    stay distinct occurrences -- this is instance dedupe, not series collapse).
-    """
-    key = recurring_series_key(venue_name, title, start_date.weekday())
-    if key is None:
-        return None
-    for ev in db.scalars(select(Event).where(Event.date == start_date)).all():
-        cand_key = recurring_series_key(
-            ev.location_name, ev.normalized_title or ev.title, ev.date.weekday()
-        )
-        if cand_key == key:
-            return ev
-    return None
-
 
 def find_duplicate(
     db: Session,
@@ -184,7 +139,6 @@ def find_duplicate(
             clauses.append(Event.provider_id.in_(prov_ids))
         stmt = stmt.where(or_(*clauses) if clauses else false())
     candidates = list(db.scalars(stmt).all())
-    target_dt = datetime.combine(start_date, start_time_obj) if start_time_obj else None
     norm = normalize_event_title(normalized_title)
 
     # A bare-noon (12:00, no end) placeholder some aggregators emit is really a
@@ -195,14 +149,18 @@ def find_duplicate(
     incoming_tbd = _start_is_tbd_for_dedup(start_time_obj, None)
 
     def _within_window(cand: Event) -> bool:
-        if target_dt and cand.start_time:
-            if incoming_tbd or _start_is_tbd_for_dedup(cand.start_time, cand.end_time):
-                return True
-            cand_dt = datetime.combine(cand.date, cand.start_time)
-            return abs((target_dt - cand_dt).total_seconds()) <= (
-                DEDUP_DATETIME_WINDOW_MINUTES * 60
-            )
-        return True
+        # Either side TBD/bare-noon is time-agnostic → always in window. Candidates
+        # all share ``start_date`` (query filter), so the ±window on the start
+        # times is the same test the old datetime-seconds diff computed; a missing
+        # time on either side is a wildcard (the pre-shared-matcher contract).
+        if incoming_tbd or _start_is_tbd_for_dedup(cand.start_time, cand.end_time):
+            return True
+        return times_within_window(
+            start_time_obj,
+            cand.start_time,
+            window_minutes=DEDUP_DATETIME_WINDOW_MINUTES,
+            missing_is_wildcard=True,
+        )
 
     # T3.1 fast path: most duplicates are *exact* normalized-title matches
     # (same scraper, same source). One dict build replaces a token_sort_ratio
@@ -350,18 +308,19 @@ def _source_priority(source: str | None) -> int:
 
 def _survivor_rank(event: Event) -> tuple[bool, bool, int, int, str]:
     """Sort key for picking ONE survivor in a duplicate cluster (lowest wins):
-    real start time > named venue > longer description > source priority > id."""
+    real start time > named venue > source priority > longer description > id.
+
+    Source priority outranks description length so an authoritative row (e.g.
+    a curated ``admin`` entry) wins over a longer aggregator blurb, even when
+    the aggregator carries the richer text. See ``EVENT_SOURCE_PRIORITY``.
+    """
     return (
         _start_is_tbd_for_dedup(event.start_time, event.end_time),
         not _venue_is_named_place(event.location_name),
-        -len((event.description or "").strip()),
         _source_priority(event.source),
+        -len((event.description or "").strip()),
         str(event.id),
     )
-
-
-def _start_minutes(t: time) -> int:
-    return t.hour * 60 + t.minute
 
 
 def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
@@ -379,10 +338,10 @@ def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
     ]
     if not timed:
         return {min(members, key=lambda m: _survivor_rank(m[1]))[0]}
-    timed.sort(key=lambda m: _start_minutes(m[1].start_time))
+    timed.sort(key=lambda m: start_minutes(m[1].start_time))
     clusters: list[list[tuple[int, Event]]] = [[timed[0]]]
     for member in timed[1:]:
-        gap = _start_minutes(member[1].start_time) - _start_minutes(clusters[-1][-1][1].start_time)
+        gap = start_minutes(member[1].start_time) - start_minutes(clusters[-1][-1][1].start_time)
         if gap <= _SEPARATE_SESSION_GAP_MINUTES:
             clusters[-1].append(member)
         else:
@@ -390,10 +349,166 @@ def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
     return {min(cluster, key=lambda m: _survivor_rank(m[1]))[0] for cluster in clusters}
 
 
+# --------------------------------------------------------------------------- #
+# Second pass: cross-source SAME-SESSION twins under DIFFERENT titles
+# --------------------------------------------------------------------------- #
+# The title-keyed pass groups by (title, date), so one real session surfaced by
+# multiple sources under DIFFERENT titles -- the Aquatic Center "Free Family Swim"
+# (admin) / "Free Swim Day!" (go_lake_havasu) / "Open Swim" (allevents) triple --
+# never collapses. This tight second pass merges two events ONLY when ALL hold:
+#   1. DIFFERENT sources (same-source distinct sessions never merge),
+#   2. both at a SPECIFIC venue (not the bare-city fallback) that token-set match,
+#   3. one title's significant words are a SUBSET of the other's, AND
+#   4. their time windows overlap (or, when an end time is missing, starts within
+#      _CROSS_SOURCE_START_GAP_MINUTES).
+# Guards (2)+(3) were added after a live run of the bare "overlap + different
+# source" rule over-merged DISTINCT events that merely share a container venue
+# ("Mini Bakers" vs "Sports Camp" at Parks & Rec) or an activity word at an
+# activity venue ("Cosmic Bowling" vs a charity "… Bowl" night at Havasu Lanes).
+# With all four guards, exactly the swim triple collapses across the live set;
+# the 63-cluster prevalence run (dominated by same-source clusters) is untouched.
+# Venue ENTITY resolution does NOT converge for the real variants ("Aquatic
+# Center" vs "Lake Havasu City Aquatic Center" resolve to different entities), so
+# the venue check is a token-set match on the names rather than a resolved id.
+_CROSS_SOURCE_START_GAP_MINUTES = 90
+_VENUE_MATCH_RATIO = 92
+
+# A bare-city venue ("Lake Havasu City") is the no-real-venue fallback and is NOT
+# a session, so it must never anchor a same-session merge. (Generic *container*
+# venues like "Lake Havasu City Parks & Recreation" pass the venue check but are
+# held apart by the title-token guard below — distinct programs share the building
+# but not a significant title word.)
+_BARE_CITY_VENUES: frozenset[str] = frozenset({"lake havasu city", "lake havasu", "havasu"})
+# Title words too generic to imply "same session" — the merge needs a SHARED word
+# OUTSIDE this set (so "Free Family Swim"/"Open Swim"/"Free Swim Day!" share
+# "swim", but "Mini Bakers" and "Sports Camp" at one Parks&Rec venue share nothing).
+_TITLE_STOPWORDS: frozenset[str] = frozenset({
+    "the", "and", "for", "with", "free", "day", "days", "night", "nights",
+    "family", "kids", "open", "lake", "havasu", "city", "event", "events",
+    "class", "classes", "series", "summer", "winter", "spring", "fall", "live",
+    "music", "party", "sponsored", "annual", "session", "sessions", "community",
+    "public", "all", "ages", "adult", "adults", "youth", "senior", "seniors",
+})
+
+
+def _significant_title_tokens(ev: Event) -> set[str]:
+    """Title tokens >= 4 chars that are not generic stopwords — the words that
+    actually name the activity ("swim", "yoga", "bingo")."""
+    norm = _norm_cached(ev.normalized_title or ev.title or "")
+    return {w for w in norm.split() if len(w) >= 4 and w not in _TITLE_STOPWORDS}
+
+
+def _titles_share_activity(a: Event, b: Event) -> bool:
+    """One title's significant words are a SUBSET of the other's (both non-empty).
+
+    A subset — not a mere intersection — is the tight signal for "same session,
+    different title": "Open Swim" {swim} ⊆ "Free Family Swim …" {swim, …}, and
+    "Free Swim Day!" {swim} ⊆ it too, so the cross-source swim triple collapses.
+    But two DISTINCTLY-named events that merely share the venue's activity word —
+    "Cosmic Bowling" {cosmic, bowling} vs "… Humane Society … Bowl" — are neither a
+    subset of the other, so they stay separate (the over-merge the bare-token rule
+    produced)."""
+    return tokens_subset_match(_significant_title_tokens(a), _significant_title_tokens(b))
+
+
+def _is_specific_venue(ev: Event) -> bool:
+    """The venue is a real named place, not the bare-city no-venue fallback."""
+    norm = _norm_cached(ev.location_name or "")
+    return bool(norm) and norm not in _BARE_CITY_VENUES
+
+
+def _venue_match(a: Event, b: Event) -> bool:
+    """Two events read as the SAME venue: equal normalized names, or a token-set
+    ratio >= _VENUE_MATCH_RATIO ("aquatic center" ⊆ "lake havasu city aquatic
+    center" → 100). Tiny names must match exactly (no fuzzy on <5 chars)."""
+    na = _norm_cached(a.location_name or "")
+    nb = _norm_cached(b.location_name or "")
+    if not na or not nb:
+        return False
+    if na == nb:
+        return True
+    if len(na) < 5 or len(nb) < 5:
+        return False
+    return fuzz.token_set_ratio(na, nb) >= _VENUE_MATCH_RATIO
+
+
+def _times_overlap_for_merge(a: Event, b: Event) -> bool:
+    """Time windows overlap; or, when EITHER end time is missing, the starts are
+    within _CROSS_SOURCE_START_GAP_MINUTES. A missing start never overlaps."""
+    sa, sb = a.start_time, b.start_time
+    if sa is None or sb is None:
+        return False
+    if a.end_time is not None and b.end_time is not None:
+        return (
+            start_minutes(sa) < start_minutes(b.end_time)
+            and start_minutes(sb) < start_minutes(a.end_time)
+        )
+    return abs(start_minutes(sa) - start_minutes(sb)) <= _CROSS_SOURCE_START_GAP_MINUTES
+
+
+def _different_source(a: Event, b: Event) -> bool:
+    """The two rows carry different (non-empty) source strings."""
+    sa = (a.source or "").strip().lower()
+    sb = (b.source or "").strip().lower()
+    return bool(sa) and bool(sb) and sa != sb
+
+
+def _uf_find(parent: dict[int, int], x: int) -> int:
+    while parent[x] != x:
+        parent[x] = parent[parent[x]]
+        x = parent[x]
+    return x
+
+
+def _cross_source_session_drops(
+    occurrences: Sequence[tuple[Event, date]], already_dropped: set[int]
+) -> set[int]:
+    """Positions to drop in the cross-source same-session second pass (union-find
+    over each date's surviving rows; an edge = same venue + overlap + diff source)."""
+    by_date: dict[date, list[tuple[int, Event]]] = {}
+    for idx, (ev, occ_date) in enumerate(occurrences):
+        if idx in already_dropped:
+            continue
+        by_date.setdefault(occ_date, []).append((idx, ev))
+
+    drops: set[int] = set()
+    for members in by_date.values():
+        if len(members) < 2:
+            continue
+        parent: dict[int, int] = {idx: idx for idx, _ev in members}
+        for i in range(len(members)):
+            ia, ea = members[i]
+            for j in range(i + 1, len(members)):
+                ib, eb = members[j]
+                if (
+                    _different_source(ea, eb)
+                    and _is_specific_venue(ea)
+                    and _is_specific_venue(eb)
+                    and _venue_match(ea, eb)
+                    and _titles_share_activity(ea, eb)
+                    and _times_overlap_for_merge(ea, eb)
+                ):
+                    parent[_uf_find(parent, ia)] = _uf_find(parent, ib)
+        comps: dict[int, list[tuple[int, Event]]] = {}
+        for idx, ev in members:
+            comps.setdefault(_uf_find(parent, idx), []).append((idx, ev))
+        for comp in comps.values():
+            if len(comp) < 2:
+                continue
+            survivor = min(comp, key=lambda m: _survivor_rank(m[1]))[0]
+            drops.update(idx for idx, _ev in comp if idx != survivor)
+    return drops
+
+
 def dedup_cross_source_occurrences(
     occurrences: Sequence[tuple[Event, date]],
 ) -> list[tuple[Event, date]]:
-    """Collapse cross-source duplicates of the same (title, date) occurrence.
+    """Collapse cross-source duplicates of the same occurrence.
+
+    Two passes: (1) the title-keyed pass groups by (normalized title, date) and
+    keeps one survivor per group; (2) the cross-source same-session pass collapses
+    DIFFERENT-titled twins of one real session at the same venue/date/time from
+    different sources (see ``_cross_source_session_drops``).
 
     Input/output are ``(event, occurrence_date)`` pairs; survivors keep their
     input order. Untitled rows never group. Pure + read-only: callers on the
@@ -411,6 +526,7 @@ def dedup_cross_source_occurrences(
             continue
         survivors = _group_survivor_positions(members)
         dropped.update(idx for idx, _ev in members if idx not in survivors)
+    dropped.update(_cross_source_session_drops(occurrences, dropped))
     return [pair for idx, pair in enumerate(occurrences) if idx not in dropped]
 
 

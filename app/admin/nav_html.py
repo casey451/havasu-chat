@@ -7,6 +7,7 @@ def admin_phase5_nav_html() -> str:
       <a href="/admin/portal">Portal</a>
       <a href="/admin/overview">Dashboard</a>
       <a href="/admin?tab=queue">Events</a>
+      <a href="/admin/events/missing-times">Missing times</a>
       <a href="/admin/jobs">Jobs</a>
       <a href="/admin/contributions">Contributions</a>
       <a href="/admin/mentioned-entities">Mentioned entities</a>

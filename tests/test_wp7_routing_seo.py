@@ -3,7 +3,7 @@
 Covers:
 - Route status matrix: / and /events are permanent (301) redirects; /advertise
   301s to /sponsor; GET /logout redirects instead of 405ing.
-- The public /api/events + /api/businesses JSON never leaks internal scraper
+- The public /api/events JSON never leaks internal scraper
   provenance (``source``) or an ``embedding`` field.
 - Sitemap gains /map, /events-ui, /categories and the WP-1 trust pages while
   dropping the bare / (which now 307s to /home).
@@ -134,12 +134,8 @@ def test_api_events_omits_internal_fields(client: TestClient) -> None:
         _cleanup_wp7_rows()
 
 
-def test_api_businesses_omits_internal_fields(client: TestClient) -> None:
-    r = client.get("/api/businesses", params={"limit": 25})
-    assert r.status_code == 200
-    for item in r.json()["items"]:
-        leaked = _INTERNAL_KEYS.intersection(item.keys())
-        assert not leaked, f"/api/businesses leaked internal fields: {leaked}"
+# /api/businesses was removed 2026-07-02 (no consumers); its scrubbed-serializer
+# test went with it. /api/events keeps the same guard above.
 
 
 # ---------------------------------------------------------------------------

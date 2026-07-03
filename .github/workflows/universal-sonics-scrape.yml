@@ -1,0 +1,49 @@
+name: universal-sonics-scrape
+
+# Twice-weekly scrape of the Universal Sonics gymnastics/cheer schedule. The
+# studio's grid is irregular text behind an http-only cert, so the recreational
+# roster is extracted by the server LLM (see app/contrib/universal_sonics.py).
+# Studio schedules are seasonal + tier-coded, so this PROPOSES only: it writes a
+# candidate JSON + a drift report and uploads them as an artifact for human
+# review — it never writes the DB or the live render data (plan §3 review gate).
+on:
+  schedule:
+    # Mon & Thu at 14:20 UTC = 07:20 Arizona (MST/UTC-7, no DST). Staggered off
+    # the other scrape slots.
+    - cron: "20 14 * * 1,4"
+  workflow_dispatch: {}
+
+jobs:
+  propose-roster:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape + propose candidate roster (no DB writes)
+        # OPENAI_API_KEY drives the LLM extraction; with no key the scraper
+        # extracts 0 and proposes nothing (graceful no-op). continue-on-error so a
+        # studio-site or LLM hiccup never reds the run.
+        continue-on-error: true
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+        run: |
+          python scripts/universal_sonics_pull.py \
+            || echo "::warning::universal_sonics pull failed"
+
+      - name: Upload candidate roster + drift for review
+        if: always()
+        uses: actions/upload-artifact@v5
+        with:
+          name: universal-sonics-candidate-${{ github.run_id }}
+          path: data/scrapes/universal_sonics_*.json
+          retention-days: 14
+          if-no-files-found: ignore

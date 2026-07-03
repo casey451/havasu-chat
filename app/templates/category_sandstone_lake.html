@@ -1,4 +1,5 @@
 {% extends "base_lake.html" %}
+{% from "_partials/dir_toolbar.html" import dir_toolbar %}
 {#- Lake Ink & Brass category browse page (/categories/{slug}) — the rich
    directory listing: subcategory + cuisine chips, filter/sort, the ONE labeled
    category-sponsor slot, real cards, pagination. SAME real context as
@@ -58,16 +59,24 @@
   </div>
   {% endif %}
 
-  <div class="toolbar" role="group" aria-label="Filter and sort">
-    <span class="tlab">Filter</span>
-    <a class="chip{% if facets.open_now %} on{% endif %}" href="{{ facet_href(open=('1' if not facets.open_now else None)) }}"{% if facets.open_now %} aria-current="true"{% endif %}>Open now</a>
-    <a class="chip{% if facets.top_rated %} on{% endif %}" href="{{ facet_href(rating=('1' if not facets.top_rated else None)) }}"{% if facets.top_rated %} aria-current="true"{% endif %}>Top rated</a>
-    <span class="tlab" style="margin-left:8px">Sort</span>
-    <a class="chip{% if facets.sort in ('favorites', 'default') %} on{% endif %}" href="{{ facet_href(sort=None) }}">Locals' favorites</a>
-    <a class="chip{% if facets.sort == 'closest' %} on{% endif %}" href="{{ facet_href(sort='closest') }}">Closest</a>
-    <a class="chip{% if facets.sort == 'alpha' %} on{% endif %}" href="{{ facet_href(sort='alpha') }}">A&ndash;Z</a>
-    {% if sort_note %}<span class="shown">{{ sort_note }}</span>{% endif %}
-  </div>
+  {# Filter/sort row shares one markup source with the trade leaf page (F15) via
+     the dir_toolbar macro — same chips, same styling. Sandstone keeps its richer
+     server-side facets (Closest, cuisine, the sort-note explainer) by feeding
+     them through the macro; the subcat/cuisine/trade toolbars above are
+     page-specific and stay. "Featured" matches the trade label and this page's
+     own sort-note ("Featured = … shuffled fresh each day"). #}
+  {% set _toolbar_groups = [
+    {'label': 'Filter', 'chips': [
+      {'label': 'Open now', 'href': facet_href(open=('1' if not facets.open_now else None)), 'active': facets.open_now},
+      {'label': 'Top rated', 'href': facet_href(rating=('1' if not facets.top_rated else None)), 'active': facets.top_rated},
+    ]},
+    {'label': 'Sort', 'chips': [
+      {'label': 'Featured', 'href': facet_href(sort=None), 'active': facets.sort in ('favorites', 'default')},
+      {'label': 'Closest', 'href': facet_href(sort='closest'), 'active': facets.sort == 'closest'},
+      {'label': 'A–Z', 'href': facet_href(sort='alpha'), 'active': facets.sort == 'alpha'},
+    ]},
+  ] %}
+  {{ dir_toolbar(_toolbar_groups, note=sort_note, aria='Filter and sort') }}
 
   {% if active_filter_labels %}
   <p class="cat-empty" style="margin:6px 0 0">{{ active_filter_labels|join(' · ') }} · {{ category_count or 0 }} place{{ '' if category_count == 1 else 's' }} · <a href="{{ clear_filters_url }}">clear</a></p>

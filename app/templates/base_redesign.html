@@ -45,40 +45,13 @@
 <a class="skip" href="#main">Skip to content</a>
 
 <div class="rd-shell">
-  <div class="head-stack">
-    <div class="util">
-      <span>Lake Havasu City</span>
-      {% if today_label %}<span class="r">{{ today_label }}</span>{% endif %}
-    </div>
-    <nav class="nav" aria-label="Primary">
-      <div class="nav-in">
-        <details class="navdrawer only-m">
-          <summary class="ico" aria-label="Menu">{{ icon('menu', 18) }}</summary>
-          <div class="navdrawer-menu">
-            <a href="/home"{% if active_tab == 'today' %} class="active"{% endif %}>Today</a>
-            <a href="/events-ui">Events</a>
-            <a href="/today">Lake report</a>
-            <a href="/categories">Explore</a>
-            <a href="/sponsor">For business</a>
-          </div>
-        </details>
-        <a class="brand" href="/home" aria-label="Ask Hava home" style="color:var(--ink);--ac:var(--brass)">{{ logo_nav(26, cls="rdlogo") }}<span class="wm">Ask <span class="b">Hava</span></span></a>
-        <span class="navlinks only-d">
-          <a href="/home"{% if active_tab == 'today' %} class="active"{% endif %}>Today</a>
-          <a href="/events-ui">Events</a>
-          <a href="/today">Lake</a>
-          <a href="/categories">Explore</a>
-          <a href="/sponsor">For Business</a>
-        </span>
-        <span class="nav-sp"></span>
-        <span class="loc only-d">{{ icon('pin', 14) }}Lake Havasu City</span>
-        <a class="ico only-d" href="/chat" aria-label="Search">{{ icon('search', 17) }}</a>
-        <a class="btn-ghost only-d" href="/login">Sign in</a>
-        <a class="avatar only-m" href="/account" aria-label="Account"></a>
-      </div>
-    </nav>
+  {# F11 part 2: single-source the masthead through the shared partial (the same
+     one base_lake.html includes) so the menu lives in exactly ONE place. The
+     live-conditions strip + gas panel render right after the partial — they sit
+     just below the sticky header (big v4 tiles on home) instead of inside it. #}
+  {% include "_partials/site_header.html" %}
 
-    {% if cond_tiles %}
+  {% if cond_tiles %}
     <div class="cond" aria-label="Live conditions">
       {% for t in cond_tiles %}
       {% if t.is_gas %}
@@ -108,19 +81,14 @@
       </div>
     </div>
     {% endif %}
-    {% endif %}
-  </div>
+  {% endif %}
 
   <main id="main" role="main" tabindex="-1">
   {% block main %}{% endblock %}
   </main>
 
-  <footer class="foot">
-    <div class="ft serif">Ask Hava</div>
-    <div class="fl"><a href="/home">Today</a><a href="/events-ui">Events</a><a href="/today">Lake report</a><a href="/categories">Explore</a><a href="/sponsor">For Business</a><a href="/about">About</a></div>
-    <div class="rule"></div>
-    <div class="fc">Lake Havasu City, Arizona · Live conditions, events &amp; local directory · © 2026 Ask Hava</div>
-  </footer>
+  {# F11: the single shared v4 footer (styled by lake_redesign.css's .foot rules). #}
+  {% include "_partials/site_footer.html" %}
 </div>
 
 <script src="{{ static_url('/static/js/lake_redesign.js') }}" defer></script>

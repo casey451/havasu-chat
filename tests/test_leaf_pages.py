@@ -1,4 +1,4 @@
-﻿"""Workstream B.1 — generalized taxonomy leaf pages.
+"""Workstream B.1 — generalized taxonomy leaf pages.
 
 Covers resolve_leaf (department/leaf slug resolution against the level-0/level-1
 tree), the category_id + is_primary listing join, the >=3 thin-page gate, the
@@ -315,6 +315,89 @@ def test_qualifying_and_department_leaves(mem_db: Session) -> None:
     assert leaf_pages.resolve_department(mem_db, "home-and-property-services") is not None
     dleaves = leaf_pages.department_leaves(mem_db, dept)
     assert [(lf.slug, n) for lf, n in dleaves] == [("plumbing", 3)]
+
+
+# --- Cross-listing count honesty (leaf header == department landing == gate) -
+
+
+def test_cross_listed_cards_render_but_do_not_inflate_count(
+    mem_db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A curated cross-listing renders on the leaf but is NOT a member of it.
+
+    The "N Best X" header, the thin-page gate, and the department landing all
+    count the PRIMARY entity_categories link (a business belongs to exactly one
+    leaf). A cross-listed reference card — whose canonical home is its OWN leaf —
+    must therefore appear on the page yet leave the count untouched, so the leaf
+    header can never over-state vs the department landing for the same leaf.
+    """
+    from datetime import datetime
+
+    from app.categories import cross_listing
+
+    # A gate-clearing "boat repair" leaf with 3 native primary members.
+    dept = Category(slug="otw-x", name="On the Water", sort_order=0, level=0)
+    mem_db.add(dept)
+    mem_db.flush()
+    leaf = Category(slug="boat-repair-x", name="Boat Repair", sort_order=0,
+                    level=1, parent_id=dept.id)
+    mem_db.add(leaf)
+    mem_db.flush()
+    for i in range(3):
+        ent = Entity(entity_type="commercial", slug=f"native-{i}",
+                     name=f"Native Boat Repair {i}", source=_SOURCE)
+        mem_db.add(ent)
+        mem_db.flush()
+        mem_db.add(Provider(provider_name=f"Native Boat Repair {i}", category="x",
+                            slug=f"np-{i}", is_active=True, draft=False, source=_SOURCE,
+                            entity_id=ent.id, google_rating=4.5, google_review_count=20))
+        mem_db.add(EntityCategory(entity_id=ent.id, category_id=leaf.id, is_primary=True))
+
+    # A hybrid shop whose PRIMARY leaf is Auto Repair (a different department).
+    auto_dept = Category(slug="auto-x", name="Auto", sort_order=1, level=0)
+    mem_db.add(auto_dept)
+    mem_db.flush()
+    auto_leaf = Category(slug="auto-repair-x", name="Auto Repair", sort_order=0,
+                         level=1, parent_id=auto_dept.id)
+    mem_db.add(auto_leaf)
+    mem_db.flush()
+    cross_ent = Entity(entity_type="commercial", slug="hybrid-auto-marine",
+                       name="Hybrid Auto Marine Service", source=_SOURCE)
+    mem_db.add(cross_ent)
+    mem_db.flush()
+    mem_db.add(Provider(provider_name="Hybrid Auto Marine Service", category="x",
+                        slug="xp-cross", is_active=True, draft=False, source=_SOURCE,
+                        entity_id=cross_ent.id, google_rating=4.7, google_review_count=40))
+    mem_db.add(EntityCategory(entity_id=cross_ent.id, category_id=auto_leaf.id,
+                              is_primary=True))
+    mem_db.commit()
+
+    # Curate the hybrid onto the boat-repair leaf (as the real map does).
+    monkeypatch.setitem(
+        cross_listing.CROSS_LISTED_ENTITY_SLUGS,
+        "boat-repair-x",
+        frozenset({"hybrid-auto-marine"}),
+    )
+
+    leaf_obj = leaf_pages.resolve_leaf(mem_db, "otw-x", "boat-repair-x")
+    assert leaf_obj is not None
+    cards, total, providers = leaf_pages.leaf_listing(
+        mem_db, leaf_obj, now=datetime(2026, 6, 27, 12, 0, 0)
+    )
+
+    names = [c.get("name") for c in cards]
+    # The cross-listed shop RENDERS (a visible reference)...
+    assert "Hybrid Auto Marine Service" in names
+    # ...but does NOT count toward the canonical "N Best X" / gate total.
+    assert total == 3
+    # The ItemList JSON-LD basis is native members only — no cross-leaf double
+    # count (cross-listed providers omitted).
+    assert len(providers) == 3
+    assert all(p.entity_id != cross_ent.id for p in providers)
+
+    # The header/gate total agrees with the department landing for this leaf.
+    dleaves = dict((lf.slug, n) for lf, n in leaf_pages.department_leaves(mem_db, dept))
+    assert dleaves["boat-repair-x"] == total == 3
 
 
 # --- B.2: Wave-1 curated per-leaf copy --------------------------------------

@@ -1,31 +1,27 @@
 """Hava -- ``GET /movies`` route: showtimes at Lake Havasu City theaters.
 
 Self-contained like the other page routers (own Jinja env + template globals).
-Showtimes come from ``Event`` rows tagged ``movie`` (see app/movies/queries.py),
-populated by the Star Cinemas scraper (and Movies Havasu in the follow-up).
+Showtimes come from the dedicated ``movie_showtimes`` table
+(app/movies/store.py, populated by scripts/scrape_movies_havasu.py on a cron).
+(This docstring previously said Event rows tagged ``movie`` — audit doc-rot
+fix 2026-07-02.)
 """
 
 from __future__ import annotations
 
 from datetime import date, timedelta
-from pathlib import Path
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, Response
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.templates import make_templates
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
-from app.home import sandstone
 from app.movies import posters
 from app.movies.queries import has_free_kids, showtimes_for_day
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 router = APIRouter(tags=["movies"])
 
@@ -104,8 +100,6 @@ def serve_movies(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
             "date_chips": _date_chips(today, selected),
             "theaters": showtimes_for_day(db, day=selected, now=now),
             "free_kids": has_free_kids(db, day=selected),
-            "primary_nav": sandstone.primary_nav(),
-            "mega_columns": sandstone.mega_columns(db),
             "active_tab": "movies",
         },
     )

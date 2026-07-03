@@ -13,6 +13,17 @@
 .pgallery{display:grid;grid-template-columns:2fr 1fr 1fr;grid-template-rows:1fr 1fr;gap:8px;height:300px;border-radius:18px;overflow:hidden;border:1px solid var(--hair-2);background:linear-gradient(160deg,#dce6ec,#c9d6df)}
 .pgallery .g{background-size:cover;background-position:center;background-color:#cdd9e1}
 .pgallery .g:first-child{grid-row:1/3}
+/* F14: with fewer than 5 photos the fixed 3x2 mosaic left empty cells showing
+   the gradient (a single-photo hero filled only the left half). Adapt the grid
+   to the photo count so the images always fill the frame. */
+.pgallery.pg-1{grid-template-columns:1fr;grid-template-rows:1fr}
+.pgallery.pg-2{grid-template-columns:1fr 1fr;grid-template-rows:1fr}
+.pgallery.pg-3{grid-template-columns:1fr 1fr 1fr;grid-template-rows:1fr}
+.pgallery.pg-4{grid-template-columns:1fr 1fr;grid-template-rows:1fr 1fr}
+.pgallery.pg-1 .g:first-child,
+.pgallery.pg-2 .g:first-child,
+.pgallery.pg-3 .g:first-child,
+.pgallery.pg-4 .g:first-child{grid-row:auto}
 .pgallery.is-art{display:flex;align-items:center;justify-content:center}
 .pgallery .mono{font-family:var(--disp);font-weight:600;font-size:64px;color:var(--brass-deep);opacity:.6}
 .ptitle{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-top:18px}
@@ -25,8 +36,12 @@
 .pcta-card{background:var(--raised);border:1px solid var(--hair);border-radius:18px;box-shadow:var(--sh-card);padding:18px}
 .pcta-act{display:flex;flex-direction:column;gap:9px}
 .pcta-act .btn{width:100%}
-.pmap{height:150px;border-radius:14px;background:linear-gradient(160deg,#dbe6ec,#cdd9e1);border:1px solid var(--hair-2);margin-top:14px;display:flex;align-items:center;justify-content:center;color:var(--muted);font-size:13px;text-decoration:none}
-.pmap:hover{border-color:var(--ink)}
+/* F14: was a 150px blue gradient panel that masqueraded as an embedded map but
+   was only a link. Render it as an obvious link button (pin glyph + label) so it
+   no longer looks like a broken/fake map. */
+.pmap{display:inline-flex;align-items:center;gap:8px;margin-top:14px;padding:10px 16px;border-radius:12px;background:var(--surface);border:1px solid var(--hair-2);color:var(--ink-2);font-size:14px;font-weight:600;text-decoration:none}
+.pmap svg{flex:none;color:var(--brass-deep)}
+.pmap:hover{border-color:var(--ink);color:var(--ink)}
 .pclaim{margin-top:14px;font-size:12.5px;color:var(--muted);text-align:center}
 .pclaim a{color:var(--brass-deep);font-weight:600}
 .fav-save{display:inline-flex;align-items:center;justify-content:center;gap:7px;width:100%;font-family:var(--ui);font-weight:600;font-size:14px;border-radius:999px;padding:11px 20px;min-height:44px;cursor:pointer;background:var(--raised);color:var(--ink);border:1px solid var(--hair-2);box-shadow:var(--sh-1)}

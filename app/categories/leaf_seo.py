@@ -84,6 +84,7 @@ SEO_NOUNS: dict[str, str] = {
     "thrift-and-consignment": "Thrift & Consignment Stores",
     "specialty-food": "Specialty Food Stores",
     "smoke-vape-and-cannabis": "Smoke & Vape Shops",
+    "cannabis-dispensaries": "Cannabis Dispensaries",
     "shoes": "Shoe Stores",
     "hobby-and-craft": "Hobby & Craft Stores",
     # Community & Civic
@@ -99,6 +100,7 @@ SEO_NOUNS: dict[str, str] = {
     "golf-courses": "Golf",
     # On the Water
     "kayak-and-paddle": "Kayak & Paddleboard Rentals",
+    "scuba-and-dive": "Scuba & Dive Shops",
     # Lodging — pin the searcher noun so the leaf's displayed term stays
     # "Vacation Rentals" even if the taxonomy ``Category.name`` is ever relabeled.
     "vacation-rentals": "Vacation Rentals",

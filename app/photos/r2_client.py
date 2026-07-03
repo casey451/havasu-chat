@@ -69,15 +69,6 @@ def upload_bytes(key: str, content: bytes, content_type: str) -> str:
     return build_public_url(key)
 
 
-def delete_object(key: str) -> None:
-    """Best-effort delete (V1 soft-delete leaves objects for CDN TTL)."""
-    try:
-        client = get_r2_client()
-        bucket = os.environ["R2_BUCKET_NAME"].strip()
-        client.delete_object(Bucket=bucket, Key=key)
-    except Exception:
-        return
-
 
 def reset_r2_client_for_tests() -> None:
     """Clear lazy singleton (tests only)."""

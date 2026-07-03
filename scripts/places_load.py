@@ -52,6 +52,7 @@ from app.contrib.ingest_reconciler import (  # noqa: E402
     log_ambiguous_reconcile,
     reconcile_hit,
 )
+from app.contrib.ingest_suppression import is_suppressed_business  # noqa: E402
 from app.contrib.leaf_type_mapping import (  # noqa: E402
     map_google_types_to_leaf_slug,
 )
@@ -679,6 +680,14 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
         for row in valid_rows:
             pid = row["place_id"]
             kwargs = row_to_provider_kwargs(row, ref_now=now)
+            # Durable blocklist check covers BOTH branches: the place_id-match
+            # update branch below sets is_active=True and never runs the
+            # decide_ingest funnel, so without this a suppressed identity would
+            # be reactivated by the next Places re-pull (the exact failure
+            # ingest_suppression exists to stop).
+            if is_suppressed_business(kwargs.get("provider_name")):
+                counts["suppressed"] = counts.get("suppressed", 0) + 1
+                continue
             cat_id = _resolve_category_id(row, category_id_by_slug)
             kwargs["category_id"] = cat_id
             if cat_id is not None:
@@ -727,6 +736,9 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
                 # uncertain Google row is captured rather than silently lost.
                 decision = decide_ingest(session, payload)
                 rec = decision.reconcile
+                if decision.action == "skip":
+                    counts["suppressed"] = counts.get("suppressed", 0) + 1
+                    continue
                 if decision.should_hide:
                     log_ambiguous_reconcile(
                         rec, context=f"places_load insert branch place_id={pid}"

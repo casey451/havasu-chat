@@ -12,7 +12,10 @@
            static_url, plausible_domain.
 -#}
 {% from "_partials/lake_logo.svg.html" import logo_nav %}
-<html lang="en" data-theme="lake">
+{#- data-redesign="1" is permanent: the v4 reskin flag was collapsed 2026-07-02
+   (lake_redesign_site.css scopes all its rules under html[data-redesign="1"]).
+   It used to be injected by a middleware that buffered every HTML response. -#}
+<html lang="en" data-theme="lake" data-redesign="1">
 <head>
   {% include '_partials/plausible.html' %}
   <meta charset="utf-8">
@@ -50,31 +53,12 @@
   <link rel="preload" href="{{ static_url('/static/fonts/fraunces-latin-wght-normal.woff2') }}" as="font" type="font/woff2" crossorigin>
   <link rel="stylesheet" href="{{ static_url('/static/styles/lake.css') }}">
   <link rel="stylesheet" href="{{ static_url('/static/styles/lake-components.css') }}">
-  <style>
-    /* Phase 1 nav unification: one lean desktop nav + a real mobile drawer that
-       exposes the SAME destinations. The hamburger + drawer are hidden on the
-       desktop layout; at <=720px the inline nav is replaced by the hamburger. */
-    .hdr .nav{overflow-x:auto;scrollbar-width:none}
-    .hdr .nav::-webkit-scrollbar{display:none}
-    .navtoggle{display:none;margin-left:auto;background:none;border:0;padding:8px;
-      color:#cfdbe3;cursor:pointer;border-radius:8px}
-    .navtoggle:hover{color:#fff}
-    .navtoggle:focus-visible{outline:2px solid var(--brass-light,#d8a64e);outline-offset:2px}
-    .drawer{display:none}
-    .drawer[hidden]{display:none}
-    @media(max-width:720px){
-      .hdr .nav{display:none}
-      .navtoggle{display:inline-flex;align-items:center;justify-content:center}
-      .drawer:not([hidden]){display:flex;flex-direction:column;gap:2px;
-        padding:8px 20px 16px;background:linear-gradient(180deg,#0e1d27,#0b1820);
-        border-top:1px solid rgba(255,255,255,.06)}
-      .drawer a{color:#cfdbe3;text-decoration:none;font-size:16px;font-weight:500;
-        padding:12px 8px;border-radius:8px;min-height:48px;display:flex;align-items:center}
-      .drawer a:hover,.drawer a:focus{color:#fff;background:rgba(255,255,255,.05)}
-      .drawer a[aria-current="page"]{color:#fff}
-      .drawer .biz{color:var(--brass-light,#d8a64e);font-weight:600}
-    }
-  </style>
+  {# F11: the unified v4 masthead + footer chrome (shared site_header/site_footer
+     partials). Self-contained so it renders identically over lake.css content. #}
+  <link rel="stylesheet" href="{{ static_url('/static/styles/site_chrome.css') }}">
+  {# The sitewide v4 override (scoped under html[data-redesign="1"]) — baked in
+     since the 2026-07-02 flag collapse; previously middleware-injected. #}
+  <link rel="stylesheet" href="{{ static_url('/static/styles/lake_redesign_site.css') }}">
   {% block head_extra %}{% endblock %}
 </head>
 <body data-theme="lake" data-mode="{% block mode %}ask{% endblock %}"{% block body_attrs %}{% endblock %}>
@@ -119,40 +103,11 @@
 {% block content %}{% endblock %}
 </main>
 
-{# ───── Footer (shared single-source partial — P0 consolidation). ───── #}
+{# ───── Footer (shared single-source v4 partial — F11). ───── #}
 {% include "_partials/site_footer.html" %}
 
-{# Progressive enhancement: the mobile drawer toggles via the hamburger. Without
-   JS the drawer stays hidden and the desktop nav (scrollable) covers navigation.
-   Inline so the lake skin has no extra JS dependency. #}
-<script>
-(function () {
-  "use strict";
-  var btn = document.getElementById("lk-menu-btn");
-  var panel = document.getElementById("lk-drawer");
-  if (!btn || !panel) return;
-  function setOpen(open) {
-    panel.hidden = !open;
-    btn.setAttribute("aria-expanded", open ? "true" : "false");
-  }
-  btn.addEventListener("click", function (e) {
-    e.preventDefault();
-    e.stopPropagation();
-    setOpen(panel.hidden);
-  });
-  document.addEventListener("click", function (e) {
-    if (!panel.hidden && !e.target.closest("#lk-drawer") && e.target !== btn && !btn.contains(e.target)) {
-      setOpen(false);
-    }
-  });
-  document.addEventListener("keydown", function (e) {
-    if (!panel.hidden && e.key === "Escape") {
-      setOpen(false);
-      btn.focus();
-    }
-  });
-})();
-</script>
+{# The unified masthead's menu is a native <details> drawer (site_header.html),
+   so no JavaScript is needed to open it — it works with JS off. #}
 {% block scripts %}{% endblock %}
 </body>
 </html>

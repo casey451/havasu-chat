@@ -7,13 +7,51 @@
 {% block meta_description %}What's happening today in Lake Havasu City — events, the lake, live conditions, and the local directory.{% endblock %}
 {% block og_image %}{{ absolute_url('/static/img/og-home.png') }}{% endblock %}
 
+{# F18: site-level structured data on the home page. Organization (knowledge
+   panel) + WebSite with a SearchAction sitelinks searchbox pointing at the same
+   /chat?q= the hero search submits to. The v4 home previously emitted none. #}
+{% block head_extra %}
+{% if canonical_url is defined %}
+<script type="application/ld+json">{{ {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Ask Hava",
+  "url": absolute_url('/'),
+  "logo": absolute_url('/static/img/lake/icon-512.png'),
+  "description": "Ask Hava is the local concierge and directory for Lake Havasu City, Arizona.",
+  "areaServed": "Lake Havasu City, Arizona"
+} | tojson }}</script>
+<script type="application/ld+json">{{ {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Ask Hava",
+  "url": absolute_url('/'),
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": absolute_url('/chat') ~ "?q={search_term_string}"
+    },
+    "query-input": "required name=search_term_string"
+  }
+} | tojson }}</script>
+{% endif %}
+{% endblock %}
+
+{#- SEO guard: skip internal taxonomy tokens (namespaced ``KEY:value`` tags like
+   activity:/facet:/venue-kind:/audience:). The colon is the same internal-tag
+   discriminator app/events/tag_display.py uses. Event rows are already filtered
+   upstream in redesign._enrich; this keeps any other caller (e.g. movies) clean. -#}
 {%- macro tags(tlist) -%}
-{%- for t in tlist -%}{%- set l = t|lower -%}<span class="tg{% if 'free' in l %} free{% elif l == 'water' %} water{% endif %}">{{ t }}</span>{%- endfor -%}
+{%- for t in tlist if ':' not in t -%}{%- set l = t|lower -%}<span class="tg{% if 'free' in l %} free{% elif l == 'water' %} water{% endif %}">{{ t }}</span>{%- endfor -%}
 {%- endmacro -%}
 
 {%- macro ev_row(row) -%}
 <a class="ev" href="{{ row.url or '#' }}">
-  <span class="ph im {{ row.thumb }}"><span class="glyph">{{ cicon(row.cat, 24) }}</span>{% if row.time_label %}<span class="t">{{ row.time_label }}</span>{% endif %}</span>
+  {# Plain time column — the old gradient-thumbnail square with the time overlaid
+     on it was unreadable (Casey 2026-06-29). Blank when the time is unknown, so
+     titles still line up. #}
+  <span class="evt">{% if row.time_label and 'TBD' not in row.time_label %}{{ row.time_label }}{% endif %}</span>
   <span class="b">
     <span class="et">{{ row.title }}</span>
     {% if row.venue %}<span class="em">{{ row.venue }}</span>{% endif %}
@@ -24,8 +62,21 @@
 </a>
 {%- endmacro -%}
 
+{# Recursive subcategory node — the SAME nested tree /events-ui renders (parity
+   Rule 0). A node has rows and optional nested `children` (the youth/facet third
+   level). Collapsed by default; youth children get the kid accent. #}
+{%- macro sub_tree(node, cls='subg') -%}
+<details class="{{ cls }}{% if node.youth %} youth{% endif %}"{% if node.open %} open{% endif %}>
+  <summary class="subhd"><span class="subl">{{ node.label }}</span><span class="subc num">{{ node.count }}</span><span class="cv">{{ icon('chev', 12) }}</span></summary>
+  <div class="subbody">
+    {% for row in node.rows %}{{ ev_row(row) }}{% endfor %}
+    {% for child in node.children %}{{ sub_tree(child, 'l3') }}{% endfor %}
+  </div>
+</details>
+{%- endmacro -%}
+
 {%- macro ad_placeholder(infeed=False) -%}
-<a class="adslot{% if infeed %} infeed{% endif %}" href="/sponsor" aria-label="Advertise on Ask Hava — claim this spot">
+<a class="feature-slot{% if infeed %} infeed{% endif %}" href="/sponsor" aria-label="Advertise on Ask Hava — claim this spot">
   <span class="pic" aria-hidden="true">{{ icon('plus', 22) }}</span>
   <span class="ab"><span class="at">Ad space · Available</span><span class="an">Your business here</span><span class="as">Reach locals &amp; visitors every day</span></span>
   <span class="ac">Claim {{ icon('arrow', 14) }}</span>
@@ -33,7 +84,7 @@
 {%- endmacro -%}
 
 {%- macro sponsor_slot(s) -%}
-<a class="adslot" style="border-style:solid;border-color:var(--hair);background:var(--surface)" href="/sponsor/click?id={{ s.id }}&slot=promoted">
+<a class="feature-slot" style="border-style:solid;border-color:var(--hair);background:var(--surface)" href="/sponsor/click?id={{ s.id }}&slot=promoted">
   <span class="pic" style="border-style:solid;border-color:var(--teal-line);color:var(--teal)">{{ (s.headline or s.name or '·')[0]|upper }}</span>
   <span class="ab"><span class="at" style="color:var(--ink3)">Sponsored</span><span class="an">{{ s.headline or s.name }}</span>{% if s.pitch %}<span class="as">{{ s.pitch }}</span>{% endif %}</span>
   <span class="ac">{{ s.cta_label or 'Visit' }} {{ icon('arrow', 14) }}</span>
@@ -42,10 +93,14 @@
 
 {% block main %}
 
+{# ── Local news ticker — cycles recent headlines, links out, honest-omit when
+   the pull has nothing stored yet. Casey 2026-06-29. ────────────────────────── #}
+{% include "_partials/news_ticker.html" %}
+
 {# ── Top marquee: sold sponsor creative, else the big buyable placeholder
    (never a fake business). ───────────────────────────────────────────── #}
 {% if marquee %}
-<a class="bigad sold rise" href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}">
+<a class="feature-marquee sold rise" href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}">
   <span class="glow"></span>
   <div class="inner"><div class="txt">
     <span class="spon-eyebrow">Sponsored</span>
@@ -55,7 +110,7 @@
   </div></div>
 </a>
 {% else %}
-<a class="bigad rise" href="/sponsor" aria-label="Advertise on Ask Hava">
+<a class="feature-marquee rise" href="/sponsor" aria-label="Advertise on Ask Hava">
   <span class="glow"></span>
   <div class="inner">
     <div class="txt">
@@ -74,7 +129,7 @@
 <div class="searchwrap rise" style="animation-delay:40ms">
   <form class="search" role="search" action="/chat" method="get">
     <span class="mag">{{ icon('search', 18) }}</span>
-    <input id="rd-search" name="q" type="search" aria-label="Search events, places, food, or the lake" placeholder="Search events, places, food, or the lake…" autocomplete="off">
+    <input id="rd-search" name="q" type="search" aria-label="Search events, places, food, or the lake" placeholder="Search Lake Havasu listings" autocomplete="off" data-rotating-placeholder>
     <button class="go" type="submit" aria-label="Search">{{ icon('arrow', 18) }}</button>
   </form>
 </div>
@@ -82,12 +137,15 @@
 {# ── Date strip — one week + Calendar button ─────────────────────────── #}
 <div class="daystrip rise" style="animation-delay:80ms">
   <a class="calbtn" href="/calendar" aria-label="Open the calendar">{{ icon('cal', 18) }}<span>Calendar</span></a>
+  {% if not week.includes_today %}
+  <a class="calbtn" href="/home?date={{ week.today_iso }}#today" aria-label="Jump back to today">{{ icon('spark', 16) }}<span>Today</span></a>
+  {% endif %}
   <div class="days">
     {% for day in week.days %}
     {% set is_sel = day.iso == selected_iso %}
-    <a class="dcard{% if is_sel %} on{% endif %}" href="/home?date={{ day.iso }}#today"{% if is_sel %} aria-current="date"{% endif %}
-       aria-label="{{ day.event_count or 0 }} event{{ '' if day.event_count == 1 else 's' }} on {{ day.dow }} {{ day.iso.split('-')[2]|int }}">
-      <span class="dw">{% if loop.first and is_sel %}Today{% else %}{{ day.dow }}{% endif %}</span>
+    <a class="dcard{% if is_sel %} on{% endif %}{% if day.is_today %} td{% endif %}" href="/home?date={{ day.iso }}#today"{% if is_sel %} aria-current="date"{% endif %}
+       aria-label="{{ day.happenings or 0 }} event{{ '' if day.happenings == 1 else 's' }} on {{ day.dow }} {{ day.iso.split('-')[2]|int }}{% if day.is_today %} (today){% endif %}">
+      <span class="dw">{% if day.is_today %}Today{% else %}{{ day.dow }}{% endif %}</span>
       <span class="dn num">{{ day.iso.split('-')[2]|int }}</span>
     </a>
     {% endfor %}
@@ -96,16 +154,18 @@
 
 {# ── Feed heading + jump-to-category ─────────────────────────────────── #}
 <div class="calbar">
-  <h1 class="serif" id="feedTitle">Happening {{ 'today' if is_today else feed_day_label }} <span class="n">· <span class="num">{{ feed.total }}</span> listed</span></h1>
+  {#- F6 (2026-07-01 master audit §6.7): this headline count and the "All today"
+      pill below sit on the same screen and MUST agree — both now read
+      feed.total, the count of what the feed actually renders (events + classes
+      + venue hours), so they can never drift again. "going on" keeps the noun
+      honest for that mix ("events" was wrong for two-thirds of it). -#}
+  <h1 class="serif" id="feedTitle">Happening {{ 'today' if is_today else feed_day_label }} <span class="n">· <span class="num">{{ feed.total }}</span> going on</span></h1>
   <div class="dd" id="jump">
     <button type="button" class="dd-btn" aria-haspopup="true" aria-expanded="false">Jump to <span class="cv">{{ icon('chev', 14) }}</span></button>
     <div class="dd-menu" role="menu">
-      {% for b in feed.buckets %}
-      <a role="menuitem" href="/events-ui?view={{ b.key }}" data-k="{{ b.key }}"><span class="l">{{ cicon(b.key, 16) }} {{ b.label }}</span><span class="c num">{{ b.count }}</span></a>
+      {% for s in feed.sections %}
+      <a role="menuitem" href="{{ '/movies' if s.is_movies else '/events-ui?view=' ~ s.key }}" data-k="{{ s.key }}"><span class="l">{{ cicon(s.key, 16) }} {{ s.label }}</span><span class="c num">{{ s.count }}</span></a>
       {% endfor %}
-      {% if feed.movie_bucket %}
-      <a role="menuitem" href="/movies" data-k="movies"><span class="l">{{ icon('film', 16) }} {{ feed.movie_bucket.label }}</span><span class="c num">{{ feed.movie_bucket.count }}</span></a>
-      {% endif %}
     </div>
   </div>
 </div>
@@ -113,65 +173,45 @@
 {# ── Count overview rail ─────────────────────────────────────────────── #}
 <div class="counts hscroll" id="counts">
   <a class="cpill all on" data-k="all" href="/events-ui">{{ icon('spark', 15) }}<span class="cl">All today</span><span class="cb num">{{ feed.total }}</span></a>
-  {% for b in feed.buckets %}
-  <a class="cpill" data-k="{{ b.key }}" href="/events-ui?view={{ b.key }}">{{ cicon(b.key, 15) }}<span class="cl">{{ b.label }}</span><span class="cb num">{{ b.count }}</span></a>
+  {% for s in feed.sections %}
+  <a class="cpill" data-k="{{ s.key }}" href="{{ '/movies' if s.is_movies else '/events-ui?view=' ~ s.key }}">{{ cicon(s.key, 15) }}<span class="cl">{{ s.label }}</span><span class="cb num">{{ s.count }}</span></a>
   {% endfor %}
-  {% if feed.movie_bucket %}
-  <a class="cpill" data-k="movies" href="/movies">{{ icon('film', 15) }}<span class="cl">{{ feed.movie_bucket.label }}</span><span class="cb num">{{ feed.movie_bucket.count }}</span></a>
-  {% endif %}
 </div>
 
 {# ── Sections (accordion; only Events open) + ad placements ───────────── #}
 <div class="main">
   <div class="sections" id="sections">
-    {% if not feed.buckets and not feed.movie_bucket %}
+    {% if not feed.sections %}
     <div class="sec open"><div class="sechd"><span class="sl serif">Nothing posted for this day yet</span></div></div>
     {% endif %}
-    {% for b in feed.buckets %}
-    <details class="sec{% if b.key == 'events' %} lead{% endif %} rise" style="animation-delay:{{ 120 + loop.index0 * 40 }}ms" data-k="{{ b.key }}" id="sec-{{ b.key }}"{% if b.open %} open{% endif %}>
+    {% for s in feed.sections %}
+    <details class="sec{% if s.key == 'events' %} lead{% endif %} rise" style="animation-delay:{{ 120 + loop.index0 * 40 }}ms" data-k="{{ s.key }}" id="sec-{{ s.key }}"{% if s.open %} open{% endif %}>
       <summary class="sechd">
-        <span class="si">{{ cicon(b.key, 18) }}</span>
-        <span class="sl">{{ b.label }}</span>
-        <span class="sc num">{{ b.count }}</span>
-        <span class="sp">{{ b.peek }}</span>
+        <span class="si">{{ cicon(s.key, 18) }}</span>
+        <span class="sl">{{ s.label }}</span>
+        <span class="sc num">{{ s.count }}</span>
         <span class="cv">{{ icon('chev', 14) }}</span>
       </summary>
       <div class="secbody"><div class="host">
-        {% if b.subs %}<div class="subs">{% for s in b.subs %}<span class="sub">{{ s.label }} <b class="num">{{ s.count }}</b></span>{% endfor %}</div>{% endif %}
-        {% for row in b.rows %}{{ ev_row(row) }}{% endfor %}
-        {% if b.count > b.rows|length %}<a class="showall" href="/events-ui?view={{ b.key }}">View all <span class="num">{{ b.count }}</span> {{ b.label|lower }} {{ icon('arrow', 15) }}</a>{% endif %}
+        {% if s.is_movies %}
+          {% for m in s.rows %}
+          <a class="ev" href="{{ m.url or '/movies' }}">
+            <span class="evt">{% if m.time_label and 'TBD' not in m.time_label %}{{ m.time_label }}{% endif %}</span>
+            <span class="b"><span class="et">{{ m.title }}</span>{% if m.theater %}<span class="em">{{ m.theater }}{% if m.times %} · {{ m.times|join(', ') }}{% endif %}</span>{% endif %}</span>
+            <span class="det" aria-hidden="true">{{ icon('arrow', 15) }}</span>
+          </a>
+          {% endfor %}
+          <a class="showall" href="/movies">All showtimes {{ icon('arrow', 15) }}</a>
+        {% elif s.subgroups %}
+          {% for sub in s.subgroups %}{{ sub_tree(sub) }}{% endfor %}
+        {% else %}
+          {% for row in s.rows %}{{ ev_row(row) }}{% endfor %}
+        {% endif %}
       </div></div>
     </details>
     {# In-feed buyable ad after every 2nd section (mobile only; desktop uses the rail). #}
     {% if loop.index % 2 == 0 and not loop.last %}{{ ad_placeholder(infeed=True) }}{% endif %}
     {% endfor %}
-
-    {% if feed.movie_bucket %}
-    {% set mb = feed.movie_bucket %}
-    <details class="sec rise" data-k="movies" id="sec-movies">
-      <summary class="sechd">
-        <span class="si">{{ icon('film', 18) }}</span>
-        <span class="sl">{{ mb.label }}</span>
-        <span class="sc num">{{ mb.count }}</span>
-        <span class="sp">{{ mb.peek }}</span>
-        <span class="cv">{{ icon('chev', 14) }}</span>
-      </summary>
-      <div class="secbody"><div class="host">
-        {% for f in mb.films %}
-        <a class="ev" href="{{ f.url or '/movies' }}">
-          <span class="ph im im-movie"><span class="glyph">{{ icon('film', 24) }}</span></span>
-          <span class="b">
-            <span class="et">{{ f.title }}</span>
-            {% if f.summary %}<span class="em">{{ f.summary }}</span>{% endif %}
-            {% if f.theaters %}<span class="times">{% for th in f.theaters %}{% for tm in th.times[:4] %}<span class="tpill">{{ tm }}</span>{% endfor %}{% endfor %}</span>{% endif %}
-          </span>
-          <span class="det" aria-hidden="true">{{ icon('arrow', 15) }}</span>
-        </a>
-        {% endfor %}
-        <a class="showall" href="/movies">All showtimes {{ icon('arrow', 15) }}</a>
-      </div></div>
-    </details>
-    {% endif %}
   </div>
 
   {# Desktop right rail: promoted sponsor (sold) + buyable placeholders. #}
@@ -182,4 +222,10 @@
   </aside>
 </div>
 
+{% endblock %}
+
+{% block scripts %}
+{# Rotating example searches in the hero box (data-rotating-placeholder);
+   placeholder-only, clears + stops on focus. See rotating_placeholder.js. #}
+<script src="{{ static_url('/static/js/rotating_placeholder.js') }}" defer></script>
 {% endblock %}

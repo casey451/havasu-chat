@@ -20,7 +20,6 @@ from app.db.models import MovieShowtime
 from app.main import app
 
 _LAKE_MARKER = 'data-theme="lake"'
-_STRIP_MARKER = 'aria-label="At the movies today"'
 
 
 def _seed(film_title: str, sid: str) -> str:
@@ -52,7 +51,7 @@ def _cleanup(ids: list[str]) -> None:
 
 
 def test_movies_feature_renders_under_lake_theme(monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("THEME_DEFAULT", "lake")
+    del monkeypatch  # THEME_DEFAULT is inert since the 2026-07-02 theme collapse
     suffix = uuid.uuid4().hex[:6]
     film = f"ZZ Lake Showtime {suffix}"
     ids = [_seed(film, f"sc-{suffix}")]
@@ -69,17 +68,18 @@ def test_movies_feature_renders_under_lake_theme(monkeypatch: pytest.MonkeyPatch
         assert "Movies around the lake" in movies.text
         assert film in movies.text
 
-        # /home: lake base + movies now live INSIDE the unified feed's
-        # "At the movies" group (Phase 2), not the standalone strip.
+        # /home (v4, flag collapsed 2026-07-02): movies live inside the
+        # unified feed's movies section, which links through to /movies.
         assert home.status_code == 200
         assert _LAKE_MARKER in home.text
-        assert 'data-group="movies"' in home.text
+        assert 'href="/movies"' in home.text
         assert film in home.text
 
-        # /events-ui (today): lake base + the strip.
+        # /events-ui (today): lake base + the first-class "At the Movies"
+        # category accordion (two-surface spec §2; promoted from the old strip).
         assert events.status_code == 200
         assert _LAKE_MARKER in events.text
-        assert _STRIP_MARKER in events.text
+        assert 'data-group="movies"' in events.text
         assert film in events.text
     finally:
         _cleanup(ids)

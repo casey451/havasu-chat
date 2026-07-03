@@ -275,7 +275,7 @@ def build_conditions_strip_view_model(
                 kind="water_temp",
                 primary_value=f"{float(water_temp_f):.0f}°F",
                 secondary_value=secondary,
-                attribution_chip="USGS 09426630 ~25mi south",
+                attribution_chip=api.get("water_temp_attribution") or "USGS 09426630 ~25mi south",
                 severity="neutral",
                 staleness_label=label,
                 is_stale=stale,

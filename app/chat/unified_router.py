@@ -156,7 +156,7 @@ def _about_gate_query_eligible(raw: str) -> bool:
 # Queries that LOOK like Tier 1 factual lookups but are actually recommendation /
 # listing shapes — gap response would be misleading ("I don't have that place"). These
 # need to fall through to Tier 2/3.
-_RECOMMENDATION_SHAPED = re.compile(
+RECOMMENDATION_SHAPED = re.compile(
     # Slice F bug fix: dropped "what are some|the" — it false-matched factual questions
     # like "what are the hours for X" (asking for one specific entity's hours, gap-eligible).
     # The listing shortcut handles legitimate "what are some restaurants" cases.
@@ -189,7 +189,7 @@ _RECOMMENDATION_SHAPED = re.compile(
 # either gap-templated or — worse — produced a spurious near-match reply
 # ("date night ideas" → "Closest match … Kids Activities Studio"). These must
 # reach the catalog tiers (category-aware Tier-3 post-§4b has the rows).
-# Floating search, unlike the anchored _RECOMMENDATION_SHAPED match.
+# Floating search, unlike the anchored RECOMMENDATION_SHAPED match.
 _DISCOVERY_SHAPED = re.compile(
     r"(?:"
     r"date\s+night|girls?\s+night|happy\s+hour|"
@@ -232,13 +232,22 @@ def _catalog_gap_response(intent_result: IntentResult, db: Session | None = None
     """
     sub = intent_result.sub_intent
     raw = intent_result.raw_query or ""
-    if re.search(r"\bwait(?:\s+time)?\b", raw, re.I):
+    # Require an explicit wait-TIME shape. A bare \bwait\b hijacked queries
+    # like "I can't wait for the balloon festival — anything going on?" into
+    # the wait-time gap template (with allow_tier3_fallback=False, that was
+    # the final answer).
+    if re.search(
+        r"\b(?:wait\s*times?|how long (?:is|are) the waits?|current wait|"
+        r"what(?:'s| is) the wait)\b",
+        raw,
+        re.I,
+    ):
         return f"I don't have live wait-time data in the catalog yet. {_GAP_TAIL}"
     if sub not in _GAP_TIER1_FACTUAL:
         return None
     if (intent_result.entity or "").strip():
         return None
-    if _RECOMMENDATION_SHAPED.match(raw):
+    if RECOMMENDATION_SHAPED.match(raw):
         return None
     if _DISCOVERY_SHAPED.search(raw):
         return None
@@ -618,22 +627,10 @@ def _handle_ask(
                 telemetry["cache_status"] = "bypass"
                 telemetry["tier1_ms"] = int((time.perf_counter() - t_t1_start) * 1000)
             return tier1, "1", None, None, None
-    # Live-conditions answer: value-seeking weather/water/AQI/wind/lake-level
-    # questions ("water temp today", "too windy to kayak") answer deterministically
-    # from the conditions cache, consistently across phrasings (Phase 6, P1-4).
-    # Best-effort: a place question with a weather modifier won't match the
-    # value-seeking detector and falls through unchanged.
-    try:
-        from app.chat.conditions_answer import answer_conditions
-
-        conditions_text = answer_conditions(query, db)
-    except Exception:
-        logging.exception("unified_router: conditions answer failed")
-        conditions_text = None
-    if conditions_text is not None:
-        if telemetry is not None:
-            telemetry["cache_status"] = "bypass"
-        return conditions_text, "1", None, None, None
+    # (The conditions-answer probe that used to run here was deleted 2026-07-02:
+    # route()'s ask branch — the only caller of _handle_ask — already checks
+    # answer_conditions and returns on a hit, so this inner probe could never
+    # fire and just re-ran its regexes on every ask.)
     # Leaf-page hand-off: when the ask is really "show me <category we have a
     # page for>" ("i need a dog groomer", "looking for a plumber"), answer with
     # a short voice line + a page_link component pointing at the leaf page
@@ -665,6 +662,22 @@ def _handle_ask(
         if telemetry is not None:
             telemetry["cache_status"] = "bypass"
         return family_text, "2", None, None, None
+    # Wedding / event venue browse: "wedding venues", "reception hall" answer
+    # with the curated list of real venues (London Bridge Resort, Iron Wolf,
+    # the Nautical…) instead of falling through to Tier 3, which surfaced a
+    # wedding *planner* and a mountain park. Deterministic, zero LLM. A venue
+    # SERVICE ask ("wedding planner/photographer") is excluded and falls through.
+    try:
+        from app.chat.wedding_venues import try_wedding_venues
+
+        venue_text = try_wedding_venues(query, db, component_meta)
+    except Exception:
+        logging.exception("unified_router: wedding venue browse failed")
+        venue_text = None
+    if venue_text is not None:
+        if telemetry is not None:
+            telemetry["cache_status"] = "bypass"
+        return venue_text, "2", None, None, None
     # Ask Hava intent layer (flag-gated; USE_INTENT_LAYER off by default). Sits
     # at the front of Tier 2: a confident rule/slot match answers from the
     # catalog with no LLM call and logs the intent to query_log. Anything else
@@ -1015,6 +1028,12 @@ def route(
         timing_ms: dict | None = None,
         intent_logged: bool = False,
     ) -> ChatResponse:
+        # Never-empty guarantee (2026-07-01 master audit §6.6): a blank answer
+        # ("wake surf charter", the /search no-match handoff) is worse than any
+        # honest line. Whatever path produced an empty string, the user gets
+        # the graceful fallback — with a card, the component still renders.
+        if not (response or "").strip():
+            response = _GRACEFUL if component_type == "none" else "Here's what I found:"
         ms = _ms()
         chat_log_id: str | None = None
         try:

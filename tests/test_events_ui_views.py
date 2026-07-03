@@ -26,6 +26,7 @@ from sqlalchemy import delete
 
 from app.db.database import SessionLocal
 from app.db.models import Entity, Event
+from app.home import events_views
 from app.main import app
 
 _LHC = ZoneInfo("America/Phoenix")
@@ -105,23 +106,26 @@ def test_today_view_groups_by_category_events_first(
         i_events = body.index('data-group="events"')
         i_music = body.index('data-group="music"')
         i_water = body.index('data-group="water"')
-        i_classes = body.index('data-group="classes"')
-        # Owner-approved group order; the recurring Lap Swim is a pool session →
-        # Fitness & classes (no separate Aquatic Center group).
-        assert i_events < i_music < i_water < i_classes
-        # "Events" is expanded by default; the rest load collapsed.
-        assert 'data-group="events" open' in body
-        for key in ("music", "water", "classes"):
-            assert f'data-group="{key}" open' not in body
-        # Right members + an honest count pill on the Events group.
+        # UNIFY (Rule 0b 2026-06-26): one calendar shows the FULL tree — the
+        # events / music / on-the-water happenings render in owner-approved order,
+        # and the recurring Lap Swim class now renders inline too (the old
+        # ?view=places tab is retired). Cleanliness comes from collapse, not a
+        # second surface.
+        assert i_events < i_music < i_water
+        # Auto-expand (Casey 2026-06-26): a group holds a real EVENT → opens.
+        for key in ("events", "music", "water"):
+            assert f'data-group="{key}" open' in body
         events_block = body[i_events:i_music]
         assert festival in events_block and stroll in events_block
-        assert 'class="gcount">2<' in events_block
         assert band in body[i_music:i_water]
         # Sunset Paddle is genuinely on the lake → On-the-water group.
-        assert paddle in body[i_water:i_classes]
-        # Lap Swim is a pool class → Fitness & classes, not On-the-water.
-        assert swim in body[i_classes:]
+        assert paddle in body[i_water:]
+        # Lap Swim is a recurring pool class → now ON the unified Calendar, in the
+        # Fitness & Sports group, which is COLLAPSED standing content (no real
+        # happening in it → no `open`).
+        assert swim in body
+        assert 'data-group="classes"' in body
+        assert 'data-group="classes" open' not in body
     finally:
         _cleanup(eids)
 
@@ -129,11 +133,16 @@ def test_today_view_groups_by_category_events_first(
 # --- (b) classes never land in the Events group ------------------------------
 
 
-def test_classes_never_appear_in_events_group() -> None:
+def test_classes_appear_collapsed_on_unified_calendar() -> None:
+    # UNIFY (Rule 0b 2026-06-26): the calendar shows the FULL tree — recurring
+    # classes / class-tier workshops render inline (the ?view=places tab is
+    # retired), but in COLLAPSED standing-content sections. A plain happening
+    # leads (its group opens); the class rows sit in a collapsed Fitness & Sports
+    # group so the day still reads "what's on first".
     suffix = uuid.uuid4().hex[:6]
     day = date(2099, 7, 14)  # Tuesday after _MONDAY
     spin = f"ZZ Spin Class {suffix}"  # recurring class event (gym, not pool)
-    yoga = f"ZZ Yoga Workshop {suffix}"  # one-off, but class-tier
+    yoga = f"ZZ Yoga Workshop {suffix}"  # one-off, but class-tier (activity:yoga)
     gala = f"ZZ Quilt Gala {suffix}"  # plain one-off
     eids: list[str] = []
     with SessionLocal() as db:
@@ -146,15 +155,14 @@ def test_classes_never_appear_in_events_group() -> None:
         with TestClient(app) as client:
             body = client.get(f"/events-ui?date={day.isoformat()}").text
         i_events = body.index('data-group="events"')
-        i_classes = body.index('data-group="classes"')
-        events_block = body[i_events:i_classes]
-        assert gala in events_block
-        assert spin not in events_block and yoga not in events_block
-        classes_block = body[i_classes:]
-        assert spin in classes_block and yoga in classes_block
-        # P1: the inconsistent "recurring" row banner is removed across all views.
-        assert "Runs regularly" not in classes_block
-        assert "Recurring ↻" not in classes_block
+        assert gala in body[i_events:]
+        # The class rows are now ON the unified Calendar, under a collapsed
+        # Fitness & Sports group (standing content never auto-opens).
+        assert spin in body and yoga in body
+        assert 'data-group="classes"' in body
+        assert 'data-group="classes" open' not in body
+        # The happening's group leads and is open.
+        assert 'data-group="events" open' in body
     finally:
         _cleanup(eids)
 
@@ -181,31 +189,45 @@ def test_family_and_pool_classes_split_out() -> None:
                                recurring=True))
         db.commit()
     try:
-        with TestClient(app) as client:
-            body = client.get(f"/events-ui?date={day.isoformat()}").text
-        # Group accordions nest their own <details>, so slice each block by the
-        # next group's start marker (or end of doc) rather than the first close.
-        starts = sorted(m.start() for m in re.finditer(r'data-group="\w+"', body))
+        # These are all recurring classes / drop-in rec — Places & Ongoing
+        # content under the two-surface split, not the events-only Calendar. The
+        # class-subgroup splitting (incl. the "Youth Martial Arts" peel) lives in
+        # the builder's mixed mode, which Phase 3 surfaces on the Places tab; we
+        # exercise it directly here (the live Places top-level groups land in
+        # Phase 3). Verified via day_groups(events_only=False).
+        with SessionLocal() as db:
+            groups = events_views.day_groups(db, day=day, events_only=False)
+        by_key = {g["key"]: g for g in groups}
+        # No Kids & Family group (Casey 2026-06-26): each item appears ONCE.
+        assert "family" not in by_key
+        classes = by_key["classes"]
 
-        def _block(key: str) -> str:
-            i = body.index(f'data-group="{key}"')
-            after = [s for s in starts if s > i]
-            return body[i : (after[0] if after else len(body))]
+        def _walk_rows(node: dict) -> list[dict]:
+            out = list(node.get("rows", []) or [])
+            for c in node.get("children", []) or []:
+                out += _walk_rows(c)
+            return out
 
-        events_block = _block("events")
-        family_block = _block("family")
-        classes_block = _block("classes")
-        # Kids & Family collects kid occurrences. Open Swim (non-class) re-lists
-        # here AND stays in its primary group (additive overlay, discoverability).
-        assert karate in family_block and openswim in family_block
-        assert adultlap not in family_block and aqua not in family_block
-        # P1 age-awareness: a YOUTH class routes to Kids & Family ONLY — it is no
-        # longer duplicated into the adult Fitness list. Adult classes still list.
-        assert karate not in classes_block
-        assert adultlap in classes_block and aqua in classes_block
-        # Open Swim is all-day drop-in rec -> "Happening today" (events), not a class.
-        assert openswim in events_block
-        assert openswim not in classes_block
+        def _walk_labels(node: dict) -> list[str]:
+            out = [node["label"]] if node.get("label") else []
+            for c in node.get("children", []) or []:
+                out += _walk_labels(c)
+            return out
+
+        classes_titles = [r["title"] for sub in classes.get("subgroups", []) for r in _walk_rows(sub)]
+        classes_titles += [r["title"] for r in classes["rows"]]
+        sub_labels = [lbl for sub in classes.get("subgroups", []) for lbl in _walk_labels(sub)]
+        # Youth nesting (Phase 1): a youth class stays in Fitness & Sports, NESTED as
+        # a "Youth Martial Arts" child under its discipline (no flat sibling). Adult
+        # pool classes list there too.
+        assert any(karate in t for t in classes_titles)
+        assert "Youth Martial Arts" in sub_labels
+        assert any(adultlap in t for t in classes_titles)
+        assert any(aqua in t for t in classes_titles)
+        # Open Swim is all-day drop-in rec → Things to Do (events), not a class.
+        events_titles = [r["title"] for r in by_key["events"]["rows"]]
+        assert any(openswim in t for t in events_titles)
+        assert not any(openswim in t for t in classes_titles)
     finally:
         _cleanup(eids)
 
@@ -237,16 +259,26 @@ def test_week_view_rollup_counts_and_headline(monkeypatch: pytest.MonkeyPatch) -
         # Headline is the top-ranked ONE-OFF (special parade), with its time.
         assert parade in row
         assert "6 PM ·" in row
-        # Counts per group (zero groups omitted); only the headline is named.
-        assert "2 events" in row
+        # Two-surface split (spec §1): the Week view is the events-only Calendar —
+        # the rollup counts only happenings (events + music here). The recurring
+        # Spin class moves to Places & Ongoing and is NOT in the class rollup;
+        # no "class" count token appears.
+        assert re.search(r"\d+ events", row)
         assert "1 music" in row
-        # Recurring spin lands in the class rollup (+ any real venue
-        # schedules), so assert a counted "N class(es)" token — a bare
-        # "class" substring would match HTML attributes.
-        assert re.search(r"\d+ class", row)
+        assert not re.search(r"\d+ class", row)
         assert quilt not in row and karaoke not in row and spin not in row
     finally:
         _cleanup(eids)
+
+
+def test_week_view_subtitle_is_viewport_aware() -> None:
+    """F8: the week view ships both subtitle variants — the desktop 7-day list
+    copy and the mobile swipe-carousel copy — so the CSS shows whichever matches
+    what's on screen (the audit saw a 5-week carousel under a 'seven days' line)."""
+    with TestClient(app) as client:
+        body = client.get("/events-ui?view=week").text
+    assert '<span class="ev-sub-d">The next seven days around the lake' in body
+    assert '<span class="ev-sub-m">Swipe between weeks' in body
 
 
 def test_week_rollup_counts_match_day_groups(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -285,23 +317,20 @@ def test_week_rollup_counts_match_day_groups(monkeypatch: pytest.MonkeyPatch) ->
         _cleanup(eids)
 
 
-def test_youth_bmx_routes_to_fitness_sports_and_family():
-    """Casey 2026-06-24: BMX racing belongs under Fitness & sports. A youth-tagged
-    BMX race keeps its sports primary AND re-lists under Kids & Family (additive),
-    unlike a youth instructional class which routes to Kids & Family only."""
+def test_youth_classes_stay_in_fitness_single_group():
+    """No Kids & Family overlay (Casey 2026-06-26): a youth BMX race AND a youth
+    dance class both land ONCE in Fitness & Sports (peeled into their Youth sub at
+    render), never duplicated into a separate group."""
     from app.home.events_views import _occurrence_group_keys
 
     bmx = _occurrence_group_keys(
-        "classes", title="BMX Local Race", venue=None, activity=None,
-        is_family=True, is_senior=False,
+        "classes", title="BMX Local Race", venue=None, activity=None, is_senior=False,
     )
-    assert "classes" in bmx and "family" in bmx
-    # A youth instructional class is unchanged — Kids & Family only.
+    assert bmx == ["classes"]
     dance = _occurrence_group_keys(
-        "classes", title="Tiny Toes Ballet", venue=None, activity="Dance",
-        is_family=True, is_senior=False,
+        "classes", title="Tiny Toes Ballet", venue=None, activity="Dance", is_senior=False,
     )
-    assert dance == ["family"]
+    assert dance == ["classes"]
 
 
 def test_fitness_group_label_is_sports():
@@ -382,7 +411,7 @@ def test_date_view_renders_accordion_with_day_nav() -> None:
 # --- (g) Time TBD rows render honestly and sort last --------------------------
 
 
-def test_time_tbd_rows_render_label_and_sort_last() -> None:
+def test_time_tbd_rows_render_blank_and_sort_last() -> None:
     suffix = uuid.uuid4().hex[:6]
     day = date(2099, 7, 27)
     timed = f"ZZ Timed Talk {suffix}"
@@ -401,7 +430,9 @@ def test_time_tbd_rows_render_label_and_sort_last() -> None:
         # elsewhere on the page can't skew the assertions.
         i_events = body.index('data-group="events"')
         block = body[i_events : body.index("</details>", i_events)]
-        assert "Time TBD" in block  # honest label, never a fabricated 12 AM
+        # Time-unknown rows show NO time, not a "Time TBD" badge (Casey 2026-06-29)
+        # and never a fabricated 12 AM.
+        assert "Time TBD" not in block
         assert "12 AM" not in block
         assert "10 AM" in block  # the timed sibling keeps its real time
         # TBD rows sort after timed rows within their group.

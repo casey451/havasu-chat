@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta, timezone
-from pathlib import Path
 from urllib.parse import quote, unquote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -47,18 +45,15 @@ from app.core.background import (
     deliver_outbox_row,
     enqueue_outbox,
 )
-from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.rate_limit import limiter
+from app.core.templates import make_templates
 from app.db.database import get_db
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
 from app.db.models import AuthSession, Entity, MagicLinkToken, Provider, User
 
 logger = logging.getLogger(__name__)
 
-_TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 router = APIRouter(tags=["auth"])
 
@@ -306,7 +301,9 @@ def api_boat_mode_preference(
     return JSONResponse(
         content={
             "boat_mode_preference": body.enabled,
-            "preferred_mode": user.preferred_mode,
+            # Echo the freshly written row, not the middleware-expunged `user`
+            # snapshot, which still carries the PRE-request value.
+            "preferred_mode": row.preferred_mode,
         }
     )
 

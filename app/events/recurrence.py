@@ -162,9 +162,17 @@ def next_occurrence(event: Event, *, on_or_after: date) -> date | None:
         if d >= on_or_after and d not in excluded and (best is None or d < best):
             best = d
 
-    if best is None and not rule_ok:
-        # Recurrence data was malformed and yielded nothing — degrade to one-off
-        # semantics so the page renders (anchor date), never raising.
+    has_recurrence_data = bool(rule_body) or bool(event.rdate)
+    if best is None and (not rule_ok or not has_recurrence_data):
+        # Degrade to one-off semantics (the anchor date) when there is no usable
+        # schedule to evaluate — either:
+        #   * an rrule was present but malformed (``not rule_ok``), or
+        #   * the row is flagged ``is_recurring`` yet carries NO rrule and NO
+        #     rdate at all (a known data anomaly — 266 live rows on 2026-06-29).
+        # Without this, ``next_occurrence`` returns None for the anomaly, which
+        # ``_event_is_past`` reads as "series exhausted" and the detail page wears
+        # a false "This event has passed" banner while the anchor date is today
+        # or still upcoming (audit F5). Never raises.
         return event.date if event.date is not None and event.date >= on_or_after else None
 
     return best

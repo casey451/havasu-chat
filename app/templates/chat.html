@@ -42,6 +42,9 @@
     <p class="chat-contribute">Know a place I'm missing? <a href="/contribute">Add to Hava</a></p>
   </section>
 
+  {# F13: arrived from a zero-result keyword search — say so above the AI answer. #}
+  {% if fallback_notice %}<p class="chat-fallback-note">No exact matches — here's what Hava found:</p>{% endif %}
+
   {# ─────────── chat thread (populated by chat-new.js) ─────────── #}
   <div id="thread" class="thread" role="log" aria-live="polite"></div>
 
@@ -52,7 +55,12 @@
   <p class="composer-disclaimer">Always call to confirm hours.</p>
   <form class="composer" id="composer-form" autocomplete="off">
     <input type="file" id="composer-photo" accept="image/jpeg,image/png,image/webp" hidden>
-    <button type="button" id="composer-photo-btn" class="photo-btn" aria-label="Add a photo">Photo</button>
+    <button type="button" id="composer-photo-btn" class="photo-btn" aria-label="Add a photo" title="Add a photo">
+      <svg viewBox="0 0 20 20" width="17" height="17" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+        <path d="M3 6.6h2.3l1.1-1.7h7l1.1 1.7H17a1 1 0 0 1 1 1V15a1 1 0 0 1-1 1H3a1 1 0 0 1-1-1V7.6a1 1 0 0 1 1-1Z"/>
+        <circle cx="10" cy="10.9" r="2.7"/>
+      </svg>
+    </button>
     <input
       id="composer-input"
       type="text"

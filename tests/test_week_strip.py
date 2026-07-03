@@ -72,6 +72,65 @@ def _add(
     db.commit()
 
 
+# --- F6/F9 canonical happenings count ---------------------------------------
+
+
+def test_real_happenings_counts_events_excludes_movies(db: Session) -> None:
+    _add(db, title="One-off Concert")
+    _add(db, title="Weekly Farmers Market", recurring=True)
+    _add(db, title="Matinee Showtime", tags=["movie"])
+    counts = sandstone.real_happenings_by_day(db, window_start=_TODAY, window_end=_TODAY)
+    # The one-off + the recurring EVENT count; the movie showtime does not.
+    assert counts.get(_TODAY) == 2
+
+
+def test_real_happenings_empty_day_is_absent(db: Session) -> None:
+    _add(db, title="Only Today")
+    counts = sandstone.real_happenings_by_day(db, window_start=_TODAY, window_end=_TODAY)
+    other = date(2026, 6, 6)
+    counts2 = sandstone.real_happenings_by_day(db, window_start=other, window_end=other)
+    assert counts.get(_TODAY) == 1
+    # An honest empty day reads as 0 (no fabricated "busy"), not a flat roster.
+    assert counts2.get(other, 0) == 0
+
+
+def test_week_strip_day_carries_happenings(db: Session) -> None:
+    _add(db, title="A")
+    _add(db, title="B")
+    strip = sandstone.week_strip(db, today=_TODAY)
+    assert strip["days"][0]["happenings"] == 2
+
+
+# --- F9: the strip follows a far selection, with a Today anchor back ---------
+
+
+def test_week_strip_today_anchored_by_default(db: Session) -> None:
+    strip = sandstone.week_strip(db, today=_TODAY)
+    assert strip["days"][0]["iso"] == _TODAY.isoformat()
+    assert strip["days"][0]["is_today"] is True
+    assert strip["includes_today"] is True
+    assert strip["today_iso"] == _TODAY.isoformat()
+
+
+def test_week_strip_near_selection_stays_today_anchored(db: Session) -> None:
+    # A selection within the next 7 days keeps the today-first window.
+    strip = sandstone.week_strip(db, today=_TODAY, selected=_TODAY + __import__("datetime").timedelta(days=2))
+    assert strip["days"][0]["iso"] == _TODAY.isoformat()
+    assert strip["includes_today"] is True
+
+
+def test_week_strip_follows_far_selection(db: Session) -> None:
+    far = date(2027, 2, 15)
+    strip = sandstone.week_strip(db, today=_TODAY, selected=far)
+    isos = [d["iso"] for d in strip["days"]]
+    assert far.isoformat() in isos  # the selected day is visible in the strip
+    assert isos[len(isos) // 2] == far.isoformat()  # centered
+    assert strip["includes_today"] is False  # today fell out of the window…
+    assert strip["today_iso"] == _TODAY.isoformat()  # …so the anchor back is exposed
+    # No card is mislabeled "Today" when today isn't in the window.
+    assert all(d["is_today"] is False for d in strip["days"])
+
+
 # --- tiering (pure) ---------------------------------------------------------
 
 
@@ -306,32 +365,12 @@ def _mk_event(**kw):
     return ev
 
 
-def test_midnight_fallback_renders_time_tbd_not_12am() -> None:
-    from app.events.time_labels import TIME_TBD_LABEL
-    from app.home.router import _window_event_dict
-
-    d = _window_event_dict(_mk_event(), recurring=False, schedule_label="")
-    assert d["time_label"] == TIME_TBD_LABEL
-    assert "12:00 AM" not in d["time_label"]
 
 
-def test_real_midnight_span_keeps_label() -> None:
-    """An explicit end time means the midnight start is real, not a fallback."""
-    from app.home.router import _window_event_dict
 
-    d = _window_event_dict(
-        _mk_event(end_time=time(2, 0)), recurring=False, schedule_label=""
-    )
-    assert d["time_label"] == "12:00 AM - 2:00 AM"
-
-
-def test_nonmidnight_time_label_unchanged() -> None:
-    from app.home.router import _window_event_dict
-
-    d = _window_event_dict(
-        _mk_event(start_time=time(19, 0)), recurring=False, schedule_label=""
-    )
-    assert d["time_label"] == "7:00 PM"
+# (The _windowevent_dict midnight-TBD label tests were deleted 2026-07-02 with
+# the pre-v4 window feed; the same contract is covered by the is_time_tbd unit
+# tests and the live week-strip/permalink assertions below.)
 
 
 def test_permalink_datetime_midnight_fallback_is_date_only() -> None:
@@ -344,31 +383,4 @@ def test_permalink_datetime_midnight_fallback_is_date_only() -> None:
     )
 
 
-def test_midnight_zero_span_also_tbd() -> None:
-    """allevents often fills endDate with midnight too — a 00:00-00:00 zero
-    span is still 'time unknown', not a midnight event."""
-    from app.events.time_labels import TIME_TBD_LABEL
-    from app.home.router import _window_event_dict
-    from app.main import _format_event_datetime
 
-    ev = _mk_event(end_time=time(0, 0))
-    d = _window_event_dict(ev, recurring=False, schedule_label="")
-    assert d["time_label"] == TIME_TBD_LABEL
-    assert _format_event_datetime(ev) == "Saturday, December 5"
-
-
-def test_null_start_time_renders_time_tbd_and_sorts_last() -> None:
-    """WP-4 NULL start times: shared helper says TBD and sorts after timed."""
-    from app.events.time_labels import (
-        TIME_TBD_LABEL,
-        is_time_tbd,
-        short_time_label,
-        time_sort_key,
-    )
-    from app.home.router import _window_event_dict
-
-    d = _window_event_dict(_mk_event(start_time=None), recurring=False, schedule_label="")
-    assert d["time_label"] == TIME_TBD_LABEL
-    assert is_time_tbd(None) is True
-    assert short_time_label(None) is None  # never "12 AM"
-    assert time_sort_key(None) > time_sort_key(time(23, 59))  # TBD sorts last

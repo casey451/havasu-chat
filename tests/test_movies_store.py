@@ -99,6 +99,71 @@ def test_has_free_kids_and_movies_today():
         _cleanup()
 
 
+def test_movies_today_dedups_same_film_across_theaters():
+    """§4e: a film playing at two theaters appears ONCE on the home strip
+    (deduped by normalized title), keeping the earliest showtime's theater."""
+    day = date(2099, 8, 21)
+    recs = [
+        ShowtimeRecord(
+            source=SRC, source_stable_id="star-ts", theater_slug="star-cinemas",
+            theater_name="Star Cinemas", film_title="Toy Story 5", show_date=day,
+            show_time=time(13, 0), booking_url="http://star",
+        ),
+        ShowtimeRecord(
+            source=SRC, source_stable_id="havasu-ts", theater_slug="movies-havasu",
+            theater_name="Movies Havasu", film_title="Toy Story 5", show_date=day,
+            show_time=time(11, 0), booking_url="http://havasu",
+        ),
+        _rec("obsession", day=day, hh=19, title="Obsession"),
+    ]
+    try:
+        with SessionLocal() as db:
+            upsert_showtimes(db, recs)
+        with SessionLocal() as db:
+            rows = movies_today(db, day=day, limit=6)
+        titles = [r["title"] for r in rows]
+        assert titles.count("Toy Story 5") == 1
+        assert set(titles) == {"Toy Story 5", "Obsession"}
+        ts = next(r for r in rows if r["title"] == "Toy Story 5")
+        # Earliest showtime (11:00 at Movies Havasu) supplies the displayed row.
+        assert ts["theater"] == "Movies Havasu"
+        assert ts["url"] == "http://havasu"
+    finally:
+        _cleanup()
+
+
+def test_star_cinemas_booking_url_falls_back_to_landing(monkeypatch):
+    # A Veezi session with an empty web_session_url must still get a real booking
+    # link — the theater's "Show Times" landing — never an empty url (which would
+    # render as a dead href). A session that carries its own url keeps it.
+    from app.movies import store
+
+    fake_rows = [
+        {
+            "id": "100",
+            "session_datetime": "2099-08-03T19:30:00+00:00",
+            "status": "active",
+            "web_session_url": "",  # blank — the free-show / missing case
+            "film": {"title": "Supergirl"},
+            "site": {"name": "Star Cinemas"},
+        },
+        {
+            "id": "101",
+            "session_datetime": "2099-08-03T21:00:00+00:00",
+            "status": "active",
+            "web_session_url": "https://ticketing.uswest.veezi.com/booking/?Id=abc",
+            "film": {"title": "Supergirl"},
+            "site": {"name": "Star Cinemas"},
+        },
+    ]
+    monkeypatch.setattr(store, "_fetch_json", lambda url, **kw: fake_rows)
+    recs = store.fetch_star_cinemas(today=date(2099, 8, 3))
+    by_id = {r.source_stable_id: r for r in recs}
+    assert by_id["100"].booking_url == store.STAR_CINEMAS_BOOKING_LANDING
+    assert by_id["100"].booking_url  # never empty / None
+    assert by_id["101"].booking_url == "https://ticketing.uswest.veezi.com/booking/?Id=abc"
+
+
 def test_kids_loader_records_unique_and_free():
     from scripts.load_star_cinemas_kids_series import _records
 

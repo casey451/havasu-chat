@@ -44,7 +44,7 @@ TRADE_LEAF_DEPARTMENT_SLUG = "home-and-property-services"
 #: live, the leaf pages are the canonical SEO surface for these trades; a
 #: trade URL 301s to its twin whenever the twin ships (clears the leaf gate),
 #: so two pages never compete for the same search term ("lake havasu
-#: plumbers"). ``garage-door`` has no leaf twin — its curated page stays.
+#: plumbers").
 LEAF_TWINS: dict[str, str] = {
     "plumbers": "plumbing",
     "hvac": "hvac",
@@ -55,6 +55,11 @@ LEAF_TWINS: dict[str, str] = {
     "landscapers": "landscaping-and-lawn",
     "cleaning": "cleaning",
     "handyman": "handyman",
+    # The garage-doors leaf was seeded in the 2026-06-19 monetization pass
+    # (this map predates it — "no leaf twin" was true then), so without this
+    # entry /…/garage-door and the leaf both published and competed for the
+    # same search term.
+    "garage-door": "garage-doors",
 }
 
 
@@ -476,59 +481,14 @@ def trade_listing(
     # Phase F §7.2 honesty gate: pin active paid placements for this trade to the
     # top and label them Sponsored. No-op until a placement is sold for this trade
     # slug — zero effect on the live site today.
-    from app.monetization.serving import (
-        ItemRating,
-        active_category_creatives,
-        active_category_tiers,
-        arrange_listing,
-        listing_day,
+    # Shared placement-pin + daily-shuffle ordering (consolidated 2026-07-02 —
+    # this block and leaf_pages' were byte-similar copies that had to be fixed
+    # in tandem).
+    from app.monetization.serving import apply_placements_and_shuffle
+
+    providers, sponsored_ids, new_unrated_ids, creatives = apply_placements_and_shuffle(
+        db, providers, category_slug=trade.slug, now=now, sort=sort
     )
-    from app.portal.products import daily_shuffle_enabled, mobile_paid_cap, rating_gate
-
-    try:
-        tiers = active_category_tiers(db, trade.slug)
-    except Exception:
-        tiers = {}  # placement lookup must never break the organic trade page
-    sponsored_ids = set(tiers.values())
-    try:
-        creatives = active_category_creatives(db, trade.slug) if tiers else {}
-    except Exception:
-        creatives = {}
-
-    new_unrated_ids: frozenset[str] = frozenset()
-    by_id = {p.id: p for p in providers}
-    # "Top rated" (?sort=favorites) keeps the dampened-rating order; the daily
-    # Featured shuffle only drives the default sort.
-    apply_shuffle = daily_shuffle_enabled() and (sort or "").strip().lower() != "favorites"
-    if apply_shuffle:
-        arr = arrange_listing(
-            [
-                ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
-                for p in providers
-            ],
-            tiers,
-            category_slug=trade.slug,
-            day=listing_day(now),
-            threshold=rating_gate(),
-            cap=mobile_paid_cap(),
-        )
-        providers = [by_id[k] for k in arr.order if k in by_id]
-        new_unrated_ids = arr.new_unrated
-    elif tiers:
-        # Shuffle off: keep organic order but pin paid under the same mobile cap.
-        arr = arrange_listing(
-            [
-                ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
-                for p in providers
-            ],
-            tiers,
-            category_slug=trade.slug,
-            day=listing_day(now),
-            threshold=rating_gate(),
-            cap=mobile_paid_cap(),
-            shuffle=False,
-        )
-        providers = [by_id[k] for k in arr.order if k in by_id]
 
     cards = [
         cat_queries._provider_card(
@@ -540,10 +500,6 @@ def trade_listing(
     ]
     return cards, len(providers), providers
 
-
-def trade_provider_count(db: Session, trade: Trade) -> int:
-    """ACTIVE non-draft provider count for ``trade`` (the thin-page gate input)."""
-    return len(_trade_provider_rows(db, trade))
 
 
 def qualifying_trades(db: Session) -> list[tuple[Trade, int]]:

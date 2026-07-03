@@ -85,7 +85,7 @@ COMMUNITY_LUNCH = RecurringActivity(
         "Hot community lunch served weekdays 11:15 AM-12:00 PM at the Lake "
         "Havasu Senior Center (Mohave County Senior Nutrition Program). A $5 "
         "donation is suggested for guests 60 and over; $7 for guests under 60. "
-        "The menu changes daily -- see the monthly lunch menu calendar."
+        "The menu changes daily — see the monthly lunch menu calendar."
     ),
     cost="$5 suggested (60+) / $7 (under 60)",
 )
@@ -142,7 +142,7 @@ RECURRING_ACTIVITIES: tuple[RecurringActivity, ...] = (
         end=None,
         description=(
             "Laughing Yoga at the Lake Havasu Senior Center every Wednesday "
-            "afternoon -- gentle movement and laughter to reduce stress and "
+            "afternoon — gentle movement and laughter to reduce stress and "
             "lift the mood. Fitness and fun rolled into one."
         ),
     ),
@@ -173,7 +173,7 @@ RECURRING_ACTIVITIES: tuple[RecurringActivity, ...] = (
         start=time(9, 0),
         end=None,
         description=(
-            "The Thursday Morning Music Jam at the Lake Havasu Senior Center -- "
+            "The Thursday Morning Music Jam at the Lake Havasu Senior Center — "
             "local musicians playing together every Thursday morning. Listeners "
             "and players welcome."
         ),
@@ -184,7 +184,7 @@ RECURRING_ACTIVITIES: tuple[RecurringActivity, ...] = (
         start=time(12, 30),
         end=None,
         description=(
-            "Bunco -- the easy, social dice game -- at the Lake Havasu Senior "
+            "Bunco — the easy, social dice game — at the Lake Havasu Senior "
             "Center every Thursday afternoon. No experience needed; prizes, "
             "snacks and fun."
         ),
@@ -195,7 +195,7 @@ RECURRING_ACTIVITIES: tuple[RecurringActivity, ...] = (
         start=time(12, 0),
         end=None,
         description=(
-            "Weekly Tai Chi Qigong class at the Lake Havasu Senior Center -- "
+            "Weekly Tai Chi Qigong class at the Lake Havasu Senior Center — "
             "gentle, low-impact movement for flexibility, balance and "
             "relaxation. Every Friday; all skill levels welcome."
         ),
@@ -248,7 +248,7 @@ CURATED_SPECIAL_EVENTS: tuple[SpecialEvent, ...] = (
         start=time(9, 0),
         end=time(13, 0),
         description=(
-            "Christmas in July at the Lake Havasu Senior Center -- shop a "
+            "Christmas in July at the Lake Havasu Senior Center — shop a "
             "wonderful selection of holiday decor, collectibles and hidden "
             "treasures. July 8-10, 9:00 AM-1:00 PM. Every purchase makes a "
             "difference: all proceeds benefit Meals on Wheels and senior "
@@ -263,7 +263,7 @@ CURATED_SPECIAL_EVENTS: tuple[SpecialEvent, ...] = (
         end=None,
         description=(
             "Let's celebrate our seniors! Join us for an Ice Cream Social at the "
-            "Lake Havasu Senior Center on August 21 at 11:45 AM -- ice cream, "
+            "Lake Havasu Senior Center on August 21 at 11:45 AM — ice cream, "
             "root beer floats, fun and fellowship, marking National Senior "
             "Citizens Day. RSVP (928) 453-0715."
         ),

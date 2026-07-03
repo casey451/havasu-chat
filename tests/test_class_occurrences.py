@@ -3,9 +3,7 @@
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime, time
-
-from fastapi.testclient import TestClient
+from datetime import UTC, date, datetime, time, timedelta
 
 from app.db.database import SessionLocal
 from app.db.models import Entity, Event, Provider, Schedule
@@ -15,9 +13,33 @@ from app.events.class_occurrences import (
     drop_event_duplicates,
     program_anchor,
 )
-from app.home import sandstone
-from app.home.today_feed import today_feed
-from app.main import app
+from app.home import events_views, sandstone
+
+
+def _node_rows(node: dict) -> list[dict]:
+    """Rows of a subgroup node plus all nested ``children`` (the youth/discipline
+    third level — Phase 1), matching the recursive template render."""
+    rows: list[dict] = list(node.get("rows") or [])
+    for child in node.get("children") or []:
+        rows += _node_rows(child)
+    return rows
+
+
+def _all_rows(groups: list[dict]) -> list[dict]:
+    """Flatten a day_groups result to the rows the template actually renders: a
+    group's subgroup rows (recursing nested children) when it is split, else its
+    flat rows (the two overlap — subgroups are a split OF ``rows`` — so we never
+    count both, matching the ``{% if g.subgroups %}...{% else %}...{% endif %}``
+    render)."""
+    rows: list[dict] = []
+    for g in groups:
+        subs = g.get("subgroups") or []
+        if subs:
+            for sub in subs:
+                rows += _node_rows(sub)
+        else:
+            rows += g.get("rows") or []
+    return rows
 
 
 def _now() -> datetime:
@@ -88,6 +110,42 @@ def test_expansion_hits_every_matching_weekday() -> None:
     assert occs[0].url == f"/provider/{slug}"
 
 
+def test_horizon_caps_far_future_projection() -> None:
+    """F6/F9: ``horizon_today`` stops the indefinite roster beyond
+    today + CLASS_PROJECTION_HORIZON_DAYS; None leaves it uncapped."""
+    from app.events.class_occurrences import CLASS_PROJECTION_HORIZON_DAYS
+
+    title = f"Horizon Yoga {uuid.uuid4().hex[:6]}"
+    _make_venue_with_class(title, ["monday", "tuesday", "wednesday", "thursday", "friday"])
+    today = date(2026, 6, 1)
+    near = today + timedelta(days=7)  # within horizon
+    far = today + timedelta(days=CLASS_PROJECTION_HORIZON_DAYS + 10)  # beyond horizon
+
+    with SessionLocal() as db:
+        # Near day: the class shows whether or not the cap is on.
+        near_capped = [
+            o for o in class_occurrences_in_window(
+                db, window_start=near, window_end=near, horizon_today=today
+            ) if o.title == title
+        ]
+        # Far day: dropped when the cap is on...
+        far_capped = [
+            o for o in class_occurrences_in_window(
+                db, window_start=far, window_end=far, horizon_today=today
+            ) if o.title == title
+        ]
+        # ...but still present with no anchor (Places & Ongoing / tests).
+        far_uncapped = [
+            o for o in class_occurrences_in_window(
+                db, window_start=far, window_end=far
+            ) if o.title == title
+        ]
+
+    assert len(near_capped) == 1
+    assert far_capped == []
+    assert len(far_uncapped) == 1
+
+
 def test_event_duplicates_dropped_by_title_and_date() -> None:
     title = f"Lap Swim Clone {uuid.uuid4().hex[:6]}"
     _make_venue_with_class(title, ["friday"])
@@ -121,17 +179,22 @@ def test_month_calendar_shows_schedule_classes() -> None:
 
 
 def test_events_ui_day_page_lists_class_with_venue_link() -> None:
+    # Two-surface split (spec §1): venue Schedule classes are Places & Ongoing
+    # content, not Calendar happenings. The row the Places surface renders (built
+    # by day_groups' mixed mode; Phase 3 surfaces it on the Places tab) carries
+    # the provider link.
     title = f"Day Page Judo {uuid.uuid4().hex[:6]}"
     slug, _eid, _name = _make_venue_with_class(title, ["wednesday"])
-    client = TestClient(app)
-    r = client.get("/events-ui?date=2026-12-09")  # a Wednesday
-    assert r.status_code == 200
-    assert title in r.text
-    assert f"/provider/{slug}" in r.text
+    with SessionLocal() as db:
+        groups = events_views.day_groups(db, day=date(2026, 12, 9), events_only=False)
+    row = next((r for r in _all_rows(groups) if title in (r.get("title") or "")), None)
+    assert row is not None
+    assert row["url"] == f"/provider/{slug}"
 
 
 def test_events_ui_skips_class_that_is_also_an_event() -> None:
-    """Aquatic-style duplicates (class exists as a recurring Event too) show once."""
+    """Aquatic-style duplicates (class exists as a recurring Event too) show once
+    on the Places-bound class list (drop_event_duplicates, mixed mode)."""
     title = f"Dup Aqua Fit {uuid.uuid4().hex[:6]}"
     _make_venue_with_class(title, ["thursday"])
     with SessionLocal() as db:
@@ -145,12 +208,9 @@ def test_events_ui_skips_class_that_is_also_an_event() -> None:
             )
         )
         db.commit()
-    client = TestClient(app)
-    r = client.get("/events-ui?date=2026-12-10")  # a Thursday
-    assert r.status_code == 200
-    # Count VISIBLE rows only (the events_lake JSON-LD ItemList also echoes the
-    # title); the dedup contract is that it renders in exactly one visible row.
-    assert r.text.count(f'class="rtitle">{title}') == 1
+    with SessionLocal() as db:
+        groups = events_views.day_groups(db, day=date(2026, 12, 10), events_only=False)
+    assert sum(1 for r in _all_rows(groups) if (r.get("title") or "") == title) == 1
 
 
 def test_program_anchor_is_deterministic_and_slugged() -> None:
@@ -275,22 +335,17 @@ def test_schedule_twins_keep_distinct_same_slot_classes() -> None:
 
 
 def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
-    """A permalink-less program (no provider page) still appears in the home
-    feed, but renders WITHOUT a "Details →" link — we no longer fabricate a
-    self-referential ``/events-ui?date=…#program-…`` anchor that just points back
-    at the same bare row (no real source)."""
+    """A permalink-less program (no provider page) still appears in the feed,
+    but renders WITHOUT a "Details →" link — we no longer fabricate a
+    self-referential ``/events-ui?date=…#program-…`` anchor that just points
+    back at the same bare row. (Retargeted 2026-07-02 from the deleted
+    pre-v4 ``today_feed`` to ``day_groups`` — the live feed pipeline.)"""
     title = f"Pony Lead Line Rides {uuid.uuid4().hex[:6]}"
     venue = _make_permalinkless_program(title, ["saturday"])
     day = date(2026, 12, 5)  # a Saturday
     with SessionLocal() as db:
-        feed = today_feed(db, day=day)
-    rows = []
-    for g in feed["groups"]:
-        if g["key"] == "movies":
-            continue
-        rows.extend(g.get("rows") or [])
-        for sub in g.get("subgroups") or []:
-            rows.extend(sub.get("rows") or [])
+        groups = events_views.day_groups(db, day=day, events_only=False)
+    rows = _all_rows(groups)
     row = next((r for r in rows if r.get("venue") == venue), None)
     assert row is not None, "permalink-less program should still appear in the feed"
     assert not row.get("url"), "should render without a fabricated Details link"
@@ -298,15 +353,17 @@ def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
 
 
 def test_events_ui_renders_program_anchor_id() -> None:
-    """The /events-ui day page tags the permalink-less program's row with the
-    matching id so the deep-link lands on it (Item 2)."""
+    """The permalink-less program's Places row carries the matching deep-link
+    anchor so the home-feed link lands on it (Item 2; Places-bound under the
+    two-surface split)."""
     title = f"Pony Lead Line Rides {uuid.uuid4().hex[:6]}"
     venue = _make_permalinkless_program(title, ["wednesday"])
     anchor = program_anchor(title, venue)
-    client = TestClient(app)
-    r = client.get("/events-ui?date=2026-12-09")  # a Wednesday
-    assert r.status_code == 200
-    assert f'id="{anchor}"' in r.text
+    with SessionLocal() as db:
+        groups = events_views.day_groups(db, day=date(2026, 12, 9), events_only=False)
+    row = next((r for r in _all_rows(groups) if title in (r.get("title") or "")), None)
+    assert row is not None
+    assert row.get("anchor") == anchor
 
 
 def test_class_cards_survive_busy_day_cap() -> None:
@@ -327,7 +384,6 @@ def test_class_cards_survive_busy_day_cap() -> None:
                 )
             )
         db.commit()
-    client = TestClient(app)
-    r = client.get("/events-ui?date=2026-12-12")  # a Saturday
-    assert r.status_code == 200
-    assert title in r.text
+    with SessionLocal() as db:
+        groups = events_views.day_groups(db, day=date(2026, 12, 12), events_only=False)
+    assert any(title in (r.get("title") or "") for r in _all_rows(groups))

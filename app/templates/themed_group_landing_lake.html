@@ -82,6 +82,28 @@
       <a class="chip{% if active_open_now %} chip-active{% endif %}" href="{{ cat_href(open=(none if active_open_now else 'now')) }}">{{ row.label }}</a>
       {% elif p == 'boat' %}
       <a class="chip{% if active_dock %} chip-active{% endif %}" href="{{ cat_href(boat=(none if active_dock else '1')) }}">{{ row.label }}</a>
+      {% elif p == 'youth' %}
+      <a class="chip{% if active_youth %} chip-active{% endif %}" href="{{ cat_href(youth=(none if active_youth else '1')) }}">{{ row.label }}</a>
+      {% elif p == 'adults' %}
+      <a class="chip{% if active_adults %} chip-active{% endif %}" href="{{ cat_href(adults=(none if active_adults else '1')) }}">{{ row.label }}</a>
+      {% elif p == 'drop_in' %}
+      <a class="chip{% if active_drop_in %} chip-active{% endif %}" href="{{ cat_href(drop_in=(none if active_drop_in else '1')) }}">{{ row.label }}</a>
+      {% elif p == 'registration' %}
+      <a class="chip{% if active_registration %} chip-active{% endif %}" href="{{ cat_href(registration=(none if active_registration else '1')) }}">{{ row.label }}</a>
+      {% elif p == 'late' %}
+      <a class="chip{% if active_late %} chip-active{% endif %}" href="{{ cat_href(late=(none if active_late else '1')) }}">{{ row.label }}</a>
+      {% elif p == 'brunch' %}
+      <a class="chip{% if active_brunch %} chip-active{% endif %}" href="{{ cat_href(brunch=(none if active_brunch else '1')) }}">{{ row.label }}</a>
+      {% elif p == 'verified' %}
+      <a class="chip{% if active_verified %} chip-active{% endif %}" href="{{ cat_href(verified=(none if active_verified else '1')) }}">{{ row.label }}</a>
+      {% elif p == 'mobile' %}
+      <a class="chip{% if active_mobile %} chip-active{% endif %}" href="{{ cat_href(mobile=(none if active_mobile else '1')) }}">{{ row.label }}</a>
+      {% elif p == 'free' %}
+      <a class="chip{% if active_free %} chip-active{% endif %}" href="{{ cat_href(free=(none if active_free else '1')) }}">{{ row.label }}</a>
+      {% elif p == 'npi' %}
+      <a class="chip{% if active_npi %} chip-active{% endif %}" href="{{ cat_href(npi=(none if active_npi else '1')) }}">{{ row.label }}</a>
+      {% elif p == 'when' %}
+      <a class="chip{% if active_when == row.value %} chip-active{% endif %}" href="{{ cat_href(when=(none if active_when == row.value else row.value)) }}">{{ row.label }}</a>
       {% else %}
       <a class="chip" href="{{ cat_href(**{p: row.value}) }}">{{ row.label }}</a>
       {% endif %}

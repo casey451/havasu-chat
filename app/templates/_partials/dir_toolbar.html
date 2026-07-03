@@ -1,0 +1,25 @@
+{#- ───── Shared directory filter/sort toolbar (F15) ─────
+   One source for the filter/sort chip row so the trade-leaf list
+   (category_trade_lake.html) and the faceted category list
+   (category_sandstone_lake.html) render IDENTICAL chip markup. Each page keeps
+   its own backend — trade builds the chips from `list_controls`, sandstone from
+   its server-side `facets` + `facet_href` — and just feeds this macro a
+   normalized structure, so the visible UI is consistent without flattening
+   sandstone's richer facets onto the simpler trade controls.
+
+   `groups`: list of {label, chips}, where each chip is {label, href, active}.
+   `note`:  optional trailing line (e.g. "12 open now" or the sort explainer).
+   `aria`:  the toolbar's aria-label.
+
+   The chip/label markup below is lifted verbatim from the original trade
+   toolbar so the existing .toolbar/.chip/.tlab/.shown styles (lake_directory.css)
+   apply unchanged. -#}
+{% macro dir_toolbar(groups, note=None, aria='Filter and sort listings') -%}
+<div class="toolbar" role="group" aria-label="{{ aria }}">
+  {%- for g in groups %}
+    {%- if g.label %}<span class="tlab"{% if not loop.first %} style="margin-left:8px"{% endif %}>{{ g.label }}</span>{% endif %}
+    {%- for c in g.chips %}<a class="chip{% if c.active %} on{% endif %}" href="{{ c.href }}"{% if c.active %} aria-current="true"{% endif %}>{{ c.label }}</a>{% endfor %}
+  {%- endfor %}
+  {%- if note %}<span class="shown">{{ note }}</span>{% endif %}
+</div>
+{%- endmacro %}

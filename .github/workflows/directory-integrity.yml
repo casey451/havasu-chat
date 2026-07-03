@@ -1,0 +1,42 @@
+name: directory-integrity
+
+# Nightly "stop finding random problems" report (master site audit §9.4 /
+# consolidated Amendment Phase 9). Every rot class the 2026-07-01 crawl found
+# by hand becomes a one-query check:
+#   HARD (must be zero):      exact live-event dups · cuisine chips that 404
+#   BASELINE (no NEW bleed):  zero-leaf providers · zero-contact providers ·
+#                             same-phone clusters · past-dated live one-offs
+# The baseline lives in scripts/integrity_baseline.json; after an approved
+# cleanup, ratchet it down with `integrity_report.py --update-baseline`.
+#
+# NOTE: GitHub only runs scheduled workflows from the DEFAULT branch — this
+# takes effect once merged to main. Until then use workflow_dispatch.
+
+on:
+  schedule:
+    # 17:15 UTC daily (= 10:15 AM Arizona, MST/UTC-7) — right after the
+    # data-freshness heartbeat, a few hours after the morning scrapes.
+    - cron: "15 17 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  integrity-report:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run the directory integrity report
+        env:
+          # Same Railway Postgres secret the scrape crons use.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/integrity_report.py

@@ -11,8 +11,12 @@ import os
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
 
 # Populated in pytest_configure when using the temp DB; used for teardown cleanup.
 _TEST_SQLITE_FILE: str | None = None
@@ -306,3 +310,21 @@ def seeded_nav_departments() -> Generator[dict[str, str], None, None]:
                     db.delete(cat)
             db.commit()
         cat_router.reset_index_cache()
+
+
+@pytest.fixture(scope="module")
+def client() -> Generator["TestClient", None, None]:
+    """Shared module-scoped ``TestClient`` for the FastAPI app.
+
+    A single client per test module instead of the ~196 per-file
+    ``TestClient(app)`` constructions the audit (2026-07-01) flagged. Imported
+    lazily so pytest_configure applies the temp-DB ``DATABASE_URL`` before
+    ``app.main`` first loads (see the module docstring). Migrate read-only
+    request tests to request this fixture; tests that mutate client cookies or
+    need a pristine per-test client should keep constructing their own.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    yield TestClient(app)

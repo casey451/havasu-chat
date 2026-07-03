@@ -47,6 +47,16 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "ballroom", "salsa", "pointe",
     )),
     ("Gymnastics", ("gymnastics", "tumbling", "tumbler", "tumble", "cheer", "ninja", "trampoline")),
+    # Golf (NEW 2026-06-25): course tee-times, Toptracer driving range, indoor
+    # simulators, lessons, tournaments. Placed BEFORE Sports & Racing so a golf
+    # title types here; "disc golf" is a FIELD sport (PDGA) — guarded in
+    # :func:`classify_class_subgroup` so it routes to Sports & Racing, not Golf
+    # (Lake Havasu Golf Club East is itself a disc-golf course: same venue, two
+    # activities).
+    ("Golf — courses", (
+        "golf", "toptracer", "top tracer", "golf simulator", "indoor golf",
+        "driving range", "tee time",
+    )),
     # Outdoor / field / court / racing sports (most of the calendar's "classes"
     # are really sports — Casey 2026-06-24). BMX racing and the team/court sports
     # type here instead of falling into the "Other classes" residue. Pickleball /
@@ -55,6 +65,9 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "bmx", "motocross", "pump track", "pump-track", "balance bike", "strider",
         "basketball", "volleyball", "soccer", "baseball", "softball", "kickball",
         "flag football", "track and field", "disc golf", "skate", "skateboard",
+        # 2026-07-01 audit: the Parks & Rec "Dodgeball USA" program fell to the
+        # "Other classes" residue and was rerouted to Around Town — it's a sport.
+        "dodgeball",
     )),
     ("Strength & Cardio", (
         "strength", "weight", "crossfit", "cross fit", "bootcamp", "boot camp",
@@ -67,11 +80,17 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "tai chi", "qigong", "qi gong", "meditation", "mindfulness",
         "stretch", "mobility", "low impact", "low-impact", "arthritis", "balance",
     )),
+    # Last-resort generic fitness word (2026-07-01 audit): the Senior Center's
+    # bare "Exercise Class" carried no typed keyword, fell out of the fitness
+    # bucket, and mis-filed under Seniors → Social, Music & Meals. Checked
+    # AFTER every specific subgroup so "Water Exercise" stays Aquatic fitness
+    # and "Arthritis Foundation Exercise" stays Mind & Body.
+    ("Strength & Cardio", ("exercise",)),
 )
 SUBGROUP_ORDER: tuple[str, ...] = (
     "Yoga", "Pilates", "Strength & Cardio", "Mind & Body", "Aquatic fitness",
-    "Dance", "Gymnastics", "Martial Arts", "Pickleball", "Sports & Racing",
-    "Other classes",
+    "Dance", "Gymnastics", "Golf — courses", "Martial Arts", "Pickleball",
+    "Sports & Racing", "Other classes",
 )
 FALLBACK_LABEL = "Other classes"
 
@@ -84,6 +103,7 @@ SUBGROUP_SLUGS: dict[str, str] = {
     "Martial Arts": "martial-arts",
     "Dance": "dance",
     "Gymnastics": "gymnastics",
+    "Golf — courses": "golf",
     "Strength & Cardio": "strength-cardio",
     "Mind & Body": "mind-body",
     "Pickleball": "pickleball",
@@ -168,6 +188,11 @@ def classify_class_subgroup(
     if is_martial_arts_name(venue) or any(v in vlow for v in MARTIAL_ARTS_VENUES):
         return "Martial Arts"
     by_title = _title_subgroup(title)
+    # "disc golf" matches the Golf keyword "golf" but is a FIELD sport (PDGA), not
+    # ball golf — route it to Sports & Racing instead (the negative guard the
+    # plan §5.3 calls for; same venue can host both, so this must be by title).
+    if by_title == "Golf — courses" and re.search(r"\bdisc\s+golf\b", (title or "").lower()):
+        return "Sports & Racing"
     if by_title is not None:
         return by_title
     if provider_activity:
@@ -181,17 +206,767 @@ def activity_slug(title: str, venue: str | None = None) -> str | None:
     return SUBGROUP_SLUGS.get(classify_class_subgroup(title, venue))
 
 
-def split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Partition already-sorted Fitness & classes rows into ordered type
-    subsections, omitting empty ones (honest-omission). Row order preserved."""
+# ── Pickleball facet split (Phase 5, Casey 2026-06-25) ────────────────────────
+# The flat "Pickleball" subgroup under Fitness & Sports splits into three facets
+# the layout doc calls for, plus an honest base for the folded-in racquet/tennis
+# and generic-lesson rows. Court hours are tag-driven: the pickleball loader
+# stamps ``facet:open-play`` + ``indoor:true|false`` on its court-hours rows and
+# ``facet:competition`` on round-robins/leagues/PickleFest, so the split reads
+# tags rather than re-parsing titles. Tennis stays folded ("Pickleball &
+# Racquet" base) per Casey — split tennis later only if its volume grows.
+PB_OUTDOOR_LABEL = "Pickleball — Court Hours (Outdoor)"
+PB_INDOOR_LABEL = "Pickleball — Court Hours (Indoor)"
+PB_COMPETITION_LABEL = "Pickleball — Leagues & Competitions"
+PB_BASE_LABEL = "Pickleball & Racquet"
+PICKLEBALL_FACET_ORDER: tuple[str, ...] = (
+    PB_OUTDOOR_LABEL, PB_INDOOR_LABEL, PB_COMPETITION_LABEL, PB_BASE_LABEL,
+)
+
+
+def classify_pickleball_facet(tags: list[str] | None) -> str:
+    """Map a Pickleball/Racquet row to its facet from the stamped tags.
+
+    Precedence: a competition tag (round-robin / league / PickleFest) wins; then
+    court-hours rows (``facet:open-play`` or ``facet:hours``) split Indoor vs
+    Outdoor by the ``indoor:true`` flag; everything else (lessons, clinics,
+    tennis, generically-named pickleball classes) is the honest base."""
+    tagset = {str(t).strip().lower() for t in (tags or [])}
+    if "facet:competition" in tagset:
+        return PB_COMPETITION_LABEL
+    if tagset & {"facet:open-play", "facet:hours"}:
+        return PB_INDOOR_LABEL if "indoor:true" in tagset else PB_OUTDOOR_LABEL
+    return PB_BASE_LABEL
+
+
+def split_pickleball_facets(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition the Pickleball subgroup's rows into its ordered facets, omitting
+    empty ones (honest-omission). Row order preserved within each facet."""
     buckets: dict[str, list[dict[str, Any]]] = {}
     for row in rows:
-        label = classify_class_subgroup(
-            row.get("title") or "", row.get("venue"), row.get("activity")
+        buckets.setdefault(classify_pickleball_facet(row.get("tags")), []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in PICKLEBALL_FACET_ORDER:
+        sub_rows = buckets.get(label)
+        if sub_rows:
+            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
+    return out
+
+
+# ── Martial-arts discipline split (Phase 5, Casey 2026-06-25) ─────────────────
+# The flat "Martial Arts" subgroup splits by DISCIPLINE so BJJ and Taekwondo read
+# apart (spec §4.1), each with its own Youth third level. The discipline is
+# DATA-DRIVEN — a ``discipline:bjj`` / ``discipline:taekwondo`` tag or a row
+# ``discipline`` field — never a title keyword guess. A row with no determinable
+# discipline stays in the flat "Martial Arts" base (we never invent a tag), so
+# the split only appears where the data supports it.
+MARTIAL_BJJ_LABEL = "BJJ"
+MARTIAL_TAEKWONDO_LABEL = "Taekwondo"
+MARTIAL_BASE_LABEL = "Martial Arts"
+MARTIAL_DISCIPLINE_ORDER: tuple[str, ...] = (
+    MARTIAL_BJJ_LABEL, MARTIAL_TAEKWONDO_LABEL, MARTIAL_BASE_LABEL,
+)
+_DISCIPLINE_TO_LABEL: dict[str, str] = {
+    "bjj": MARTIAL_BJJ_LABEL,
+    "brazilian-jiu-jitsu": MARTIAL_BJJ_LABEL,
+    "jiu-jitsu": MARTIAL_BJJ_LABEL,
+    "taekwondo": MARTIAL_TAEKWONDO_LABEL,
+    "tae-kwon-do": MARTIAL_TAEKWONDO_LABEL,
+}
+
+# Curated VENUE → discipline (Phase 5, Casey 2026-06-26). The dojos' Schedule
+# occurrences carry no ``discipline:`` tag (they're render-time expansions, not
+# Event rows), so the discipline is derived from the venue — data-derived (a
+# curated dojo list / an unambiguous venue-name token), never a title-keyword
+# guess. A token-less BJJ dojo (Bridge City Combat) needs an explicit entry; a
+# venue whose NAME already says the discipline ("…Jiu Jitsu") is caught by token.
+# Substring matched, lower-cased. Mixed-discipline dojos (Elite Martial Arts —
+# karate / kenpo / kali) are deliberately absent → they stay in the flat base.
+_VENUE_DISCIPLINE: tuple[tuple[str, str], ...] = (
+    ("bridge city combat", MARTIAL_BJJ_LABEL),
+    ("black belt academy", MARTIAL_TAEKWONDO_LABEL),
+    ("jiu jitsu", MARTIAL_BJJ_LABEL),
+    ("jiu-jitsu", MARTIAL_BJJ_LABEL),
+)
+
+
+def classify_martial_discipline(row: dict[str, Any]) -> str | None:
+    """The martial-arts discipline label for a row from its stamped signal — a
+    ``discipline:<x>`` tag, a ``discipline`` field, or a curated VENUE (Phase 5) —
+    or None when undetermined (stays in the flat Martial Arts base; never inferred
+    from the title)."""
+    disc = str(row.get("discipline") or "").strip().lower()
+    if disc in _DISCIPLINE_TO_LABEL:
+        return _DISCIPLINE_TO_LABEL[disc]
+    for t in row.get("tags") or []:
+        s = str(t).strip().lower()
+        if s.startswith("discipline:"):
+            label = _DISCIPLINE_TO_LABEL.get(s.split(":", 1)[1])
+            if label:
+                return label
+    vlow = str(row.get("venue") or "").lower()
+    for needle, label in _VENUE_DISCIPLINE:
+        if needle in vlow:
+            return label
+    return None
+
+
+def split_martial_arts_facets(
+    adult_rows: list[dict[str, Any]], youth_rows: list[dict[str, Any]]
+) -> list[dict[str, Any]]:
+    """Split Martial Arts rows by discipline (BJJ / Taekwondo / flat base), each
+    a node whose kid-specific rows are a NESTED Youth child (Phase 1, 2026-06-26)
+    — e.g. BJJ → Youth BJJ, Taekwondo → Youth Taekwondo; empties omitted.
+    Undetermined-discipline rows stay in the flat base (spec §4.1)."""
+    adult: dict[str, list[dict[str, Any]]] = {}
+    youth: dict[str, list[dict[str, Any]]] = {}
+    for r in adult_rows:
+        adult.setdefault(classify_martial_discipline(r) or MARTIAL_BASE_LABEL, []).append(r)
+    for r in youth_rows:
+        youth.setdefault(classify_martial_discipline(r) or MARTIAL_BASE_LABEL, []).append(r)
+    out: list[dict[str, Any]] = []
+    for label in MARTIAL_DISCIPLINE_ORDER:
+        a = adult.get(label, [])
+        y = youth.get(label, [])
+        if a or y:
+            out.append(_activity_node(label, a, y))
+    return out
+
+
+# Reverse of SUBGROUP_SLUGS, so a row's explicit ``activity:<slug>`` tag picks its
+# Fitness subsection label tag-first (the Phase-2 canonical read) — e.g. a
+# "PickleFest" row carries ``activity:pickleball`` but no "pickleball" in its
+# title, so the title classifier alone would mis-file it under "Other classes".
+_SLUG_TO_SUBGROUP: dict[str, str] = {slug: label for label, slug in SUBGROUP_SLUGS.items()}
+
+
+def _row_class_label(row: dict[str, Any]) -> str:
+    """The Fitness subsection label for a row: an explicit ``activity:<slug>`` tag
+    wins (tag-first), else the title/venue/provider classifier."""
+    for t in row.get("tags") or []:
+        s = str(t)
+        if s.startswith("activity:"):
+            label = _SLUG_TO_SUBGROUP.get(s.split(":", 1)[1] or "")
+            if label:
+                return label
+    return classify_class_subgroup(
+        row.get("title") or "", row.get("venue"), row.get("activity")
+    )
+
+
+# Youth sub-categories (Casey 2026-06-26): a kid-specific row peels into a
+# "Youth <activity>" sub-section of its own group (no separate Kids & Family
+# group). A row is flagged ``youth`` upstream (events_views). The youth label is
+# the activity label prefixed with "Youth", with a few overrides where the bare
+# prefix reads awkwardly (the residual/fallback labels become "Youth & Family").
+_YOUTH_LABEL_OVERRIDES: dict[str, str] = {
+    "Other classes": "Youth Classes",
+    "Around Town": "Youth & Family",
+    "More music & nightlife": "Youth & Family",
+    "Comedy & Theater": "Youth Theater",
+    "Aquatic fitness": "Youth Swim",
+}
+
+
+def youth_subgroup_label(base: str) -> str:
+    """The youth sub-category label for an activity sub-section ("Martial Arts" →
+    "Youth Martial Arts"; residual labels → "Youth & Family")."""
+    return _YOUTH_LABEL_OVERRIDES.get(base, f"Youth {base}")
+
+
+def _youth_child(label: str, rows: list[dict[str, Any]]) -> dict[str, Any]:
+    """A nested youth child node for an activity ``label`` (Phase 1, 2026-06-26):
+    youth is ALWAYS a nested ``children`` entry under its activity, never a flat
+    sibling. Carries ``youth=True`` so the render gives it the kid accent."""
+    return {
+        "label": youth_subgroup_label(label),
+        "rows": rows,
+        "count": len(rows),
+        "youth": True,
+    }
+
+
+def _activity_node(
+    label: str, adult_rows: list[dict[str, Any]], youth_rows: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """One activity sub-section node: the adult rows at this level plus, when any
+    kid-specific rows exist, a nested "Youth <activity>" child (Phase 1). The
+    parent ``count`` is the total of all descendants (adult + youth)."""
+    node: dict[str, Any] = {
+        "label": label, "rows": adult_rows, "count": len(adult_rows) + len(youth_rows)
+    }
+    if youth_rows:
+        node["children"] = [_youth_child(label, youth_rows)]
+    return node
+
+
+def _split_with_youth(
+    rows: list[dict[str, Any]],
+    order: tuple[str, ...],
+    classify: Any,
+) -> list[dict[str, Any]]:
+    """Partition rows into ordered activity sub-sections, with each activity's
+    kid-specific rows peeled into a NESTED "Youth <activity>" child under that
+    activity (Phase 1, 2026-06-26) — never a flat sibling. Empty sub-sections
+    omitted; a youth-only activity renders as the activity node with empty adult
+    rows and its youth child (e.g. Gymnastics → Youth gymnastics)."""
+    adult: dict[str, list[dict[str, Any]]] = {}
+    youth: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        label = classify(row)
+        (youth if row.get("youth") else adult).setdefault(label, []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in order:
+        a = adult.get(label, [])
+        y = youth.get(label, [])
+        if a or y:
+            out.append(_activity_node(label, a, y))
+    return out
+
+
+def split_class_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition already-sorted Fitness & classes rows into ordered type
+    subsections, omitting empty ones (honest-omission). Row order preserved.
+
+    Each activity's kid-specific rows peel into a paired "Youth <activity>"
+    sub-section (Youth Martial Arts, Youth Dance, …) right after the adult one
+    (Casey 2026-06-26). The adult Pickleball subgroup is further split into its
+    Court Hours (Indoor/Outdoor) and Leagues & Competitions facets (Phase 5)."""
+    adult: dict[str, list[dict[str, Any]]] = {}
+    youth: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        label = _row_class_label(row)
+        (youth if row.get("youth") else adult).setdefault(label, []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in SUBGROUP_ORDER:
+        a = adult.get(label, [])
+        y = youth.get(label, [])
+        if label == "Martial Arts":
+            # Discipline split (BJJ / Taekwondo / flat base) nested under a single
+            # "Martial arts" subgroup; each discipline carries its own Youth child
+            # (Phase 1 + §4.1 — Martial arts → BJJ → Youth BJJ). Count = descendants.
+            disciplines = split_martial_arts_facets(a, y)
+            if disciplines:
+                out.append({
+                    "label": "Martial arts",
+                    "rows": [],
+                    "count": sum(d["count"] for d in disciplines),
+                    "children": disciplines,
+                })
+            continue
+        if label == "Pickleball":
+            # Adult Pickleball keeps its flat court-hours / competition facets; any
+            # kid-specific rows nest as a Youth child of the base facet (never a
+            # flat Youth sibling — Phase 1).
+            facets = split_pickleball_facets(a) if a else []
+            if y:
+                base = next((f for f in facets if f["label"] == PB_BASE_LABEL), None)
+                if base is None:
+                    base = {"label": PB_BASE_LABEL, "rows": [], "count": 0}
+                    facets.append(base)
+                base.setdefault("children", []).append(_youth_child(PB_BASE_LABEL, y))
+                base["count"] += len(y)
+            out.extend(facets)
+            continue
+        if a or y:
+            out.append(_activity_node(label, a, y))
+    return out
+
+
+# ── Unified activity classifier (calendar reorg, Casey 2026-06-25) ────────────
+# Phase 1 promotes this module to THE single classifier for *every* calendar
+# activity — not just the Fitness & Sports subgroups. The new non-fitness
+# activities route to OTHER top-level buckets:
+#   • arts / cooking / maker / learning → "learn"   (Classes & Workshops)
+#   • theater                            → "music"   (Theater & Performing Arts)
+#   • games / bowling / billiards /      → "events"  (Things to Do — the
+#     trampoline / family-fun                          Games & Social and the
+#                                                       Bowling/Billiards/Family
+#                                                       Fun sections)
+# These are stamped ONCE, at ingest, as a single ``activity:<slug>`` tag (plus
+# facet/audience tags) so every surface is a pure read (the render side is wired
+# in Phase 2). The slugs are namespaced (``activity:games``) so they are inert to
+# the bare-word tier classifier in :mod:`app.home.sandstone` until Phase 2 reads
+# them explicitly — which is why this phase changes no surface.
+
+# Specific non-fitness activity keywords, in specificity order. Checked BEFORE the
+# fitness classifier so an unambiguous craft/game/venue word wins over a fitness
+# keyword ("Paint & Sip" is arts, never a workout; "Mexican Train Dominoes" is a
+# game). Generic learning words ("workshop", "seminar") are deliberately NOT here
+# — they are too broad to outrank fitness ("Yoga Workshop" must stay yoga), so
+# they are a fallback below (:data:`_LEARNING_GENERIC`).
+NONFITNESS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
+    ("theater", (
+        "theater", "theatre", "musical", "performing arts", "improv",
+        "playhouse", "matinee", "drama club",
+    )),
+    ("games", (
+        "party bridge", "duplicate bridge", "bridge club", "pinochle",
+        "mexican train", "dominoes", "domino", "hand & foot", "hand and foot",
+        "bingo", "ping pong", "table tennis", "canasta", "mahjong", "mah jongg",
+        "euchre", "cribbage", "bunco", "board game", "card game",
+    )),
+    ("cooking", (
+        "cooking class", "cooking", "culinary", "baking class", "cake decorating",
+        "bread",
+    )),
+    ("arts", (
+        "paint & sip", "paint and sip", "sip & paint", "sip and paint",
+        "stained glass", "polymer clay", "terrarium", "pottery", "ceramics",
+        "art class", "art walk", "arts & crafts", "arts and crafts", "open art",
+        "windchime", "wind chime", "jewelry making", "watercolor", "water color",
+        "mosaic", "quilting", "sewing class", "knitting", "crochet", "scrapbook",
+    )),
+    # Pet-training instruction (dog obedience / puppy class) AND educational
+    # enrichment / homeschool programming → Classes & workshops. These carry no
+    # fitness keyword and "course" is deliberately absent from
+    # :data:`_LEARNING_GENERIC` (it collides with "golf course"), so a "Dog
+    # Obedience (8-wk course)" or a "Movement Lab (Afternoon Enrichment)" would
+    # otherwise fall to Around Town. "enrichment"/"homeschool" are unambiguous
+    # learning signals (a learning center's after-school enrichment block — Desert
+    # Bloom Learning Center, 2026-06-28); checked here, BEFORE the fitness
+    # classifier, so they're never mistaken for a workout. (Bare "lab"/"workshop"
+    # are deliberately NOT here — too broad; a generic "workshop" stays a fitness
+    # fallback via :data:`_LEARNING_GENERIC`.)
+    ("learning", (
+        "dog obedience", "obedience", "dog training", "puppy class", "puppy training",
+        "enrichment", "homeschool", "home school",
+    )),
+    ("maker", ("maker", "cake pop", "slime", "robotics", "stem workshop", "3d print")),
+    ("bowling", (
+        "bowling", "cosmic bowl", "glow bowl", "rock & bowl", "rock and bowl", "keglers",
+    )),
+    ("billiards", (
+        "billiards", "pool hall", "pool league", "8-ball", "9-ball",
+        "8 ball", "9 ball", "snooker", "dart league",
+    )),
+    ("trampoline", ("trampoline", "jump time", "glow in the park")),
+    ("family-fun", ("arcade", "laser tag", "mini golf", "go kart", "go-kart", "bounce house")),
+)
+# Generic instruction words → "learning" (Classes & Workshops). Fallback ONLY,
+# after the fitness classifier, so a "Yoga Workshop" stays yoga and only a
+# genuinely non-fitness workshop/seminar lands in learning.
+_LEARNING_GENERIC: tuple[str, ...] = (
+    "seminar", "lecture", "workshop", "lifelong learning", "genealogy",
+    "computer class", "book club", "language class", "financial literacy",
+)
+
+# Every activity slug → its top-level calendar bucket key. The fitness slugs (the
+# values of :data:`SUBGROUP_SLUGS`) all map to "classes"; the new non-fitness
+# slugs map to "learn" / "events" / "music". (Golf is added in Phase 3 → classes.)
+ACTIVITY_BUCKET: dict[str, str] = {
+    **{slug: "classes" for slug in SUBGROUP_SLUGS.values()},
+    "arts": "learn",
+    "cooking": "learn",
+    "maker": "learn",
+    "learning": "learn",
+    "theater": "music",
+    "games": "events",
+    "bowling": "events",
+    "billiards": "events",
+    "trampoline": "events",
+    "family-fun": "events",
+}
+
+# Themed recurring sessions that are destination events in their own right
+# (Cosmic Bowling, Glow in the Park) → facet:special, so they render as distinct
+# dated events rather than collapsing into a venue's hours line (plan §4.6).
+_SPECIAL_RE = re.compile(
+    r"\b(cosmic|glow(?:\s+in\s+the\s+park)?|neon|blacklight|black light|"
+    r"dive[- ]in|after dark|rock\s*[&n]?\s*bowl)\b",
+    re.IGNORECASE,
+)
+# Leagues / tournaments / round-robins → facet:competition (golf leagues,
+# pickleball round-robins/PickleFest, pool/dart leagues are all this shape).
+_COMPETITION_RE = re.compile(
+    r"\b(tournament|league|round[- ]?robin|picklefest|championship|playoff)s?\b",
+    re.IGNORECASE,
+)
+# Audience facets (drive the Kids & Family / Seniors overlays in Phase 2).
+_AUDIENCE_YOUTH_RE = re.compile(
+    r"\b(kid|kids|youth|children|child|toddler|junior|teen|tween|family|families|"
+    r"mommy|story\s*time|tiny\s*tot)\b",
+    re.IGNORECASE,
+)
+
+
+# Venue/provider names that ARE a theater so a youth production with no theater
+# keyword in its title ("Alice in Wonderland, Jr.") still reads as theater and
+# routes to Music & Nightlife → Theater (Phase 4c). Substring matched, lower-cased;
+# kept precise (a generic "performing arts" venue can be a dance studio, so it is
+# NOT here — only explicit theaters).
+_THEATER_VENUES: tuple[str, ...] = (
+    "gracearts",
+    "grace arts",
+    "playhouse",
+    "community theatre",
+    "community theater",
+)
+
+# Venues whose untyped classes ARE lifelong-learning / enrichment so a generically
+# named class published under them ("Movement Lab", "History Explorers") still
+# reads as learning. Substring matched, lower-cased. Checked AFTER the fitness
+# classifier (so a real yoga class at a "…Learning Center" stays yoga) — a pure
+# backstop for the token-less titles a learning center publishes (2026-06-28).
+_LEARNING_VENUES: tuple[str, ...] = (
+    "learning center",
+)
+
+
+def _phrase_hit(low: str, hints: tuple[str, ...]) -> bool:
+    """Word-boundary match of any hint in already-lowercased text (mirrors the
+    fitness :func:`_title_subgroup` matcher, phrases + a plural/gerund tail)."""
+    for h in hints:
+        if re.search(r"\b" + re.escape(h) + r"(?:e?s|ing)?\b", low):
+            return True
+    return False
+
+
+def classify_activity(
+    title: str,
+    venue: str | None = None,
+    tags: list[str] | None = None,
+    provider_activity: str | None = None,
+) -> str | None:
+    """The single canonical activity slug for any calendar row, or ``None``.
+
+    Precedence: (1) a specific non-fitness activity keyword (arts/cooking/maker/
+    games/theater/bowling/billiards/trampoline/family-fun) wins over fitness, so
+    a craft or social-game title is never mistaken for a workout; (2) the fitness
+    classifier (:func:`classify_class_subgroup` → its slug); (3) a generic
+    learning word ("workshop"/"seminar") as a fallback → ``learning``. Returns
+    ``None`` for non-activity rows (markets, festivals, civic) — they carry no
+    ``activity:*`` tag and route by the existing tier logic.
+    """
+    # A theater VENUE wins (Phase 4c): a GraceArts youth production whose title
+    # carries no theater keyword still reads as theater.
+    vlow = (venue or "").lower()
+    if vlow and any(v in vlow for v in _THEATER_VENUES):
+        return "theater"
+    low = (title or "").lower()
+    for slug, hints in NONFITNESS_SUBGROUPS:
+        if _phrase_hit(low, hints):
+            return slug
+    fitness = SUBGROUP_SLUGS.get(classify_class_subgroup(title, venue, provider_activity))
+    if fitness:
+        return fitness
+    # A learning-center venue's untyped class (no fitness/craft keyword) is
+    # lifelong-learning. Placed after the fitness classifier so a real yoga class
+    # there stays yoga; before the competition guard a learning center won't trip.
+    if vlow and any(v in vlow for v in _LEARNING_VENUES):
+        return "learning"
+    # A competition (tournament / league / round-robin / PickleFest) is never a
+    # class/workshop or a craft, so it must NOT fall through to the generic
+    # learning words or the bare-``arts`` source tag below — a "Yard Games &
+    # Cornhole Tournament" carrying a stray ``arts`` source tag would otherwise
+    # mis-file under Classes & workshops instead of Around Town. A *real* sport
+    # competition already matched a sport slug above (a "Pickleball Round Robin"
+    # → pickleball, a "Bowling Tournament" → bowling), so guarding only this
+    # fallback tail leaves those untouched; an unmatched competition returns
+    # None (no activity slug → Around Town).
+    if _COMPETITION_RE.search(low):
+        return None
+    if _phrase_hit(low, _LEARNING_GENERIC):
+        return "learning"
+    # Bare source-category tag fallback (Phase 4c): an unambiguous ``arts`` tag
+    # with no craft keyword in the title still reads as arts (the kids "FREE
+    # Summer Craft Series" carries a bare ``arts`` tag) → Classes & workshops.
+    tagset = {str(t).strip().lower() for t in (tags or [])}
+    if "arts" in tagset:
+        return "arts"
+    return None
+
+
+def activity_bucket(slug: str | None) -> str | None:
+    """Top-level calendar bucket key for an activity slug, or ``None``."""
+    return ACTIVITY_BUCKET.get(slug) if slug else None
+
+
+def event_activity_tags(
+    title: str,
+    venue: str | None = None,
+    tags: list[str] | None = None,
+    provider_activity: str | None = None,
+) -> list[str]:
+    """Canonical namespaced tags to stamp on a row at ingest: one
+    ``activity:<slug>`` (when classifiable) plus ``facet:special`` /
+    ``facet:competition`` / ``audience:youth`` / ``audience:senior`` where
+    derivable. Namespaced so they are inert to the bare-word tier classifier
+    until the surfaces read them (Phase 2). Order-stable, no duplicates."""
+    out: list[str] = []
+    slug = classify_activity(title, venue, tags, provider_activity)
+    if slug:
+        out.append(f"activity:{slug}")
+    low = (title or "").lower()
+    if _SPECIAL_RE.search(low):
+        out.append("facet:special")
+    if _COMPETITION_RE.search(low):
+        out.append("facet:competition")
+    tagset = {str(t).strip().lower() for t in (tags or [])}
+    if "senior" in tagset or "seniors" in tagset:
+        out.append("audience:senior")
+    if _AUDIENCE_YOUTH_RE.search(low) or tagset & {"family", "youth", "kids"}:
+        out.append("audience:youth")
+    # De-dup while preserving order.
+    seen: set[str] = set()
+    deduped: list[str] = []
+    for t in out:
+        if t not in seen:
+            seen.add(t)
+            deduped.append(t)
+    return deduped
+
+
+# ── Phase 2 render: surfaces read the activity tag (tag-first, classify back) ──
+def resolve_activity(
+    title: str,
+    venue: str | None = None,
+    tags: list[str] | None = None,
+    provider_activity: str | None = None,
+) -> str | None:
+    """The activity slug for a *rendered* row: read the canonical
+    ``activity:<slug>`` tag stamped at ingest (Phase 1) when present, else fall
+    back to the SAME classifier (:func:`classify_activity`). Tag-first means a
+    backfilled row is a pure read; the fallback keeps pre-backfill rows and
+    render-time Schedule occurrences (which carry no tag, only a provider
+    activity label) correct — one classifier, no divergent re-parsing."""
+    for t in tags or []:
+        s = str(t)
+        if s.startswith("activity:"):
+            return s.split(":", 1)[1] or None
+    return classify_activity(title, venue, tags, provider_activity)
+
+
+# ── Classes & Workshops (learn) subsections ───────────────────────────────────
+LEARN_ARTS_LABEL = "Arts & Crafts"
+LEARN_PAINT_LABEL = "Paint & Sip"
+LEARN_COOKING_LABEL = "Cooking"
+LEARN_MAKER_LABEL = "Maker"
+LEARN_LEARNING_LABEL = "Lifelong Learning"
+LEARN_SUBGROUP_ORDER: tuple[str, ...] = (
+    LEARN_ARTS_LABEL, LEARN_PAINT_LABEL, LEARN_COOKING_LABEL,
+    LEARN_MAKER_LABEL, LEARN_LEARNING_LABEL,
+)
+_PAINT_SIP_RE = re.compile(r"\b(paint\s*[&n]?\s*sip|sip\s*[&n]?\s*paint)\b", re.IGNORECASE)
+
+
+def classify_learn_subgroup(
+    title: str, tags: list[str] | None = None, activity: str | None = None
+) -> str:
+    """Map a Classes & Workshops row to its subsection. Paint & Sip splits out of
+    Arts & Crafts by title (it is the social-craft variant); otherwise the
+    activity slug picks the section, with arts as the honest default."""
+    if _PAINT_SIP_RE.search(title or ""):
+        return LEARN_PAINT_LABEL
+    slug = resolve_activity(title, None, tags, activity)
+    if slug == "cooking":
+        return LEARN_COOKING_LABEL
+    if slug == "maker":
+        return LEARN_MAKER_LABEL
+    if slug == "learning":
+        return LEARN_LEARNING_LABEL
+    return LEARN_ARTS_LABEL
+
+
+def split_learn_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition already-sorted Classes & Workshops rows into ordered
+    subsections, each with a paired "Youth <subsection>" for kid-specific rows;
+    empty ones omitted (honest-omission). Row order preserved."""
+    return _split_with_youth(
+        rows,
+        LEARN_SUBGROUP_ORDER,
+        lambda r: classify_learn_subgroup(r.get("title") or "", r.get("tags"), r.get("activity")),
+    )
+
+
+# ── Things to Do (events) subsections — venue-type cluster (Casey 2026-06-26) ──
+# "Things to Do" splits by VENUE TYPE: each bowling/billiards/trampoline/arcade
+# venue type is its own sub-section holding that venue's hours AND its events.
+# Casey 2026-06-26 (post-QA): there is NO separate "Special Sessions" silo —
+# Cosmic Bowling (activity:bowling) nests under **Bowling**, Glow in the Park
+# (activity:trampoline) under **Trampoline**, beside that venue's hours. So a
+# themed venue session routes by its venue-kind/activity, not to a generic
+# specials bucket — and future scrapes self-file the same way (venue-kind +
+# facet:special). Games & Social holds all-ages public bingo/cards (senior games
+# live under the gated Seniors group); everything else is the residual Around Town.
+EVENTS_AROUND_LABEL = "Around Town"
+EVENTS_GAMES_LABEL = "Games & Social"
+EVENTS_BILLIARDS_LABEL = "Billiards"
+EVENTS_BOWLING_LABEL = "Bowling"
+EVENTS_TRAMPOLINE_LABEL = "Trampoline"
+EVENTS_ARCADE_LABEL = "Arcade & Family Fun"
+# Golf — simulators & Top Tracer (Phase 2, Casey 2026-06-26): the indoor sims and
+# the Top Tracer driving range are drop-in entertainment → Things to Do (the
+# COURSES are structured play → Sports & Fitness). The subgroup splits into its
+# two venue-kind facets as children.
+EVENTS_GOLF_LABEL = "Golf — simulators & Top Tracer"
+GOLF_SIM_LABEL = "Indoor simulators"
+GOLF_RANGE_LABEL = "Top Tracer driving range"
+# Classes & workshops (Phase 4c, Casey 2026-06-26): non-fitness instruction
+# (arts / craft / cooking / maker / lifelong learning) folds in as a Things-to-Do
+# subcategory (the old top-level "learn" bucket), with its kid rows nested as a
+# Youth child (the kids Craft Series / art camps).
+EVENTS_WORKSHOPS_LABEL = "Classes & workshops"
+EVENTS_SUBGROUP_ORDER: tuple[str, ...] = (
+    EVENTS_AROUND_LABEL, EVENTS_GAMES_LABEL, EVENTS_BILLIARDS_LABEL,
+    EVENTS_BOWLING_LABEL, EVENTS_TRAMPOLINE_LABEL, EVENTS_ARCADE_LABEL,
+    EVENTS_GOLF_LABEL, EVENTS_WORKSHOPS_LABEL,
+)
+# Venue-type / activity slug → its Things-to-Do sub-section label. ``family-fun``
+# is the arcade/family-fun cluster; ``games`` is the social-games section.
+_SLUG_TO_EVENTS_LABEL: dict[str, str] = {
+    "billiards": EVENTS_BILLIARDS_LABEL,
+    "bowling": EVENTS_BOWLING_LABEL,
+    "trampoline": EVENTS_TRAMPOLINE_LABEL,
+    "family-fun": EVENTS_ARCADE_LABEL,
+    "games": EVENTS_GAMES_LABEL,
+}
+
+
+def golf_venue_kind(tags: list[str] | None) -> str | None:
+    """The ``venue-kind:<course|range|simulator>`` of a golf row (stamped by the
+    golf loader, :mod:`app.contrib.lhc_golf`), or None when absent."""
+    for t in tags or []:
+        s = str(t).strip().lower()
+        if s.startswith("venue-kind:"):
+            kind = s.split(":", 1)[1]
+            if kind in ("course", "range", "simulator"):
+                return kind
+    return None
+
+
+def classify_events_subgroup(
+    title: str, tags: list[str] | None = None, activity: str | None = None
+) -> str:
+    """Map a Things-to-Do row to its venue-type sub-section.
+
+    Golf sims / Top Tracer range (``venue-kind:simulator|range``) cluster under
+    "Golf — simulators & Top Tracer" (Phase 2). Otherwise routes by
+    ``venue-kind:<slug>`` (curated venue-hours rows carry this) then the activity
+    slug (so an `activity:bowling` Cosmic Bowling event and a bowling venue's
+    hours both land under **Bowling**). A `facet:special` session is NOT a
+    separate section — it nests under its venue type. Everything unmatched is the
+    residual Around Town."""
+    if golf_venue_kind(tags) in ("simulator", "range"):
+        return EVENTS_GOLF_LABEL
+    for t in tags or []:
+        s = str(t).strip().lower()
+        if s.startswith("venue-kind:"):
+            label = _SLUG_TO_EVENTS_LABEL.get(s.split(":", 1)[1])
+            if label:
+                return label
+    slug = resolve_activity(title, None, tags, activity)
+    # Non-fitness instruction (arts/craft/cooking/maker/learning) → Classes &
+    # workshops (Phase 4c — the folded-in "learn" bucket).
+    if activity_bucket(slug) == "learn":
+        return EVENTS_WORKSHOPS_LABEL
+    return _SLUG_TO_EVENTS_LABEL.get(slug or "", EVENTS_AROUND_LABEL)
+
+
+def split_golf_facets(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Split the Things-to-Do golf rows into the two venue-kind facet children:
+    Indoor simulators (``venue-kind:simulator``) and Top Tracer driving range
+    (everything else here — only sims and ranges route to Things to Do). Empties
+    omitted; row order preserved."""
+    sim = [r for r in rows if golf_venue_kind(r.get("tags")) == "simulator"]
+    rng = [r for r in rows if golf_venue_kind(r.get("tags")) != "simulator"]
+    out: list[dict[str, Any]] = []
+    if sim:
+        out.append({"label": GOLF_SIM_LABEL, "rows": sim, "count": len(sim)})
+    if rng:
+        out.append({"label": GOLF_RANGE_LABEL, "rows": rng, "count": len(rng)})
+    return out
+
+
+def split_events_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition already-sorted Things-to-Do rows into ordered venue-type
+    subsections, with a paired "Youth …" for kid-specific rows; empties omitted.
+    The Golf subgroup further splits into its Indoor simulators / Top Tracer range
+    facet children (Phase 2). The caller only applies this when a non-residual
+    subsection exists (so plain days stay flat)."""
+    adult: dict[str, list[dict[str, Any]]] = {}
+    youth: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        label = classify_events_subgroup(row.get("title") or "", row.get("tags"), row.get("activity"))
+        (youth if row.get("youth") else adult).setdefault(label, []).append(row)
+    out: list[dict[str, Any]] = []
+    for label in EVENTS_SUBGROUP_ORDER:
+        a = adult.get(label, [])
+        y = youth.get(label, [])
+        if label == EVENTS_GOLF_LABEL:
+            children = split_golf_facets(a)
+            if y:
+                children.append(_youth_child(label, y))
+            if children:
+                out.append({
+                    "label": label, "rows": [], "count": len(a) + len(y), "children": children
+                })
+            continue
+        if a or y:
+            out.append(_activity_node(label, a, y))
+    return out
+
+
+# ── Seniors group — internal sub-split (the gated group stays browsable) ───────
+# Senior Center programming is gated (age/membership) and grouped under Seniors
+# ONLY (never cross-listed into the public buckets — that routing lives in
+# events_views). Inside the group it sub-splits by activity so it is still
+# scannable, per the layout doc.
+SENIOR_GAMES_LABEL = "Games & Social"
+SENIOR_FITNESS_LABEL = "Fitness & Movement"
+SENIOR_ARTS_LABEL = "Arts & Crafts"
+SENIOR_SOCIAL_LABEL = "Social, Music & Meals"
+SENIOR_SPECIAL_LABEL = "Special"
+SENIOR_SUBGROUP_ORDER: tuple[str, ...] = (
+    SENIOR_GAMES_LABEL, SENIOR_FITNESS_LABEL, SENIOR_ARTS_LABEL,
+    SENIOR_SOCIAL_LABEL, SENIOR_SPECIAL_LABEL,
+)
+_SENIOR_SPECIAL_RE = re.compile(
+    r"\b(awareness|christmas|thanksgiving|halloween|holiday|new year|"
+    r"grand (?:re-?)?opening|anniversary|celebration|special event)\b",
+    re.IGNORECASE,
+)
+_SENIOR_SOCIAL_RE = re.compile(
+    r"\b(lunch|luncheon|dinner|breakfast|brunch|potluck|meal|coffee|social|"
+    r"music jam|jam session|karaoke|movie|bingo night)\b",
+    re.IGNORECASE,
+)
+
+
+def classify_senior_subgroup(
+    title: str, tags: list[str] | None = None, activity: str | None = None
+) -> str:
+    """Map a senior occurrence to its internal subsection (Games & Social,
+    Fitness & Movement, Arts & Crafts, Social/Music/Meals, Special)."""
+    low = (title or "")
+    tagset = {str(t).strip().lower() for t in (tags or [])}
+    if "facet:special" in tagset or _SENIOR_SPECIAL_RE.search(low):
+        return SENIOR_SPECIAL_LABEL
+    slug = resolve_activity(title, None, tags, activity)
+    # Cards / board games AND the Senior Center pool room read as Games & Social
+    # (the layout groups "Open Billiards" with Pinochle/Bridge under Seniors).
+    if slug in ("games", "billiards"):
+        return SENIOR_GAMES_LABEL
+    if slug in ("arts", "maker"):
+        return SENIOR_ARTS_LABEL
+    if activity_bucket(slug) == "classes":
+        return SENIOR_FITNESS_LABEL
+    if _SENIOR_SOCIAL_RE.search(low):
+        return SENIOR_SOCIAL_LABEL
+    # theater / cooking / learning / unclassified senior items read as social.
+    return SENIOR_SOCIAL_LABEL
+
+
+def split_senior_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Partition already-sorted Seniors rows into ordered internal subsections,
+    omitting empty ones (honest-omission). Row order preserved."""
+    buckets: dict[str, list[dict[str, Any]]] = {}
+    for row in rows:
+        label = classify_senior_subgroup(
+            row.get("title") or "", row.get("tags"), row.get("activity")
         )
         buckets.setdefault(label, []).append(row)
     out: list[dict[str, Any]] = []
-    for label in SUBGROUP_ORDER:
+    for label in SENIOR_SUBGROUP_ORDER:
         sub_rows = buckets.get(label)
         if sub_rows:
             out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
@@ -236,17 +1011,11 @@ def classify_music_subgroup(
 
 def split_music_subgroups(rows: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Partition already-sorted Music & nightlife rows into ordered subsections,
-    omitting empty ones (honest-omission). Comedy & Theater simply doesn't render
-    on a day with none — that is the "where volume warrants" behavior."""
-    buckets: dict[str, list[dict[str, Any]]] = {}
-    for row in rows:
-        label = classify_music_subgroup(
-            row.get("title") or "", row.get("tags"), row.get("venue")
-        )
-        buckets.setdefault(label, []).append(row)
-    out: list[dict[str, Any]] = []
-    for label in MUSIC_SUBGROUP_ORDER:
-        sub_rows = buckets.get(label)
-        if sub_rows:
-            out.append({"label": label, "rows": sub_rows, "count": len(sub_rows)})
-    return out
+    with a paired "Youth Theater" for kid-specific rows; empties omitted. Comedy &
+    Theater simply doesn't render on a day with none — the "where volume warrants"
+    behavior."""
+    return _split_with_youth(
+        rows,
+        MUSIC_SUBGROUP_ORDER,
+        lambda r: classify_music_subgroup(r.get("title") or "", r.get("tags"), r.get("venue")),
+    )

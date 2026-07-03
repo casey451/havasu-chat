@@ -17,31 +17,27 @@ Sandstone re-skin (2026-06-02, UI build guide §4.11):
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.conditions.cache import read_source
 from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
-from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.rate_limit import limiter, public_api_rate_limit, public_html_rate_limit
+from app.core.templates import make_templates
 from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.database import get_db
 
 router = APIRouter(tags=["gas"])
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-# Every Jinja2Templates instance must run the shared registrars: without
-# ``canonical_url``/``absolute_url`` globals, desert_base silently skips its
-# whole canonical + Open Graph head block — live /gas shipped with NO
-# canonical and NO og:* tags because this module skipped the calls.
-register_template_filters(templates)
-register_template_globals(templates)
+# make_templates() runs the shared registrars. This page learned why that
+# matters the hard way: without the ``canonical_url``/``absolute_url`` globals,
+# desert_base silently skips its whole canonical + Open Graph head block — live
+# /gas once shipped with NO canonical and NO og:* tags after skipping the calls.
+templates = make_templates()
 
 # Number of cheapest stations to surface above the full table. The prototype's
 # cut-off "top 5" is replaced with a clean 6-up grid (UI build guide §4.11).
@@ -96,17 +92,15 @@ def _shell_context(db: Session) -> dict[str, Any]:
     ``utility_chips`` is supplied). Built from the canonical home builders;
     imported lazily to avoid a module-load cycle with app.home.router.
     """
-    from app.home import sandstone
     from app.home.router import _utility_chips
 
     return {
         "utility_chips": _utility_chips(db),
-        "primary_nav": sandstone.primary_nav(),
-        "mega_columns": sandstone.mega_columns(db),
     }
 
 
 @router.get("/gas", response_class=HTMLResponse)
+@limiter.limit(public_html_rate_limit)
 def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     data, staleness, is_stale, fetched_at_label, fetched_at_time_label = _read_payload(db)
     stations = [s for s in (data.get("stations") or []) if isinstance(s, dict)]
@@ -137,6 +131,7 @@ def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
 
 
 @router.get("/api/gas", response_class=JSONResponse)
-def gas_api(db: Session = Depends(get_db)) -> JSONResponse:
+@limiter.limit(public_api_rate_limit)
+def gas_api(request: Request, db: Session = Depends(get_db)) -> JSONResponse:
     data, staleness, is_stale, _, _ = _read_payload(db)
     return JSONResponse(content={**data, "staleness_label": staleness, "is_stale": is_stale})

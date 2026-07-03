@@ -150,9 +150,12 @@ def test_leaf_page_title_h1_and_jsonld_use_searcher_noun(
     assert r.status_code == 200
     body = r.text
     n = len(seeded_plumbing["names"])
-    # Title + H1 carry "Plumbers", the term people google — not "Plumbing".
-    assert f"<h1>{n} Best Plumbers in Lake Havasu City, AZ</h1>" in body
-    assert f"<title>{n} Best Plumbers in Lake Havasu City, AZ — Ask Hava</title>" in body
+    # Title + H1 carry "Plumbers", the term people google — not "Plumbing". The
+    # count prefix is dropped when there's a single listing (2026-06-30 audit
+    # 1D: "1 Best Plumbers" reads wrong), else "N Best ...".
+    count_prefix = f"{n} " if n != 1 else ""
+    assert f"<h1>{count_prefix}Best Plumbers in Lake Havasu City, AZ</h1>" in body
+    assert f"<title>{count_prefix}Best Plumbers in Lake Havasu City, AZ — Ask Hava</title>" in body
     blocks = [json.loads(m) for m in _JSONLD_RE.findall(body)]
     crumb = next(b for b in blocks if b.get("@type") == "BreadcrumbList")
     assert crumb["itemListElement"][2]["name"] == "Plumbers"

@@ -82,6 +82,31 @@ def test_profile_renders_core_bindings() -> None:
     assert "210 Swanson Ave" in h  # address
 
 
+def test_profile_map_is_a_link_button_not_a_fake_map() -> None:
+    """F14: the "View on the map" element is an obvious link button (pin glyph +
+    label), not a faux embedded-map panel."""
+    h = _render(_vm())
+    assert '<a class="pmap"' in h
+    assert "View on the map" in h
+    assert "<svg" in h.split('class="pmap"')[1][:400]  # pin icon inside the link
+    # The old faux-map gradient panel markup is gone.
+    assert "linear-gradient(160deg,#dbe6ec" not in h
+
+
+def test_profile_gallery_class_tracks_photo_count() -> None:
+    """F14: the hero gallery carries a pg-N count class so the CSS can fill the
+    frame for sparse photo sets (a single photo no longer leaves a blue half)."""
+    # Default vm = 1 hero + 2 gallery = 3 photos.
+    assert 'class="pgallery pg-3"' in _render(_vm())
+    # One photo only (the amalaya-yoga case the audit hit).
+    assert 'class="pgallery pg-1"' in _render(_vm(gallery_photo_urls=[]))
+    # Five+ photos keep the full mosaic (capped at 5).
+    five = _render(_vm(gallery_photo_urls=[f"https://img.example/g{i}.jpg" for i in range(6)]))
+    assert 'class="pgallery pg-5"' in five
+    # No photos -> the monogram art fallback, never a pg-0.
+    assert 'class="pgallery is-art"' in _render(_vm(hero_photo_url=None, gallery_photo_urls=[]))
+
+
 def test_profile_localbusiness_jsonld_is_full() -> None:
     blocks = _ld_blocks(_render(_vm()))
     lb = next(b for b in blocks if b.get("@type") == "LocalBusiness")

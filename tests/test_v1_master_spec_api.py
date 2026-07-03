@@ -9,31 +9,14 @@ from app.main import app
 client = TestClient(app)
 
 
-def test_api_feed_returns_json() -> None:
-    r = client.get("/api/feed")
-    assert r.status_code == 200
-    body = r.json()
-    assert "events_soon" in body
-    assert "generated_at" in body
+# /api/feed, /api/categories, /api/businesses were removed 2026-07-02 (no
+# consumers, no promised API). Their smoke tests went with them.
 
 
-def test_api_categories_seven_buckets() -> None:
-    r = client.get("/api/categories")
-    assert r.status_code == 200
-    buckets = r.json()["buckets"]
-    assert len(buckets) == 7
-    ids = {b["id"] for b in buckets}
-    assert "events" in ids
-    assert "food-drink" in ids
-
-
-def test_api_businesses_list_paginated() -> None:
-    r = client.get("/api/businesses", params={"limit": 5, "offset": 0})
-    assert r.status_code == 200
-    body = r.json()
-    assert "items" in body
-    assert "total" in body
-    assert body["limit"] == 5
+def test_removed_public_data_endpoints_are_gone() -> None:
+    """The consumer-less v1 data endpoints no longer resolve (404)."""
+    for path in ("/api/feed", "/api/categories", "/api/businesses"):
+        assert client.get(path).status_code == 404, path
 
 
 def test_api_events_list() -> None:

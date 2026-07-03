@@ -1,48 +1,17 @@
-{#- ───── Shared Lake site footer (P0 consolidation) ─────
-   The single source for the Lake theme's footer. Included by base_lake.html so
-   later phases edit ONE file. Self-contained (imports its own logo macro).
-   "Advertise" + "Sponsored clearly labeled" point at the PUBLIC /sponsor page
-   (P0: the old /portal/placements target login-walled the most-linked CTA).
-   Desert (desert_base.html) keeps its own footer until it is retired. -#}
-{% from "_partials/lake_logo.svg.html" import logo_nav %}
-<footer class="ft">
-  <div class="wrap">
-    <div class="ft-top">
-      <div class="ft-brand">
-        <span class="brand" style="color:#eef3f7;--ac:#d8a64e">
-          {{ logo_nav(24) }}
-          <span class="wm">Ask <span class="b">Hava</span></span>
-        </span>
-        <p class="tag">The local directory for Lake Havasu City. What's open, what's on, and where to go.</p>
-      </div>
-      <div>
-        <h5>Explore</h5>
-        <a class="fl" href="/home">Home</a>
-        <a class="fl" href="/events-ui">Events</a>
-        <a class="fl" href="/movies">Movies</a>
-        <a class="fl" href="/categories">The directory</a>
-      </div>
-      <div>
-        <h5>Ask Hava</h5>
-        <a class="fl" href="/about">About</a>
-        <a class="fl" href="/help">Help</a>
-        <a class="fl" href="/contact">Contact</a>
-        <a class="fl" href="/feedback">Send feedback</a>
-      </div>
-      <div>
-        <h5>For business owners</h5>
-        <a class="fl" href="/portal">Business portal</a>
-        <a class="fl" href="/sponsor">Advertise</a>
-        <a class="fl" href="/portal/claim">Claim your listing</a>
-      </div>
-    </div>
-    <div class="ft-trust">
-      <span class="tl">
-        <span><span class="d" aria-hidden="true"></span><a href="/about">Real public reviews</a></span>
-        <span><span class="d" aria-hidden="true"></span><a href="/sponsor">Sponsored clearly labeled</a></span>
-        <span><span class="d" aria-hidden="true"></span><a href="/about">Built in Lake Havasu</a></span>
-      </span>
-      <span>© Ask Hava · Lake Havasu City, Arizona · <a href="/privacy">Privacy</a> · <a href="/terms">Terms</a></span>
-    </div>
+{#- ───── Unified site footer (F11) ─────
+   The single v4 footer (dark band) included by base_lake.html. Styled by
+   static/styles/site_chrome.css (.foot rules); base_redesign.html renders the
+   SAME markup so every page shares one footer. Keeps the useful link set +
+   legal links the old multi-column footer carried, in the v4 idiom. Labels are
+   reconciled with the header menu ("Explore", "For Business"). -#}
+<footer class="foot">
+  <div class="ft">Ask <span class="b">Hava</span></div>
+  <div class="fl">
+    <a href="/home">Home</a><a href="/events-ui">Events</a><a href="/calendar">Calendar</a><a href="/movies">Movies</a><a href="/gas">Gas</a><a href="/categories">Explore</a><a href="/portal">For Business</a><a href="/sponsor">Advertise</a><a href="/about">About</a><a href="/help">Help</a><a href="/contact">Contact</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a>
   </div>
+  <div class="rule"></div>
+  {# Trust line (kept from the prior footer, UX review §2.3): the phrases + their
+     substantiating links. #}
+  <div class="ftrust"><a href="/about">Real public reviews</a> · <a href="/sponsor">Sponsored clearly labeled</a> · <a href="/about">Built in Lake Havasu</a></div>
+  <div class="fc">Lake Havasu City, Arizona · The local directory for what's open, what's on &amp; where to go · © Ask Hava</div>
 </footer>

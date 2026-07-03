@@ -427,7 +427,11 @@ def _event_intent_for(t: str, *, extra_slots: dict[str, object] | None = None,
     """
     window = _event_window(t)
     slots: dict[str, object] = {"window": window}
-    if _has_any(t, ("live music", "concert")):
+    # 2026-06-30 audit A2: catch the live-music phrasings the fuzzy "_events"
+    # exemplars reach on too ("live bands", "live entertainment") so they filter
+    # to real music, not the whole day's calendar.
+    if _has_any(t, ("live music", "live band", "live bands", "live entertainment",
+                    "concert", "concerts")):
         slots["activity"] = "live_music"
     if extra_slots:
         slots.update(extra_slots)

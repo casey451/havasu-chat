@@ -142,21 +142,17 @@ def test_discover_grid_status_text_can_be_none() -> None:
 # ---------------------------------------------------------------------------
 
 
-def test_home_renders_sandstone_explore_strip(seeded_nav_departments: dict) -> None:
-    """The Lake Light discover/mood grid is replaced by the Sandstone Explore
-    strip (live taxonomy departments with leaf-summed counts). 'Browse by
-    mood' was cut in the blueprint.
+def test_home_has_no_legacy_discover_grid(seeded_nav_departments: dict) -> None:
+    """The v4 home (flag collapsed 2026-07-02) has no explore/discover strip at
+    all — directory browsing lives on /categories. Guard that the legacy
+    discover-grid markup and the cut 'Browse by mood' copy never resurface.
 
     ``queries_c.discover_grid`` keeps its own unit coverage above.
     """
+    del seeded_nav_departments
     with TestClient(app) as client:
         r = client.get("/home")
     assert r.status_code == 200
-    # Lake home explore strip: department front doors with leaf-summed counts.
-    assert "Find a place or service" in r.text
-    assert 'class="exgrid dir-grid"' in r.text
-    assert 'href="/categories/eat-and-drink"' in r.text
-    # Legacy discover-grid markup and the cut "Browse by mood" copy are gone.
     assert 'class="ll-grid-two"' not in r.text
     assert "Browse by mood" not in r.text
 

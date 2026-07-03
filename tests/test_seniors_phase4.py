@@ -45,19 +45,21 @@ def _cleanup(eids: list[str]) -> None:
 # --- senior_filter -----------------------------------------------------------
 
 
-def test_is_senior_event_tag_and_keywords() -> None:
+def test_is_senior_event_tag_and_venue_only() -> None:
+    # Phase 4 / Q5 (Casey 2026-06-26): senior membership is by TAG or VENUE only —
+    # NEVER a title keyword. The Seniors group is the gated Senior-Center surface.
     assert is_senior_event("Exercise Class", ["senior"]) is True
-    assert is_senior_event("Tai Chi for Balance") is True       # senior-program keyword
-    assert is_senior_event("Low-Impact Aerobics") is True       # senior-program keyword
-    assert is_senior_event("Water Wellness") is True            # senior-program keyword
-    # Lake-Havasu-ambiguous terms must NOT imply seniors on their own.
+    assert is_senior_event("Generic Class", None, "Lake Havasu Senior Center") is True
+    # Title keywords no longer gate: a public Aquatic-Center class whose title
+    # merely contains arthritis / tai chi / water wellness stays OUT of Seniors.
+    assert is_senior_event("Tai Chi for Balance") is False
+    assert is_senior_event("Low-Impact Aerobics") is False
+    assert is_senior_event("Water Wellness") is False
+    assert is_senior_event("Arthritis Water Class", None, "Lake Havasu City Aquatic Center") is False
+    # Ambiguous terms still don't imply seniors.
     assert is_senior_event("London Bridge Days") is False
     assert is_senior_event("Live Music at the Brewery") is False
-    # 2026-06-23: a bare game name is no longer senior on the title alone — the
-    # Senior Center's Bunco/Pinochle carry the `senior` tag (and venue), but a
-    # general bar/community game night must not be pulled into Seniors.
     assert is_senior_event("Bunco Night") is False
-    assert is_senior_event("Uncorked Bunco", None, "Foundry Plates & Spirits") is False
 
 
 def test_is_senior_event_decided_by_venue() -> None:
@@ -140,10 +142,10 @@ def test_senior_items_route_to_seniors_only_never_dual() -> None:
         _cleanup(eids)
 
 
-def test_nonfitness_class_routes_to_happening_today() -> None:
-    # 2026-06-23: a recurring non-fitness "class" (dog obedience) has no fitness
-    # activity type, so it files under Happening today — NOT a Fitness & classes
-    # "Other classes" residue (which no longer exists).
+def test_nonfitness_class_routes_to_classes_and_workshops() -> None:
+    # A recurring non-fitness "class" (dog obedience) reads as lifelong-learning,
+    # so (Casey 2026-06-29) it files under the top-level Classes & Workshops group
+    # (learn) — NOT Fitness, and NOT the Things-to-Do junk drawer.
     s = uuid.uuid4().hex[:6]
     dog = f"ZZ Dog Obedience {s}"
     eids: list[str] = []
@@ -155,15 +157,19 @@ def test_nonfitness_class_routes_to_happening_today() -> None:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
         by_key = {g["key"]: {r["title"] for r in g["rows"]} for g in groups}
-        assert any(dog in t for t in by_key.get("events", set()))
+        assert any(dog in t for t in by_key.get("learn", set()))
+        assert not any(dog in t for t in by_key.get("events", set()))
         assert not any(dog in t for t in by_key.get("classes", set()))
     finally:
         _cleanup(eids)
 
 
-def test_kids_venue_class_routes_to_family_only() -> None:
-    # A generically-named class at a kids-only venue files under Kids & Family
-    # ONLY (not the adult Fitness list, not Happening today).
+def test_kids_venue_class_lands_in_youth_sub() -> None:
+    # A class at a kids-only venue is youth-flagged. With no Kids & Family group
+    # (Casey 2026-06-26) it lands ONCE in its primary group and peels into that
+    # group's Youth sub. An "Enrichment Lab" at a learning center reads as
+    # lifelong-learning → the top-level Classes & Workshops group (learn, Casey
+    # 2026-06-29), so it surfaces under that group's Youth child.
     s = uuid.uuid4().hex[:6]
     enr = f"ZZ Enrichment Lab {s}"
     eids: list[str] = []
@@ -175,9 +181,27 @@ def test_kids_venue_class_routes_to_family_only() -> None:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=_MONDAY.date(), now=_MONDAY)
         by_key = {g["key"]: {r["title"] for r in g["rows"]} for g in groups}
-        assert any(enr in t for t in by_key.get("family", set()))
-        assert not any(enr in t for t in by_key.get("classes", set()))
+        # No "family" group exists any more.
+        assert not by_key.get("family")
+        # Its own top-level Classes & Workshops group, not Things to Do or Fitness.
+        assert any(enr in t for t in by_key.get("learn", set()))
         assert not any(enr in t for t in by_key.get("events", set()))
+        assert not any(enr in t for t in by_key.get("classes", set()))
+        learn = next(g for g in groups if g["key"] == "learn")
+
+        def _walk(nodes: list[dict]) -> list[dict]:
+            out: list[dict] = []
+            for n in nodes:
+                out.append(n)
+                out += _walk(n.get("children", []) or [])
+            return out
+
+        # Phase 1: the youth rows nest as a youth CHILD under their activity
+        # subsection, not a flat top-level sibling.
+        youth = [n for n in _walk(learn.get("subgroups", [])) if n.get("youth")]
+        assert youth and any(
+            enr in r["title"] for n in youth for r in n["rows"]
+        )
     finally:
         _cleanup(eids)
 
@@ -208,30 +232,3 @@ def test_calendar_parses_senior_intent() -> None:
     assert calendar_view.parse_calendar_query("toddler story time")["aud"] == "kids"
 
 
-def test_calendar_senior_query_narrows_and_shows_understood_chip() -> None:
-    """Item 4: the manual audience toggle (seg_aud) is gone, but a senior ask
-    typed in plain words still narrows the calendar and surfaces a removable
-    "Seniors" understood-chip — chat senior intent is preserved."""
-    s = uuid.uuid4().hex[:6]
-    senior = f"ZZ Senior Bingo {s}"
-    music = f"ZZ DJ Night {s}"
-    eids: list[str] = []
-    with SessionLocal() as db:
-        eids.append(_add_event(db, title=senior, start=time(20, 0), loc="Senior Center",
-                               tags=["senior"]))
-        eids.append(_add_event(db, title=music, start=time(20, 30), loc="Bar", tags=["music"]))
-        db.commit()
-    try:
-        with SessionLocal() as db:
-            vm = calendar_view.build_calendar(
-                db, q="for seniors", today=_MONDAY.date(), now=_MONDAY
-            )
-        # No manual audience toggle in the view model anymore …
-        assert "seg_aud" not in vm
-        # … but the parsed senior intent narrows and shows a removable chip.
-        assert any(c["label"] == "Seniors" for c in vm["chips"])
-        all_titles = {it["title"] for col in vm["columns"] for it in col["entries"]}
-        assert any(senior in t for t in all_titles)
-        assert not any(music in t for t in all_titles)
-    finally:
-        _cleanup(eids)

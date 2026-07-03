@@ -47,12 +47,14 @@ PENDING_LEAF_SLUGS: frozenset[str] = frozenset(
         #   off-road-shops-and-accessories, marine-supply, garage-doors, painters.
         # These remain genuinely unseeded (synonyms are deliberate no-ops until a
         # future taxonomy pass seeds them):
-        "medical-specialists-and-imaging",
+        # 2026-07-01 consolidated Phase 3: medical-specialists-and-imaging,
+        # firearms-and-shooting-sports, and pediatrics moved to
+        # docs/proposals/taxonomy-seed.json — the Phase-3 data op creates the
+        # Category rows, so they are no longer pending.
         "laundry-and-dry-cleaning",
         "funeral-cremation-and-cemeteries",
         "mobile-home-services",
         "pet-waste-removal",
-        "firearms-and-shooting-sports",
         # 2026-06-20 search-coverage: brand-new service leaves with no taxonomy
         # home yet. Created by scripts/create_missing_service_leaves_2026_06_20.py;
         # routed below. Self-activate once the leaf clears the publish gate in
@@ -365,8 +367,11 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "boat storage": "boat-and-rv-storage-service",
     "rv storage": "boat-and-rv-storage-service",
     "powersports": "powersports-and-atv",
-    "atv rentals": "powersports-and-atv",
-    "utv rentals": "powersports-and-atv",
+    # 2026-07-01 Phase 4: rental intent leaves the dealer leaf for the new
+    # utv-and-offroad-rentals home (bare vehicle nouns "powersports"/"atv"/
+    # "utv" stay on powersports-and-atv — dealers).
+    "atv rentals": "utv-and-offroad-rentals",
+    "utv rentals": "utv-and-offroad-rentals",
     # 2026-06-19: off-road RETAIL/upfit shops (parts, accessories, lift kits) —
     # Casey's "off road stores and sales". Distinct from off-road-and-ohv (trails)
     # and powersports-and-atv (vehicle sales/rentals). NEW leaf under Auto, RV & Marine.
@@ -409,8 +414,16 @@ _QUERY_TO_LEAF: dict[str, str] = {
     # 2026-06-11: existing leaves with no entry.
     "smoke shops": "smoke-vape-and-cannabis",
     "vape shops": "smoke-vape-and-cannabis",
-    "dispensary": "smoke-vape-and-cannabis",
-    "dispensaries": "smoke-vape-and-cannabis",
+    # 2026-06-30 audit 3D: cannabis dispensaries split into their own leaf so the
+    # 2 real dispensaries aren't buried among the vape shops. Dispensary/cannabis
+    # terms route to the new leaf; smoke/vape terms stay above.
+    "dispensary": "cannabis-dispensaries",
+    "dispensaries": "cannabis-dispensaries",
+    "cannabis": "cannabis-dispensaries",
+    "cannabis dispensary": "cannabis-dispensaries",
+    "marijuana": "cannabis-dispensaries",
+    "marijuana dispensary": "cannabis-dispensaries",
+    "weed": "cannabis-dispensaries",
     "convenience stores": "convenience",
     "appliance stores": "appliances-and-electronics",
     "electronics stores": "appliances-and-electronics",
@@ -669,8 +682,11 @@ _QUERY_TO_LEAF_EXPANSION_2026_06_20: dict[str, tuple[str, ...]] = {
         "pool contractors", "pool installation", "pool maintenance", "pool repair",
         "pool resurfacing", "pool servicing", "pool tech", "pool techs", "spa repair",
         "swimming pool", "swimming pools"),
-    "powersports-and-atv": ("atv", "atv rental", "dirt bikes", "ohv rentals", "side by side",
-        "side by sides", "utv", "utv rental"),
+    # 2026-07-01 Phase 4: the rental phrasings ("atv rental", "utv rental",
+    # "ohv rentals") moved to utv-and-offroad-rentals (see the rentals dict
+    # below); the dealer leaf keeps the bare vehicle nouns.
+    "powersports-and-atv": ("atv", "dirt bikes", "side by side",
+        "side by sides", "utv"),
     "preschools-and-childcare": ("child care", "day care", "daycares", "preschool"),
     "primary-care": ("doctor", "family doctor", "family physician", "general practitioner",
         "medical clinic", "medical clinics", "physicians", "primary care doctor",
@@ -809,12 +825,215 @@ _QUERY_TO_LEAF_NEW_LEAVES_2026_06_20: dict[str, tuple[str, ...]] = {
     "pet-waste-removal": ("dog poop removal", "poop scooping", "dog waste removal"),
 }
 
-for _leaf_slug, _terms in _QUERY_TO_LEAF_EXPANSION_2026_06_20.items():
-    for _term in _terms:
-        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
-for _leaf_slug, _terms in _QUERY_TO_LEAF_NEW_LEAVES_2026_06_20.items():
-    for _term in _terms:
-        _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
+# 2026-06-28 intent-search alias pass (directory-audit §11). Each entry is a
+# category NOUN/phrase — NEVER a descriptive sentence (those stay conversational
+# by design; see test_leaf_query.test_normalize_leaves_descriptive_queries_unmatched)
+# — routing to an ALREADY-POPULATED leaf, closing the live-search gaps surfaced by
+# scripts/audit_search_intent_coverage_2026_06_28.py. These reach the keyword search
+# via the leaf-link bridge (app.search.routes._leaf_link_exists_predicate); a term
+# pointing at a sub-gate/empty leaf is a harmless no-op until it's seeded.
+_QUERY_TO_LEAF_SEARCH_ALIASES_2026_06_28: dict[str, tuple[str, ...]] = {
+    "hvac": ("swamp cooler", "swamp coolers", "swamp cooler repair", "evaporative cooler",
+        "evaporative coolers", "mini split", "ductless mini split", "ac install",
+        "ac installation", "ac tune up", "new ac unit", "ac unit"),
+    "roofing": ("leaky roof", "roof leak", "roof leak repair"),
+    "pest-control": ("bug guy", "bug man"),
+    "plumbing": ("water heater", "water heaters", "water heater repair",
+        "water heater installation", "water heater replacement", "tankless water heater"),
+    "title-and-escrow": ("title company", "title companies", "escrow company"),
+    "pools-and-spas": ("pool pump", "pool pumps", "pool equipment", "pool filter"),
+    "vacation-rentals": ("airbnb", "air bnb", "vrbo", "short term rental",
+        "short term rentals", "vacation home", "vacation homes"),
+    "veterinarians": ("emergency vet", "emergency veterinarian", "24 hour vet", "24 hr vet"),
+    "utilities": ("trash pickup", "trash service", "garbage pickup", "garbage service",
+        "recycling", "recycling center", "water company", "electric company",
+        "power company", "gas company"),
+    "gifts-and-boutiques": ("gift shops", "gift store", "gift stores"),
+    # ("pediatrician" et al. pointed here 2026-06-28 as a stopgap; moved to the
+    # dedicated ``pediatrics`` leaf in the 2026-07-01 dict below — the 159-row
+    # primary-care dump was the audit's A2 complaint.)
+}
+
+# 2026-06-30 search-audit expansion (ASKHAVA_SEARCH_AUDIT_2026-06-30 §A3 / PART
+# D). The leaf exists and is populated, but these phrasings were never wired, so
+# the box dropped to a weak conversational answer instead of the page (e.g.
+# "kayak rentals" reached the leaf but "paddleboard rentals" didn't). Same
+# mechanism as the 2026-06-20 pool-builders pass: category NOUNS only (never a
+# descriptive sentence), merged via setdefault so any live entry above wins.
+# Attraction terms (escape room, axe throwing, trampoline park...) point at the
+# existing Things-to-Do leaves so they land on a real page now, and become exact
+# once Phase 2 backfills VR Escape Reality / the helicopter operators.
+# NB: "scenic flight" is deliberately NOT added -- its token "flight" is one edit
+# from the common word "light" ("light switch not working") and would pollute the
+# shared spell-correct vocab (normalizer._spell_vocab). "helicopter tour(s)" is
+# distinctive and covers the same intent without that footgun.
+_QUERY_TO_LEAF_SEARCH_ADD_2026_06_30: dict[str, tuple[str, ...]] = {
+    "kayak-and-paddle": ("paddleboard rentals", "paddle board rental"),
+    "jet-ski-and-watersports": ("wake surfing", "wakesurf", "wakesurfing",
+        "wakeboarding", "flyboard"),
+    "fishing-charters-and-guides": ("fishing trip", "bass fishing guide"),
+    "music-lessons": ("drum lessons",),
+    "family-fun-and-arcades": ("escape room", "escape rooms", "axe throwing",
+        "miniature golf", "trampoline park"),
+    "tours-and-sightseeing": ("helicopter tour", "helicopter tours"),
+}
+
+# 2026-06-30 follow-on: the data backfill added Havasu Parasail (jet-ski leaf)
+# and created the scuba-and-dive leaf (re-homing Scuba Training & Technology off
+# jet-ski-and-watersports). Wire the phrasings that reach them. "scuba-and-dive"
+# is a real live leaf (added to docs/proposals/taxonomy-seed.json) so the drift
+# guard passes.
+_QUERY_TO_LEAF_SEARCH_ADD2_2026_06_30: dict[str, tuple[str, ...]] = {
+    "jet-ski-and-watersports": ("parasailing", "parasail"),
+    "scuba-and-dive": ("scuba", "scuba diving", "scuba lessons", "scuba certification",
+        "dive shop", "dive shops", "scuba shop"),
+}
+
+# 2026-07-01 consolidated search audit (A3 + A5). The calendar router no longer
+# captures these evergreen asks (is_discovery_query is scoped to explicit
+# time/event intent), so each gets a real directory destination; plus the
+# bare/variant terms the audit found unmapped ("hair" -> the 83-listing salons
+# leaf, phone-repair variants -> the IT-repair leaf). Category NOUNS only
+# (never a descriptive sentence), merged via setdefault so live entries win.
+_QUERY_TO_LEAF_SEARCH_ADD_2026_07_01: dict[str, tuple[str, ...]] = {
+    "bars-and-breweries": ("nightlife", "happy hour"),
+    "restaurants": ("date night", "waterfront dining"),
+    # "lake havasu state park" normalizes to "state park" (the locality filler
+    # strip removes "lake havasu" first); the park's beach rows live on the
+    # beaches leaf.
+    "beaches-and-swim-areas": ("state park", "state parks"),
+    "boat-and-watercraft-rentals": ("party boat", "party boats",
+        "party boat rental", "party boat rentals"),
+    "boat-tours-and-charters": ("boat rental with captain", "captained boat tour",
+        "captained boat tours"),
+    "hair-salons-and-barbers": ("hair",),
+    "computer-and-it-repair": ("cell phone repair", "phone repair",
+        "iphone repair", "phone screen repair"),
+    "jet-ski-and-watersports": ("waverunner rental", "waverunner rentals",
+        "sea doo rental", "sea doo rentals"),
+    # A2: the missing specialty terms. medical-specialists-and-imaging already
+    # carries cardiologist/podiatrist/etc. (2026-06-20 block above) and
+    # self-activates when the Phase-3 data op seeds the leaf; these add the
+    # obgyn family and the lab terms (which also ends the "lab" → Fit Lab 928
+    # gym collision — the gym row is correctly categorized and stays put).
+    # "women s health" is the _normalize output of "women's health".
+    "medical-specialists-and-imaging": ("obgyn", "ob gyn", "obstetrician",
+        "gynecologist", "womens health", "women s health",
+        "lab", "labs", "medical lab", "medical labs", "blood work", "lab work"),
+    # Pediatricians get their own leaf (seeded in Phase 3; a deliberate no-op
+    # until then per _resolve_gated) instead of the 159-doctor primary-care leaf.
+    "pediatrics": ("pediatrician", "pediatricians", "pediatrics"),
+}
+
+# 2026-07-01 Phase 4 (consolidated plan — rental categories). Real homes for the
+# rental intents the topical gate now answers honestly-empty: golf carts (leaf
+# exists; Premier Golf Cars is already on it), the new bikes-and-e-bikes and
+# utv-and-offroad-rentals leaves (created by scripts/backfill_rentals_2026_07_01
+# .py, declared in the taxonomy seed), and the specialty lake rentals that live
+# on existing water leaves. Same rules: category NOUNS only, setdefault-merged.
+_QUERY_TO_LEAF_RENTALS_2026_07_01: dict[str, tuple[str, ...]] = {
+    "golf-carts": ("golf cart rental", "golf cart rentals", "golf carts rental"),
+    "bikes-and-e-bikes": ("bike shop", "bike shops", "bike store", "bike stores",
+        "bike rental", "bike rentals", "e bike rental", "e bike rentals",
+        "ebike rental", "ebike rentals", "e bike", "e bikes", "ebike", "ebikes",
+        "bicycle shop", "bicycle shops", "bike repair", "bicycle repair",
+        "bicycles", "bikes"),
+    "utv-and-offroad-rentals": ("atv rental", "utv rental", "ohv rentals",
+        "ohv rental", "side by side rental", "side by side rentals",
+        "rzr rental", "rzr rentals", "off road rental", "off road rentals",
+        "atv tours", "utv tours", "offroad tours", "off road tours",
+        "rzr tours"),
+    "boat-and-watercraft-rentals": ("houseboat", "houseboats", "houseboat rental",
+        "houseboat rentals", "beach chair rental", "beach chair rentals",
+        "beach gear rental"),
+    "boat-tours-and-charters": ("yacht rental", "yacht rentals", "yacht charter",
+        "yacht charters"),
+    # [ASK #5] resolved 2026-07-01: fold RV rentals into rv-sales-and-service
+    # (JR RV Rentals + the backfilled Lake Havasu RV & Boat Rentals live there).
+    "rv-sales-and-service": ("rv rental", "rv rentals"),
+    # Master site audit §1 (2026-07-01 PM): "pool supply" had no route to the
+    # 15-listing pools leaf ("pool", "pool service", "pool pump" etc. were all
+    # wired; the supply/store phrasings weren't) — it fell to chat and, for
+    # "pool store", the bare "store" token bought the shopping junk fallback.
+    "pools-and-spas": ("pool supply", "pool supplies", "pool store", "pool stores"),
+}
+
+# 2026-07-01 Phase 5 (consolidated plan — backfill polish). Terms for rows the
+# Phase-5 data op re-homes/inserts (weight-loss target per [ASK #6] default =
+# med-spas-and-aesthetics, where Sculpted MD / Desert Oasis live), plus the
+# things-to-do polish: Copper Canyon is already a beaches row, "Lighthouses"
+# (the 28-replica trail) already a landmarks row.
+_QUERY_TO_LEAF_BACKFILLS_2026_07_01: dict[str, tuple[str, ...]] = {
+    "med-spas-and-aesthetics": ("weight loss", "weight loss clinic",
+        "weight loss clinics"),
+    "nonprofits-and-charities": ("animal shelter", "animal shelters",
+        "humane society"),
+    "beaches-and-swim-areas": ("cliff jumping", "copper canyon"),
+    "landmarks-and-sights": ("lighthouse", "lighthouses"),
+}
+
+# Evergreen browse asks whose right destination is a DEPARTMENT landing or a
+# static page, not a single leaf (the dicts above can only target leaf slugs).
+# Consulted by the /chat router ahead of the leaf match via
+# :func:`match_direct_destination`; these routes always render, so no publish
+# gate applies. "things to do" -> the Things to Do department landing (a real
+# browse page; the tours-and-sightseeing leaf is too narrow for the ask);
+# the kids variant -> the /family day view.
+_QUERY_TO_URL_2026_07_01: dict[str, str] = {
+    "things to do": "/categories/things-to-do-and-attractions",
+    "fun things to do": "/categories/things-to-do-and-attractions",
+    "free things to do": "/categories/things-to-do-and-attractions",
+    "stuff to do": "/categories/things-to-do-and-attractions",
+    "things to do with kids": "/family",
+}
+
+
+def match_direct_destination(q: str | None) -> str | None:
+    """Static destination URL for an evergreen browse ask, or ``None``.
+
+    Pure in-memory lookup on the normalized query -- no DB, because the
+    department landing and /family always render (unlike leaf pages, which
+    carry the publish gate)."""
+    norm = _normalize(q or "")
+    if not norm:
+        return None
+    return _QUERY_TO_URL_2026_07_01.get(norm)
+
+
+# ---------------------------------------------------------------------------
+# Build the one canonical term -> slug routing table.
+#
+# ``_QUERY_TO_LEAF`` above is the hand-authored core (with its own rationale
+# comments); the generation-stamped blocks below it are provenance-tagged
+# additions, each kept as a readable ``slug -> (terms,)`` map (or ``term ->
+# slug`` for the bare-forms block) so a leaf's aliases stay grouped. They fold
+# into the ONE table here via a single ordered merge with first-writer-wins
+# (``setdefault``) — a live entry is never overridden by a later block.
+#
+# The eight near-identical per-block loops this replaced are collapsed to one
+# data-driven pass. ``tests/test_leaf_query_routing_table.py`` locks the result:
+# it asserts no two contributing blocks (base included) route the same term to
+# DIFFERENT slugs — so the merge order is provably irrelevant, no silent drops —
+# and that the merged table is byte-identical to the committed snapshot.
+# ---------------------------------------------------------------------------
+
+#: Ordered ``slug -> (terms,)`` contribution blocks, folded into ``_QUERY_TO_LEAF``.
+_LEAF_TERM_BLOCKS: tuple[dict[str, tuple[str, ...]], ...] = (
+    _QUERY_TO_LEAF_EXPANSION_2026_06_20,
+    _QUERY_TO_LEAF_NEW_LEAVES_2026_06_20,
+    _QUERY_TO_LEAF_SEARCH_ALIASES_2026_06_28,
+    _QUERY_TO_LEAF_SEARCH_ADD_2026_06_30,
+    _QUERY_TO_LEAF_SEARCH_ADD2_2026_06_30,
+    _QUERY_TO_LEAF_SEARCH_ADD_2026_07_01,
+    _QUERY_TO_LEAF_RENTALS_2026_07_01,
+    _QUERY_TO_LEAF_BACKFILLS_2026_07_01,
+)
+
+for _block in _LEAF_TERM_BLOCKS:
+    for _leaf_slug, _terms in _block.items():
+        for _term in _terms:
+            _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
+# Bare-forms is authored ``term -> slug`` (not ``slug -> terms``); same first-wins.
 for _term, _leaf_slug in _QUERY_TO_LEAF_BARE_FORMS_2026_06_20.items():
     _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
 
@@ -899,6 +1118,10 @@ _SERVICE_FILLER: frozenset[str] = frozenset(
         "quote", "quotes", "estimate", "estimates", "recommendation", "recommendations",
         "company", "companies", "guy", "guys", "shop", "shops", "place", "places",
         "unit", "units", "get", "find", "hire", "book",
+        # 2026-07-01: rent-intent words, so "<mapped-category> rental" routes
+        # ("waverunner rental", "pontoon boat rental"). "golf cart rental" stays
+        # safely unrouted -- its leftover "cart" is a content token.
+        "rent", "rents", "rental", "rentals", "renting",
         # breakdown phrasings ("my hvac is broken", "ac not working", "stopped")
         "is", "are", "was", "broke", "not", "working", "stopped",
         # harmless function words (no category signal)

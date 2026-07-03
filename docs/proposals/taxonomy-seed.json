@@ -92,6 +92,12 @@
     "count": 0,
     "gate_ok": false,
     "new": true
+   },
+   "scuba-and-dive": {
+    "name": "Scuba & Dive",
+    "count": 1,
+    "gate_ok": true,
+    "new": true
    }
   }
  },
@@ -188,6 +194,18 @@
     "count": 0,
     "gate_ok": false,
     "new": true
+   },
+   "bikes-and-e-bikes": {
+    "name": "Bikes & E-Bikes",
+    "count": 3,
+    "gate_ok": true,
+    "new": true
+   },
+   "utv-and-offroad-rentals": {
+    "name": "UTV & Off-Road Rentals",
+    "count": 3,
+    "gate_ok": true,
+    "new": true
    }
   }
  },
@@ -259,6 +277,18 @@
     "name": "Hearing & Audiology",
     "count": 0,
     "gate_ok": false,
+    "new": true
+   },
+   "medical-specialists-and-imaging": {
+    "name": "Medical Specialists & Imaging",
+    "count": 12,
+    "gate_ok": true,
+    "new": true
+   },
+   "pediatrics": {
+    "name": "Pediatrics",
+    "count": 3,
+    "gate_ok": true,
     "new": true
    }
   }
@@ -717,6 +747,12 @@
     "gate_ok": true,
     "new": true
    },
+   "cannabis-dispensaries": {
+    "name": "Cannabis Dispensaries",
+    "count": 2,
+    "gate_ok": true,
+    "new": true
+   },
    "shoes": {
     "name": "Shoes",
     "count": 3,
@@ -734,6 +770,12 @@
     "count": 3,
     "gate_ok": true,
     "new": false
+   },
+   "firearms-and-shooting-sports": {
+    "name": "Firearms & Shooting Sports",
+    "count": 1,
+    "gate_ok": true,
+    "new": true
    }
   }
  },

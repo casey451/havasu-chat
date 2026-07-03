@@ -1,10 +1,10 @@
-"""Home + calendar redesign (``home_redesign`` flag, dark rollout).
+"""Home + calendar v4 (the collapsed ``home_redesign`` reskin).
 
-Verifies: the flag is OFF by default (old home served, instant rollback intact);
-the ``?home_redesign=1`` preview override swaps in the v4 templates and sticks via
-cookie; the redesigned /home and /calendar render the v4 structure from real data;
-the view-model adapters behave; and both surfaces clear the same WCAG 2.1 AA
-structural contract as every other page.
+The flag was collapsed 2026-07-02 (v4 permanently on in prod since ~06-23):
+/home and /calendar serve the v4 templates unconditionally, with no
+``?home_redesign=`` override, no cookie, and no legacy branch. Verifies the v4
+structure renders from real data, the view-model adapters behave, and both
+surfaces clear the same WCAG 2.1 AA structural contract as every other page.
 """
 
 from __future__ import annotations
@@ -18,54 +18,25 @@ from test_ada_compliance import _A11yChecker
 
 from app.db.database import get_db
 from app.home import redesign
-from app.home.flags import home_redesign_enabled
 from app.main import app
 
 
-# ── flag plumbing ──────────────────────────────────────────────────────────────
-def test_flag_off_by_default_serves_old_home() -> None:
+# ── v4 is the only home ─────────────────────────────────────────────────────────
+def test_home_serves_v4_unconditionally() -> None:
     r = TestClient(app).get("/home")
-    assert r.status_code == 200
-    assert "/static/styles/lake_redesign.css" not in r.text
-    assert "/static/styles/lake_home.css" in r.text
-
-
-def test_query_override_serves_redesign_and_sets_cookie() -> None:
-    c = TestClient(app)
-    r = c.get("/home?home_redesign=1")
     assert r.status_code == 200
     assert "/static/styles/lake_redesign.css" in r.text
     assert 'data-theme="lake"' in r.text
-    # the preview override is persisted so navigation stays in the redesign
-    assert "home_redesign" in r.cookies or "home_redesign" in r.headers.get("set-cookie", "")
-    # cookie now sticks the redesign without the param
-    assert "/static/styles/lake_redesign.css" in c.get("/home").text
-
-
-def test_query_override_off_forces_old_even_with_cookie() -> None:
-    c = TestClient(app)
-    c.get("/home?home_redesign=1")  # set cookie
-    assert "/static/styles/lake_redesign.css" not in c.get("/home?home_redesign=0").text
-
-
-def test_flag_resolution_orders(monkeypatch) -> None:
-    class _Req:
-        def __init__(self, qp: dict[str, str], cookies: dict[str, str]):
-            self.query_params = qp
-            self.cookies = cookies
-
-    monkeypatch.delenv("HOME_REDESIGN", raising=False)
-    assert home_redesign_enabled(_Req({}, {})) is False  # type: ignore[arg-type]
-    assert home_redesign_enabled(_Req({"home_redesign": "1"}, {})) is True  # type: ignore[arg-type]
-    assert home_redesign_enabled(_Req({"home_redesign": "0"}, {"home_redesign": "1"})) is False  # type: ignore[arg-type]
-    assert home_redesign_enabled(_Req({}, {"home_redesign": "1"})) is True  # type: ignore[arg-type]
-    monkeypatch.setenv("HOME_REDESIGN", "1")
-    assert home_redesign_enabled(_Req({}, {})) is True  # type: ignore[arg-type]
+    # No flag machinery left: the old preview override is inert, and no
+    # home_redesign cookie is set.
+    assert "home_redesign" not in (r.headers.get("set-cookie") or "")
+    off = TestClient(app).get("/home?home_redesign=0")
+    assert "/static/styles/lake_redesign.css" in off.text
 
 
 # ── redesigned home render ──────────────────────────────────────────────────────
 def _home() -> str:
-    return TestClient(app).get("/home?home_redesign=1").text
+    return TestClient(app).get("/home").text
 
 
 def test_home_redesign_structure() -> None:
@@ -79,6 +50,19 @@ def test_home_redesign_structure() -> None:
     assert "/static/js/lake_redesign.js" in b  # progressive-enhancement layer
     # buyable ad placeholder, never a fake business
     assert "Ad space · Available" in b or "Sponsored" in b
+
+
+def test_home_redesign_emits_seo_jsonld() -> None:
+    """F18: the v4 home carries Organization + WebSite (SearchAction) structured
+    data — the old home had it, the v4 reskin had emitted none."""
+    b = _home()
+    assert b.count('type="application/ld+json"') >= 2
+    assert '"@type": "Organization"' in b
+    assert '"@type": "WebSite"' in b
+    assert '"@type": "SearchAction"' in b
+    # SearchAction points at the same /chat?q= the hero search submits to, with
+    # the placeholder left literal for Google to fill.
+    assert "/chat?q={search_term_string}" in b
 
 
 def test_home_redesign_conditions_bar_with_seeded_data() -> None:
@@ -137,9 +121,19 @@ def test_home_redesign_a11y() -> None:
     assert not issues, f"A11y issues on redesigned /home: {issues}"
 
 
+def test_home_redesign_has_header_landmark() -> None:
+    """F17: the top bar is wrapped in a <header> banner landmark (was a bare div),
+    alongside the existing <main> and <footer> landmarks."""
+    b = _home()
+    assert '<header class="head-stack">' in b
+    assert "</header>" in b
+    assert '<main id="main"' in b
+    assert "<footer" in b
+
+
 # ── redesigned calendar render ──────────────────────────────────────────────────
 def _cal(qs: str = "") -> str:
-    return TestClient(app).get(f"/calendar?home_redesign=1{qs}").text
+    return TestClient(app).get(f"/calendar?{qs.lstrip('&')}").text
 
 
 def test_calendar_redesign_structure() -> None:
@@ -195,14 +189,13 @@ def test_conditions_and_feed_shape_on_seeded_db() -> None:
         assert isinstance(tiles, list)
         for t in tiles:
             assert {"key", "icon", "label", "value", "is_gas"} <= set(t)
+        # Parity refactor (Rule 0): the feed now returns the SAME nested section
+        # tree /events-ui renders (sections → subgroups → rows), not chip buckets.
         feed = redesign.feed_view_model(db, day=date(2026, 6, 25))
-        assert {"buckets", "movie_bucket", "total"} <= set(feed)
-        # "only Events open" rule: no bucket is open unless it is the events bucket
-        for b in feed["buckets"]:
-            assert b["open"] == (b["key"] == "events")
-        assert feed["total"] == sum(b["count"] for b in feed["buckets"]) + (
-            feed["movie_bucket"]["count"] if feed["movie_bucket"] else 0
-        )
+        assert {"sections", "total"} <= set(feed)
+        for s in feed["sections"]:
+            assert {"key", "label", "count"} <= set(s)
+        assert feed["total"] == sum(s["count"] for s in feed["sections"])
         cal = redesign.calendar_month_view(db, year=2026, month=6, today=date(2026, 6, 25))
         assert cal["title"] == "June 2026"
         assert len(cal["weeks"]) >= 4

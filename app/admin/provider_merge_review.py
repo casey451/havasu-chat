@@ -26,12 +26,12 @@ from __future__ import annotations
 import html as html_lib
 from uuid import uuid4
 
-from fastapi import APIRouter, Depends, Form, HTTPException, Request
+from fastapi import APIRouter, Depends, Form, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, verify_admin_cookie
+from app.admin.auth import admin_guard as _guard
 from app.contrib.provider_merge import merge_providers
 from app.db.database import get_db
 from app.db.models import DedupeResolution, Provider, dedupe_pair_key
@@ -45,16 +45,6 @@ _MAX_PAIRS = 200
 # the merge endpoint itself (via merge_providers), never directly here.
 _REVIEW_RESOLUTIONS = ("not_duplicate", "multi_location", "parent_child")
 
-
-def _guard(request: Request) -> RedirectResponse | None:
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    current_user = getattr(request.state, "current_user", None)
-    if current_user is not None and getattr(current_user, "role", None) == "admin":
-        return None
-    if current_user is not None:
-        raise HTTPException(status_code=403, detail="admin_only")
-    return RedirectResponse(url="/admin/login", status_code=303)
 
 
 def _esc(value: object) -> str:

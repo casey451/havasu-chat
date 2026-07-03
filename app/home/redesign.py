@@ -24,8 +24,8 @@ from app.conditions.cache import read_source
 from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
 from app.db.models import Event
+from app.events.tag_display import public_event_tags
 from app.home import events_views, sandstone
-from app.home.today_feed import today_feed
 
 # ── category accents / icons (v4 CICON + CCOLOR, mapped onto the app's real
 # bucket keys). The app's "classes" bucket is Fitness & sports, so it borrows the
@@ -39,6 +39,10 @@ CAT_ICON: dict[str, str] = {
     "seniors": "person",
     "fitness": "activity",
     "classes": "activity",
+    # "learn" is the Classes & Workshops bucket (app.home.event_buckets); the
+    # historical "classes" key is Fitness & Sports (2026-07-01 month audit —
+    # learn used to fall through every one of these maps to the civic fallback).
+    "learn": "activity",
     "movies": "film",
     "civic": "bank",
 }
@@ -51,6 +55,9 @@ CAT_COLOR: dict[str, str] = {
     "seniors": "var(--c-seniors)",
     "fitness": "var(--c-fitness)",
     "classes": "var(--c-fitness)",
+    # Classes & Workshops wears the palette's until-now-unmapped --c-classes
+    # accent, so workshops stop rendering in the civic gray fallback.
+    "learn": "var(--c-classes)",
     "movies": "var(--c-movies)",
     "civic": "var(--c-civic)",
     # calendar month-cell pill types (sandstone._event_css_type) → v4 accents
@@ -69,6 +76,7 @@ CAT_LABEL: dict[str, str] = {
     "seniors": "Seniors",
     "fitness": "Fitness",
     "classes": "Fitness",
+    "learn": "Workshop",
     "movies": "Movie",
     "civic": "City",
 }
@@ -84,6 +92,7 @@ CAT_THUMB: dict[str, str] = {
     "seniors": "im-court",
     "fitness": "im-court",
     "classes": "im-art",
+    "learn": "im-art",
     "movies": "im-movie",
     "civic": "im-civic",
 }
@@ -200,6 +209,25 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
             }
         )
 
+    # Water temp (USGS 09426630, ~25mi south in the Bill Williams backwater).
+    # Added to the conditions bar at Casey's request (2026-06-29). Honest-omit:
+    # only renders when FEATURE_FLAG_WATER_TEMP_GAGE_09426630 is ON and the gage
+    # has a reading; otherwise the bar simply shows one fewer tile.
+    water_temp = payload.get("water_temp_f")
+    if isinstance(water_temp, (int, float)):
+        tiles.append(
+            {
+                "key": "water_temp",
+                "icon": "wave",
+                "label": "Water",
+                "value": f"{round(water_temp)}°",
+                "unit": None,
+                "color": None,
+                "is_gas": False,
+                "is_stale": bool(payload.get("water_temp_is_stale")),
+            }
+        )
+
     gas = gas_top5(db, now=now)
     if gas["cheapest"]:
         top = gas["cheapest"][0]
@@ -300,99 +328,71 @@ def _blurbs_for_rows(db: Session, rows: list[dict[str, Any]]) -> dict[str, str]:
     return out
 
 
-def _peek(rows: list[dict[str, Any]], count: int) -> str:
-    if not rows:
-        return ""
-    first = rows[0].get("title") or ""
-    extra = count - 1
-    if extra > 0:
-        return f"{first} + {extra} more"
-    return first
-
-
 def _enrich(row: dict[str, Any], blurbs: dict[str, str], cat: str) -> dict[str, Any]:
     m = _EVENT_ID_RE.match(row.get("url") or "")
     out = dict(row)
     out["blurb"] = blurbs.get(m.group(1)) if m else None
     out["thumb"] = CAT_THUMB.get(cat, "im-market")
     out["cat"] = cat
+    # SEO: the v4 home row template renders ``row.tags`` verbatim, so the
+    # internal ``KEY:value`` taxonomy tokens (``activity:billiards``,
+    # ``facet:hours``, ``venue-kind:simulator``, ``audience:youth``) leaked into
+    # the indexed page text. Grouping/tiering already ran upstream on the raw
+    # tags in ``calendar_day_view_model``; this enrichment step is display-only,
+    # so strip them to the friendly tags here (same rule as the event permalink
+    # and chat builders — see app/events/tag_display.py).
+    out["tags"] = public_event_tags(row.get("tags"))
     return out
 
 
+def _feed_walk(node: dict[str, Any], acc: list[dict[str, Any]]) -> None:
+    """Depth-first collect of every event row in a section/subgroup/child node."""
+    acc.extend(node.get("rows") or [])
+    for sub in node.get("subgroups") or []:
+        _feed_walk(sub, acc)
+    for child in node.get("children") or []:
+        _feed_walk(child, acc)
+
+
+def _feed_enrich(node: dict[str, Any], blurbs: dict[str, str], cat: str) -> None:
+    """Enrich every row in a node tree in place (blurb + category thumb)."""
+    node["rows"] = [_enrich(r, blurbs, cat) for r in (node.get("rows") or [])]
+    for sub in node.get("subgroups") or []:
+        _feed_enrich(sub, blurbs, cat)
+    for child in node.get("children") or []:
+        _feed_enrich(child, blurbs, cat)
+
+
 def feed_view_model(
-    db: Session, *, day: date, now: datetime | None = None
+    db: Session, *, day: date, now: datetime | None = None, family: bool = False
 ) -> dict[str, Any]:
-    """The v4 feed: a count overview + accordion buckets, only Events open, each
-    row carrying a one-line blurb, Fitness exposing its activity sub-chips."""
-    groups = events_views.day_groups(db, day=day, now=now)
+    """The v4 home feed — the SAME nested Calendar tree ``/events-ui`` renders
+    (parity Rule 0, 2026-06-26): sections → subgroups → (youth/facet children) →
+    rows. The structure comes straight from
+    :func:`events_views.calendar_day_view_model`, so the home and the main
+    calendar can't drift; the home only *enriches* each event row (a one-line
+    blurb + a category thumb) and styles it in the v4 idiom. No more chips."""
+    vm = events_views.calendar_day_view_model(db, day=day, now=now, family=family)
+    sections = vm["sections"]
 
-    # Collect every event id once so blurbs are a single query, not N.
+    # One blurb query for every event row across the tree (movies carry their own).
     all_rows: list[dict[str, Any]] = []
-    for g in groups:
-        if g.get("subgroups"):
-            for sub in g["subgroups"]:
-                all_rows.extend(sub.get("rows", []))
-        all_rows.extend(g.get("rows", []))
+    for s in sections:
+        if not s.get("is_movies"):
+            _feed_walk(s, all_rows)
     blurbs = _blurbs_for_rows(db, all_rows)
+    for s in sections:
+        if not s.get("is_movies"):
+            _feed_enrich(s, blurbs, s["key"])
+        # Classes & Workshops ("learn") lists flat — no activity sub-categories
+        # (Casey 2026-06-29: "classes and workshops can just all be put together").
+        # Fitness & sports ("classes") KEEPS its activity subgroups (Casey
+        # 2026-06-30 wanted those back). The section keeps its full sorted `rows`,
+        # so dropping the split `subgroups` renders just the learn list flat.
+        if s.get("key") == "learn":
+            s["subgroups"] = []
 
-    buckets: list[dict[str, Any]] = []
-    total = 0
-    for g in groups:
-        key = g["key"]
-        count = int(g.get("count") or 0)
-        if count <= 0:
-            continue
-        total += count
-        rows: list[dict[str, Any]] = []
-        subs: list[dict[str, Any]] = []
-        if g.get("subgroups"):
-            for sub in g["subgroups"]:
-                subs.append({"label": sub["label"], "count": sub.get("count", 0)})
-                for r in sub.get("rows", []):
-                    rows.append(_enrich(r, blurbs, key))
-        else:
-            for r in g.get("rows", []):
-                rows.append(_enrich(r, blurbs, key))
-        buckets.append(
-            {
-                "key": key,
-                "label": g.get("label") or key.title(),
-                "icon": CAT_ICON.get(key, "compass"),
-                "color": CAT_COLOR.get(key, "var(--c-civic)"),
-                "count": count,
-                "peek": _peek(rows or [{"title": g.get("label", "")}], count),
-                "open": key == "events",
-                "rows": rows,
-                "subs": subs,
-            }
-        )
-
-    # "At the movies" — pulled from today_feed (the per-film showtime rollup the
-    # day-group view doesn't build), appended after the day buckets.
-    tf = today_feed(db, day=day, now=now)
-    movies = next((grp for grp in tf.get("groups", []) if grp.get("key") == "movies"), None)
-    movie_bucket = None
-    if movies and movies.get("films"):
-        mcount = int(movies.get("count") or len(movies["films"]))
-        total += mcount
-        movie_bucket = {
-            "key": "movies",
-            "label": movies.get("label") or "At the movies",
-            "icon": "film",
-            "color": CAT_COLOR["movies"],
-            "count": mcount,
-            "films": movies["films"],
-            "peek": _peek(
-                [{"title": f.get("title", "")} for f in movies["films"]], mcount
-            ),
-            "open": False,
-        }
-
-    return {
-        "buckets": buckets,
-        "movie_bucket": movie_bucket,
-        "total": total,
-    }
+    return {"sections": sections, "total": vm["total"]}
 
 
 # ── calendar (glanceable month grid + selected-day agenda) ─────────────────────
@@ -421,7 +421,11 @@ def calendar_month_view(
             iso = cell["iso"]
             d = date.fromisoformat(iso)
             chips = [
-                {"title": ev["title"], "color": category_color(ev.get("type", "events"))}
+                {
+                    "title": ev["title"],
+                    "time": ev.get("time"),
+                    "color": category_color(ev.get("type", "events")),
+                }
                 for ev in cell.get("events", [])[:3]
             ]
             dots = [
@@ -468,7 +472,9 @@ def calendar_month_view(
 
 
 def _agenda(db: Session, day: date, *, now: datetime | None = None) -> dict[str, Any]:
-    groups = events_views.day_groups(db, day=day, now=now)
+    # UNIFY (Rule 0b 2026-06-26): the agenda shows the full unified tree (hours +
+    # classes inline) — the same builder every calendar surface consumes.
+    groups = events_views.calendar_day_view_model(db, day=day, now=now)["sections"]
     rows: list[dict[str, Any]] = []
     for g in groups:
         key = g["key"]
@@ -479,13 +485,24 @@ def _agenda(db: Session, day: date, *, now: datetime | None = None) -> dict[str,
         else:
             src.extend(g.get("rows", []))
         for r in src:
+            _tl = r.get("time_label") or ""
+            # A venue-hours row (a curated ``ongoing`` row or its DB
+            # ``facet:hours`` twin) is a place being OPEN, not an event — the
+            # agenda used to caption every billiards hall / trampoline park
+            # "Event" (2026-07-01 month audit). Label it honestly instead.
+            _tags = {str(t).strip().lower() for t in (r.get("tags") or [])}
+            _hours = bool(r.get("ongoing")) or "facet:hours" in _tags
             rows.append(
                 {
-                    "time_label": r.get("time_label") or "",
+                    # Drop the "Time TBD" placeholder so the agenda shows a clean
+                    # blank instead of a wall of "TBD" (Casey 2026-06-29); a real
+                    # clock time still renders. The deeper fix is better ingest-
+                    # time parsing, tracked separately.
+                    "time_label": "" if "TBD" in _tl.upper() else _tl,
                     "title": r.get("title") or "",
                     "url": r.get("url"),
                     "cat": key,
-                    "cat_label": CAT_LABEL.get(key, "Event"),
+                    "cat_label": "Open today" if _hours else CAT_LABEL.get(key, "Event"),
                     "color": category_color(key),
                     "_h": _first_hour(r.get("time_label") or ""),
                 }

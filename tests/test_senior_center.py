@@ -98,8 +98,12 @@ def test_collect_offline_still_returns_recurring_and_curated():
     assert len(specs) == expected
 
 
-def test_is_senior_event_by_tag_title_and_negative():
+def test_is_senior_event_by_tag_and_venue_only():
+    # Phase 4 / Q5 (Casey 2026-06-26): gate by TAG or Senior-Center VENUE only,
+    # never a title keyword.
     assert is_senior_event("Bunco", ["senior"]) is True
-    assert is_senior_event("Senior Exercise Class", None) is True
-    assert is_senior_event("Meals on Wheels Volunteer Day", []) is True
+    assert is_senior_event("Meals on Wheels Volunteer Day", ["meals on wheels"]) is True
+    assert is_senior_event("Generic Class", None, "Lake Havasu Senior Center") is True
+    # "Senior" in the title alone no longer gates — needs the tag or senior venue.
+    assert is_senior_event("Senior Exercise Class", None) is False
     assert is_senior_event("Live Music at the Brewery", ["music"]) is False

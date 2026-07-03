@@ -22,7 +22,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 if TYPE_CHECKING:
@@ -232,6 +232,23 @@ def derive_freshness(provider: Provider, *, now: Optional[datetime] = None) -> t
     return ("stale", "Business information may have changed")
 
 
+# F14: categories where the auto-scraped GOOGLE photo is usually noise — a logo,
+# a random user snapshot, or an unrelated image (the audit's "kite on a plumber",
+# "gravel for another") — so it hurts trust more than it helps, and a photo isn't
+# how anyone picks a tradesperson. For these we drop the Google photo and let the
+# branded monogram placeholder show. Owner-uploaded ``Photo`` rows and pinned
+# hero URLs are CURATED and always kept; photo-meaningful categories (food,
+# lodging, retail, lake rec, beauty, health, ...) keep their Google photos.
+_PHOTO_UNRELIABLE_CATEGORIES: frozenset[str] = frozenset(
+    {"home_services", "professional_services", "auto", "service"}
+)
+
+
+def _google_photos_allowed(provider: Provider) -> bool:
+    """False for trade categories whose Google photos are unreliable (F14)."""
+    return (getattr(provider, "category", None) or "") not in _PHOTO_UNRELIABLE_CATEGORIES
+
+
 def derive_hero_photo(provider: Provider) -> Optional[str]:
     """Hero URL: owner ``Photo`` (live + ``is_hero``) → pinned URL → Google."""
     ent = getattr(provider, "entity", None)
@@ -245,6 +262,8 @@ def derive_hero_photo(provider: Provider) -> Optional[str]:
     pinned = attrs.get("hero_pin_photo_url")
     if pinned:
         return pinned
+    if not _google_photos_allowed(provider):
+        return None  # trade: skip the unreliable Google photo -> placeholder
     return first_renderable_google_photo(provider)
 
 
@@ -270,10 +289,13 @@ def derive_gallery(provider: Provider, *, exclude_hero: bool = True) -> list[str
     attrs = provider.attributes or {}
     pinned = attrs.get("hero_pin_photo_url")
     hero_url = derive_hero_photo(provider) if exclude_hero else None
-    for resolved in iter_renderable_google_photos(provider):
-        if exclude_hero and not pinned and hero_url is not None and resolved == hero_url:
-            continue
-        out.append(resolved)
+    # F14: same trade-category rule as the hero — owner photos above are kept,
+    # but the unreliable Google gallery is dropped for trades.
+    if _google_photos_allowed(provider):
+        for resolved in iter_renderable_google_photos(provider):
+            if exclude_hero and not pinned and hero_url is not None and resolved == hero_url:
+                continue
+            out.append(resolved)
     return out
 
 
@@ -578,7 +600,24 @@ def nearby_providers(
     if primary:
         # Canonical match: a sibling shares this primary (its own primary, or —
         # while un-backfilled — its legacy category folds to the same primary).
-        q = q.filter(Provider.primary_category == primary)
+        # The fold clause makes the comment true: NULL-primary siblings whose
+        # legacy category maps to the same primary were silently excluded from
+        # "While you're here".
+        from app.categories.subcategories import LEGACY_CATEGORY_TO_PRIMARY
+
+        legacy_folds = [
+            legacy for legacy, p in LEGACY_CATEGORY_TO_PRIMARY.items() if p == primary
+        ]
+        match = Provider.primary_category == primary
+        if legacy_folds:
+            match = or_(
+                match,
+                and_(
+                    Provider.primary_category.is_(None),
+                    Provider.category.in_(legacy_folds),
+                ),
+            )
+        q = q.filter(match)
     else:
         q = q.filter(Provider.category == provider.category)
     district = (provider.district or "").strip()

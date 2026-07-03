@@ -42,9 +42,14 @@
   <div class="gas-cheap">
     {% for s in cheapest %}
     {% if s.provider_slug %}<a class="card gas-card" href="/provider/{{ s.provider_slug }}">{% else %}<div class="card gas-card">{% endif %}
-      <div class="rank">#{{ loop.index }}{% if s.brand %} &middot; {{ s.brand }}{% endif %}</div>
+      {#- 2026-07-01 master audit §6.4: "#4 · Rebel Oil" over a "Riverbound RV
+          Park" name line read as a label/data mismatch. The rank line carries
+          the brand only when it matches the station name; a differing brand
+          (branded pumps at another venue) moves to a note on the name line. -#}
+      {% set brand_matches = s.brand and s.name and (s.brand | lower in s.name | lower or s.name | lower in s.brand | lower) %}
+      <div class="rank">#{{ loop.index }}{% if brand_matches or (s.brand and not s.name) %} &middot; {{ s.brand }}{% elif s.name %} &middot; {{ s.name }}{% endif %}</div>
       <div class="price tnum">{% if s.prices and s.prices.regular %}${{ '%.2f'|format(s.prices.regular) }}{% else %}&mdash;{% endif %}</div>
-      <div class="name">{{ s.name }}</div>
+      <div class="name">{{ s.name }}{% if s.brand and s.name and not brand_matches %} <span class="brand-note">({{ s.brand }} pumps)</span>{% endif %}</div>
       {% if s.address %}<div class="addr">{{ s.address }}</div>{% endif %}
     {% if s.provider_slug %}</a>{% else %}</div>{% endif %}
     {% endfor %}

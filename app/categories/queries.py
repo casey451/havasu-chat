@@ -498,6 +498,8 @@ def primary_listing_filter(primary_slugs: set[str] | frozenset[str] | list[str] 
     """
     from sqlalchemy import and_, false, or_
 
+    from app.monitoring.canaries import not_canary_clause
+
     primaries = {s for s in primary_slugs if s}
     if not primaries:
         return false()
@@ -507,7 +509,10 @@ def primary_listing_filter(primary_slugs: set[str] | frozenset[str] | list[str] 
         clauses.append(
             and_(Provider.primary_category.is_(None), Provider.category.in_(legacy))
         )
-    return or_(*clauses)
+    # A4: seeded canary listings never count toward — or render in — a category,
+    # so the "N listed" numbers and the lists agree and stay honest. NULL-safe, so
+    # real rows (source IS NULL) are unaffected; a no-op until canaries exist.
+    return and_(or_(*clauses), not_canary_clause())
 
 
 def category_listing_count(
@@ -624,10 +629,14 @@ def _card_area(provider: Provider) -> str:
     """Second meta-line locator for a card (D7): district label, else the street
     line of the address (everything before the first comma). ``""`` when neither
     is known -- the template then omits the line rather than printing noise."""
+    from app.contrib.ingest_suppression import clean_placeholder_address
+
     district = (getattr(provider, "district", None) or "").strip()
     if district:
         return district
-    address = (getattr(provider, "address", None) or "").strip()
+    # Render guard (2026-07-01 Phase 3): the CVB visitor-center placeholder is
+    # never a business location — omit the line rather than show a fake pin.
+    address = (clean_placeholder_address(getattr(provider, "address", None)) or "").strip()
     if address:
         # First address segment is the street line ("2126 McCulloch Blvd N").
         return address.split(",", 1)[0].strip()
@@ -1141,39 +1150,36 @@ def _provider_card(
 
 
 def available_cuisines_for_route(db: Session | None, slug: str) -> list[dict[str, str]]:
-    """Cuisine chips present among a route's providers (C-2), in canonical order.
+    """Cuisine chips for a route's providers (C-2), in canonical order.
 
-    Returns ``[]`` for non-food routes (no cuisine tokens match) or on any DB
-    hiccup — the template then renders no cuisine row. One light two-column query.
+    2026-07-01 (consolidated audit A4): a chip renders only for a cuisine that
+    clears the RENDER gate (``CUISINE_PAGE_MIN_PROVIDERS``). 2026-07-02: counts
+    now come from ``cuisine_pages._eat_drink_cuisine_counts`` — the SAME pool
+    (``route_provider_filter``: primary→subcategory→legacy tiers) the cuisine
+    facet view and the landing gate use. This function used to count on the
+    legacy ``Provider.category`` filter only, so a chip could render for a
+    cuisine whose facet sat below the gate (and a qualifying cuisine could miss
+    its chip) — exactly the drift A4 existed to stop. Cuisine signal only
+    exists on the eat-drink route; every other route returns ``[]`` without
+    touching the DB (the old version scanned e.g. the whole ~1.5k-row services
+    pool to produce an empty chip list).
     """
+    from app.categories.cuisine_pages import (
+        CUISINE_PAGE_MIN_PROVIDERS,
+        EAT_DRINK_ROUTE,
+        _eat_drink_cuisine_counts,
+    )
     from app.categories.subcategories import cuisine_label, cuisine_slugs_in_order
 
     if db is None:
         return []
-    slugs = CATEGORY_FILTERS.get((slug or "").strip().lower())
-    if not slugs:
+    if (slug or "").strip().lower() != EAT_DRINK_ROUTE:
         return []
-    try:
-        rows = (
-            db.query(Provider.google_primary_category, Provider.google_categories)
-            .filter(
-                Provider.category.in_(slugs),
-                Provider.is_active.is_(True),
-                Provider.draft.is_(False),
-            )
-            .all()
-        )
-    except Exception:
-        return []
-    present: set[str] = set()
-    for primary, cats in rows:
-        c = derive_cuisine(primary, cats)
-        if c:
-            present.add(c)
+    counts = _eat_drink_cuisine_counts(db)
     return [
         {"slug": s, "label": cuisine_label(s) or s}
         for s in cuisine_slugs_in_order()
-        if s in present
+        if counts.get(s, 0) >= CUISINE_PAGE_MIN_PROVIDERS
     ]
 
 

@@ -19,9 +19,8 @@ def test_home_hero_composer_and_ask_hava(client: TestClient) -> None:
     r = client.get("/home")
     assert r.status_code == 200
     # Lake hero search composer posts to the concierge.
-    assert 'class="ask"' in r.text
-    assert 'id="home-ask-input"' in r.text
-    assert 'action="/chat"' in r.text
+    assert 'class="search" role="search" action="/chat"' in r.text
+    assert 'id="rd-search"' in r.text
     assert 'role="search"' in r.text
     assert 'name="q"' in r.text
     assert "Ask Hava" in r.text

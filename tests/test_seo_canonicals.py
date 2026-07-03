@@ -48,6 +48,28 @@ def test_absolute_url_joins_path(monkeypatch: pytest.MonkeyPatch) -> None:
     assert absolute_url("provider/foo") == f"{_BASE}/provider/foo"
 
 
+def test_absolute_url_passes_through_already_absolute_and_empty(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    monkeypatch.setenv("BASE_URL", _BASE)
+    # Already-absolute URLs return UNCHANGED — no doubled origin
+    # ("https://hava.example.com/https://x.com/y"). This is the F4 follow-up:
+    # a caller handing over a full external URL can't break the structured data.
+    assert absolute_url("https://x.com/y") == "https://x.com/y"
+    assert absolute_url("http://x.com/y") == "http://x.com/y"
+    assert absolute_url("HTTPS://X.com/Y") == "HTTPS://X.com/Y"  # case-insensitive
+    # Protocol-relative + non-path schemes also pass through untouched.
+    assert absolute_url("//cdn.example.com/a.png") == "//cdn.example.com/a.png"
+    assert absolute_url("mailto:hi@askhava.com") == "mailto:hi@askhava.com"
+    assert absolute_url("tel:+19285551234") == "tel:+19285551234"
+    # None / empty are graceful — never mangled into the bare site root.
+    assert absolute_url(None) == ""
+    assert absolute_url("") == ""
+    # Relative paths still domain-prefixed exactly as before (no behavior change).
+    assert absolute_url("/events/1") == f"{_BASE}/events/1"
+    assert absolute_url("events/1") == f"{_BASE}/events/1"
+
+
 class _FakeURL:
     def __init__(self, path: str) -> None:
         self.path = path
@@ -113,6 +135,12 @@ def test_provider_page_canonical_is_https_absolute(
         assert canon == [f"{_BASE}/provider/{slug}"]
         assert "http://" not in canon[0]  # no leaked non-secure canonical
         assert 'property="og:url"' in r.text
+        # Regression guard (F4 follow-up): no rendered URL doubles the origin
+        # onto an already-absolute value (the absolute_url() hardening). The
+        # provider JSON-LD/OG URLs are built from relative paths, so this stays
+        # clean — this asserts it can't regress.
+        assert f"{_BASE}/http" not in r.text
+        assert f"{_BASE}/https" not in r.text
     finally:
         with SessionLocal() as db:
             p = db.query(Provider).filter(Provider.slug == slug).first()

@@ -29,7 +29,7 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, verify_admin_cookie
+from app.admin.auth import admin_guard as _admin_guard
 from app.admin_portal.audit_models import record_audit
 from app.auth.claims import entity_is_claimable, find_existing_claim, get_entity_by_slug
 from app.auth.dependencies import get_current_user
@@ -64,20 +64,21 @@ _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] /
 register_template_filters(_TEMPLATES)
 register_template_globals(_TEMPLATES)
 
-# Slots a merchant may request. All four tiers are valid request targets.
-_REQUESTABLE_SLOTS: frozenset[str] = frozenset(s.value for s in AdSlot)
+# Slots a merchant may request. The Tier-2 "spotlight" (Featured) slot is retired
+# from sellable inventory (2026-07-03): the v4 home renders no Featured surface,
+# so a sold spotlight would never display — booking one would violate the
+# impressions-equal-renders contract. The tier's serving code + tests stay
+# (dormant) in case a v4 Featured surface is built later; it just can't be booked
+# or requested. The admin inventory view below still iterates every AdSlot tier
+# so any historical/dormant spotlight rows remain visible.
+_RETIRED_SLOTS: frozenset[str] = frozenset({AdSlot.SPOTLIGHT.value})
+_REQUESTABLE_SLOTS: frozenset[str] = frozenset(
+    s.value for s in AdSlot if s.value not in _RETIRED_SLOTS
+)
+# Sellable slots in canonical tier order (retired tiers dropped), for the
+# merchant upgrade form's slot picker.
+_SELLABLE_SLOT_VALUES: list[str] = [s.value for s in AdSlot if s.value in _REQUESTABLE_SLOTS]
 
-
-def _admin_guard(request: Request) -> RedirectResponse | None:
-    """Mirror of admin.router._guard (cookie OR admin-role user)."""
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    current_user = getattr(request.state, "current_user", None)
-    if current_user is not None and getattr(current_user, "role", None) == "admin":
-        return None
-    if current_user is not None:
-        raise HTTPException(status_code=403, detail="admin_only")
-    return RedirectResponse(url="/admin/login", status_code=302)
 
 
 def _naive_utc_now() -> datetime:
@@ -556,13 +557,14 @@ def merchant_upgrade_get(
         )
         .first()
     )
-    _lake = getattr(request.state, "theme", "desert") == "lake"
+    # Lake is the only theme (desert deleted 2026-06-24); the desert branch
+    # pointed at a template that no longer exists (TemplateNotFound -> 500).
     return _TEMPLATES.TemplateResponse(
         request=request,
-        name="merchant_upgrade_form_lake.html" if _lake else "merchant_upgrade_form.html",
+        name="merchant_upgrade_form_lake.html",
         context={
             "entity": ent,
-            "slots": [s.value for s in AdSlot],
+            "slots": _SELLABLE_SLOT_VALUES,
             "pending": existing is not None,
         },
     )
@@ -615,9 +617,8 @@ def merchant_upgrade_post(
             )
         )
         db.commit()
-    _lake = getattr(request.state, "theme", "desert") == "lake"
     return _TEMPLATES.TemplateResponse(
         request=request,
-        name="merchant_upgrade_form_lake.html" if _lake else "merchant_upgrade_form.html",
-        context={"entity": ent, "slots": [s.value for s in AdSlot], "pending": True},
+        name="merchant_upgrade_form_lake.html",
+        context={"entity": ent, "slots": _SELLABLE_SLOT_VALUES, "pending": True},
     )

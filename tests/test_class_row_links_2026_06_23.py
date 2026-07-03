@@ -12,7 +12,7 @@ These regressions lock the render-time guard on both themes.
 from __future__ import annotations
 
 import uuid
-from datetime import UTC, date, datetime, time
+from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi.testclient import TestClient
 
@@ -45,12 +45,18 @@ def _seed_pageless_program(title: str, weekday: str) -> None:
 
 
 def _assert_pageless_row_is_not_a_dead_link(theme_qs: str) -> None:
+    # UNIFY (Rule 0b 2026-06-26): recurring classes now render inline on the one
+    # unified calendar (the ?view=places tab is retired). The page-less program
+    # recurs every Wednesday, so it shows on a Wednesday day view; the render-time
+    # dead-link guard must still hold there.
     title = f"Pageless Pilates {uuid.uuid4().hex[:6]}"
-    when = date(2026, 12, 9)  # a Wednesday
     _seed_pageless_program(title, "wednesday")
-    r = TestClient(app).get(f"/events-ui?date={when.isoformat()}{theme_qs}")
+    today = date.today()
+    days_ahead = (2 - today.weekday()) % 7 or 7  # next Wednesday (Mon=0, Wed=2)
+    wed = today + timedelta(days=days_ahead)
+    r = TestClient(app).get(f"/events-ui?date={wed.isoformat()}{theme_qs}")
     assert r.status_code == 200
-    assert title in r.text, "page-less program should still render on the day page"
+    assert title in r.text, "page-less program should render on the unified calendar"
     # The exact live bug: an empty/self href the browser resolves to /events-ui.
     assert 'href=""' not in r.text
     assert 'href="#"' not in r.text

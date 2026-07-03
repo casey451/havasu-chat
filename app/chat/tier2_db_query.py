@@ -48,6 +48,7 @@ from app.db.entity_types import (
     ENTITY_TYPE_PROGRAM,
 )
 from app.db.models import Entity, EntityCategory, Event, Location, Program, Provider
+from app.events.time_labels import is_time_tbd
 from app.providers.photo_urls import first_renderable_google_photo
 from app.providers.queries import effective_hours_structured
 from app.search import fts as search_fts
@@ -332,12 +333,16 @@ def _program_location_display(
     return n or a or None
 
 
-def _event_dict(e: Event) -> dict[str, Any]:
+def event_dict(e: Event) -> dict[str, Any]:
+    # A null/midnight placeholder start (venues, undated happenings) is NOT a real
+    # "12 am" — emit None so the chat agenda sorts it to the end and renders no
+    # bogus time instead of dumping it under MORNING at "12 am" (site review §1).
+    tbd = is_time_tbd(e.start_time, e.end_time)
     out: dict[str, Any] = {
         "type": "event",
         "name": e.title,
         "date": e.date.isoformat(),
-        "start_time": e.start_time.strftime("%H:%M") if e.start_time else None,
+        "start_time": None if tbd else (e.start_time.strftime("%H:%M") if e.start_time else None),
         "end_time": e.end_time.strftime("%H:%M") if e.end_time else None,
         "location_name": e.location_name,
         "description": _truncate(e.description, 120),
@@ -401,7 +406,7 @@ def _leaf_slugs_text(p: Provider) -> str:
         return ""
 
 
-def _provider_dict(p: Provider) -> dict[str, Any]:
+def provider_dict(p: Provider) -> dict[str, Any]:
     loc = getattr(getattr(p, "entity", None), "location", None)
     address = loc.address if loc is not None and loc.address else p.address
     thumb_url = first_renderable_google_photo(p)
@@ -836,7 +841,7 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
     if span <= 30:
         if len(rows) > MAX_ROWS and win_start is not None and win_end == win_start:
             rows = _event_time_bucket_first_hits(rows, MAX_ROWS)
-        return [_event_dict(e) for e in rows[:MAX_ROWS]]
+        return [event_dict(e) for e in rows[:MAX_ROWS]]
 
     # Broad window: collapse ``is_recurring`` series (see :func:`_recurring_series_key`), then bucketing if still skewed.
     rows = _dedupe_recurring_preserving_chrono(rows)
@@ -858,7 +863,7 @@ def _query_events(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
                 len(rows),
             )
         rows = rows[:MAX_ROWS]
-    return [_event_dict(e) for e in rows]
+    return [event_dict(e) for e in rows]
 
 
 def _query_programs(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
@@ -938,6 +943,12 @@ def _query_programs(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
 
 def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
     if _has_temporal_filter(filters):
+        return []
+
+    # Providers can't answer a day-of-week ask; this guard used to sit AFTER
+    # the 80-row eager-loaded query + Python category filter, discarding the
+    # whole result (audit 2026-07-01).
+    if filters.day_of_week:
         return []
 
     fmin, fmax = _age_bounds(filters)
@@ -1050,14 +1061,7 @@ def _query_providers_orm(db: Session, filters: Tier2Filters) -> list[Provider]:
     if filters.category and filters.category.strip():
         rows = [p for p in rows if _category_match_provider(p, filters.category or "")]
 
-    if filters.day_of_week:
-        return []
-
     return rows
-
-
-def _query_providers(db: Session, filters: Tier2Filters) -> list[dict[str, Any]]:
-    return [_provider_dict(p) for p in _query_providers_orm(db, filters)[:MAX_ROWS]]
 
 
 def _sample_mixed(db: Session, cap: int) -> list[dict[str, Any]]:
@@ -1102,9 +1106,9 @@ def _sample_mixed(db: Session, cap: int) -> list[dict[str, Any]]:
             .limit(cap)
         ).all()
     )
-    ev_d = [_event_dict(e) for e in events]
+    ev_d = [event_dict(e) for e in events]
     pr_d = [_program_dict(p) for p in programs]
-    pv_d = [_provider_dict(p) for p in providers]
+    pv_d = [provider_dict(p) for p in providers]
     return _merge_simple(ev_d, pr_d, pv_d)[:cap]
 
 
@@ -1146,5 +1150,5 @@ def query(
                 kept.append(p)
             prov_orm = kept
 
-        providers = [_provider_dict(p) for p in prov_orm[:MAX_ROWS]]
+        providers = [provider_dict(p) for p in prov_orm[:MAX_ROWS]]
         return _merge_simple(events, programs, providers)[:MAX_ROWS]

@@ -180,21 +180,17 @@ def test_api_payload_prefers_openuv_sunset_over_nws() -> None:
     assert api.get("sunset_source") == "openuv"
 
 
-def test_api_payload_falls_back_to_nws_when_openuv_has_no_sunset() -> None:
+def test_api_payload_computes_sunset_when_openuv_has_no_sunset() -> None:
+    """No Open-UV sunset -> compute the astronomical sunset for the city, never
+    the old NWS evening-forecast-period start that read ~2h early (§4c)."""
     from app.conditions.api_payload import build_conditions_api_payload
     from app.conditions.cache import invalidate_local_cache, upsert_source
-    from app.conditions.constants import SOURCE_NWS_SUNSET
     from app.db.database import SessionLocal
 
-    now = datetime.now(UTC).replace(tzinfo=None)
+    # A fixed late-June day so the expected sunset is a known ~7:5x PM time.
+    now = datetime(2026, 6, 27, 12, 0)
     with SessionLocal() as db:
-        upsert_source(
-            db,
-            SOURCE_NWS_SUNSET,
-            {"sunset_iso": "2026-06-05T02:42:00Z", "periods": []},
-            now=now,
-        )
-        # Open-UV present but with no sun_times (only UV) -> must fall back.
+        # Open-UV present but with no sun_times (only UV).
         upsert_source(
             db,
             SOURCE_OPENUV,
@@ -205,6 +201,9 @@ def test_api_payload_falls_back_to_nws_when_openuv_has_no_sunset() -> None:
     invalidate_local_cache()
     with SessionLocal() as db:
         api = build_conditions_api_payload(db, now=now)
-    assert api.get("sunset_iso") == "2026-06-05T02:42:00Z"
-    assert api.get("sunset_local") == "7:42 PM"
-    assert api.get("sunset_source") == "nws_approx"
+    assert api.get("sunset_source") == "computed"
+    assert api.get("sunset_is_stale") is False
+    assert api.get("sunset_iso")
+    # Late-June Lake Havasu sunset is ~7:5x PM — never the NWS 6 PM.
+    assert (api.get("sunset_local") or "").startswith("7:")
+    assert (api.get("sunset_local") or "").endswith("PM")

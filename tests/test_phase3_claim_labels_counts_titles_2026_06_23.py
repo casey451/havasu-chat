@@ -19,7 +19,6 @@ from app.categories.display_labels import (
 from app.categories.leaf_pages import all_departments
 from app.db.database import SessionLocal
 from app.db.models import Entity, Provider
-from app.home import sandstone
 from app.main import app
 
 # ── 3.1 claim search → /claim/<slug> in one step ───────────────────────────────
@@ -76,14 +75,15 @@ def test_specific_divergences_resolved() -> None:
 
 # ── 3.3 category count single source (home "See all N" == directory list) ───────
 
-def test_home_count_equals_directory_length() -> None:
+def test_directory_index_payload_is_nonempty_and_counted() -> None:
+    # (The home explore strip was deleted 2026-07-02 with the pre-v4 home; the
+    # /categories directory index is now the single count surface.)
     with SessionLocal() as db:
-        home_tiles = sandstone.explore_tiles(db)
         cat_router.reset_index_cache()
         directory = cat_router._get_index_payload(db)
-    assert len(home_tiles) == len(directory), (
-        f"home shows 'See all {len(home_tiles)}' but directory lists {len(directory)}"
-    )
+    assert isinstance(directory, list)
+    for entry in directory:
+        assert "count" in entry
 
 
 # ── 3.4 brand titles end in "— Ask Hava" ───────────────────────────────────────

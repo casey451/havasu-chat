@@ -17,7 +17,7 @@ from app.events.activity_taxonomy import (
     provider_activity_label,
 )
 from app.events.family_filter import is_family_event
-from app.home.events_views import _family_subgroup, _group_for
+from app.home.events_views import _group_for
 
 # --------------------------------------------------------------------------- #
 # 2A — provider-aware class classification
@@ -188,22 +188,9 @@ def test_pickleball_at_aquatic_center_files_under_pickleball():
     assert classify_class_subgroup("Lap Swim", "Lake Havasu City Aquatic Center", None) == "Aquatic fitness"
 
 
-def test_dropin_swim_not_filed_as_swim_lessons():
-    # Open Swim / Free Family Swim are drop-in rec, not lessons — they must NOT
-    # file under the "Swim Lessons" youth subsection (live bug: they did).
-    assert _family_subgroup("Open Swim") == "More for kids"
-    assert _family_subgroup("Free Family Swim") == "More for kids"
-    # An actual swim lesson still files under Swim Lessons.
-    assert _family_subgroup("Swim Lessons (Station-Based Program)") == "Swim Lessons"
-
-
-def test_youth_subgroup_uses_provider_activity():
-    # A generically-named youth gymnastics class types as Youth Gymnastics via the
-    # provider activity (no "gymnastics" token in "Boys Athletics").
-    assert _family_subgroup("Boys Athletics", "Gymnastics") == "Youth Gymnastics"
-    assert _family_subgroup("Elementary B", "Dance") == "Youth Dance"
-    # Title keyword still wins.
-    assert _family_subgroup("Tiny Tumblers", None) == "Youth Gymnastics"
+# The _family_subgroup youth-vocabulary tests were retired 2026-06-26 with the
+# Kids & Family overlay; youth items now peel into a "Youth <activity>" sub of
+# their own group (see tests/test_calendar_taxonomy_phase7.py).
 
 
 # --------------------------------------------------------------------------- #

@@ -31,15 +31,15 @@ def client() -> TestClient:
     return TestClient(app)
 
 
-def _seed_mexican(db, suf: str, n: int) -> list[str]:
-    """Create ``n`` active Eat & Drink providers that classify as Mexican."""
+def _seed_cuisine(db, suf: str, n: int, *, primary: str, prefix: str) -> list[str]:
+    """Create ``n`` active Eat & Drink providers of one Google cuisine type."""
     pids: list[str] = []
     for i in range(n):
         p = Provider(
-            provider_name=f"A3 Cantina {i} {suf}",
+            provider_name=f"{prefix} {i} {suf}",
             category="restaurant",
-            google_primary_category="mexican_restaurant",
-            slug=f"a3-cantina-{i}-{suf}",
+            google_primary_category=primary,
+            slug=f"{prefix.lower().replace(' ', '-')}-{i}-{suf}",
             is_active=True,
             draft=False,
             pending_review=False,
@@ -51,6 +51,11 @@ def _seed_mexican(db, suf: str, n: int) -> list[str]:
         db.commit()
         pids.append(p.id)
     return pids
+
+
+def _seed_mexican(db, suf: str, n: int) -> list[str]:
+    """Create ``n`` active Eat & Drink providers that classify as Mexican."""
+    return _seed_cuisine(db, suf, n, primary="mexican_restaurant", prefix="A3 Cantina")
 
 
 def _cleanup(db, pids: list[str]) -> None:
@@ -72,11 +77,12 @@ def test_placement_key_for_is_namespaced() -> None:
 def test_gate_counts_and_qualifies() -> None:
     suf = uuid.uuid4().hex[:8]
     with SessionLocal() as db:
-        pids = _seed_mexican(db, suf, cuisine_pages.CUISINE_PAGE_MIN_PROVIDERS)
+        # Seed to the (higher) sitemap bar so both gates are exercised live.
+        pids = _seed_mexican(db, suf, cuisine_pages.CUISINE_SITEMAP_MIN_PROVIDERS)
         try:
             assert (
                 cuisine_pages.cuisine_provider_count(db, "mexican")
-                >= cuisine_pages.CUISINE_PAGE_MIN_PROVIDERS
+                >= cuisine_pages.CUISINE_SITEMAP_MIN_PROVIDERS
             )
             assert cuisine_pages.is_publishable_cuisine(db, "mexican") is True
             assert cuisine_pages.is_publishable_cuisine(db, "not-a-cuisine") is False
@@ -84,6 +90,22 @@ def test_gate_counts_and_qualifies() -> None:
             assert "mexican" in slugs
         finally:
             _cleanup(db, pids)
+
+
+def test_render_gate_splits_from_sitemap_gate(monkeypatch) -> None:
+    """2026-07-01 audit A4: a 2-provider cuisine RENDERS (and search routes to
+    it) but does NOT join the sitemap; a 1-provider cuisine does neither."""
+    monkeypatch.setattr(
+        cuisine_pages,
+        "_eat_drink_cuisine_counts",
+        lambda db: {"italian": 2, "thai": 1, "mexican": 26},
+    )
+    assert cuisine_pages.is_publishable_cuisine(None, "italian") is True
+    assert cuisine_pages.is_publishable_cuisine(None, "thai") is False
+    slugs = {s for s, _label, _n in cuisine_pages.qualifying_cuisines(None)}
+    assert "mexican" in slugs
+    assert "italian" not in slugs  # renders, but stays out of the sitemap
+    assert "thai" not in slugs
 
 
 def test_route_renders_with_headline(client: TestClient) -> None:
@@ -94,6 +116,51 @@ def test_route_renders_with_headline(client: TestClient) -> None:
         resp = client.get("/lake-havasu/mexican")
         assert resp.status_code == 200
         assert "Mexican Restaurants in Lake Havasu City" in resp.text
+    finally:
+        with SessionLocal() as db:
+            _cleanup(db, pids)
+
+
+def test_two_provider_cuisine_renders_and_search_routes(client: TestClient) -> None:
+    """2026-07-01 audit A4: a real-but-thin cuisine (2 spots) renders its landing
+    and the search bar 302s the cuisine query to it instead of the generic
+    Restaurants fallback."""
+    suf = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        pids = _seed_cuisine(
+            db, suf, cuisine_pages.CUISINE_PAGE_MIN_PROVIDERS,
+            primary="italian_restaurant", prefix="A4 Trattoria",
+        )
+    try:
+        resp = client.get("/lake-havasu/italian")
+        assert resp.status_code == 200
+        assert "Italian Restaurants in Lake Havasu City" in resp.text
+
+        r = client.get("/chat?q=italian food", follow_redirects=False)
+        assert r.status_code == 302
+        assert r.headers["location"] == "/lake-havasu/italian"
+    finally:
+        with SessionLocal() as db:
+            _cleanup(db, pids)
+
+
+def test_one_provider_cuisine_shows_no_chip(client: TestClient) -> None:
+    """A single-provider cuisine renders no chip (chips gate on the render
+    gate, not bare presence)."""
+    from app.categories.queries import available_cuisines_for_route
+
+    suf = uuid.uuid4().hex[:8]
+    with SessionLocal() as db:
+        pre = cuisine_pages.cuisine_provider_count(db, "indian")
+        pids = _seed_cuisine(
+            db, suf, 1, primary="indian_restaurant", prefix="A4 Curry House"
+        )
+    try:
+        with SessionLocal() as db:
+            if pre == 0:  # guard against unrelated seeded rows in the shared DB
+                chips = {c["slug"] for c in available_cuisines_for_route(db, "eat-drink")}
+                assert "indian" not in chips
+                assert cuisine_pages.is_publishable_cuisine(db, "indian") is False
     finally:
         with SessionLocal() as db:
             _cleanup(db, pids)

@@ -48,7 +48,7 @@ import re
 GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
     # "Things to Do" (relabeled from "Happening today" — Casey 2026-06-25): the
     # catch-all one-off group (markets / festivals / movies / community socials /
-    # untyped). Civic items used to land here; they now have their own "City &
+    # untyped). Civic items used to land here; they now have their own "Local
     # Government" bucket below. The bowling/billiards/family-fun venue cluster
     # surfaces as a SECTION inside this bucket (Casey 2026-06-25), not a separate
     # top-level — wired into the render split in a later phase.
@@ -61,10 +61,12 @@ GROUP_DEFS: tuple[tuple[str, str, str], ...] = (
     # occurrence (the Senior Center activities, community lunch, special events)
     # is re-listed here in addition to its primary group. Built in day_groups.
     ("seniors", "Seniors", "\U0001F9D3"),
-    # "City & Government" (P1): council/board/commission meetings, public
-    # hearings, and other civic-government items — a "need to know" group, kept
-    # out of the leisure-oriented "Things to Do" list. Routed by is_civic.
-    ("civic", "City & Government", "\U0001F3DB️"),
+    # "Local Government" (relabeled from "City & Government" — Casey 2026-06-25,
+    # two-surface spec): council/board/commission meetings, public hearings, and
+    # other civic-government items — a "need to know" group, kept out of the
+    # leisure-oriented "Things to Do" list. Key stays "civic" (stable CSS/JSON
+    # hook); only the display label changed. Routed by is_civic.
+    ("civic", "Local Government", "\U0001F3DB️"),
     ("music", "Music & Nightlife", "\U0001F3B6"),
     ("water", "Lake & Boating", "⛵"),
     # Pool activities fold into Kids & Family (open/family swim) or Fitness &

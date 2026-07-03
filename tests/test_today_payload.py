@@ -13,7 +13,7 @@ from app.conditions.constants import (
     SOURCE_AIRNOW,
     SOURCE_GAS,
     SOURCE_NWS_CURRENT,
-    SOURCE_NWS_SUNSET,
+    SOURCE_OPENUV,
     SOURCE_USGS,
 )
 from app.conditions.today_payload import build_today_payload
@@ -42,10 +42,12 @@ def _seed_fresh(now: datetime) -> None:
             {"current_aqi": 42, "current_aqi_parameter": "O3"},
             now=now,
         )
+        # Open-UV carries the true sunset (02:42 UTC -> 7:42 PM Phoenix); the
+        # api payload prefers it over the locally computed value.
         upsert_source(
             db,
-            SOURCE_NWS_SUNSET,
-            {"sunset_iso": "2026-06-02T19:42:00-07:00", "periods": []},
+            SOURCE_OPENUV,
+            {"uv_index": 6.0, "sunset_iso": "2026-06-02T02:42:00Z"},
             now=now,
         )
         upsert_source(
@@ -82,6 +84,35 @@ def test_today_payload_all_fields_available_when_fresh() -> None:
     assert "Arco" in (gas.secondary or "")
 
 
+def test_today_payload_gas_secondary_not_duplicated_when_brand_equals_name() -> None:
+    """When GasBuddy repeats the brand as the name, don't render it twice
+    ("Love's Travel Stop · Love's Travel Stop") — site review §4b."""
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        upsert_source(
+            db,
+            SOURCE_GAS,
+            {
+                "cheapest": [
+                    {
+                        "name": "Love's Travel Stop",
+                        "brand": "love's travel stop",
+                        "prices": {"regular": "3.49"},
+                    },
+                ]
+            },
+            now=now,
+        )
+        db.commit()
+    invalidate_local_cache()
+    with SessionLocal() as db:
+        payload = build_today_payload(db, now=now)
+
+    gas = _field(payload, "cheapest_gas")
+    assert gas.secondary == "Love's Travel Stop"
+    assert " · " not in (gas.secondary or "")
+
+
 def test_today_payload_sunset_formats_local_time() -> None:
     now = datetime.now(UTC).replace(tzinfo=None)
     _seed_fresh(now)
@@ -111,13 +142,21 @@ def test_today_payload_stale_source_is_unavailable() -> None:
 
 
 def test_today_payload_missing_source_is_unavailable() -> None:
-    # No seeding at all -> every field unavailable, any_available False.
+    # No data sources seeded -> every data-backed field is unavailable, BUT
+    # sunset is always computed astronomically (no source needed), so it stays
+    # available and any_available is True on its own.
     invalidate_local_cache()
     now = datetime(2999, 1, 1)  # far future so any stray rows read as stale anyway
     with SessionLocal() as db:
         payload = build_today_payload(db, now=now)
-    assert payload["any_available"] is False
-    assert all(f.primary == "Unavailable" for f in payload["fields"])
+    fields = {f.key: f for f in payload["fields"]}
+    assert fields["sunset"].available is True
+    assert fields["sunset"].primary != "Unavailable"
+    for key, f in fields.items():
+        if key == "sunset":
+            continue
+        assert f.primary == "Unavailable", key
+    assert payload["any_available"] is True
 
 
 def test_api_payload_surfaces_sunset_local() -> None:
@@ -125,8 +164,8 @@ def test_api_payload_surfaces_sunset_local() -> None:
     with SessionLocal() as db:
         upsert_source(
             db,
-            SOURCE_NWS_SUNSET,
-            {"sunset_iso": "2026-06-02T02:42:00Z", "periods": []},
+            SOURCE_OPENUV,
+            {"uv_index": 5.0, "sunset_iso": "2026-06-02T02:42:00Z"},
             now=now,
         )
         db.commit()
@@ -136,6 +175,7 @@ def test_api_payload_surfaces_sunset_local() -> None:
     assert api.get("sunset_iso") == "2026-06-02T02:42:00Z"
     # 02:42 UTC -> 19:42 previous day America/Phoenix -> 7:42 PM.
     assert api.get("sunset_local") == "7:42 PM"
+    assert api.get("sunset_source") == "openuv"
 
 
 @pytest.mark.parametrize(

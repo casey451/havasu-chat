@@ -53,6 +53,13 @@ class FamilyVenue:
     age_note: str = ""
     hours: dict[int, list[tuple[time, time]]] = field(default_factory=dict)
     verify: bool = False  # single-sourced hours — confirm before relying
+    # Venue-type slug for the Things-to-Do "Bowling, Billiards & Family Fun"
+    # cluster (bowling / billiards / trampoline / family-fun). Empty = not a
+    # funzone venue (won't surface in that cluster). See funzone_hours_rows.
+    venue_kind: str = ""
+    # True for kid/family venues that surface in the Kids & Family "Open today
+    # for kids" overlay. Pool-hall/pub billiards are family=False (funzone only).
+    family: bool = True
 
 
 def _h(h: int, m: int = 0) -> time:
@@ -69,6 +76,7 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
         url="https://thespotlhc.com/",
         address="3612 Jamaica Blvd S",
         age_note="All ages — arcade for kids, lounge for adults",
+        venue_kind="family-fun",
         # Source: Yelp (Jun 2026), thespotlhc.com, golakehavasu.com.
         hours={
             6: [(_h(12), _h(21))],  # Sun 12–9
@@ -85,6 +93,7 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
         url="https://www.sunshineindoorplay.com/",
         address="5601 AZ-95 N, Unit H814",
         age_note="Babies, toddlers & preschoolers",
+        venue_kind="family-fun",
         # Source: sunshineindoorplay.com, Yelp (May 2026). VERIFY summer hours.
         hours={
             1: [(_h(9), _h(17))],   # Tue 9–5
@@ -102,6 +111,7 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
         url="https://www.altitudetrampolinepark.com/locations/arizona/lake-havasu-city/5601-highway-95-n/",
         address="5601 Hwy 95 N, Unit 404-D",
         age_note="All ages — dedicated toddler area",
+        venue_kind="trampoline",
         # Source: altitudetrampolinepark.com, Yelp (May 2026). VERIFY summer hours.
         hours={
             0: [(_h(11), _h(19))],  # Mon 11–7
@@ -119,8 +129,11 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
         kind="Bowling",
         url="https://www.havasulanesaz.com/",
         address="2128 McCulloch Blvd N",
-        age_note="Bumper lanes & arcade for kids · Rock & Bowl black-light "
-        "bowling Fri & Sat 6 PM–close",
+        # NB: the Rock & Bowl / Cosmic glow night is NOT mentioned here — it is
+        # owned by the dated "Cosmic Bowling" event series (havasu_lanes scraper),
+        # which renders as its own row inline under Bowling. Repeating it in the
+        # hours-row blurb made Cosmic Bowling read twice (Casey, 2026-06-27).
+        age_note="Bumper lanes & arcade for kids",
         # Source: havasulanesaz.com home (Hours of Operation) + SPECIALS page
         # (Rock & Bowl cosmic/neon nights), read Jun 2026. 32-lane center.
         hours={
@@ -132,6 +145,51 @@ OPEN_VENUES: tuple[FamilyVenue, ...] = (
             5: [(_h(12), _h(23))],  # Sat 12–11
             6: [(_h(12), _h(19))],  # Sun 12–7
         },
+        venue_kind="bowling",
+    ),
+    # --- Billiards / pool halls (funzone cluster; not kid venues) -----------
+    # family=False so they surface ONLY in Things to Do → Billiards, never in the
+    # Kids & Family "Open today for kids" overlay.
+    FamilyVenue(
+        name="Mr. Lucky's Billiards & Pub",
+        kind="Billiards & pub",
+        url="https://mrluckysbilliardsaz.com/",
+        address="3313 Maricopa Ave",
+        age_note="14 tables · full bar · leagues & tournaments",
+        # Source: mrluckysbilliardsaz.com, golakehavasu.com (Jun 2026).
+        hours={d: [(_h(11), _h(23))] for d in range(7)},  # daily 11 AM–11 PM
+        venue_kind="billiards",
+        family=False,
+    ),
+    # NOTE: "In the Pocket Billiard" (2871 Indian Pipe Dr) was removed 2026-06-26.
+    # It is a billiard SUPPLY shop / pool-table repair service, not a pool hall
+    # you can play at, so it does not belong in Things to Do → Billiards. Its
+    # directory Provider row is deactivated separately (see
+    # scripts/deactivate_in_the_pocket_billiard.py).
+    FamilyVenue(
+        name="Lady Lee's Billiards Hall",
+        kind="Billiards hall",
+        # F4 follow-up (2026-06-30): the old Facebook URL
+        # (facebook.com/people/Lady-Lees/) is DEAD — 404 "Page Isn't Available".
+        # Verified official site that loads (200): the venue's own domain.
+        url="https://ladyleesbilliards.com/",
+        age_note="Billiards · Monday-night dance party",
+        # Source: the venue's structured hours carried on its directory Provider
+        # row (provider_name "Lady Lee's Billiards Hall", confirmed Jun 2026:
+        # "Mon-Thu 11am-10pm; Fri-Sat 11am-12am; Sun 11am-9pm"). Curated here so
+        # the Things-to-Do → Billiards hours row shows the REAL window instead of
+        # "Hours vary" (mirrors the golf #601 curation; Casey 2026-06-28).
+        hours={
+            0: [(_h(11), _h(22))],   # Mon 11 AM–10 PM
+            1: [(_h(11), _h(22))],   # Tue 11 AM–10 PM
+            2: [(_h(11), _h(22))],   # Wed 11 AM–10 PM
+            3: [(_h(11), _h(22))],   # Thu 11 AM–10 PM
+            4: [(_h(11), _h(0))],    # Fri 11 AM–12 AM (closes midnight)
+            5: [(_h(11), _h(0))],    # Sat 11 AM–12 AM (closes midnight)
+            6: [(_h(11), _h(21))],   # Sun 11 AM–9 PM
+        },
+        venue_kind="billiards",
+        family=False,
     ),
 )
 
@@ -165,12 +223,17 @@ DIRECTORY: tuple[FamilyVenue, ...] = (
 
 def _fmt_span(open_t: time, close_t: time) -> str:
     """One span: "3–9 PM" (drop the redundant first meridiem when it matches),
-    "9 AM–2 PM" when they differ."""
+    "9 AM–2 PM" when they differ.
+
+    The meridiem on EITHER endpoint is kept when that hour is 12 (noon/midnight),
+    so a noon-to-11 span reads "12 PM–11 PM" and an 11am-to-midnight span reads
+    "11 AM–12 AM" — never the ambiguous "12–11 PM" / "11–12 AM" that looks like a
+    24-hour range (site review §6; mirrors lhc_golf._fmt_span)."""
     o = format_short_time(open_t)
     c = format_short_time(close_t)
     o_mer = o.rsplit(" ", 1)[-1]
     c_mer = c.rsplit(" ", 1)[-1]
-    if o_mer == c_mer:
+    if o_mer == c_mer and not o.startswith("12") and not c.startswith("12"):
         return f"{o[: -(len(o_mer) + 1)]}–{c}"
     return f"{o}–{c}"
 
@@ -191,6 +254,8 @@ def open_today_rows(day: date) -> list[dict[str, Any]]:
     weekday = day.weekday()
     rows: list[dict[str, Any]] = []
     for v in OPEN_VENUES:
+        if not v.family:
+            continue  # billiards/pub venues belong to the funzone cluster only
         spans = v.hours.get(weekday)
         if not spans:
             continue
@@ -201,11 +266,69 @@ def open_today_rows(day: date) -> list[dict[str, Any]]:
                 # hours, so the prefix was redundant noise on every row.
                 "sort": (_OPEN_ROW_RANK, spans[0][0]),
                 "time_label": _span_label(spans),
-                "title": f"{v.name} · {v.kind}",
+                # Just the venue name — the "· kind" suffix repeated what the
+                # sub-section heading (Bowling / Billiards / Trampoline / Open
+                # today for kids) already says (site review §6).
+                "title": v.name,
                 "venue": v.age_note or v.address,
                 "url": v.url,
                 "recurring": False,
                 "ongoing": True,  # drop-in venue hours, not a scheduled class
+            }
+        )
+    rows.sort(key=lambda r: r["sort"])
+    return rows
+
+
+# Funzone (bowling/billiards/trampoline/arcade) venue-type cluster under Things
+# to Do. The hours rows sort BEFORE the day's timed events within their sub-
+# section (rank -1) so a venue reads "hours, then its events" (Casey 2026-06-26).
+_FUNZONE_HOURS_RANK = -1
+HOURS_VARY_LABEL = "Hours vary"
+FUNZONE_KINDS: frozenset[str] = frozenset({"bowling", "billiards", "trampoline", "family-fun"})
+
+
+def funzone_hours_rows(
+    day: date, venues: tuple[FamilyVenue, ...] = OPEN_VENUES
+) -> list[dict[str, Any]]:
+    """Accordion-row dicts for the Things-to-Do "Bowling, Billiards & Family Fun"
+    cluster — every funzone venue, carrying its venue-kind so the events split
+    files it under Billiards / Bowling / Trampoline / Arcade & Family Fun.
+
+    A venue with confident weekly hours shows its real "11 AM–10 PM" window (and
+    is omitted on a day it is closed — never a fabricated "open" claim); a venue
+    whose hours we cannot confirm shows "Hours vary" rather than "Time TBD".
+    Shaped like :func:`open_today_rows` (drops straight into the day-view "events"
+    group), with ``activity:<kind>`` + ``facet:hours`` tags so the split routes it
+    and the auto-expand rule reads it as a listing (not an event). ``venues`` is
+    injectable for tests (defaults to the curated :data:`OPEN_VENUES`)."""
+    weekday = day.weekday()
+    rows: list[dict[str, Any]] = []
+    for v in venues:
+        if v.venue_kind not in FUNZONE_KINDS:
+            continue
+        if v.hours:
+            spans = v.hours.get(weekday)
+            if not spans:
+                continue  # known schedule, closed today → omit
+            time_label = _span_label(spans)
+            sort_t = spans[0][0]
+        else:
+            time_label = HOURS_VARY_LABEL  # schedule unconfirmed
+            sort_t = time(0, 0)
+        rows.append(
+            {
+                "sort": (_FUNZONE_HOURS_RANK, sort_t),
+                "time_label": time_label,
+                # Just the venue name — the "· kind" suffix repeated what the
+                # sub-section heading (Bowling / Billiards / Trampoline / Open
+                # today for kids) already says (site review §6).
+                "title": v.name,
+                "venue": v.age_note or v.address,
+                "url": v.url,
+                "recurring": False,
+                "ongoing": True,  # venue hours, not an event
+                "tags": [f"activity:{v.venue_kind}", "facet:hours"],
             }
         )
     rows.sort(key=lambda r: r["sort"])
@@ -244,6 +367,9 @@ class Studio:
     activity: str  # provider-activity hint (taxonomy fallback routing)
     url: str  # link to the studio's full schedule
     classes: tuple[StudioClass, ...] = ()
+    # Martial-arts discipline (Phase 5, spec §4.1): drives the Martial Arts →
+    # BJJ / Taekwondo split. Curated data, not a title guess; "" = undetermined.
+    discipline: str = ""
 
 
 def _c(name: str, wd: int, sh: int, sm: int, eh: int, em: int, age: str = "") -> StudioClass:
@@ -256,6 +382,7 @@ STUDIOS: tuple[Studio, ...] = (
         short="Black Belt Academy",
         section="Youth Martial Arts",
         activity="Martial Arts",
+        discipline="taekwondo",  # a taekwondo dojo (spec §4.1) — curated, not guessed
         url="https://www.lakehavasublackbeltacademy.com/schedule/",
         # Source: lakehavasublackbeltacademy.com/schedule weekly grid, read
         # Jun 2026. Adult-only blocks (Adult/Teen, Adult Self Defense, Tai Chi)
@@ -350,7 +477,35 @@ def class_today_rows(day: date) -> list[dict[str, Any]]:
                     "ongoing": False,
                     "subgroup": s.section,
                     "activity": s.activity,
+                    # Discipline drives the Martial Arts → Taekwondo/BJJ split (§4.1).
+                    "discipline": s.discipline,
+                    # Youth-studio classes are kid programming by definition (their
+                    # section is "Youth …"); the age lives in the note, not a
+                    # family keyword, so flag youth here rather than re-inferring.
+                    "youth": True,
                 }
             )
     rows.sort(key=lambda r: r["sort"])
     return rows
+
+
+def curated_outbound_links() -> list[tuple[str, str]]:
+    """``(url, label)`` for every curated venue/studio outbound link rendered on
+    the events surfaces (OPEN_VENUES, DIRECTORY, STUDIOS).
+
+    These are feed-supplied links that live in code, not in the ``providers`` /
+    ``events`` tables, so the link-health sweep (``collect_links``) can't see
+    them from the DB. Feeding them in here lets the sweep check them like any
+    other outbound link — so a curated link that goes dead (e.g. F4's Lady Lee's
+    Facebook page) can be flagged ``confirmed_broken`` and suppressed at render
+    time instead of shipping a broken link to users. Internal links are skipped;
+    only real ``http(s)`` destinations are returned, de-duplicated.
+    """
+    seen: set[str] = set()
+    out: list[tuple[str, str]] = []
+    for v in (*OPEN_VENUES, *DIRECTORY, *STUDIOS):
+        url = (v.url or "").strip()
+        if url.startswith("http") and url not in seen:
+            seen.add(url)
+            out.append((url, v.name))
+    return out

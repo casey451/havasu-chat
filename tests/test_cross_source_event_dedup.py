@@ -15,7 +15,7 @@ month calendar, and the /events-ui window feed.
 from __future__ import annotations
 
 import uuid
-from datetime import date, datetime, time
+from datetime import date, time
 
 from sqlalchemy import delete
 
@@ -26,7 +26,6 @@ from app.events.dedup import (
     dedup_cross_source_occurrences,
 )
 from app.home import sandstone
-from app.home.router import _events_for_window_with_total
 
 _DAY = date(2099, 8, 17)
 
@@ -140,6 +139,32 @@ def test_tiebreak_falls_to_source_priority() -> None:
     assert kept == [high]
 
 
+def test_authoritative_source_beats_longer_aggregator_blurb() -> None:
+    """The swim-card regression: a curated short admin row outranks a longer
+    aggregator blurb when they collapse to one session (source priority now
+    sorts ahead of description length)."""
+    admin = _ev(
+        "Free Swim Day!",
+        start=time(12, 0),
+        end=time(16, 0),
+        venue="Lake Havasu City Aquatic Center",
+        desc="Free swim, noon-4.",
+        source="admin",
+        ev_id="admin",
+    )
+    aggregator = _ev(
+        "Free Swim Day!",
+        start=time(13, 0),
+        venue="Lake Havasu City Aquatic Center",
+        desc="A much longer aggregator blurb describing the free swim event in "
+        "great, search-padded detail to make its description win on length.",
+        source="go_lake_havasu",
+        ev_id="aggregator",
+    )
+    kept = dedup_cross_source_event_rows([aggregator, admin])
+    assert kept == [admin]  # admin (source 0) beats go_lake_havasu (source 1)
+
+
 def test_occurrence_pairs_keep_input_order_and_distinct_titles() -> None:
     a = _ev("Alpha Night", start=time(19, 0), ev_id="a")
     b = _ev("Beta Brunch", start=time(10, 0), ev_id="b")
@@ -224,23 +249,65 @@ def test_calendar_month_shows_cross_source_duplicate_once() -> None:
         _cleanup(eids)
 
 
-def test_events_ui_window_feed_dedups_and_keeps_named_venue() -> None:
-    """The /events-ui bucket + day-view feed shows one card with the real
-    time span and the named venue -- and the honest total counts it once."""
-    suffix = uuid.uuid4().hex[:6]
-    title = f"ZZ Dedup Feed Market {suffix}"
-    day = date(2099, 10, 13)
-    win = datetime.combine(day, time(12, 0))
-    with SessionLocal() as db:
-        eids = _seed_farmers_market_pair(db, title=title, on=day)
-    try:
-        with SessionLocal() as db:
-            rows, _total = _events_for_window_with_total(
-                db, start_day=win, end_day=win, limit=16
-            )
-        mine = [r for r in rows if r["title"] == title]
-        assert len(mine) == 1
-        assert mine[0]["venue"] == _NAMED_VENUE
-        assert mine[0]["time_label"] == "8:00 AM - 12:00 PM"
-    finally:
-        _cleanup(eids)
+
+# --- Item 2: cross-source SAME-SESSION, DIFFERENT titles ---------------------
+
+
+def test_cross_source_swim_triple_collapses_to_one() -> None:
+    """One real Aquatic Center session surfaced by 3 sources under 3 titles, with
+    overlapping times and venue-name variants, collapses to a single survivor."""
+    a = _ev("Free Family Swim Sponsored by Abundant Grace", start=time(12, 0),
+            end=time(16, 0), venue="Lake Havasu City Aquatic Center",
+            source="admin", ev_id="swim-admin")
+    b = _ev("Open Swim", start=time(13, 0), end=time(16, 0),
+            venue="Aquatic Center", source="allevents", ev_id="swim-allevents")
+    c = _ev("Free Swim Day!", start=time(13, 0), end=time(16, 0),
+            venue="Aquatic Center", source="go_lake_havasu", ev_id="swim-golake")
+    kept = dedup_cross_source_event_rows([a, b, c])
+    assert len(kept) == 1
+
+
+def test_same_source_distinct_swim_sessions_both_kept() -> None:
+    """Lap Swim (5 AM) and Open Swim (noon) at the SAME venue/date are genuinely
+    distinct sessions — same source AND non-overlapping → both kept."""
+    lap = _ev("Lap Swim", start=time(5, 0), end=time(7, 0),
+              venue="Lake Havasu City Aquatic Center", source="admin", ev_id="lap")
+    openswim = _ev("Open Swim", start=time(12, 0), end=time(16, 0),
+                   venue="Lake Havasu City Aquatic Center", source="admin", ev_id="open")
+    kept = dedup_cross_source_event_rows([lap, openswim])
+    assert len(kept) == 2
+
+
+def test_cross_source_distinctly_named_activity_events_not_merged() -> None:
+    """Two DIFFERENT bowling events at one alley — overlapping, cross-source — stay
+    separate because neither title's significant words subset the other's (the
+    over-merge the bare overlap+source rule produced)."""
+    cosmic = _ev("Cosmic Bowling", start=time(18, 0), end=time(23, 0),
+                 venue="Havasu Lanes", source="admin", ev_id="cosmic")
+    charity = _ev("Western Arizona Humane Society Back to School Bowl",
+                  start=time(18, 0), end=time(21, 0), venue="Havasu Lanes",
+                  source="go_lake_havasu", ev_id="charity")
+    kept = dedup_cross_source_event_rows([cosmic, charity])
+    assert len(kept) == 2
+
+
+def test_cross_source_subset_titles_but_non_overlapping_kept() -> None:
+    """Subset titles + same venue + different sources, but NON-overlapping times
+    (morning vs evening) → kept separate (the matinee/evening guard)."""
+    morning = _ev("Yoga", start=time(8, 0), end=time(9, 0),
+                  venue="Rotary Park", source="admin", ev_id="yoga-am")
+    evening = _ev("Sunset Yoga", start=time(18, 0), end=time(19, 0),
+                  venue="Rotary Park", source="allevents", ev_id="yoga-pm")
+    kept = dedup_cross_source_event_rows([morning, evening])
+    assert len(kept) == 2
+
+
+def test_cross_source_bare_city_venue_not_merged() -> None:
+    """Subset titles + overlap + different sources, but the venue is the bare-city
+    no-venue fallback → never merged (it isn't a real shared session)."""
+    a = _ev("Community Meeting", start=time(9, 0), end=time(11, 0),
+            venue="Lake Havasu City", source="legistar", ev_id="bare-a")
+    b = _ev("Meeting", start=time(9, 0), end=time(11, 0),
+            venue="Lake Havasu City", source="allevents", ev_id="bare-b")
+    kept = dedup_cross_source_event_rows([a, b])
+    assert len(kept) == 2

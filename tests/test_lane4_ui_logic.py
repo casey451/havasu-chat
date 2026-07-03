@@ -160,51 +160,5 @@ def test_recurrence_label_helper() -> None:
     assert sandstone.recurrence_label({1, 3}) == schedule_label({1, 3})
 
 
-def test_aggregate_cards_collapse_recurring_class_to_one_card(db: Session) -> None:
-    # A class recurring every day across the week renders as ONE card with a
-    # recurrence_label, not one card per occurrence.
-    _add(
-        db,
-        title="Aqua Aerobics",
-        on_date=_TODAY,
-        start=time(6, 0),
-        end=time(7, 0),
-        recurring=True,
-        rrule="FREQ=DAILY;COUNT=10",
-    )
-    end = date(2026, 6, 7)
-    cards = sandstone.aggregate_event_cards(db, window_start=_TODAY, window_end=end)
-    aqua = [c for c in cards if "Aqua" in c["title"]]
-    assert len(aqua) == 1  # collapsed
-    card = aqua[0]
-    assert card["recurring"] is True
-    # short_time_label renders the start clock ("6 AM"); cadence + time.
-    assert card["recurrence_label"] == "Daily, 6 AM"
-    assert card["occurrence_count"] >= 7  # daily over the 7-day window
 
 
-def test_aggregate_card_oneoff_has_no_recurrence_label(db: Session) -> None:
-    _add(db, title="Boat Show", on_date=date(2026, 6, 3), start=time(11, 0))
-    cards = sandstone.aggregate_event_cards(
-        db, window_start=_TODAY, window_end=date(2026, 6, 7)
-    )
-    show = next(c for c in cards if "Boat Show" in c["title"])
-    assert show["recurring"] is False
-    assert show["recurrence_label"] is None
-    assert show["occurrence_count"] == 1
-
-
-def test_aggregate_card_passes_through_optional_fields(db: Session) -> None:
-    ev = _add(db, title="Charity Gala", on_date=date(2026, 6, 5), start=time(18, 0))
-    # Optional fields populated by another lane; the card must pass them through.
-    ev.cost = "$25"
-    ev.host = "Rotary Club"
-    ev.image_url = "https://example.com/gala.jpg"
-    db.commit()
-    cards = sandstone.aggregate_event_cards(
-        db, window_start=_TODAY, window_end=date(2026, 6, 7)
-    )
-    gala = next(c for c in cards if "Charity Gala" in c["title"])
-    assert gala["cost"] == "$25"
-    assert gala["host"] == "Rotary Club"
-    assert gala["image_url"] == "https://example.com/gala.jpg"

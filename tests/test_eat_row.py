@@ -473,7 +473,7 @@ def test_home_renders_without_legacy_eat_row_or_zero_counts() -> None:
         r = client.get("/home")
     assert r.status_code == 200
     body = r.text
-    assert 'data-mode="ask"' in body
+    assert 'id="rd-body"' in body  # the v4 base layout
     assert "c-scroll-row" not in body
     assert "c-pc-name" not in body
     assert 'href="#"' not in body

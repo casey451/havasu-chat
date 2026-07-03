@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import html
 from datetime import datetime, timedelta, timezone
 
 from fastapi import APIRouter, Depends, Request
@@ -10,8 +9,10 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import case, desc, func, select
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, verify_admin_cookie
-from app.admin.nav_html import admin_phase5_nav_html
+from app.admin.auth import admin_guard as _guard
+from app.admin.shell import admin_shell
+from app.admin.shell import esc as _esc
+from app.admin.shell import fmt_dt as _fmt_dt
 from app.db.database import get_db
 from app.db.models import ChatLog
 
@@ -22,23 +23,13 @@ _WINDOW_DAYS: dict[str, int | None] = {
 }
 _DEFAULT_WINDOW = "7d"
 
-
-def _guard(request: Request) -> RedirectResponse | None:
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    return RedirectResponse(url="/admin/login", status_code=302)
-
-
-def _esc(s: str | None) -> str:
-    return html.escape(s or "", quote=True)
-
-
-def _fmt_dt(value: datetime | None) -> str:
-    if not value:
-        return "—"
-    if value.tzinfo is not None:
-        value = value.replace(tzinfo=None)
-    return value.strftime("%b %d, %Y %I:%M %p")
+# Page-specific CSS layered over the shared admin_shell base (window picker +
+# mono cells).
+_FEEDBACK_CSS = """    .window { margin: 8px 0 14px; display: flex; gap: 8px; }
+    .wbtn { color: #0d6efd; text-decoration: none; border: 1px solid #dee2e6; border-radius: 999px;
+      padding: 4px 10px; font-size: 0.88rem; }
+    .wbtn.active { font-weight: 700; text-decoration: underline; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; }"""
 
 
 def _pct(n: int, d: int) -> str:
@@ -62,44 +53,6 @@ def _window_links(active: str) -> str:
         cls = "active" if key == active else ""
         parts.append(f'<a class="wbtn {cls}" href="/admin/feedback?window={key}">{label}</a>')
     return "".join(parts)
-
-
-def _nav_shell(title: str, inner: str) -> str:
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>{_esc(title)}</title>
-  <style>
-    * {{ box-sizing: border-box; }}
-    body {{ font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fff; color: #212529;
-      line-height: 1.45; padding-bottom: 48px; }}
-    .wrap {{ max-width: 980px; margin: 0 auto; }}
-    h1 {{ font-size: 1.35rem; margin: 0 0 8px; }}
-    h2 {{ font-size: 1.05rem; margin: 28px 0 10px; color: #343a40; }}
-    .sub {{ color: #6c757d; font-size: 0.9rem; margin-bottom: 14px; }}
-    .nav {{ margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }}
-    .nav a {{ color: #0d6efd; font-weight: 600; text-decoration: none; }}
-    .window {{ margin: 8px 0 14px; display: flex; gap: 8px; }}
-    .wbtn {{ color: #0d6efd; text-decoration: none; border: 1px solid #dee2e6; border-radius: 999px;
-      padding: 4px 10px; font-size: 0.88rem; }}
-    .wbtn.active {{ font-weight: 700; text-decoration: underline; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-bottom: 8px; }}
-    th, td {{ border: 1px solid #dee2e6; padding: 8px 10px; text-align: left; vertical-align: top; }}
-    th {{ background: #f8f9fa; font-weight: 600; }}
-    tbody tr:nth-child(even) {{ background: #fcfcfc; }}
-    .empty {{ color: #6c757d; padding: 12px 0; font-size: 0.92rem; }}
-    .mono {{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.85rem; }}
-  </style>
-</head>
-<body>
-  <div class="wrap">
-{admin_phase5_nav_html()}
-    {inner}
-  </div>
-</body>
-</html>"""
 
 
 def register_feedback_html_routes(router: APIRouter) -> None:
@@ -219,4 +172,4 @@ def register_feedback_html_routes(router: APIRouter) -> None:
 <h2>Recent negatives (latest 25)</h2>
 {negatives_html}
 """
-        return HTMLResponse(_nav_shell("Feedback", inner))
+        return HTMLResponse(admin_shell("Feedback", inner, css=_FEEDBACK_CSS, max_width="980px"))

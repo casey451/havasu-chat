@@ -11,489 +11,62 @@ Also hosts the sponsor attribution endpoints (v52 P0):
 
 from __future__ import annotations
 
-import os
-from datetime import UTC, datetime, time, timedelta
+from datetime import UTC, datetime, timedelta
 from datetime import date as dt_date
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import select, update
 from sqlalchemy.orm import Session
 
 from app.analytics import record_event
-from app.categories import queries as cat_queries
 from app.categories.display_labels import map_scope_label
 from app.conditions.cache import read_source
 from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
 from app.conditions.staleness import staleness_label
 from app.conditions.view_model import build_conditions_strip_view_model
-from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.rate_limit import limiter
+from app.core.templates import make_templates
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
-from app.db.models import AdSlot, Event, Provider, Sponsor
-from app.events import series as event_series
-from app.events.class_occurrences import class_occurrences_in_window
-from app.events.dedup import dedup_cross_source_event_rows
-from app.events.time_labels import TIME_TBD_LABEL, is_time_tbd, time_sort_key
+from app.db.models import AdSlot, Provider, Sponsor
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
-from app.home import events_views, flags, redesign, sandstone, sponsor_store
-from app.home.today_feed import today_feed
+from app.home import events_views, redesign, sandstone, sponsor_store
 from app.monetization import serving
-from app.movies.queries import movies_today
-from app.v1.categories import BUCKET_SLUG_REDIRECTS, MASTER_BUCKETS
+from app.news import store as news_store
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 router = APIRouter(tags=["home"])
 
-# Configurable home hero. The previous rotation hard-coded Unsplash IDs in the
-# *page-slug* form (``photo-jp9Bdu6IGq4``) — not valid ``images.unsplash.com``
-# asset URLs — so every hero 404'd on the live site. The hero is now a
-# configurable asset: ``HOME_HERO_IMAGE_URL`` (a local ``/static`` path or remote
-# URL) overrides the bundled golden-hour default at ``_DEFAULT_HERO_ASSET``.
-# ``.ll-hero`` also paints a golden-hour gradient *under* the photo, so a missing
-# or slow image degrades to an intentional sunset wash — never a broken box or a
-# reused stock photo. Optional ``HOME_HERO_CREDIT`` / ``HOME_HERO_CREDIT_URL``
-# add an attribution line when the owner supplies a licensed photo.
-_DEFAULT_HERO_ASSET = "/static/img/home-hero.jpg"
+# (The pre-v4 home builders — hero config, window feeds, tonight card,
+# category cards, series collapse — were deleted 2026-07-02: no route or
+# template consumed them after the Sandstone/v4 homes; only their own tests
+# kept them green. The live event surfaces are events_views/sandstone/
+# redesign.)
 
-# Place-grounded hero copy, env-overridable (same pattern as the hero image) so
-# the headline can be tuned per season/campaign without a redeploy.
-_HERO_EYEBROW_DEFAULT = "YOUR LAKE, RIGHT NOW"
-_HERO_HEADLINE_DEFAULT = "Your day on Lake Havasu starts here"
-
-
-def _hero_context() -> dict[str, Any]:
-    url = (os.getenv("HOME_HERO_IMAGE_URL") or "").strip() or _DEFAULT_HERO_ASSET
-    credit = (os.getenv("HOME_HERO_CREDIT") or "").strip()
-    credit_url = (os.getenv("HOME_HERO_CREDIT_URL") or "").strip()
-    attribution = (
-        {"photographer": credit, "profile_url": credit_url} if credit and credit_url else None
-    )
-    return {
-        "url": url,
-        "attribution": attribution,
-        "eyebrow": (os.getenv("HOME_HERO_EYEBROW") or "").strip() or _HERO_EYEBROW_DEFAULT,
-        "headline": (os.getenv("HOME_HERO_HEADLINE") or "").strip() or _HERO_HEADLINE_DEFAULT,
-    }
-
-
-def _format_event_time_label(start_at: datetime) -> str:
-    return start_at.strftime("%I:%M %p").lstrip("0")
-
-
-def _is_midnight_fallback(ev: Event) -> bool:
-    """Aggregator feeds without a time component land as a 00:00 start (the
-    ingest fallback) — "time unknown", not a real 12:00 AM event. The single
-    definition lives in :mod:`app.events.time_labels` (shared with the home
-    week strip and month grid)."""
-    return is_time_tbd(ev.start_time, ev.end_time)
-
-
-# Event cards are image-optional: most events have no photo, so the date block is
-# the hero (brief §3). Colour-code that block by a coarse category derived from
-# the event's freeform ``tags`` — gives the feed visual rhythm without a real
-# category column. (label, accent hex). First keyword hit wins; default last.
-_EVENT_CATEGORY_ACCENTS: tuple[tuple[tuple[str, ...], str, str], ...] = (
-    (("aquatic", "swim", "water", "pool", "boat", "lake"), "Water", "#2f7d9a"),
-    (("music", "concert", "live"), "Music", "#b0468a"),
-    (("art", "theater", "theatre", "gallery", "comedy", "movie", "film"), "Arts", "#7a5cb0"),
-    (("food", "market", "wine", "beer", "dining", "taste"), "Food", "#c16b4a"),
-    (("sport", "fitness", "run", "race", "pickle", "golf", "yoga"), "Active", "#3f7d55"),
-    (("kid", "youth", "family", "camp", "child"), "Family", "#d39a2e"),
-    (("fundraiser", "community", "civic", "nonprofit", "charity"), "Community", "#3f5c4b"),
-    (("firework", "festival", "holiday", "parade"), "Festival", "#c0492f"),
-)
-_EVENT_CATEGORY_DEFAULT = ("Event", "#3f5c4b")
-
-
-def _event_accent(tags: object) -> tuple[str, str]:
-    """Return ``(category_label, accent_hex)`` from an event's tags list."""
-    haystack = ""
-    if isinstance(tags, list):
-        haystack = " ".join(str(t).lower() for t in tags)
-    elif isinstance(tags, str):
-        haystack = tags.lower()
-    for keywords, label, color in _EVENT_CATEGORY_ACCENTS:
-        if any(k in haystack for k in keywords):
-            return label, color
-    return _EVENT_CATEGORY_DEFAULT
-
-
-# Look-ahead horizon for inferring a series' weekly cadence. The display window
-# (e.g. "Today") is too narrow to see that Lap Swim runs Mon–Fri, so we sample a
-# month ahead to derive the schedule label and "runs regularly" status.
-_SERIES_HORIZON_DAYS = 28
-
-
-def _series_index_for(db: Session, *, start_day: datetime, end_day: datetime) -> dict:
-    """Build the recurring-series index over the display window + look-ahead."""
-    from datetime import timedelta as _td
-
-    horizon_end = max(end_day.date(), start_day.date() + _td(days=_SERIES_HORIZON_DAYS))
-    horizon_rows = (
-        db.query(
-            Event.normalized_title,
-            Event.location_normalized,
-            Event.start_time,
-            Event.date,
-            Event.is_recurring,
-        )
-        .filter(
-            Event.status == "live",
-            Event.date >= start_day.date(),
-            Event.date <= horizon_end,
-        )
-        .all()
-    )
-    return event_series.build_series_index(
-        [(t, loc, st, d, bool(rec)) for (t, loc, st, d, rec) in horizon_rows]
-    )
-
-
-def _window_event_dict(ev: Event, *, recurring: bool, schedule_label: str) -> dict[str, str]:
-    # WP-4 allows NULL times; combine with midnight only for the date labels.
-    start_at = datetime.combine(ev.date, ev.start_time or time(0, 0))
-    category_label, accent = _event_accent(ev.tags)
-    # M-16/M-17: render the start-end span when an end time is known so a class
-    # reads "5:00 - 6:00 AM", not just a start. Falls back to the start label.
-    # Time-unknown rows (NULL or the midnight ingest fallback) read "Time TBD",
-    # never a fabricated "12:00 AM".
-    midnight_fallback = _is_midnight_fallback(ev)
-    time_label = TIME_TBD_LABEL if midnight_fallback else _format_event_time_label(start_at)
-    if ev.end_time is not None and not midnight_fallback:
-        end_at = datetime.combine(ev.end_date or ev.date, ev.end_time)
-        if end_at > start_at:
-            time_label = f"{_format_event_time_label(start_at)} - {_format_event_time_label(end_at)}"
-    return {
-        "id": ev.id,
-        "title": ev.title,
-        "venue": ev.location_name,
-        "url": f"/events/{ev.id}",
-        "time_label": time_label,
-        "day_label": start_at.strftime("%a"),
-        "date_label": str(start_at.day),
-        "month_label": start_at.strftime("%b"),
-        "image_url": None,
-        "featured": bool(ev.featured),
-        "category_label": category_label,
-        "accent_color": accent,
-        "recurring": recurring,
-        "schedule_label": schedule_label,
-    }
-
-
-def _collapse_window_events(
-    db: Session, *, start_day: datetime, end_day: datetime
-) -> list[dict[str, str]]:
-    """All events in the window, recurring series collapsed to one entry each.
-
-    A class that occurs every weekday (28 separate rows for "Lap Swim") would
-    otherwise flood the feed and bury one-off events. We detect series by their
-    natural key and emit each once -- anchored on its next occurrence in the
-    window, tagged ``recurring`` with a human ``schedule_label`` (brief §4).
-
-    Ordering puts one-offs first (then by date/time) so that a later cap never
-    drops a one-off festival in favour of a recurring class. ``featured`` is a
-    secondary key *within* the one-off and recurring groups, not the primary
-    sort -- the old ``featured.desc()`` primary let featured recurring classes
-    fill the cap ahead of plain one-offs (brief §2).
-    """
-    rows = (
-        db.query(Event)
-        .filter(
-            Event.status == "live",
-            Event.date >= start_day.date(),
-            Event.date <= end_day.date(),
-        )
-        .order_by(Event.date.asc(), Event.start_time.asc())
-        .all()
-    )
-    # Time-unknown rows (NULL or the midnight ingest fallback) sort after the
-    # timed events of their day instead of leading it as a fake 12 AM.
-    rows.sort(key=lambda ev: (ev.date, time_sort_key(ev.start_time, ev.end_time)))
-    # Cross-source dedup: two scrapers carrying the same real-world event (same
-    # normalized title + date; one with a fake-noon/TBD time or an address-as-
-    # venue) collapse to one survivor before series grouping, so neither the
-    # bucket cards nor the honest totals double-count it (display-only filter).
-    rows = dedup_cross_source_event_rows(rows)
-    index = _series_index_for(db, start_day=start_day, end_day=end_day)
-
-    items: list[dict[str, str]] = []
-    seen_series: set[tuple[str, str, str]] = set()
-    for ev in rows:
-        key = event_series.series_key(ev.normalized_title, ev.location_normalized, ev.start_time)
-        info = index.get(key)
-        recurring = bool(info and info.is_series)
-        if recurring:
-            if key in seen_series:
-                continue  # one card per series -- this is the next occurrence
-            seen_series.add(key)
-        items.append(
-            _window_event_dict(
-                ev,
-                recurring=recurring,
-                schedule_label=event_series.schedule_label(info.weekdays) if recurring else "",
-            )
-        )
-
-    items.extend(
-        _class_schedule_cards(db, start_day=start_day, end_day=end_day, event_rows=rows)
-    )
-
-    # One-offs first (preserving chronological order within each group), then
-    # featured-but-one-off rise within the one-off block, then recurring.
-    items.sort(key=lambda it: (it["recurring"], not it["featured"]))
-    return items
-
-
-def _class_schedule_cards(
-    db: Session, *, start_day: datetime, end_day: datetime, event_rows: list[Event]
-) -> list[dict[str, str]]:
-    """Venue class schedules (entity Schedule rows, not events) as series cards.
-
-    The captured gym/class schedules publish onto venue entities and render on
-    provider pages -- but they are invisible to the events feed, so a "Mon-Thu
-    BJJ" venue looked classless on /events-ui and the calendar day pages. Emit
-    one recurring card per class series with an occurrence in the window,
-    anchored on its next occurrence, linking to the venue page (class series
-    have no event permalink). Classes that ALSO exist as recurring events (the
-    aquatic programs) are dropped by title so they never show twice.
-    """
-    event_titles = {(ev.title or "").strip().lower() for ev in event_rows}
-    occs = class_occurrences_in_window(
-        db, window_start=start_day.date(), window_end=end_day.date()
-    )
-    cards: list[dict[str, str]] = []
-    seen: set[tuple[str, str]] = set()
-    for occ in occs:
-        title_l = occ.title.strip().lower()
-        if title_l in event_titles:
-            continue
-        skey = (title_l, occ.venue.strip().lower())
-        if skey in seen:
-            continue  # one card per series -- anchored on its next occurrence
-        seen.add(skey)
-        start_at = datetime.combine(occ.date, occ.start_time or time(0, 0))
-        time_label = TIME_TBD_LABEL if occ.start_time is None else _format_event_time_label(start_at)
-        if occ.start_time is not None and occ.end_time is not None:
-            end_at = datetime.combine(occ.date, occ.end_time)
-            if end_at > start_at:
-                time_label = (
-                    f"{_format_event_time_label(start_at)} - "
-                    f"{_format_event_time_label(end_at)}"
-                )
-        category_label, accent = _event_accent(["class"])
-        cards.append(
-            {
-                "id": f"class:{occ.venue}:{occ.title}",
-                "title": occ.title,
-                "venue": occ.venue,
-                "url": occ.url,
-                "time_label": time_label,
-                "day_label": start_at.strftime("%a"),
-                "date_label": str(start_at.day),
-                "month_label": start_at.strftime("%b"),
-                "image_url": None,
-                "featured": False,
-                "category_label": category_label,
-                "accent_color": accent,
-                "recurring": True,
-                "schedule_label": event_series.schedule_label(set(occ.weekdays)),
-            }
-        )
-    return cards
-
-
-def _events_for_window(
-    db: Session, *, start_day: datetime, end_day: datetime, limit: int
-) -> list[dict[str, str]]:
-    """Capped, series-collapsed window feed (one-offs prioritised before fill)."""
-    return _collapse_window_events(db, start_day=start_day, end_day=end_day)[:limit]
-
-
-def _events_for_window_with_total(
-    db: Session, *, start_day: datetime, end_day: datetime, limit: int
-) -> tuple[list[dict[str, str]], int]:
-    """Return ``(shown_rows, total_after_collapse)`` for honest "N total" copy.
-
-    The total is the *collapsed* count (recurring series counted once) so the
-    "N coming up . showing M" line matches what the user can actually scroll to,
-    not the raw row count that the series collapse hides (brief §2).
-    """
-    collapsed = _collapse_window_events(db, start_day=start_day, end_day=end_day)
-    # Cap the one-offs only: recurring rows are already collapsed to one card
-    # per series and get pulled out into the venue-grouped "Classes & ongoing"
-    # section. Capping them here silently dropped every venue class card on
-    # busy days (12+ one-offs filled the cap before any class survived).
-    oneoffs = [it for it in collapsed if not it["recurring"]]
-    recurring = [it for it in collapsed if it["recurring"]]
-    return oneoffs[:limit] + recurring, len(collapsed)
-
-
-def _tonight_card(db: Session, *, now: datetime) -> dict[str, Any] | None:
-    """Build the home "Tonight" card per DL-16.
-
-    Selection: the next event today that has *not yet started* (start_time strictly
-    after ``now``), preferring one-offs over recurring classes. If nothing remains
-    today, fall back to the earliest event tomorrow. The card label switches:
-
-    * "Tonight" -- a remaining event today when it is already evening (>= 16:00).
-    * "Today"   -- a remaining event today earlier in the day.
-    * "Tomorrow"-- when today is exhausted and the next event is tomorrow.
-
-    Returns ``None`` (card omitted) when neither today nor tomorrow has an event
-    -- never a fabricated placeholder (anti-confabulation contract).
-    """
-    today = now.date()
-    now_t = now.time()
-
-    def _earliest(rows: list[Event]) -> Event | None:
-        # One-offs win ties so a festival beats a recurring class at the same
-        # time; time-unknown rows sort after timed ones (never a fake 12 AM pick).
-        ranked = sorted(
-            rows, key=lambda e: (time_sort_key(e.start_time, e.end_time), bool(e.is_recurring))
-        )
-        return ranked[0] if ranked else None
-
-    todays = (
-        db.query(Event)
-        .filter(
-            Event.status == "live",
-            Event.date == today,
-            Event.start_time > now_t,
-        )
-        .all()
-    )
-    chosen = _earliest(todays)
-    if chosen is not None:
-        label = "Tonight" if now.hour >= 16 else "Today"
-    else:
-        tomorrow = today + timedelta(days=1)
-        rows = (
-            db.query(Event)
-            .filter(
-                Event.status == "live",
-                Event.date == tomorrow,
-            )
-            .all()
-        )
-        chosen = _earliest(rows)
-        label = "Tomorrow"
-
-    if chosen is None:
-        return None
-
-    start_at = datetime.combine(chosen.date, chosen.start_time or time(0, 0))
-    time_bit = "" if _is_midnight_fallback(chosen) else _format_event_time_label(start_at)
-    sub_bits = [b for b in (time_bit, chosen.location_name) if b]
-    return {
-        "kind": "tonight",
-        "k": label,
-        "title": chosen.title,
-        "sub": " · ".join(sub_bits),
-        "href": f"/events/{chosen.id}",
-        "live": False,
-    }
-
-
-def _bucket_destination_route(bucket_id: str) -> str:
-    """Tier-1 ``/categories/{route}`` slug a master bucket 301s to.
-
-    The home Browse rows link to ``/categories/{bucket}``, which
-    ``app/categories/router.py`` redirects to a Tier-1 page via
-    ``BUCKET_SLUG_REDIRECTS`` (e.g. ``recreation-outdoors`` →
-    ``/categories/on-the-water``). Extract that route slug so the count we
-    show equals the count that page's header shows.
-    """
-    return BUCKET_SLUG_REDIRECTS[bucket_id].rsplit("/", 1)[-1]
-
-
-# P0 Task 2 — high-value subcategory shortcuts so users don't wade through the
-# full bucket list. Editorial/curated (like the hero rotation). "Home services"
-# expands to its top trades on the rich /category/ filter pages; the popular row
-# deep-links to the new /lake-havasu/{subcategory} SEO landings.
-_HOME_SERVICES_SHORTCUT: dict[str, Any] = {
-    "title": "Home services",
-    "url": "/lake-havasu/home-services",
-    "items": (
-        {"label": "Plumbers", "url": "/category/home-property-services?trade=plumber"},
-        {"label": "Electricians", "url": "/category/home-property-services?trade=electrician"},
-        {"label": "HVAC", "url": "/category/home-property-services?trade=hvac"},
-        {"label": "Roofers", "url": "/category/home-property-services?trade=roofer"},
-    ),
-}
-
-_POPULAR_SUBCATEGORIES: tuple[dict[str, str], ...] = (
-    {"label": "Restaurants", "url": "/lake-havasu/restaurants"},
-    {"label": "Lake Life", "url": "/lake-havasu/on-the-water"},
-    {"label": "Health & Medical", "url": "/lake-havasu/health-medical"},
-    {"label": "Auto", "url": "/lake-havasu/auto"},
-    {"label": "Pets", "url": "/lake-havasu/pets"},
-)
-
-
-def _category_cards(db: Session) -> list[dict[str, str | int]]:
-    """Per-bucket counts for the home Browse list.
-
-    Counts are computed with the SAME source/filter the destination category
-    page uses (``cat_queries.category_count`` over ``CATEGORY_FILTERS``) rather
-    than a separate ``Provider.category`` → bucket remap. The old remap keyed
-    on spec-style slugs (``on_the_water``, ``shopping_essentials``, …) that
-    never matched the real legacy ``Provider.category`` values (``lake_recreation``,
-    ``retail``, ``lodging``, …), so every unmapped row fell through to Services —
-    zeroing Recreation/Sports/Shopping/Stay while inflating Services. Delegating
-    to ``category_count`` guarantees the home figure matches the page it links to.
-    """
-    cards: list[dict[str, str | int]] = []
-    for bucket in MASTER_BUCKETS:
-        dest_route = _bucket_destination_route(bucket["id"])
-        # category_count returns None for an empty route (BUILD.md no-zero
-        # rule); the home row coerces to 0 so a genuinely empty bucket reads
-        # honestly rather than vanishing.
-        count = cat_queries.category_count(db, dest_route) or 0
-        cards.append(
-            {
-                "id": bucket["id"],
-                "label": bucket["label"],
-                "slug": bucket["slug"],
-                "count": count,
-            }
-        )
-    return cards
-
-
-# P0 Task 5 — slim top utility strip. Combines the ambient data we already pull
-# (cheapest gas + NWS temp + AirNow AQI + USGS lake/water + active advisory) into
-# one compact chip row instead of a full-width gas panel. Each chip expands its
-# detail on tap (template uses <details>). UV index is now fetched (Open-UV with
-# a keyless EPA fallback — see app/conditions/uv.py) and leads the sun/sky slot;
-# the lower-value sky/condition description was demoted (still in the JSON
-# payload, no longer a strip tile).
 _UTILITY_TILE_MAP: dict[str, tuple[str, str, str]] = {
     # conditions-tile kind -> (chip kind, icon, label)
     # Phase 1 (home IA, PHASE1 brief §3): the live-conditions strip is trimmed to
-    # the four highest-value, always-relevant signals — temp · UV · wind · gas —
-    # so the band stays scannable. AQI, lake level, water temp and the advisory
-    # tile were dropped from the strip; they are still surfaced on /today and in
-    # the conditions JSON payload (honest omission, never fabricated values).
+    # the highest-value, always-relevant signals so the band stays scannable.
+    # AQI, lake level and the advisory tile are surfaced on /today and in the
+    # conditions JSON payload rather than the strip (honest omission, never
+    # fabricated values). Water temp was re-added to the strip at Casey's request
+    # (2026-06-29): it only renders when its water-temp feed is live, so the band
+    # degrades to temp · UV · wind when the reading is absent — never a
+    # fabricated value.
     "temp": ("weather", "🌡", "Now"),
     "uv": ("uv", "☀", "UV index"),
     "wind": ("wind", "🌬", "Wind"),
+    "water_temp": ("water_temp", "🌊", "Water"),
 }
 
 # Fixed strip order for the conditions tiles (gas is appended after these so the
-# rendered band reads temp · UV · wind · gas · Live). A tile with no live source
-# is simply skipped — the strip never invents a value.
-_STRIP_TILE_ORDER: tuple[str, ...] = ("temp", "uv", "wind")
+# rendered band reads temp · UV · wind · water · gas · Live). A tile with no live
+# source is simply skipped — the strip never invents a value.
+_STRIP_TILE_ORDER: tuple[str, ...] = ("temp", "uv", "wind", "water_temp")
 
 
 def _gas_chip(db: Session) -> dict[str, Any] | None:
@@ -595,122 +168,63 @@ def serve_home(
     cal: str | None = None,
     date: str | None = None,
 ) -> HTMLResponse:
-    """Render /home — the Sandstone editorial home (Ask mode).
+    """Render /home — the v4 home (Ask mode).
 
     Every count/badge traces to a live query or is omitted (the anti-confabulation
-    contract in 01_UI_BUILD_GUIDE.md §4). The optional ``cal=YYYY-MM`` param drives
-    the server-rendered month calendar's prev/next without any client JS.
+    contract in 01_UI_BUILD_GUIDE.md §4).
 
     The optional ``date=YYYY-MM-DD`` param (the home day-picker tiles, FIX_DAYPICKER
     item 4) re-renders the unified feed for that day on the SAME home page — no
     font/page jump, no stale "Happening today" heading. It defaults to today and
     only steers the feed + its date label; the 7-day strip stays today-anchored and
-    highlights the selected tile. Past-item muting keys off the real clock vs the
-    selected day (``today_feed``'s ``now`` no-ops off the current date), so a future
-    day shows nothing muted.
+    highlights the selected tile.
+
+    2026-07-02 flag collapse: v4 (HOME_REDESIGN) had been permanently on in prod
+    since ~06-23, so the flag, the ?home_redesign= preview override, and the
+    pre-v4 ``home_lake.html`` branch (with its own conditions strip, month
+    calendar, and Featured slot) are gone. ``cal`` is accepted-and-ignored so
+    old bookmarked ?cal= links don't 422.
+
+    The Tier-2 Featured/Spotlight sponsor slot has no v4 surface, so it is not
+    fetched (fetching counts an impression — impressions must equal renders).
+    A SOLD homepage-featured Placement is therefore not served; wiring a
+    Featured slot into home_redesign.html is a design decision.
     """
+    del cal  # pre-v4 month-calendar param; accepted so old links don't 422
     now = now_lake_havasu()
     feed_day = _parse_iso_date(date) or now.date()
-    # P3 weather grouping: the top conditions band shows weather only (date · temp
-    # · UV · wind); gas renders as its own simple line below it on the home page.
-    utility_chips = _utility_chips(db, include_gas=False)
-    gas_chip = _gas_chip(db)
-    cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
-    spotlights = sponsor_store.active_spotlights(db)
     # G ad ladder: Tier-1 marquee (above the fold) + Tier-3 promoted (after the
     # Explore grid). Both real-or-omit — None when unsold, never a fake sponsor.
     # §7.1: a sold homepage rotating PLACEMENT wins the marquee; otherwise fall
     # back to the legacy sponsor marquee, then the unsold claim. Dormant until a
     # placement exists — serve_homepage_placement returns None on an empty pool.
     marquee = serving.serve_homepage_placement(db) or sponsor_store.active_marquee(db)
-    # Phase 6C: the home Featured (Tier-2) + Promoted (Tier-3) slots now run on the
-    # SAME Placement homepage-rotating pool as the marquee, drawing DISTINCT
-    # businesses per load (each slot excludes the ids the higher slots took). Each
-    # falls back to its legacy sponsor when the pool has nothing left, so the home
-    # page stays dormant-safe — an empty pool means today's behavior.
     taken: set[str] = set()
     if marquee and marquee.get("is_placement") and marquee.get("id"):
         taken.add(marquee["id"])
-    featured_placement = serving.serve_homepage_featured(db, exclude_ids=taken, limit=3)
-    if featured_placement:
-        featured_cards = featured_placement
-        taken.update(c["id"] for c in featured_placement if c.get("id"))
-    else:
-        featured_cards = sandstone.featured_cards(spotlights)
     promoted = serving.serve_homepage_promoted(db, exclude_ids=taken) or sponsor_store.active_promoted(db)
-
-    # ── home_redesign (dark): the v4 reskin, served only when the flag resolves on
-    # (env HOME_REDESIGN, or the ?home_redesign=1 preview override). The old home
-    # stays intact below for instant rollback (flip the flag off). Same live data,
-    # re-templated; see app/home/redesign.py + flags.py.
-    if flags.home_redesign_enabled(request):
-        resp = templates.TemplateResponse(
-            request=request,
-            name="home_redesign.html",
-            context={
-                "today_label": now.strftime("%A, %B ") + str(now.day),
-                "selected_iso": feed_day.isoformat(),
-                "feed_day_label": _long_day_label(feed_day),
-                "is_today": feed_day == now.date(),
-                "cond_tiles": redesign.conditions_tiles(db, now=now),
-                "gas": redesign.gas_top5(db, now=now),
-                "week": sandstone.week_strip(db, today=now.date()),
-                "feed": redesign.feed_view_model(db, day=feed_day, now=now),
-                "marquee": marquee,
-                "promoted": promoted,
-                "featured_cards": featured_cards,
-                "directory_tiles": sandstone.directory_primary_tiles(),
-                "explore_tiles": sandstone.explore_tiles(db),
-                "active_tab": "today",
-            },
-        )
-        flags.apply_preview_cookie(request, resp)
-        return resp
-
-    # Hero copy defaults to the locked prototype wording (with its italic accent);
-    # owners can retune the eyebrow/headline per season via env without a redeploy.
-    hero_eyebrow_override = os.getenv("HOME_HERO_EYEBROW") or None
-    hero_headline_override = os.getenv("HOME_HERO_HEADLINE") or None
-    template_name = "home_lake.html"
     return templates.TemplateResponse(
         request=request,
-        name=template_name,
+        name="home_redesign.html",
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
-            "now_label": now.strftime("%I:%M %p").lstrip("0"),
-            "hero_eyebrow_override": hero_eyebrow_override,
-            "hero_headline_override": hero_headline_override,
-            "utility_chips": utility_chips,
-            "gas_chip": gas_chip,
-            "primary_nav": sandstone.primary_nav(),
-            "mega_columns": sandstone.mega_columns(db),
-            "week": sandstone.week_strip(db, today=now.date()),
-            # The home feed now renders the SAME organized day-group structure as
-            # /events-ui (typed subsections, Kids & Family / Seniors / City &
-            # Government groups, clean venue labels) for the selected day, so the
-            # two calendars are consistent (Casey 2026-06-23). ``now`` stays the
-            # real clock for today's auto-expiry.
-            "today_groups": events_views.day_groups(db, day=feed_day, now=now),
-            "today_highlights": events_views.day_highlights(db, day=now.date(), now=now, limit=3),
-            # ``today_feed`` is still computed for its collapsed "At the movies"
-            # group (the per-film showtime rollup), which the day-group view does
-            # not build; the home template renders only that group from it.
-            "today_feed": today_feed(db, day=feed_day, now=now),
-            # FIX_DAYPICKER item 4: the feed's small date label ("Saturday,
-            # June 20") + the iso the day-picker highlights as selected.
-            "feed_day_label": _long_day_label(feed_day),
             "selected_iso": feed_day.isoformat(),
+            "feed_day_label": _long_day_label(feed_day),
+            "is_today": feed_day == now.date(),
+            "cond_tiles": redesign.conditions_tiles(db, now=now),
+            "gas": redesign.gas_top5(db, now=now),
+            "week": sandstone.week_strip(db, today=now.date(), selected=feed_day),
+            "feed": redesign.feed_view_model(db, day=feed_day, now=now),
+            # (F6 2026-07-01: the headline now reads feed.total — the same
+            # number as the "All today" pill on the same screen — so the
+            # separate real_happenings_by_day headline count is gone.)
             "marquee": marquee,
             "promoted": promoted,
-            "featured_cards": featured_cards,
-            "calendar": sandstone.calendar_month(
-                db, year=cal_year, month=cal_month, today=now.date()
-            ),
-            "explore_tiles": sandstone.explore_tiles(db),
-            "service_tiles": sandstone.service_tiles(db),
-            # Phase 3: the slim home directory's six high-traffic front doors.
-            "directory_tiles": sandstone.directory_primary_tiles(),
-            "movies_today": movies_today(db, day=now.date(), now=now),
+            # (directory_tiles / explore_tiles were dropped 2026-07-02: no v4
+            # template renders them — they were pre-v4 context computed per
+            # request, incl. DB queries, for nothing.)
+            # Local news ticker headlines (honest-omit when the pull is empty).
+            "news": news_store.ticker_view(db),
             "active_tab": "today",
         },
     )
@@ -730,8 +244,6 @@ def _serve_mode_landing(request: Request, db: Session, mode: str) -> HTMLRespons
         name="mode_sandstone.html",
         context={
             "utility_chips": _utility_chips(db),
-            "primary_nav": sandstone.primary_nav(),
-            "mega_columns": sandstone.mega_columns(db),
             "current_mode": mode,
             **landing,
         },
@@ -770,6 +282,13 @@ def serve_night(request: Request, db: Session = Depends(get_db)) -> HTMLResponse
 def serve_family(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     """Family mode landing."""
     return _serve_mode_landing(request, db, "family")
+
+
+@router.get("/kids", response_model=None)
+def serve_kids_redirect() -> RedirectResponse:
+    """The nav and old links say /kids; the surface lives at /family
+    (2026-07-01 master audit §6.5: /kids 404'd)."""
+    return RedirectResponse(url="/family", status_code=301)
 
 
 # Phase 3.2 label unification: the /map scope tabs now read their labels from the
@@ -836,88 +355,6 @@ def serve_map_view(request: Request, scope: str | None = None) -> HTMLResponse:
     )
 
 
-def _split_oneoff_and_ongoing(
-    groups: dict[str, list[dict]],
-) -> tuple[dict[str, list[dict]], list[dict]]:
-    """Split time-grouped events into one-off (kept time-grouped) and recurring.
-
-    Recurring series are pulled out into a single "Classes & ongoing" list,
-    deduped across the time windows (a weekday class shows in Today *and* Next
-    Week), so one-off festivals aren't buried under the daily-class repeats
-    (brief §4 optional split).
-    """
-    ongoing: list[dict] = []
-    seen: set[tuple] = set()
-    oneoff_groups: dict[str, list[dict]] = {}
-    for key, items in groups.items():
-        oneoff: list[dict] = []
-        for it in items:
-            if it.get("recurring"):
-                dedup_key = (it.get("title"), it.get("venue"), it.get("schedule_label"))
-                if dedup_key not in seen:
-                    seen.add(dedup_key)
-                    ongoing.append(it)
-            else:
-                oneoff.append(it)
-        oneoff_groups[key] = oneoff
-    return oneoff_groups, ongoing
-
-
-def _group_series_by_venue(ongoing: list[dict]) -> list[dict]:
-    """Group the recurring "Classes & ongoing" list by venue (brief §3).
-
-    Returns ``[{"venue": str, "items": [...]}]`` ordered by first appearance so
-    the events list can render one collapsible block per venue
-    ("Aquatic Center -- 5 classes") instead of a flat flood of class rows.
-    """
-    buckets: dict[str, dict] = {}
-    order: list[str] = []
-    for it in ongoing:
-        venue = (it.get("venue") or "").strip()
-        bkey = venue.lower()
-        if bkey not in buckets:
-            buckets[bkey] = {"venue": venue, "cards": []}
-            order.append(bkey)
-        buckets[bkey]["cards"].append(it)
-    return [buckets[k] for k in order]
-
-
-def _event_list_windows(now: datetime) -> dict[str, tuple[datetime, datetime]]:
-    """Honest, contiguous, gap-free buckets for event windows (E-1).
-
-    The /events-ui page now renders Today/Week/Month views (see
-    ``serve_events_ui``); these windows remain the canonical bucket contract
-    for window-feed consumers and their regression tests.
-
-    Anchored to real calendar-week boundaries in Lake Havasu local time:
-
-    * **today**     — today only.
-    * **this_week** — tomorrow through Friday of the current week.
-    * **weekend**   — the upcoming Saturday + Sunday. When today is already
-      Sat/Sun, today's events stay in **today** and this window holds only the
-      remaining weekend day(s) (empty span on Sunday).
-    * **next_week** — the following Monday–Sunday.
-
-    Windows are disjoint and together tile every day from today through the end
-    of next week, so no event is dropped or double-listed — in particular,
-    Saturday/Sunday events can never fall in a gap between "This Week" and
-    "Next Week". A collapsed window (start > end) simply queries nothing.
-    """
-    days_to_sunday = (6 - now.weekday()) % 7  # Mon=0 … Sun=6
-    this_sunday = now + timedelta(days=days_to_sunday)
-    this_saturday = this_sunday - timedelta(days=1)
-    tomorrow = now + timedelta(days=1)
-    return {
-        "today": (now, now),
-        "this_week": (tomorrow, this_saturday - timedelta(days=1)),
-        "weekend": (max(tomorrow, this_saturday), this_sunday),
-        "next_week": (this_sunday + timedelta(days=1), this_sunday + timedelta(days=7)),
-    }
-
-
-_WINDOW_CAP = 16
-
-
 def _parse_iso_date(value: str | None) -> dt_date | None:
     if not value or not str(value).strip():
         return None
@@ -936,6 +373,8 @@ _EVENT_VIEWS: tuple[tuple[str, str], ...] = (
 
 def _long_day_label(d: dt_date) -> str:
     return d.strftime("%A, %B ") + str(d.day)
+
+
 
 
 @router.get("/events-ui", response_class=HTMLResponse)
@@ -968,6 +407,9 @@ def serve_events_ui(
     single_day = _parse_iso_date(date)
 
     view_key = (view or "").strip().lower()
+    # UNIFY (Rule 0b 2026-06-26): the ?view=places surface is retired — one calendar
+    # now shows the full tree (hours + classes inline, collapsed). A legacy
+    # ?view=places link falls through to Today like any other unknown view.
     if view_key not in {key for key, _label in _EVENT_VIEWS}:
         when_key = (when or "").strip().lower()
         view_key = "today" if when_key in ("", "today") else "week"
@@ -1005,16 +447,17 @@ def serve_events_ui(
             params.append(f"{target}=1")
         return "/events-ui" + ("?" + "&".join(params) if params else "")
 
+    # UNIFY (Rule 0b 2026-06-26): one calendar, no Calendar⇄Places toggle. Just the
+    # Today/Week/Month zoom levels over the single unified tree.
     context: dict[str, Any] = {
         "active_tab": "events",
-        "primary_nav": sandstone.primary_nav(),
-        "mega_columns": sandstone.mega_columns(db),
         "utility_chips": _utility_chips(db),
         "family_mode": family_on,
         "seniors_mode": seniors_on,
         "family_qs": family_qs,
         "family_toggle_url": _toggle_url("family"),
         "seniors_toggle_url": _toggle_url("seniors"),
+        # Calendar zoom levels (Today/Week/Month).
         "view_links": [
             {
                 "key": key,
@@ -1030,14 +473,13 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "day",
-                "groups": events_views.day_groups(
+                "groups": events_views.calendar_day_view_model(
                     db, day=single_day, family=family_on, seniors=seniors_on, now=now
-                ),
+                )["sections"],
                 "day_label": _long_day_label(single_day),
                 "prev_iso": (single_day - timedelta(days=1)).isoformat(),
                 "next_iso": (single_day + timedelta(days=1)).isoformat(),
                 "is_today": single_day == today,
-                "movies_today": movies_today(db, day=single_day, now=now),
             }
         )
     elif view_key == "week":
@@ -1045,13 +487,13 @@ def serve_events_ui(
             {
                 "mode": "week",
                 "week_rows": events_views.week_rows(
-                    db, start=today, family=family_on, seniors=seniors_on
+                    db, start=today, family=family_on, seniors=seniors_on, events_only=True
                 ),
                 # Item 3: consecutive weeks for the mobile swipeable calendar
                 # (lake template renders these as a swipe carousel; the desert
                 # template ignores it and keeps the flat week list).
                 "swipe_weeks": events_views.swipe_weeks(
-                    db, today=today, family=family_on, seniors=seniors_on
+                    db, today=today, family=family_on, seniors=seniors_on, events_only=True
                 ),
             }
         )
@@ -1067,7 +509,7 @@ def serve_events_ui(
                 # Mobile falls back to the swipeable week here too (a month grid
                 # is unreadable on a phone); desktop keeps the visible grid.
                 "swipe_weeks": events_views.swipe_weeks(
-                    db, today=today, family=family_on, seniors=seniors_on
+                    db, today=today, family=family_on, seniors=seniors_on, events_only=True
                 ),
             }
         )
@@ -1075,11 +517,10 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "today",
-                "groups": events_views.day_groups(
+                "groups": events_views.calendar_day_view_model(
                     db, day=today, family=family_on, seniors=seniors_on, now=now
-                ),
+                )["sections"],
                 "day_label": _long_day_label(today),
-                "movies_today": movies_today(db, day=today, now=now),
             }
         )
     events_template = "events_lake.html"
@@ -1117,7 +558,7 @@ def sponsor_click(
     """
     ad_slot = _parse_slot(slot)
     row = (
-        sponsor_store._live_filter_for_slot(db.query(Sponsor), ad_slot)
+        sponsor_store.live_filter_for_slot(db.query(Sponsor), ad_slot)
         .filter(Sponsor.id == id)
         .first()
     )

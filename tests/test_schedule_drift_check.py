@@ -41,7 +41,7 @@ def test_image_urls_fingerprint_strips_query_strings() -> None:
 def test_load_sources_covers_all_captured_venues_with_modes() -> None:
     sources = load_sources()
     names = {n for n, _, _ in sources}
-    assert len(sources) == 14
+    assert len(sources) == 17
     assert "Bridge City Combat" in names
     by_name = {n: (u, m) for n, u, m in sources}
     # image-based venues use the image_urls mode
@@ -49,3 +49,6 @@ def test_load_sources_covers_all_captured_venues_with_modes() -> None:
     assert by_name["Ballet Havasu"][1] == "image_urls"
     # Elite's URL override (broken HTTPS cert upstream)
     assert by_name["Elite Martial Arts Inc"][0].startswith("http://www.")
+    # Strength gyms added 2026-06-27 — web schedules, so plain text-mode drift.
+    for gym in ("Havasu CrossFit", "Fit Lab 928", "Feelin' Good Fitness"):
+        assert by_name[gym][1] == "text"

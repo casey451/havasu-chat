@@ -124,6 +124,10 @@ class Facility:
     cost: str | None = None
     indoor_courts: int | None = None
     outdoor_courts: int | None = None
+    # Whether the venue's courts are indoor (Aquatic Center, Ark). Carried from
+    # the venue anchor so the calendar can split Court Hours Indoor vs Outdoor
+    # (Phase 5) without re-guessing from the prose.
+    indoor: bool = False
     blurb: str | None = None
     raw: dict[str, Any] = field(default_factory=dict)
 
@@ -167,6 +171,11 @@ class EventSpec:
     all_day: bool = False
     start_time: str | None = None  # "HH:MM" for timed open play (all_day=False)
     end_time: str | None = None  # "HH:MM"
+    # Canonical namespaced tags stamped at the source (Phase 5): activity:pickleball
+    # + a facet (open-play / competition / special) + indoor:true|false, so the
+    # calendar can route court hours to Fitness → Pickleball and split the facets
+    # tag-driven. Empty list → the loader falls back to the legacy ["sports"] tag.
+    tags: list[str] = field(default_factory=list)
 
 
 # ---------------------------------------------------------------------------
@@ -295,7 +304,7 @@ def parse_facilities(html: str) -> list[Facility]:
                 break
 
     facilities: list[Facility] = []
-    for frag, display_name, _indoor in _VENUE_ANCHORS:
+    for frag, display_name, is_indoor in _VENUE_ANCHORS:
         block = _venue_block(text, frag, fragments)
         if not block:
             continue
@@ -315,10 +324,30 @@ def parse_facilities(html: str) -> list[Facility]:
                 cost=_cost_phrase(block),
                 indoor_courts=indoor,
                 outdoor_courts=outdoor,
+                indoor=is_indoor,
                 blurb=_clean(block),
             )
         )
     return facilities
+
+
+def pickleball_event_tags(title: str, *, indoor: bool) -> list[str]:
+    """Canonical namespaced tags for a pickleball court-hours / session row.
+
+    The shared classifier supplies ``activity:pickleball`` (plus
+    ``facet:special`` / ``facet:competition`` for glow / round-robin / PickleFest
+    titles); we add the structural court facets it can't know — ``facet:open-play``
+    for ordinary court hours and ``indoor:true|false`` — so the calendar splits
+    Court Hours (Indoor/Outdoor) vs Leagues & Competitions tag-driven (Phase 5)."""
+    from app.events.activity_taxonomy import event_activity_tags
+
+    tags = list(event_activity_tags(title))
+    if "activity:pickleball" not in tags:
+        tags.insert(0, "activity:pickleball")
+    if not (set(tags) & {"facet:special", "facet:competition"}):
+        tags.append("facet:open-play")
+    tags.append(f"indoor:{'true' if indoor else 'false'}")
+    return tags
 
 
 def _facility_description(f: Facility) -> str:
@@ -496,6 +525,8 @@ def parse_tournaments(html: str, *, today: date | None = None) -> list[EventSpec
             location_name="Mike Delaney Pickleball Complex at Dick Samp Park",
             event_url=TOURNAMENTS_URL,
             source_anchor=f"picklefest-{start.isoformat()}",
+            # A tournament → Fitness → Pickleball → Leagues & Competitions.
+            tags=pickleball_event_tags(label, indoor=False),
         )
     ]
 
@@ -572,11 +603,13 @@ def open_play_event_specs(
         if not f.name:
             continue
         desc = _open_play_description(f)
+        title = f"Pickleball Open Play – {f.name}"[:300]
+        tags = pickleball_event_tags(title, indoor=f.indoor)
         for offset in range(max(1, window_days)):
             d = today + timedelta(days=offset)
             specs.append(
                 EventSpec(
-                    title=f"Pickleball Open Play – {f.name}"[:300],
+                    title=title,
                     description=desc,
                     date=d,
                     end_date=d,
@@ -584,6 +617,7 @@ def open_play_event_specs(
                     event_url=CALENDAR_URL,
                     source_anchor=f"openplay|{f.name}|{d.isoformat()}",
                     all_day=True,
+                    tags=list(tags),
                 )
             )
     return specs
@@ -620,6 +654,8 @@ def ark_open_play_event_specs(
         f"({ARK_OPEN_PLAY_START}-{ARK_OPEN_PLAY_END}); three indoor courts. "
         f"Cost: {ARK_OPEN_PLAY_COST}. See the current schedule at {CALENDAR_URL}."
     )
+    title = f"Pickleball Open Play – {ARK_VENUE_NAME}"[:300]
+    tags = pickleball_event_tags(title, indoor=True)  # the Ark is indoor courts
     specs: list[EventSpec] = []
     for offset in range(max(1, window_days)):
         d = today + timedelta(days=offset)
@@ -627,7 +663,7 @@ def ark_open_play_event_specs(
             continue
         specs.append(
             EventSpec(
-                title=f"Pickleball Open Play – {ARK_VENUE_NAME}"[:300],
+                title=title,
                 description=desc,
                 date=d,
                 end_date=d,
@@ -637,6 +673,7 @@ def ark_open_play_event_specs(
                 all_day=False,
                 start_time=ARK_OPEN_PLAY_START,
                 end_time=ARK_OPEN_PLAY_END,
+                tags=list(tags),
             )
         )
     return specs

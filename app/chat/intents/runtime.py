@@ -272,6 +272,88 @@ def is_entity_about_query_safe(query: str) -> bool:
         return True  # fail closed -- about-shaped turns belong to the entity path
 
 
+# A narrowly-scoped ask ("live music tonight", "golf lessons") that comes back
+# empty is a DEFINITE "we don't have that", not a "maybe the LLM knows" — so the
+# intent layer answers honestly here instead of falling through to Tier 3, which
+# otherwise surfaces an off-topic event (a billiards row for "live music") or an
+# out-of-area business (a Kingman golf course for "golf lessons"). Only these
+# tightly-bounded shapes claim an empty result; a broad browse still falls
+# through so the conversational tiers can help.
+_WINDOW_GAP_PHRASES: dict[str, str] = {
+    "today": "on today's calendar",
+    "tomorrow": "on tomorrow's calendar",
+    "this_week": "this week",
+    "this_weekend": "this weekend",
+    "next_week": "next week",
+    "upcoming": "on the upcoming calendar",
+}
+_ACTIVITY_GAP_PHRASES: dict[str, str] = {"live_music": "live music"}
+
+
+def _honest_empty_answer(
+    resolved: ResolvedIntent, result: QueryResult, query: str
+) -> IntentAnswer | None:
+    """An honest 'nothing found' answer for a bounded empty result, or None.
+
+    Returns None (fall through to Tier 3) for broad/unbounded empties; claims
+    the turn only for a topic-filtered events ask or a specific-activity class
+    ask, where an empty catalog result is authoritative."""
+    key = result.intent_key
+    if key.startswith("events_"):
+        activity = resolved.slots.get("activity")
+        if isinstance(activity, str) and activity:
+            phrase = _ACTIVITY_GAP_PHRASES.get(activity, activity.replace("_", " "))
+            when = _WINDOW_GAP_PHRASES.get(result.window or "upcoming", "on the calendar")
+            return IntentAnswer(
+                text=f"I don't see any {phrase} {when} right now.",
+                intent_key=key,
+                category=result.category_hint,
+                result_count=0,
+            )
+        return None
+    if key == "classes_find":
+        from app.chat.intents.queries import _class_activity_terms
+
+        terms = _class_activity_terms(query)
+        if terms:
+            what = " ".join(terms)
+            return IntentAnswer(
+                text=(
+                    f"I don't see any {what} classes or lessons in the local "
+                    "listings right now."
+                ),
+                intent_key=key,
+                category=result.category_hint,
+                result_count=0,
+            )
+    # 2026-07-01 consolidated audit A1/2.B: a broad-bucket provider ask that
+    # names a topic the bucket doesn't carry ("gun store", "tubing", "golf cart
+    # rental") comes back empty via the topical gate -- that empty is
+    # authoritative. Answer honestly here instead of falling through to Tier 3,
+    # which is what produced the off-catalog / Kingman recommendations.
+    from app.chat.intents.queries import (
+        TOPIC_GATED_PROVIDER_INTENTS,
+        _provider_activity_terms,
+    )
+
+    if key in TOPIC_GATED_PROVIDER_INTENTS or (
+        key == "eat_find" and not resolved.slots.get("cuisine")
+    ):
+        terms = _provider_activity_terms(query, key)
+        if terms:
+            what = " ".join(terms)
+            return IntentAnswer(
+                text=(
+                    f"I don't see any {what} listed in the local directory "
+                    "yet. Try golakehavasu.com, or add one at /contribute."
+                ),
+                intent_key=key,
+                category=result.category_hint,
+                result_count=0,
+            )
+    return None
+
+
 def try_intent_layer(
     query: str,
     db: Session,
@@ -358,9 +440,9 @@ def try_intent_layer(
         # and a category listing is the right zero-token answer. Only hold the
         # guard when the turn isn't recommendation-shaped.
         try:
-            from app.chat.unified_router import _RECOMMENDATION_SHAPED
+            from app.chat.unified_router import RECOMMENDATION_SHAPED
 
-            if not _RECOMMENDATION_SHAPED.match(query or ""):
+            if not RECOMMENDATION_SHAPED.match(query or ""):
                 return None
         except Exception:
             logger.exception("intent_layer: recommendation-shape probe failed")
@@ -402,7 +484,11 @@ def try_intent_layer(
     if telemetry is not None:
         telemetry["intent_logged"] = True
     if result.result_count == 0:
-        return None
+        # A bounded topic/activity ask answers honestly ("no live music tonight",
+        # "no golf lessons listed") rather than handing off to Tier 3, which
+        # would surface an off-topic or out-of-area guess. Broad empties still
+        # fall through.
+        return _honest_empty_answer(resolved, result, query)
 
     if today is None:
         from app.core.timezone import now_lake_havasu

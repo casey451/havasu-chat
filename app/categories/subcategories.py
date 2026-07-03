@@ -125,12 +125,6 @@ def bucket_for_category_route(route_slug: str | None) -> str | None:
     return _ROUTE_TO_BUCKET.get(route_slug.strip().lower())
 
 
-def subcategories_for_category_route(route_slug: str | None) -> list[Subcategory]:
-    """Chip set for a plural category page — empty when the route isn't a bucket
-    destination (tile routes like ``beauty-care`` show no second level)."""
-    bucket_id = bucket_for_category_route(route_slug)
-    return subcategories_for_bucket(bucket_id) if bucket_id else []
-
 
 # ---------------------------------------------------------------------------
 # Backfill / on-ingest derivation
@@ -195,8 +189,13 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("trail", "trails-offroad"),
     ("off_road", "trails-offroad"),
     ("beach", "parks-beaches"),
+    # Overnight-stay types must outrank the bare "park" substring rule below:
+    # "rv_park" CONTAINS "park", and first-match-wins, so the stay block's own
+    # rv_park/campground entries (line ~300) were unreachable — RV parks and
+    # campgrounds filed as parks-beaches instead of rv-parks (→ lodging).
+    ("rv_park", "rv-parks"),
+    ("campground", "rv-parks"),
     ("park", "parks-beaches"),
-    ("campground", "parks-beaches"),
     # sports/fitness
     ("pickleball", "racquet-sports"),
     ("tennis", "racquet-sports"),
@@ -284,7 +283,8 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("bank", "professional"),
     ("consultant", "professional"),
     ("hair", "beauty"),
-    ("barber", "beauty"),
+    # ("barber", "beauty") lives in the eat-drink block above (it must precede
+    # the bare "bar" token); a duplicate here was unreachable.
     ("nail", "beauty"),
     ("beauty", "beauty"),
     ("salon", "beauty"),
@@ -300,10 +300,9 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("school", "kids-lessons"),
     ("university", "kids-lessons"),
     ("childcare", "kids-lessons"),
-    # stay
+    # stay ("rv_park"/"campground" live earlier, above the bare "park" rule
+    # that would otherwise swallow them — see the recreation block)
     ("vacation", "vacation-rentals"),
-    ("rv_park", "rv-parks"),
-    ("campground", "rv-parks"),
     ("resort", "hotels"),
     ("motel", "hotels"),
     ("hotel", "hotels"),
@@ -475,9 +474,22 @@ LEGACY_CATEGORY_TO_PRIMARY: dict[str, str] = {
     "lake_recreation": "on-the-water",
     "boat_rental": "on-the-water",
     "boat_repair": "on-the-water",
+    # These direct folds must agree with the _LEGACY_TO_SUBCAT →
+    # SUBCATEGORY_TO_PRIMARY derivation (which is what actually places a row on
+    # a listing): a divergent entry makes an un-backfilled (NULL-primary) row
+    # COUNT under one department while LISTING under another — the
+    # count-vs-listing drift WP-12 exists to prevent. fitness_sports/fitness
+    # used to fold to health-wellness-care while gyms (their derived
+    # subcategory) lands on classes-sports-recreation.
+    # tests/test_audit_categories_fixes.py asserts the two paths agree map-wide.
+    # KNOWN EXCEPTION: "recreation" folds here to classes-sports-recreation
+    # (CATEGORY_FILTERS + /api/map_data expect that) while its derived
+    # subcategory (parks-beaches) lands on outdoors-parks-trails — the legacy
+    # bucket genuinely straddles both departments and only a per-row recat can
+    # split it; documented in the test's exception list.
     "recreation": "classes-sports-recreation",
-    "fitness_sports": "health-wellness-care",
-    "fitness": "health-wellness-care",
+    "fitness_sports": "classes-sports-recreation",
+    "fitness": "classes-sports-recreation",
     "childcare_education": "classes-sports-recreation",
     "education": "classes-sports-recreation",
     "edu": "classes-sports-recreation",
@@ -820,3 +832,82 @@ def derive_cuisine(
                 if needle in tok:
                     return slug
     return None
+
+
+# --- Free-text cuisine intent (search routing) -----------------------------
+#
+# A plain cuisine/dish search ("mexican food", "tacos", "sushi", "pizza") must
+# reach the Eat & Drink listing filtered to that cuisine — NOT the events
+# calendar (the old ``_TYPE_WORDS`` "events" bucket matched bare "food"/"taco"
+# and swallowed cuisine queries into ``/calendar``). This resolver maps such a
+# query to its cuisine slug so the router can send it to
+# ``/lake-havasu/{cuisine}``.
+#
+# Deliberately conservative: it matches only an exact "<cuisine> [food/dining
+# tail]" phrase (after one leading qualifier is stripped) and returns ``None``
+# the moment the query carries an event/temporal signal, so a genuine calendar
+# ask ("taco festival", "food truck night") is never captured.
+
+#: Generic food/dining tails that may follow a cuisine word in a search.
+#: The empty tail lets a bare cuisine/dish word ("tacos", "sushi") match.
+_CUISINE_TAILS: tuple[str, ...] = (
+    "", "food", "foods", "restaurant", "restaurants", "cuisine",
+    "place", "places", "spot", "spots", "joint", "joints",
+    "eatery", "eateries", "takeout", "delivery",
+)
+
+#: One leading qualifier we tolerate ("good mexican food", "authentic tacos").
+_CUISINE_LEAD_RE = re.compile(
+    r"^(?:the\s+)?(?:best|good|great|authentic|real|local|top|nearby|some|a|an)\s+"
+)
+
+#: Event/discovery words that make a query a calendar ask, not a restaurant
+#: search ("taco festival", "food truck night", "cooking class"). Their presence
+#: forces ``cuisine_query_slug`` to return ``None`` so the calendar keeps them.
+_CUISINE_EVENT_EXCLUDE_RE = re.compile(
+    r"\b(festival|festivals|fest|event|events|fair|market|truck|trucks|"
+    r"night|crawl|tasting|tastings|class|classes|cooking|competition|contest|"
+    r"tonight|tomorrow|weekend|week|today)\b"
+)
+
+
+def _build_cuisine_phrase_map() -> dict[str, str]:
+    """``{normalized phrase: cuisine slug}`` for exact cuisine-query lookup.
+
+    Built from every cuisine's label + synonym needles crossed with the food
+    tails (and simple plurals so "taco" → "tacos", "burger" → "burgers"). First
+    cuisine in ``_CUISINES`` order wins a shared phrase.
+    """
+    out: dict[str, str] = {}
+    for slug, label, needles in _CUISINES:
+        bases: set[str] = {label.lower()}
+        for n in needles:
+            if n.startswith("_"):  # placeholder tokens like "_sub_"
+                continue
+            bases.add(n)
+            bases.add(f"{n}s")  # taco → tacos, burger → burgers, burrito → burritos
+        for base in bases:
+            for tail in _CUISINE_TAILS:
+                phrase = f"{base} {tail}".strip()
+                out.setdefault(phrase, slug)
+    return out
+
+
+_CUISINE_PHRASE_MAP: dict[str, str] = _build_cuisine_phrase_map()
+
+
+def cuisine_query_slug(q: str | None) -> str | None:
+    """Cuisine slug a plain restaurant/dish search maps to, or ``None``.
+
+    Pure (no DB). Returns ``None`` for any query carrying an event/temporal
+    signal, so a genuine calendar ask ("taco festival") is never treated as a
+    restaurant search. The caller still gates the resulting cuisine page on its
+    publish threshold before redirecting.
+    """
+    s = (q or "").strip().lower()
+    s = re.sub(r"[^a-z0-9\s]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    if not s or _CUISINE_EVENT_EXCLUDE_RE.search(s):
+        return None
+    s = _CUISINE_LEAD_RE.sub("", s).strip()
+    return _CUISINE_PHRASE_MAP.get(s)

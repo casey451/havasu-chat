@@ -32,13 +32,11 @@ import re
 import time as _time
 from collections.abc import Callable
 from datetime import datetime
-from pathlib import Path
 from typing import Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.categories import cuisine_pages, leaf_copy, leaf_pages, leaf_seo
@@ -48,11 +46,11 @@ from app.categories import trades as trade_pages
 from app.categories.cross_surface import cross_surface_sections
 from app.categories.display_labels import display_label
 from app.categories.queries import CategoryFacets
-from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.rate_limit import limiter, public_html_rate_limit
+from app.core.templates import make_templates
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import Provider
-from app.home import sandstone as home_sandstone
 from app.home import sponsor_store
 from app.home.queries import _provider_image_url
 from app.home.router import _utility_chips as _home_utility_chips
@@ -61,10 +59,7 @@ from app.providers import queries as provider_queries
 from app.seo.urls import absolute_url
 from app.v1.categories import BUCKET_SLUG_REDIRECTS
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 router = APIRouter(tags=["categories"])
 
@@ -85,8 +80,6 @@ def _chrome_context(db: Session) -> dict[str, Any]:
             return []
 
     return {
-        "primary_nav": _safe(home_sandstone.primary_nav),
-        "mega_columns": _safe(lambda: home_sandstone.mega_columns(db)),
         "utility_chips": _safe(lambda: _home_utility_chips(db)),
     }
 
@@ -373,6 +366,7 @@ def _get_index_payload(db: Session) -> list[dict[str, Any]]:
 
 
 @router.get("/categories", response_class=HTMLResponse)
+@limiter.limit(public_html_rate_limit)
 def serve_categories_index(
     request: Request,
     db: Session = Depends(get_db),
@@ -620,6 +614,7 @@ def _render_category_page(
 
 
 @router.get("/categories/{slug}", response_class=HTMLResponse, response_model=None)
+@limiter.limit(public_html_rate_limit)
 def serve_category(
     request: Request,
     slug: str,
@@ -663,6 +658,7 @@ def serve_category(
 @router.get(
     "/categories/{parent}/{trade}", response_class=HTMLResponse, response_model=None
 )
+@limiter.limit(public_html_rate_limit)
 def serve_trade_page(
     request: Request,
     parent: str,
@@ -938,10 +934,15 @@ def _apply_list_controls(
         # below a closed/no-review one (the audit's "closed studio with no reviews
         # shown first" bug). Python's stable sort preserves the incoming order
         # within each tier; sponsored pins were already applied upstream.
+        # ``is_query_match`` (the #666 relevance float from a ?q= arrival)
+        # outranks the open/has_reviews demotion — otherwise a closed or
+        # not-yet-reviewed on-topic match sank right back under the generic
+        # rows the float lifted it above.
         working = sorted(
             working,
             key=lambda c: (
                 0 if c.get("is_sponsored") else 1,
+                0 if c.get("is_query_match") else 1,
                 0 if c.get("is_open") is True else 1,
                 0 if c.get("has_reviews") else 1,
             ),
@@ -1043,6 +1044,20 @@ _LEAF_INTRO_TEMPLATE = (
     "instead. Spots can't be bought, Hava never invents a rating, and any "
     "sponsored placement is clearly labeled."
 )
+# 2026-06-30 audit A5/1D: with LEAF_PAGE_MIN_PROVIDERS == 1 a leaf can render a
+# single listing, where the plural/daily-rotation copy reads wrong ("The 1
+# well-reviewed listings below rotate daily"). Use a singular-correct line.
+_LEAF_INTRO_TEMPLATE_ONE = (
+    "{name} in Lake Havasu City, AZ — part of our {department} directory. "
+    "The one listing below is shown with its real public rating — Hava never "
+    "invents a rating, and any sponsored placement is clearly labeled."
+)
+
+
+def _leaf_intro(*, name: str, n: int, department: str) -> str:
+    """Number-aware honest leaf intro (singular copy when only one listing)."""
+    template = _LEAF_INTRO_TEMPLATE_ONE if n == 1 else _LEAF_INTRO_TEMPLATE
+    return template.format(name=name, n=n, department=department)
 
 
 def _render_leaf_page(
@@ -1060,7 +1075,13 @@ def _render_leaf_page(
     # P4: "Top rated" (?sort=favorites) suppresses the daily Featured shuffle and
     # keeps the dampened-rating order; everything else gets the shuffled default.
     sort_param = (request.query_params.get("sort") or "").strip().lower()
-    cards, total, providers = leaf_pages.leaf_listing(db, leaf, now=now, sort=sort_param)
+    # 2026-07-01: the originating search term (carried from /chat as ?q=) floats
+    # on-topic businesses to the top so a niche ask isn't buried under the broad
+    # leaf's review-count order. Absent/empty q is a no-op.
+    search_q = (request.query_params.get("q") or "").strip() or None
+    cards, total, providers = leaf_pages.leaf_listing(
+        db, leaf, now=now, sort=sort_param, query=search_q
+    )
     if total < leaf_pages.LEAF_PAGE_MIN_PROVIDERS:
         raise HTTPException(status_code=404, detail="leaf_below_minimum")
 
@@ -1122,7 +1143,7 @@ def _render_leaf_page(
         ]
     else:
         intro = _strip_md(
-            _LEAF_INTRO_TEMPLATE.format(name=display, n=total, department=dept_label)
+            _leaf_intro(name=display, n=total, department=dept_label)
         )
         faqs = []
 
@@ -1140,6 +1161,10 @@ def _render_leaf_page(
             "trade_count": total,
             "trade_intro": intro,
             "trade_faqs": faqs,
+            # 2026-07-01 master audit §9.2-4: a leaf reached from search says
+            # what it is answering ("wake surfing" landing on the broad Jet Ski
+            # leaf otherwise looks like the query was ignored).
+            "search_echo": search_q,
             "category_cards": visible_cards,
             "card_groups": card_groups,
             "list_controls": list_controls,

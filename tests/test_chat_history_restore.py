@@ -83,6 +83,20 @@ def test_history_messages_carry_query_and_id_oldest_first(db, client) -> None:
     assert all(m["id"] and m["content"] and m["role"] == "assistant" for m in msgs)
 
 
+def test_history_limit_keeps_newest_turns(db, client) -> None:
+    # Regression (audit 2026-07-01): asc-then-limit returned the OLDEST rows,
+    # so restoring a session longer than `limit` replayed its beginning. The
+    # endpoint must return the newest `limit` turns, still oldest-first.
+    sid = f"{_SID_PREFIX}{uuid4().hex[:12]}"
+    for n in range(30):
+        _seed_turn(db, sid, n)
+    db.commit()
+    r = client.get("/api/chat/history", params={"session_id": sid, "limit": 10})
+    assert r.status_code == 200
+    msgs = r.json()["messages"]
+    assert [m["query"] for m in msgs] == [f"query {n}" for n in range(20, 30)]
+
+
 def test_history_excludes_other_sessions(db, client) -> None:
     sid = f"{_SID_PREFIX}{uuid4().hex[:12]}"
     other = f"{_SID_PREFIX}{uuid4().hex[:12]}"

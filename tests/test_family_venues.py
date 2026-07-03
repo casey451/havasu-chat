@@ -10,17 +10,22 @@ Weekday anchors (2026): Jun 15 = Mon, 16 = Tue, 17 = Wed, 18 = Thu, 19 = Fri,
 
 from __future__ import annotations
 
-from datetime import date
+from datetime import date, time
 
 from app.home.family_venues import (
+    HOURS_VARY_LABEL,
     OPEN_VENUES,
+    FamilyVenue,
+    _fmt_span,
     class_today_rows,
+    funzone_hours_rows,
     open_today_rows,
 )
 
 _MON = date(2026, 6, 15)
 _WED = date(2026, 6, 17)
 _THU = date(2026, 6, 18)
+_FRI = date(2026, 6, 19)
 _SUN = date(2026, 6, 21)
 
 
@@ -59,13 +64,17 @@ def test_open_rows_show_bare_hours_not_a_verb_or_studio_classes() -> None:
             assert "Black Belt" not in r["title"]
 
 
-def test_havasu_lanes_shows_real_hours_and_the_neon_nights() -> None:
-    # Friday: open noon–11 (bowling alley hours surfaced like any other venue),
-    # with the Rock & Bowl neon nights called out in the subtitle.
+def test_havasu_lanes_hours_row_does_not_repeat_the_cosmic_night() -> None:
+    # Friday: open noon–11 (bowling alley hours surfaced like any other venue).
+    # The Rock & Bowl / Cosmic glow night is owned by the dated "Cosmic Bowling"
+    # event series, so the hours-row subtitle must NOT re-advertise it — else the
+    # glow night reads twice under Bowling (Casey, 2026-06-27).
     fri = open_today_rows(date(2026, 6, 19))
     lanes = next(r for r in fri if r["title"].startswith("Havasu Lanes"))
-    assert lanes["time_label"] == "12–11 PM"
-    assert "Rock & Bowl" in lanes["venue"]
+    # §6: noon-open span keeps the open meridiem ("12 PM–11 PM"), not "12–11 PM".
+    assert lanes["time_label"] == "12 PM–11 PM"
+    assert "Bumper lanes" in lanes["venue"]
+    assert "Rock & Bowl" not in lanes["venue"]
     assert lanes["url"].startswith("https://www.havasulanesaz.com")
 
 
@@ -104,8 +113,65 @@ def test_rows_sort_after_timed_events_and_are_ordered() -> None:
 
 
 def test_every_open_venue_has_a_url_and_some_hours() -> None:
-    # No curated open-venue ships without a link or without any weekly hours
-    # (those belong in DIRECTORY instead).
+    # No curated FAMILY open-venue ships without a link or weekly hours (those
+    # belong in DIRECTORY instead). Non-family funzone venues (billiards halls)
+    # may lack confirmed hours — they surface in Things to Do with a "Hours vary"
+    # label, never a fabricated time.
     for v in OPEN_VENUES:
         assert v.url.startswith("http")
-        assert v.hours, f"{v.name} has no hours — move it to DIRECTORY"
+        if v.family:
+            assert v.hours, f"{v.name} has no hours — move it to DIRECTORY"
+
+
+def test_fmt_span_keeps_meridiem_for_noon_open() -> None:
+    """§6: a noon-open span keeps the open meridiem ("12 PM–11 PM"), never the
+    ambiguous "12–11 PM"; non-noon same-meridiem spans still collapse."""
+    assert _fmt_span(time(12, 0), time(23, 0)) == "12 PM–11 PM"
+    assert _fmt_span(time(12, 0), time(22, 0)) == "12 PM–10 PM"
+    # Non-noon, same meridiem → drop the redundant first meridiem.
+    assert _fmt_span(time(15, 0), time(21, 0)) == "3–9 PM"
+    # Different meridiems → both shown.
+    assert _fmt_span(time(9, 0), time(14, 0)) == "9 AM–2 PM"
+
+
+def test_fmt_span_keeps_meridiem_for_midnight_close() -> None:
+    """An 11am-to-midnight span keeps the close meridiem ("11 AM–12 AM"), never
+    the ambiguous "11–12 AM" — the mirror of the noon-open guard (Lady Lee's
+    Fri/Sat close at midnight; mirrors lhc_golf for Golf n' Brews)."""
+    assert _fmt_span(time(11, 0), time(0, 0)) == "11 AM–12 AM"
+    assert _fmt_span(time(9, 0), time(0, 0)) == "9 AM–12 AM"
+
+
+def test_lady_lees_funzone_hours_show_real_window_not_hours_vary() -> None:
+    """Part A: Lady Lee's now carries its verified weekly hours, so its Things-to-
+    Do → Billiards hours row shows the REAL window per weekday instead of the
+    "Hours vary" fallback (provider hours, curated like golf #601)."""
+    def _lady(day: date) -> dict:
+        return next(
+            r for r in funzone_hours_rows(day) if r["title"] == "Lady Lee's Billiards Hall"
+        )
+
+    assert _lady(_MON)["time_label"] == "11 AM–10 PM"   # Mon–Thu 11–10
+    assert _lady(_FRI)["time_label"] == "11 AM–12 AM"    # Fri/Sat close at midnight
+    assert _lady(_SUN)["time_label"] == "11 AM–9 PM"     # Sun 11–9
+    # Routed under Billiards (venue-kind tag) and read as a listing, not an event.
+    assert _lady(_MON)["tags"] == ["activity:billiards", "facet:hours"]
+    assert _lady(_MON)["ongoing"] is True
+    # No funzone venue should read "Hours vary" any more — every one is curated.
+    assert all(r["time_label"] != HOURS_VARY_LABEL for r in funzone_hours_rows(_MON))
+
+
+def test_funzone_hours_unconfirmed_venue_reads_hours_vary() -> None:
+    """Honest fallback: a funzone venue with NO confident weekly hours still
+    reads "Hours vary" (never a fabricated time). ``venues`` is injected so the
+    fallback branch stays covered even though every shipped venue now has hours."""
+    unknown = FamilyVenue(
+        name="Mystery Pool Hall",
+        kind="Billiards hall",
+        url="https://example.com/",
+        venue_kind="billiards",
+        family=False,
+    )
+    rows = funzone_hours_rows(_MON, venues=(unknown,))
+    assert len(rows) == 1
+    assert rows[0]["time_label"] == HOURS_VARY_LABEL

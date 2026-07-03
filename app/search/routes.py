@@ -11,20 +11,20 @@ from __future__ import annotations
 import base64
 import json
 import re
-from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import Float, and_, case, cast, exists, false, func, literal, or_, select
 from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.chat import tier2_db_query
 from app.chat.normalizer import spell_correct
+from app.chat.query_intent import INTENT_AI, classify_query_intent
 from app.chat.tier2_schema import Tier2Filters
 from app.chat.tier2_synonyms import _category_needle_set
-from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.templates import make_templates
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.entity_types import (
@@ -34,7 +34,7 @@ from app.db.entity_types import (
     ENTITY_TYPE_PROGRAM,
     is_valid_entity_type,
 )
-from app.db.models import Entity, Event, Location, Program, Provider
+from app.db.models import Entity, EntityCategory, Event, Location, Program, Provider
 from app.providers import queries as provider_queries
 from app.search import fts as search_fts
 from app.search import ranking as search_ranking
@@ -42,10 +42,7 @@ from app.search.ranking import _verification_bonus_sql
 
 router = APIRouter(tags=["search"])
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 _CURSOR_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
@@ -78,6 +75,15 @@ def _decode_offset(cursor: str | None) -> int:
 def _encode_offset(offset: int) -> str:
     raw = json.dumps({"o": offset}).encode("utf-8")
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
+
+
+def _like_escape(s: str) -> str:
+    """Escape LIKE/ILIKE wildcards so the query matches as literal text.
+
+    Used with an explicit ``escape='\\'`` so a name like "In-N-Out" or a query
+    such as "50% off" can't behave as a wildcard pattern.
+    """
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
 
 
 def _tier2_filters_for_search(
@@ -149,6 +155,46 @@ def _provider_synonym_exists_predicate(
             P.draft.is_(False),
             P.is_local.isnot(False),  # Lake Havasu-local only (drop out-of-area)
             or_(*conds),
+        )
+    )
+
+
+def _leaf_link_exists_predicate(
+    db: Session,
+    *,
+    q_raw: str,
+    entity_type_filter: str | None,
+) -> Any | None:
+    """OR-branch: entities whose canonical taxonomy leaf matches the query's intent.
+
+    The legacy ``Provider.category`` / ``google_primary_category`` columns are
+    generic for trades ("home_services" / "general_contractor"), so a category
+    query like "ac repair", "roofer", or "nursing home" cannot reach the right
+    providers through the synonym needles alone — the specific trade lives only in
+    the entity name and the canonical ``EntityCategory`` leaf link (what the leaf
+    pages render). This branch resolves the query to its leaf via the existing
+    query→leaf routing (:mod:`app.categories.leaf_query`) and matches providers
+    whose PRIMARY ``EntityCategory`` is that leaf, closing the intent gap.
+
+    Commercial entities only; returns ``None`` when the query resolves to no leaf
+    (so non-category queries are unaffected).
+    """
+    if entity_type_filter is not None and entity_type_filter != ENTITY_TYPE_COMMERCIAL:
+        return None
+    from app.categories import leaf_query  # lazy: avoid an import cycle
+
+    leaf = leaf_query.match_leaf_query(db, q_raw) or leaf_query.match_leaf_service_intent(
+        db, q_raw
+    )
+    if leaf is None:
+        return None
+    return exists(
+        select(literal(1))
+        .select_from(EntityCategory)
+        .where(
+            EntityCategory.entity_id == Entity.id,
+            EntityCategory.category_id == leaf.id,
+            EntityCategory.is_primary.is_(True),
         )
     )
 
@@ -336,6 +382,10 @@ def api_search(
     if prov_syn is not None:
         text_parts.append(prov_syn)
 
+    leaf_link = _leaf_link_exists_predicate(db, q_raw=q_clean, entity_type_filter=entity_type_f)
+    if leaf_link is not None:
+        text_parts.append(leaf_link)
+
     if not text_parts:
         return {"results": [], "next_cursor": None}
 
@@ -501,6 +551,14 @@ def _keyword_provider_rows(db: Session, *, q_clean: str, limit: int) -> list[Pro
         tsq = search_fts.build_tsquery_string(filters)
         if tsq:
             text_parts.append(search_fts.entities_search_vector_match(tsq))
+        # F13: a proper noun or punctuated name ("In-N-Out") tokenizes away in
+        # to_tsquery (hyphens are dropped, then "in"/"out" are stopwords), so an
+        # FTS-only path returns nothing for it. Add a direct name substring so
+        # named businesses stay findable; the SQLite branch already does this.
+        if q_clean.strip():
+            text_parts.append(
+                Entity.name.ilike(f"%{_like_escape(q_clean.strip())}%", escape="\\")
+            )
     else:
         text_parts.append(_sqlite_entity_text_and(filters, entity_type=ENTITY_TYPE_COMMERCIAL))
 
@@ -510,6 +568,12 @@ def _keyword_provider_rows(db: Session, *, q_clean: str, limit: int) -> list[Pro
     )
     if prov_syn is not None:
         text_parts.append(prov_syn)
+
+    leaf_link = _leaf_link_exists_predicate(
+        db, q_raw=q_clean, entity_type_filter=ENTITY_TYPE_COMMERCIAL
+    )
+    if leaf_link is not None:
+        text_parts.append(leaf_link)
 
     if not text_parts:
         return []
@@ -538,14 +602,23 @@ def _keyword_event_rows(db: Session, *, q_clean: str, limit: int) -> list[Event]
 
     A deliberately plain keyword query (ILIKE on title/description); the event
     corpus has no FTS search_vector, so we keep this simple and dialect-neutral.
-    Soonest dates first.
+    Soonest UPCOMING dates first — passed one-off events never retract, so
+    without a date floor the crawlable results list led with the oldest past
+    events. Recurring rows keep matching regardless of their (past) anchor
+    date since their occurrences are ongoing.
     """
     needle = f"%{q_clean}%"
+    today = now_lake_havasu().date()
     ev_stmt = (
         select(Event)
         .where(
             Event.status == "live",
             or_(Event.title.ilike(needle), Event.description.ilike(needle)),
+            or_(
+                Event.date >= today,
+                Event.is_recurring.is_(True),
+                Event.rrule.isnot(None),
+            ),
         )
         .order_by(Event.date.asc(), Event.start_time.asc(), Event.id.asc())
         .limit(limit)
@@ -565,6 +638,13 @@ def search_results_page(
     matches shows an empty state pointing at Ask Hava. No auth gate.
     """
     q_clean = (q or "").strip()
+
+    # F13: a question / natural-language ask ("is In-N-Out open right now")
+    # can't be answered by keyword lookup — route it straight to the AI
+    # concierge (which the chat scaffold fires on load). Plain noun lookups
+    # ("pizza", "plumber") fall through to keyword search unchanged.
+    if q_clean and classify_query_intent(q_clean) == INTENT_AI:
+        return RedirectResponse(url=f"/chat?q={quote(q_clean)}", status_code=302)
 
     providers: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
@@ -601,6 +681,13 @@ def search_results_page(
                     "venue": ev.location_name,
                 }
             )
+
+        # F13: a real keyword query that matched nothing no longer dead-ends on
+        # the "No matches" page — fall through to the AI (nf=1 shows a short
+        # "no exact matches" note above the answer). The AI path never re-invokes
+        # keyword search, so there is no loop.
+        if not providers and not events:
+            return RedirectResponse(url=f"/chat?q={quote(q_clean)}&nf=1", status_code=302)
 
     # Lake Ink & Brass: the concierge falls through here for descriptive
     # queries, so /search must follow the active theme (was desert-only).

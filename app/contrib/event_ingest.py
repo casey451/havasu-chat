@@ -50,10 +50,12 @@ from app.contrib.event_record import (
     EventRecord,
     canonicalize_venue,
     extract_cost_from_text,
+    strip_cost_prefix,
 )
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
 from app.db.models import Contribution, Event
+from app.events.activity_taxonomy import event_activity_tags
 from app.events.description_clean import (
     clean_event_description,
     normalize_location_text,
@@ -129,9 +131,14 @@ def _http_url_or_none(url: str | None) -> str | None:
 
 
 def _location_name(rec: EventRecord) -> str:
+    # ED-cost: peel a price token a feed bled into the venue ("$45 - Aquatic
+    # Center") before tidying, so it never reaches the displayed "Where". A venue
+    # that is ONLY a price strips to nothing -> None -> the "Lake Havasu City"
+    # default below, rather than echoing the cost back.
+    venue_raw = strip_cost_prefix(rec.venue_name)
     # Fix 2.7 — canonicalize first (collapse "Lake Havasu City, Lake Havasu City,
     # AZ" doubling and adjacent repeats), then the existing glued-city / tail tidy.
-    name = normalize_location_text(canonicalize_venue(rec.venue_name) or rec.venue_name)
+    name = normalize_location_text(canonicalize_venue(venue_raw) or venue_raw)
     # P1: title-as-venue artifact — some feeds put the event TITLE in the venue
     # field, producing rows whose "Where" repeats the event name. Drop it (fall
     # back to the city) rather than show "Sunset Paddle @ Sunset Paddle".
@@ -264,11 +271,24 @@ _KEYWORD_TAGS: tuple[tuple[tuple[str, ...], tuple[str, ...]], ...] = (
          "softball", "league night"),
         ("sports", _CLASSES),
     ),
+    # Golf (2026-06-25): course / Toptracer range / indoor simulator / lessons.
+    # "disc golf" is matched by the sports group above (and the activity classifier
+    # guards it to Sports & Racing), so the coarse golf tag here is the secondary
+    # signal; the canonical signal is the activity:golf tag.
+    (
+        ("toptracer", "top tracer", "golf simulator", "indoor golf", "driving range",
+         "tee time", "golf course", "golf club"),
+        ("golf", _CLASSES),
+    ),
     (("aqua", "lap swim", "water aerobics", "swim lesson"), ("aquatics", _CLASSES)),
     (("ballroom", "ballet", "dance class", "line dancing"), ("dance", _CLASSES)),
     (("concert", "live music", "band", "karaoke", "open mic", " dj "), ("music",)),
     (("kids", "family", "youth", "children", "toddler", "story time", "story hour"), ("family",)),
-    (("art walk", "paint ", "pottery", "art class", "craft"), ("arts",)),
+    # Calendar reorg Phase 1: the canonical activity signal is the namespaced
+    # ``activity:arts`` tag stamped by ``event_activity_tags``; this coarse "arts"
+    # tag mirrors it for search and is inert to the bare-word tier classifier.
+    (("art walk", "paint ", "paint &", "pottery", "art class", "craft", "stained glass",
+      "polymer clay", "terrarium", "windchime", "wind chime"), ("arts",)),
     (("farmers market", "swap meet", "craft fair"), ("market",)),
     (("city council", "planning and zoning", "board of", "commission"), ("civic",)),
     # Fix 2.5 — automotive route so car shows / cruise-ins / "Motor Madness" land
@@ -449,6 +469,15 @@ def _tags(rec: EventRecord) -> list[str]:
             organizer=organizer if isinstance(organizer, str) else "",
         )
     ):
+        if t not in merged:
+            merged.append(t)
+    # Calendar reorg Phase 1 (Casey 2026-06-25): stamp the canonical, namespaced
+    # activity/facet/audience tags ONCE at ingest, so every surface is a pure read
+    # (Phase 2). ``activity:<slug>`` is the single source of truth for which bucket
+    # a row belongs to; ``facet:special`` keeps a themed session (Cosmic Bowling,
+    # Glow in the Park) from collapsing into a venue's hours line. These are inert
+    # to the bare-word tier classifier, so they add no surface change here.
+    for t in event_activity_tags(rec.title, rec.venue_name, merged):
         if t not in merged:
             merged.append(t)
     return merged or ["events"]

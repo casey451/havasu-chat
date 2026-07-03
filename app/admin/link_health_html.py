@@ -10,36 +10,29 @@ as the other admin pages.
 
 from __future__ import annotations
 
-import html
-from datetime import datetime
-
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, verify_admin_cookie
-from app.admin.nav_html import admin_phase5_nav_html
+from app.admin.auth import admin_guard as _guard
+from app.admin.shell import admin_shell
+from app.admin.shell import esc as _esc
+from app.admin.shell import fmt_dt as _fmt_dt
+from app.admin.url_safety import safe_href
 from app.db.database import get_db
 from app.db.models import LinkHealth, Provider
 
-
-def _guard(request: Request) -> RedirectResponse | None:
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    return RedirectResponse(url="/admin/login", status_code=302)
-
-
-def _esc(s: str | None) -> str:
-    return html.escape(s or "", quote=True)
-
-
-def _fmt_dt(value: datetime | None) -> str:
-    if not value:
-        return "—"
-    if value.tzinfo is not None:
-        value = value.replace(tzinfo=None)
-    return value.strftime("%b %d, %Y %I:%M %p")
+# Page-specific CSS layered over the shared admin_shell base. This is the widest
+# admin table (1040px), so it keeps its denser type/padding via the table
+# overrides below; plus number cells, external-link + kind pill styling.
+_LINK_HEALTH_CSS = """    table { font-size: 0.86rem; }
+    th, td { padding: 7px 9px; }
+    .num { font-variant-numeric: tabular-nums; font-weight: 600; }
+    a.ext { color: #0d6efd; word-break: break-all; }
+    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.76rem;
+      background: #f8d7da; color: #842029; }
+    .pill.kind { background: #e2e3e5; color: #41464b; }"""
 
 
 def confirmed_broken_count(db: Session) -> int:
@@ -52,41 +45,6 @@ _KIND_LABEL = {
     "provider_facebook": "Provider Facebook",
     "event_url": "Event link",
 }
-
-
-def _nav_shell(title: str, inner: str) -> str:
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>{_esc(title)}</title>
-  <style>
-    * {{ box-sizing: border-box; }}
-    body {{ font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fff; color: #212529;
-      line-height: 1.45; padding-bottom: 48px; }}
-    .wrap {{ max-width: 1040px; margin: 0 auto; }}
-    h1 {{ font-size: 1.35rem; margin: 0 0 8px; }}
-    .sub {{ color: #6c757d; font-size: 0.9rem; margin-bottom: 14px; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 0.86rem; margin-bottom: 8px; }}
-    th, td {{ border: 1px solid #dee2e6; padding: 7px 9px; text-align: left; vertical-align: top; }}
-    th {{ background: #f8f9fa; font-weight: 600; }}
-    tbody tr:nth-child(even) {{ background: #fcfcfc; }}
-    .empty {{ color: #6c757d; padding: 12px 0; font-size: 0.92rem; }}
-    .num {{ font-variant-numeric: tabular-nums; font-weight: 600; }}
-    a.ext {{ color: #0d6efd; word-break: break-all; }}
-    .pill {{ display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.76rem;
-      background: #f8d7da; color: #842029; }}
-    .pill.kind {{ background: #e2e3e5; color: #41464b; }}
-  </style>
-</head>
-<body>
-  <div class="wrap">
-{admin_phase5_nav_html()}
-    {inner}
-  </div>
-</body>
-</html>"""
 
 
 def register_link_health_html_routes(router: APIRouter) -> None:
@@ -129,8 +87,13 @@ def register_link_health_html_routes(router: APIRouter) -> None:
                 # Layer 2: local-LLM verdict + suggested replacement URL, if assessed.
                 assess = _esc(r.llm_assessment) if r.llm_assessment else ""
                 if r.llm_suggested_url:
+                    # safe_href on both cells: these are scraped/LLM-produced URLs
+                    # and html.escape does not neutralize javascript:/data: schemes.
                     su = _esc(r.llm_suggested_url)
-                    assess += f'<br><a class="ext" href="{su}" target="_blank" rel="noopener nofollow">→ {su}</a>'
+                    assess += (
+                        f'<br><a class="ext" href="{_esc(safe_href(r.llm_suggested_url))}"'
+                        f' target="_blank" rel="noopener nofollow">→ {su}</a>'
+                    )
                 assess = assess or "—"
                 body += (
                     "<tr>"
@@ -139,7 +102,7 @@ def register_link_health_html_routes(router: APIRouter) -> None:
                     f'<td><span class="pill">{status}</span></td>'
                     f'<td class="num">{r.consecutive_failures}</td>'
                     f"<td>{_esc(_fmt_dt(r.last_checked_at))}</td>"
-                    f'<td><a class="ext" href="{_esc(r.url)}" target="_blank" rel="noopener nofollow">{_esc(r.url)}</a></td>'
+                    f'<td><a class="ext" href="{_esc(safe_href(r.url))}" target="_blank" rel="noopener nofollow">{_esc(r.url)}</a></td>'
                     f"<td>{assess}</td>"
                     "</tr>"
                 )
@@ -156,4 +119,6 @@ listing to fix or remove the URL — the next sweep clears it from this list aut
 (403/429) links are not shown; they aren't proof a link is dead.</p>
 {table}
 """
-        return HTMLResponse(_nav_shell("Broken links", inner))
+        return HTMLResponse(
+            admin_shell("Broken links", inner, css=_LINK_HEALTH_CSS, max_width="1040px")
+        )

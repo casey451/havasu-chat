@@ -2,60 +2,16 @@
 
 from __future__ import annotations
 
-import html
-
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, verify_admin_cookie
-from app.admin.nav_html import admin_phase5_nav_html
+from app.admin.auth import admin_guard as _guard
+from app.admin.shell import admin_shell
+from app.admin.shell import esc as _esc
 from app.db.database import get_db
 from app.db.models import Contribution, Program, Provider
-
-
-def _guard(request: Request) -> RedirectResponse | None:
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    return RedirectResponse(url="/admin/login", status_code=302)
-
-
-def _esc(s: str | None) -> str:
-    return html.escape(s or "", quote=True)
-
-
-def _nav_shell(title: str, inner: str) -> str:
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>{_esc(title)}</title>
-  <style>
-    * {{ box-sizing: border-box; }}
-    body {{ font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fff; color: #212529;
-      line-height: 1.45; padding-bottom: 48px; }}
-    .wrap {{ max-width: 920px; margin: 0 auto; }}
-    h1 {{ font-size: 1.35rem; margin: 0 0 8px; }}
-    h2 {{ font-size: 1.05rem; margin: 28px 0 10px; color: #343a40; }}
-    .sub {{ color: #6c757d; font-size: 0.9rem; margin-bottom: 14px; }}
-    .nav {{ margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }}
-    .nav a {{ color: #0d6efd; font-weight: 600; text-decoration: none; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-bottom: 8px; }}
-    th, td {{ border: 1px solid #dee2e6; padding: 8px 10px; text-align: left; }}
-    th {{ background: #f8f9fa; font-weight: 600; }}
-    tbody tr:nth-child(even) {{ background: #fcfcfc; }}
-    .empty {{ color: #6c757d; padding: 12px 0; font-size: 0.92rem; }}
-  </style>
-</head>
-<body>
-  <div class="wrap">
-{admin_phase5_nav_html()}
-    {inner}
-  </div>
-</body>
-</html>"""
 
 
 def register_categories_html_routes(router: APIRouter) -> None:
@@ -111,4 +67,4 @@ def register_categories_html_routes(router: APIRouter) -> None:
 <h2>Pending contribution category hints</h2>
 {table([(r[0], r[1]) for r in c_rows], "submission_category_hint")}
 """
-        return HTMLResponse(_nav_shell("Categories", inner))
+        return HTMLResponse(admin_shell("Categories", inner))

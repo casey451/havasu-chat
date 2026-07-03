@@ -31,6 +31,7 @@ when it is genuinely empty (0 listings).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
@@ -249,15 +250,97 @@ def _leaf_provider_backed_entity_ids(db: Session, leaf_id: int) -> set[str]:
     return {eid for (eid,) in rows.all()}
 
 
+# Query-aware relevance (2026-07-01): a niche search ("wake surfing") 302s to a
+# broad leaf ("jet-ski-and-watersports"), which otherwise renders in dampened-
+# rating order and buries newer on-topic shops below high-review generic ones.
+# When the leaf is reached WITH the originating ``?q=``, on-topic providers float
+# to the top — ahead of the shuffle's new/unrated tail — then the normal order
+# follows. Generic/stop tokens are dropped so "jet ski rentals" still leads with
+# the rental shops (they match "jet"/"ski") and a no-match query is a no-op.
+_RELEVANCE_STOP_TERMS: frozenset[str] = frozenset(
+    """a an and any are at best find for get good great in local me my near nearby
+    new of on or our place places rent rental rentals service services shop shops
+    the to top with company companies lake havasu city arizona az lhc""".split()
+)
+_RELEVANCE_TOKEN_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _relevance_terms(query: str | None) -> list[str]:
+    """Distinctive lowercase search terms for floating on-topic providers."""
+    toks = _RELEVANCE_TOKEN_RE.split((query or "").lower())
+    return [t for t in toks if len(t) >= 3 and t not in _RELEVANCE_STOP_TERMS]
+
+
+def _provider_matches_terms(p: Provider, terms: list[str]) -> bool:
+    """True when any distinctive query term appears in the provider's name /
+    subcategory / category / Google types. Matches on substring, or a shared
+    4-char stem, so "wake"~"wakesurf" (substring) and "surfing"~"wakesurf"
+    ("surf" stem) both hit.
+
+    Google types joined 2026-07-01 (Phase 6): the niche signal often lives ONLY
+    there — "oil change" matches a quick-lube's ``oil_change_service`` type and
+    "mini golf" a venue's ``miniature_golf_course`` while neither appears in
+    the name. NULL/absent types cost nothing.
+    """
+    google_types = getattr(p, "google_categories", None) or []
+    hay = " ".join(
+        str(v or "").lower()
+        for v in (
+            p.provider_name,
+            getattr(p, "subcategory", ""),
+            getattr(p, "category", ""),
+            getattr(p, "google_primary_category", ""),
+            *google_types,
+        )
+    )
+    for t in terms:
+        if t in hay:
+            return True
+        if len(t) >= 4 and t[:4] in hay:  # stem: "surfing" -> "surf" in "wakesurf"
+            return True
+    return False
+
+
+def _float_query_matches(
+    providers: list[Provider], query: str | None, pinned_ids: set[str]
+) -> tuple[list[Provider], frozenset[str]]:
+    """Stable-partition ``providers`` so query-relevant rows lead (paid pins stay
+    first). No-op when there's no query, no distinctive term, or nothing matches.
+
+    Also returns the matched provider ids so the render layer can keep the
+    float through its own Featured re-sort (``_apply_list_controls`` demotes
+    closed/unreviewed cards — without the flag, a closed or low-review query
+    match sank right back under the generic open/reviewed rows #666 floated
+    it above).
+    """
+    terms = _relevance_terms(query)
+    if not terms:
+        return providers, frozenset()
+    rest = [p for p in providers if p.id not in pinned_ids]
+    matches = [p for p in rest if _provider_matches_terms(p, terms)]
+    if not matches:
+        return providers, frozenset()
+    match_ids = frozenset(p.id for p in matches)
+    pinned = [p for p in providers if p.id in pinned_ids]
+    nonmatch = [p for p in rest if p.id not in match_ids]
+    return pinned + matches + nonmatch, match_ids
+
+
 def leaf_listing(
-    db: Session, leaf: Leaf, *, now: datetime, sort: str | None = None
+    db: Session, leaf: Leaf, *, now: datetime, sort: str | None = None, query: str | None = None
 ) -> tuple[list[dict[str, Any]], int, list[Provider]]:
     """``(cards, total, providers)`` for a leaf page.
 
     Provider-backed entities render first (the existing dampened-rating ranking);
     Provider-less place entities follow as place cards, alphabetically. ``total``
-    is the full renderable count (the gate input). ``providers`` carries only the
-    Provider-backed rows for the ItemList JSON-LD (place cards aren't linkable).
+    is the count of this leaf's PRIMARY members (providers + places) — the gate
+    input, and the same basis the department landing (``_gate_counts``) and the
+    sitemap count — so it EXCLUDES curated cross-listed reference cards. Those
+    still render (appended after), but their canonical home is their own primary
+    leaf, so counting them here would over-state the header vs the landing.
+    ``providers`` likewise carries only this leaf's Provider-backed primary rows
+    for the ItemList JSON-LD (place cards aren't linkable; cross-listings aren't
+    members of this leaf).
 
     ``sort`` is the user's chip selection. ``"favorites"`` ("Top rated")
     suppresses the daily Featured shuffle so the dampened-rating order is kept;
@@ -279,65 +362,20 @@ def leaf_listing(
     # Phase F §7.2 honesty gate: pin active paid sticky-tier placements to the
     # top of this niche and label them Sponsored. No-op (organic order, no
     # badges) until a placement is sold for this leaf — zero effect on the live
-    # site today.
-    from app.monetization.serving import (
-        ItemRating,
-        active_category_creatives,
-        active_category_tiers,
-        arrange_listing,
-        listing_day,
+    # site today. (Shared ordering helper — consolidated 2026-07-02.)
+    from app.monetization.serving import apply_placements_and_shuffle
+
+    providers, sponsored_ids, new_unrated_ids, creatives = apply_placements_and_shuffle(
+        db, providers, category_slug=leaf.slug, now=now, sort=sort
     )
-    from app.portal.products import daily_shuffle_enabled, mobile_paid_cap, rating_gate
 
-    try:
-        tiers = active_category_tiers(db, leaf.slug)
-    except Exception:
-        tiers = {}  # placement lookup must never empty the organic leaf grid
-    sponsored_ids = set(tiers.values())
-    try:
-        creatives = active_category_creatives(db, leaf.slug) if tiers else {}
-    except Exception:
-        creatives = {}
+    # Query-aware relevance: float providers matching the originating search to
+    # the top (ahead of the shuffle's new/unrated tail), paid pins kept first.
+    providers, query_match_ids = _float_query_matches(providers, query, sponsored_ids)
 
-    new_unrated_ids: frozenset[str] = frozenset()
-    by_id = {p.id: p for p in providers}
-    # "Top rated" (?sort=favorites) is an explicit user override that keeps the
-    # dampened-rating order; the daily Featured shuffle only drives the default.
-    apply_shuffle = daily_shuffle_enabled() and (sort or "").strip().lower() != "favorites"
-    if apply_shuffle:
-        # §2.1/§2.2: ≤cap paid pinned, daily-shuffled >gate pool, "New / Not yet
-        # rated" tail, then the low band — the same ordering as the dept grid.
-        arr = arrange_listing(
-            [
-                ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
-                for p in providers
-            ],
-            tiers,
-            category_slug=leaf.slug,
-            day=listing_day(now),
-            threshold=rating_gate(),
-            cap=mobile_paid_cap(),
-        )
-        providers = [by_id[k] for k in arr.order if k in by_id]
-        new_unrated_ids = arr.new_unrated
-    elif tiers:
-        # Shuffle off: keep organic order but pin paid under the same mobile cap.
-        arr = arrange_listing(
-            [
-                ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
-                for p in providers
-            ],
-            tiers,
-            category_slug=leaf.slug,
-            day=listing_day(now),
-            threshold=rating_gate(),
-            cap=mobile_paid_cap(),
-            shuffle=False,
-        )
-        providers = [by_id[k] for k in arr.order if k in by_id]
-
-    cards = [
-        cat_queries._provider_card(
+    cards = []
+    for p in providers:
+        card = cat_queries._provider_card(
             db,
             p,
             now=now,
@@ -345,21 +383,33 @@ def leaf_listing(
             new_unrated_ids=new_unrated_ids,
             creatives=creatives,
         )
-        for p in providers
-    ]
+        if p.id in query_match_ids:
+            # Carried through to _apply_list_controls so the Featured re-sort
+            # keeps query matches ahead of the open/has_reviews demotion.
+            card["is_query_match"] = True
+        cards.append(card)
     cards += [_place_card(e) for e in place_entities]
 
-    # Curated hybrid cross-listings (e.g. "The Spot" on the arcade leaf as well
-    # as its primary restaurants leaf). Additive to the page, de-duplicated
-    # against what's already shown; empty unless explicitly curated.
+    # Canonical members of THIS leaf = its primary-linked providers + places.
+    # That count is what the "N Best X" header, the thin-page gate, the
+    # department landing (``_gate_counts``), and the sitemap all key on (the
+    # PRIMARY entity_categories link → a business belongs to exactly one leaf).
+    # Snapshot it BEFORE appending cross-listings so those references can't
+    # inflate the header above the landing count for the same leaf.
+    total = len(cards)
+
+    # Curated hybrid cross-listings (e.g. "The Spot" on the arcade leaf, or the
+    # auto+marine repair shops on boat-repair). They render here as references —
+    # their canonical home is their OWN primary leaf — so they're additive to the
+    # cards but deliberately excluded from ``total`` / the gate / the ItemList
+    # (``providers``). De-duplicated against what's already shown; empty unless
+    # explicitly curated.
     shown_eids = backed_eids | {e.id for e in place_entities}
-    extra_cards, extra_providers = _cross_listed_cards(
+    extra_cards, _ = _cross_listed_cards(
         db, leaf, now=now, exclude_entity_ids=shown_eids
     )
     cards += extra_cards
-    providers = providers + extra_providers
 
-    total = len(cards)
     return cards, total, providers
 
 
@@ -388,19 +438,24 @@ def _cross_listed_cards(
         return [], []
     cards: list[dict[str, Any]] = []
     providers: list[Provider] = []
+    # One Provider IN(...) fetch for the whole curated set — this used to
+    # issue one query per cross-listed slug (13 on the boat-repair leaf,
+    # audit 2026-07-01).
+    prov_by_entity = {
+        p.entity_id: p
+        for p in db.query(Provider)
+        .filter(
+            Provider.entity_id.in_([e.id for e in entities]),
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+            Provider.is_local.isnot(False),
+        )
+        .all()
+    }
     for e in entities:
         if e.id in exclude_entity_ids:
             continue
-        prov = (
-            db.query(Provider)
-            .filter(
-                Provider.entity_id == e.id,
-                Provider.is_active.is_(True),
-                Provider.draft.is_(False),
-                Provider.is_local.isnot(False),
-            )
-            .first()
-        )
+        prov = prov_by_entity.get(e.id)
         if prov is not None:
             cards.append(cat_queries._provider_card(db, prov, now=now))
             providers.append(prov)

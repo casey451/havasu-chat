@@ -396,14 +396,13 @@ def _confabulation_rate(response: str, db: Session, *, query: str = "") -> float
     if not probes:
         return 0.0
     q_low = (query or "").lower()
-    mentioned_lower = {(e.name or "").lower() for e in mentioned}
+    # (``mentioned`` is always empty here — the ``if mentioned: return 0.0``
+    # guard above already returned — so no mentioned-name filter is needed.)
     locale_noise = {"lake havasu", "lake havasu city", "google business"}
     novel = [
         p
         for p in probes
-        if p.lower() not in q_low
-        and p.lower() not in mentioned_lower
-        and p.lower() not in locale_noise
+        if p.lower() not in q_low and p.lower() not in locale_noise
     ]
     if not novel:
         return 0.0

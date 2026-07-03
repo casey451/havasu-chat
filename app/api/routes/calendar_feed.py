@@ -13,13 +13,16 @@ from __future__ import annotations
 
 from datetime import date, datetime, time, timedelta
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import Response
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import limiter, public_api_rate_limit
 from app.db.database import get_db
 from app.db.models import Event
+from app.events.activity_taxonomy import activity_bucket, resolve_activity
 from app.events.title_clean import clean_event_title
+from app.home.event_buckets import GROUP_DEFS
 from app.seo.urls import base_url as _canonical_base_url
 
 router = APIRouter(tags=["events"])
@@ -28,6 +31,43 @@ _PRODID = "-//Ask Hava//Lake Havasu Events//EN"
 # Bound the feed so a runaway event table can never produce a multi-megabyte
 # response; the lake's real calendar is comfortably under this.
 _MAX_EVENTS = 2000
+
+# Bucket key -> human label for the CATEGORIES line (calendar reorg 2026-06-25).
+_BUCKET_LABEL: dict[str, str] = {k: label for k, label, _icon in GROUP_DEFS}
+# Coarse tag -> category label, so non-activity rows (markets, civic, music)
+# still categorize when no activity:<slug> resolves. First match wins.
+_COARSE_TAG_LABEL: tuple[tuple[str, str], ...] = (
+    ("civic", "City & Government"),
+    ("music", "Music & Nightlife"),
+    ("lake-boating", "Lake & Boating"),
+    ("automotive", "Auto & Motor"),
+    ("festival", "Festivals & Events"),
+    ("market", "Markets & Shopping"),
+    ("food-drink", "Food & Drink"),
+    ("family", "Kids & Family"),
+)
+
+
+def _event_categories(event: Event) -> list[str]:
+    """iCalendar CATEGORIES for an event: the top-level bucket label + the
+    canonical activity slug (read from the activity:<slug> tag stamped at ingest,
+    or derived by the shared classifier), with a coarse-tag fallback so a
+    market/civic/music row is still categorized. Empty when nothing classifies."""
+    tags = [str(t) for t in (event.tags or [])]
+    slug = resolve_activity(event.title or "", event.location_name, tags)
+    cats: list[str] = []
+    bkt = activity_bucket(slug)
+    if bkt and bkt in _BUCKET_LABEL:
+        cats.append(_BUCKET_LABEL[bkt])
+    if slug:
+        cats.append(slug)
+    if not cats:
+        tagset = {t.strip().lower() for t in tags}
+        for tag, label in _COARSE_TAG_LABEL:
+            if tag in tagset:
+                cats.append(label)
+                break
+    return cats
 
 
 def _escape_text(value: str | None) -> str:
@@ -98,12 +138,19 @@ def _vevent(event: Event, *, dtstamp: str, base_url: str) -> list[str]:
         lines.append(f"DESCRIPTION:{_escape_text(event.description)}")
     url = event.event_url or f"{base_url}/events/{event.id}"
     lines.append(f"URL:{_escape_text(url)}")
+    # CATEGORIES (calendar reorg 2026-06-25): one line, comma-separated values
+    # (bucket label + activity slug). Each value is escaped individually so the
+    # separating commas stay category delimiters, not escaped text.
+    cats = _event_categories(event)
+    if cats:
+        lines.append("CATEGORIES:" + ",".join(_escape_text(c) for c in cats))
     lines.append("END:VEVENT")
     return lines
 
 
 @router.get("/events.ics")
-def events_ics_feed(db: Session = Depends(get_db)) -> Response:
+@limiter.limit(public_api_rate_limit)
+def events_ics_feed(request: Request, db: Session = Depends(get_db)) -> Response:
     """Return the whole live-event calendar as an iCalendar feed."""
     from app.core.timezone import now_lake_havasu
 

@@ -29,16 +29,31 @@ class Tier2RankInputs:
     ref_now: datetime
     # Liveness dampener input (0–1). ``None`` → no dampening. See app/core/liveness.py.
     liveness_score: float | None = None
+    # 2026-07-01 (master audit §4.6): the query matched the entity NAME itself,
+    # not just description/amenity text.
+    name_match: bool = False
+
+
+#: Field-identity bonus: a NAME match must outrank a description/amenity-only
+#: match no matter what freshness (+30) and featured (+25) bonuses the other
+#: row carries — 60 > 30 + 25. Live failure this fixes: "pool service" ranked
+#: hotels-with-pools and billiards halls (both fresh-verified, "pool" only in
+#: the description) beside the actual pool companies.
+NAME_MATCH_BONUS = 60.0
 
 
 def composite_rank_float(inp: Tier2RankInputs) -> float:
     """Pure ranking sum for unit tests (verification + featured + FTS base).
 
     Verification freshness: +30 within 30 days, +15 within 90 days, else 0.
-    Featured: +25. ``fts_score`` is the pre-scaled ``ts_rank_cd * 100`` value.
-    The composite is then scaled by the liveness dampener (NULL → unchanged).
+    Featured: +25. Name match: +NAME_MATCH_BONUS (dominates the other bonuses,
+    so field identity orders first and freshness orders within it).
+    ``fts_score`` is the pre-scaled ``ts_rank_cd * 100`` value. The composite
+    is then scaled by the liveness dampener (NULL → unchanged).
     """
     score = float(inp.fts_score)
+    if inp.name_match:
+        score += NAME_MATCH_BONUS
     if inp.featured:
         score += 25.0
     lv = inp.last_verified_at
@@ -87,6 +102,23 @@ def fts_rank_scaled(tsquery_str: str) -> ColumnElement[Any]:
     return cast(search_fts.fts_rank_cd_expr(tsquery_str), Float) * 100.0
 
 
+def name_match_bonus_sql(tsquery_str: str) -> ColumnElement[Any]:
+    """+NAME_MATCH_BONUS when the entity NAME itself matches the tsquery.
+
+    Postgres-only (like the rest of this module's SQL). The search_vector is
+    name(A)+description(B), so ts_rank alone can't tell "matched the name"
+    from "matched the description a lot" once the freshness/featured bonuses
+    stack — this CASE restores field identity as the primary ordering.
+    """
+    from sqlalchemy.sql import expression as sql_exp
+
+    cond = sql_exp.text(
+        "to_tsvector('english', coalesce(entities.name, '')) @@ "
+        "to_tsquery('english', :__tier2_tsq_nm)"
+    ).bindparams(__tier2_tsq_nm=tsquery_str)
+    return cast(case((cond, NAME_MATCH_BONUS), else_=0.0), Float)
+
+
 def tier2_rank_score_sql(
     tsquery_str: str,
     *,
@@ -102,6 +134,7 @@ def tier2_rank_score_sql(
     """
     composite = (
         fts_rank_scaled(tsquery_str)
+        + name_match_bonus_sql(tsquery_str)
         + _verification_bonus_sql(last_verified_col, ref_now)
         + case((featured_col.is_(True), 25.0), else_=0.0)
     )

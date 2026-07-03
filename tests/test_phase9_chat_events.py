@@ -67,7 +67,7 @@ def test_event_rows_family_only_drops_adult_classes() -> None:
     ]
     with patch("app.chat.tier2_handler.events_in_window", return_value=flat):
         with patch(
-            "app.chat.tier2_handler._event_dict",
+            "app.chat.tier2_handler.event_dict",
             side_effect=lambda e: {"type": "event", "name": e.title},
         ):
             rows = _event_rows_for_intent({"when": "this_weekend"}, family_only=True)
@@ -87,7 +87,7 @@ def test_event_rows_without_family_only_keeps_all() -> None:
     ]
     with patch("app.chat.tier2_handler.events_in_window", return_value=flat):
         with patch(
-            "app.chat.tier2_handler._event_dict",
+            "app.chat.tier2_handler.event_dict",
             side_effect=lambda e: {"type": "event", "name": e.title},
         ):
             rows = _event_rows_for_intent({"when": "this_weekend"}, family_only=False)
