@@ -32,7 +32,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | 1 gas-truth      | feat/v44-01-gas-truth        | ✅ merged | pytest 12477✅ ruff✅ mypy✅ | commit 2a59edcd → merge e8663045 | GasService single source |
 | 2 date-keys      | feat/v44-02-date-keys        | ✅ merged | pytest 12482✅ ruff✅ | commit 20001edb → merge 41d4614b | rollover regression + no-cache pin (tests only) |
 | 3 count-parity   | feat/v44-03-count-parity     | ✅ merged | pytest 12485✅ ruff✅ mypy✅ | commit → merge 172d6d07 | day_counts one base (summary headers); cells keep audit display |
-| 4 conditions     | feat/v44-04-conditions       | 🔨 gating | tiles 25✅ ruff✅ mypy✅; live render confirms sunset+no-clouds; full suite next | — | water+sunset, retire clouds |
+| 4 conditions     | feat/v44-04-conditions       | ✅ merged | pytest 12489✅ ruff✅ mypy✅ live✅ | merge 2a54d850 | water+sunset, retire clouds |
 | 5 ads-rail       | feat/v44-05-ads-rail         | ⏳ | — | — | one paid unit + working rail |
 | 6 gas-ui         | feat/v44-06-gas-ui           | ⏳ | — | — | grade switch + /gas page |
 | 7 schedule       | feat/v44-07-schedule-niceties| ⏳ | — | — | previews/tpills/pills/dots |
@@ -134,7 +134,14 @@ marquee keyline §2, add `search`/`arrow` icons if missing.
   >7d hide, cheapest/grades, key normalization); 3 fixture dates in
   `test_gas_prices_page.py`.
 
-## NEXT ACTION (updated)
+## NEXT ACTION (latest)
+PR-4 ✅ merged (2a54d850). START PR-5 (ads-rail) on `feat/v44-05-ads-rail` — see
+"PR-5 scouting" below. Delete the 2 rail + 1 in-feed `ad_placeholder()` and the
+rail's promoted `sponsor_slot`; build the Find-any-business launcher (directory
+counts helper, DATA_CONTRACTS §5) + Local-news card (news_store recent 3); ticker
+mobile-only. Marquee stays the only ad unit. CSS DESIGN_SPEC §2/§4. Gate → merge → PR-6.
+
+## (older) NEXT ACTION
 PR-3 ✅ merged (172d6d07). START PR-4 (conditions) on `feat/v44-04-conditions`:
 per the PR-4 scouting below — in `app/home/redesign.py::conditions_tiles` drop the
 clouds block, add a sunset tile (value from `payload["sunset_local"]` split into
