@@ -30,7 +30,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | PR | branch | status | gate | merge sha | notes |
 |----|--------|--------|------|-----------|-------|
 | 1 gas-truth      | feat/v44-01-gas-truth        | ✅ merged | pytest 12477✅ ruff✅ mypy✅ | commit 2a59edcd → merge e8663045 | GasService single source |
-| 2 date-keys      | feat/v44-02-date-keys        | 🔨 gating | 5 rollover tests✅ ruff✅; full suite next | — | rollover regression + no-cache pin |
+| 2 date-keys      | feat/v44-02-date-keys        | ✅ merged | pytest 12482✅ ruff✅ | commit 20001edb → merge 41d4614b | rollover regression + no-cache pin (tests only) |
 | 3 count-parity   | feat/v44-03-count-parity     | ⏳ | — | — | day_counts one base |
 | 4 conditions     | feat/v44-04-conditions       | ⏳ | — | — | water+sunset, retire clouds |
 | 5 ads-rail       | feat/v44-05-ads-rail         | ⏳ | — | — | one paid unit + working rail |
