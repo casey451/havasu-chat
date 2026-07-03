@@ -12,7 +12,6 @@ mutated, and the page is admin-cookie gated like every other Phase 5 admin view.
 
 from __future__ import annotations
 
-import html
 import json
 from datetime import datetime, timedelta, timezone
 
@@ -22,25 +21,24 @@ from sqlalchemy import case, desc, func, select
 from sqlalchemy.orm import Session
 
 from app.admin.auth import admin_guard as _guard
-from app.admin.nav_html import admin_phase5_nav_html
+from app.admin.shell import admin_shell
+from app.admin.shell import esc as _esc
+from app.admin.shell import fmt_dt as _fmt_dt
 from app.db.database import get_db
 from app.db.models import AnalyticsEvent, Provider
 
 _WINDOW_DAYS: dict[str, int | None] = {"7d": 7, "30d": 30, "all": None}
 _DEFAULT_WINDOW = "7d"
 
-
-
-def _esc(s: str | None) -> str:
-    return html.escape(s or "", quote=True)
-
-
-def _fmt_dt(value: datetime | None) -> str:
-    if not value:
-        return "—"
-    if value.tzinfo is not None:
-        value = value.replace(tzinfo=None)
-    return value.strftime("%b %d, %Y %I:%M %p")
+# Page-specific CSS layered over the shared admin_shell base (window picker +
+# mono cells). The empty-state override keeps this page's left-aligned inline
+# "—" rather than the base's centered block placeholder.
+_PLACEMENT_CSS = """    .window { margin: 8px 0 14px; display: flex; gap: 8px; }
+    .wbtn { color: #0d6efd; text-decoration: none; border: 1px solid #dee2e6; border-radius: 999px;
+      padding: 4px 10px; font-size: 0.88rem; }
+    .wbtn.active { font-weight: 700; text-decoration: underline; }
+    .mono { font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82rem; }
+    .empty { padding: 0; text-align: left; }"""
 
 
 def _ctr(clicks: int, impressions: int) -> str:
@@ -78,44 +76,6 @@ def _table(headers: tuple[str, ...], rows: list[tuple[str, ...]], empty: str) ->
     for row in rows:
         body += "<tr>" + "".join(f"<td>{c}</td>" for c in row) + "</tr>"
     return f"<table><thead><tr>{head}</tr></thead><tbody>{body}</tbody></table>"
-
-
-def _nav_shell(title: str, inner: str) -> str:
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>{_esc(title)}</title>
-  <style>
-    * {{ box-sizing: border-box; }}
-    body {{ font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fff; color: #212529;
-      line-height: 1.45; padding-bottom: 48px; }}
-    .wrap {{ max-width: 980px; margin: 0 auto; }}
-    h1 {{ font-size: 1.35rem; margin: 0 0 8px; }}
-    h2 {{ font-size: 1.05rem; margin: 28px 0 10px; color: #343a40; }}
-    .sub {{ color: #6c757d; font-size: 0.9rem; margin-bottom: 14px; }}
-    .nav {{ margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }}
-    .nav a {{ color: #0d6efd; font-weight: 600; text-decoration: none; }}
-    .window {{ margin: 8px 0 14px; display: flex; gap: 8px; }}
-    .wbtn {{ color: #0d6efd; text-decoration: none; border: 1px solid #dee2e6; border-radius: 999px;
-      padding: 4px 10px; font-size: 0.88rem; }}
-    .wbtn.active {{ font-weight: 700; text-decoration: underline; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-bottom: 8px; }}
-    th, td {{ border: 1px solid #dee2e6; padding: 8px 10px; text-align: left; vertical-align: top; }}
-    th {{ background: #f8f9fa; font-weight: 600; }}
-    tbody tr:nth-child(even) {{ background: #fcfcfc; }}
-    .empty {{ color: #6c757d; }}
-    .mono {{ font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace; font-size: 0.82rem; }}
-  </style>
-</head>
-<body>
-  <div class="wrap">
-{admin_phase5_nav_html()}
-    {inner}
-  </div>
-</body>
-</html>"""
 
 
 def _render(db: Session, win: str) -> str:
@@ -232,7 +192,7 @@ surface, slot, and provider. {total} events in window.</p>
         "No recent events.",
     )}
 """
-    return _nav_shell("Placement analytics", inner)
+    return admin_shell("Placement analytics", inner, css=_PLACEMENT_CSS, max_width="980px")
 
 
 def register_placement_analytics_html_routes(router: APIRouter) -> None:
