@@ -65,8 +65,11 @@ _BUSINESS_CATEGORY_TO_LEAF: dict[str, str] = {
     "dog parks": "dog-parks",
     "hiking": "hiking-trails",
     "easy hikes": "hiking-trails",
+    # long-form CVB tags (data-dms-category-name uses the verbose labels)
     "moderate hikes": "hiking-trails",
+    "moderate hikes with climbing": "hiking-trails",
     "difficult hikes": "hiking-trails",
+    "difficult hikes with long slopes or scrambling": "hiking-trails",
     "walks": "hiking-trails",
     "camping": "rv-parks-and-campgrounds",
     "ohv": "off-road-and-ohv",

@@ -16,6 +16,8 @@ printed change list before --apply).
 
 from __future__ import annotations
 
+from app.contrib.name_leaf_signals import leaf_from_name
+
 # Leaf slugs the corrections target (must exist as level-1 Category slugs).
 _DETAILING_LEAF = "auto-marine-detailing"
 _FOOD_DRINK_LEAF = "eat-drink"
@@ -51,6 +53,18 @@ def classify_water_misfiled_leaf(
     # " bar" as a word (avoid "barrett", "barber") — trailing or standalone token.
     if n.endswith(" bar") or " bar " in n or " bar & " in n:
         return _FOOD_DRINK_LEAF
+
+    # Source-parity (2026-07-03): a captained charter, guided water tour, or
+    # fishing guide trapped under boat-rentals gets routed to its proper leaf via
+    # the shared name-signal rules. Those two leaves (boat-tours-and-charters,
+    # fishing-charters-and-guides) are otherwise unreachable for a Google-typed
+    # rental row, which is the audit's core "charters are invisible" gap. Only
+    # these two are moved here; genuine kayak/jet-ski/watercraft rentals still
+    # fall through to the rental guard below and return None (stay put). See
+    # docs/audits/2026-07/PARITY_AND_COMPLETENESS_PLAN_2026-07-03.md.
+    sig = leaf_from_name(name)
+    if sig in ("boat-tours-and-charters", "fishing-charters-and-guides"):
+        return sig
 
     # --- Phase-4 judgment rows (approved 2026-06-12): marine sales vs repair ---
     # CAUTION: genuine rentals in this leaf are ALSO google "service"-typed

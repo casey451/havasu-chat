@@ -102,9 +102,11 @@ def test_partner_to_entity_payload_source_and_category() -> None:
     payload = partner_to_entity_payload(listing, category_slug="things-to-do")
     assert payload.source == "go_lake_havasu"
     assert payload.entity_type == "place"
-    # Lobster 3 Ways is data-dms-category-name="Restaurant/Bar" -> eat-drink,
-    # which overrides the passed default of things-to-do (Task C).
-    assert payload.category_slug == "eat-drink"
+    # Lobster 3 Ways is data-dms-category-name="Restaurant/Bar". Source-parity
+    # (2026-07-03): the crosswalk now resolves the precise LEAF ("restaurants")
+    # rather than the coarse Tier-1 "eat-drink", overriding the things-to-do
+    # default. The legacy Provider.category string stays "restaurant" (below).
+    assert payload.category_slug == "restaurants"
     # Dual-write: the legacy Provider.category string is also set, and it is a
     # value the legacy CATEGORY_FILTERS["eat-drink"] tuple contains.
     assert payload.legacy_category == "restaurant"

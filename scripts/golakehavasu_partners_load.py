@@ -140,12 +140,14 @@ def _provider_kwargs(
     *,
     category_slug: str,
     category_id: int | None,
+    provenance: str | None = None,
 ) -> dict[str, Any]:
     legacy = payload.legacy_category or "uncategorized"
     return {
         "provider_name": payload.name,
         "category": legacy,
         "category_id": category_id,
+        "category_provenance": provenance,
         "address": payload.address,
         "phone": payload.phone,
         "website": payload.website,
@@ -334,6 +336,7 @@ def ingest_partners(
         "skipped_reactivate_pending_review": 0,
         "retired_duplicates": 0,
         "reconcile_skipped_ambiguous": 0,
+        "recategorized_leaf": 0,
     }
 
     def _run(client: httpx.Client) -> dict[str, int]:
@@ -435,7 +438,16 @@ def ingest_partners(
                 # CVB category had no confident mapping.
                 row_slug = payload.category_slug or category_slug
                 row_cat_id = _cat_id_for(row_slug)
-                kwargs = _provider_kwargs(payload, category_slug=row_slug, category_id=row_cat_id)
+                # Provenance: a confident CVB category (truthy legacy_category)
+                # means the leaf came from the source crosswalk, not the
+                # --category-slug default. Used to gate the re-file on reconcile.
+                provenance = "source_crosswalk" if payload.legacy_category else None
+                kwargs = _provider_kwargs(
+                    payload,
+                    category_slug=row_slug,
+                    category_id=row_cat_id,
+                    provenance=provenance,
+                )
 
                 # CVB-to-CVB idempotency: already ingested this listing?
                 name_slug = slugify(payload.name)
@@ -465,6 +477,7 @@ def ingest_partners(
                     elif payload.legacy_category:
                         canonical.category = payload.legacy_category
                         canonical.category_id = row_cat_id
+                        canonical.category_provenance = provenance
                     sync_provider_entity_from_legacy(session, canonical)
                     for other in cvb_matches:
                         if other is not canonical and other.is_active:
@@ -566,6 +579,21 @@ def ingest_partners(
                         counts["reconcile_skipped_ambiguous"] += 1
                         continue
                     _fill_gaps(prov, kwargs)
+                    # Source-parity re-file (2026-07-03): when the CVB tag maps to
+                    # a confident leaf, the source category is authoritative — so
+                    # re-file this row (typically a Google-derived provider) onto
+                    # the crosswalk leaf instead of discarding the CVB category.
+                    # This closes the "CVB category thrown away on reconcile" gap:
+                    # charters/tours/fishing-guides matched to a Google row were
+                    # left in whatever leaf the Google types picked. Guarded on
+                    # ``legacy_category`` (truthy only for confident CVB tags) so a
+                    # default-slug fallback never clobbers a good category.
+                    if payload.legacy_category and row_cat_id is not None:
+                        if prov.category_id != row_cat_id:
+                            counts["recategorized_leaf"] += 1
+                        prov.category = payload.legacy_category
+                        prov.category_id = row_cat_id
+                        prov.category_provenance = provenance
                     sync_provider_entity_from_legacy(session, prov)
                     if rec.merge_fields:
                         ent = session.get(Entity, rec.existing_id)
