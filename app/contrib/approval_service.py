@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.contrib.hours_helper import places_hours_to_structured
+from app.contrib.source_category_map import derive_event_category
 from app.core.event_recurrence import event_text_blob, is_recurring_heuristic
 from app.db.contribution_store import normalize_submission_url
 from app.db.entity_dual_write import (
@@ -242,6 +243,10 @@ def approve_contribution_as_event(
     )
     ev = Event.from_create(ec)
     ev.verified = verified
+    # Source-parity (2026-07-03): stamp the canonical event category from the
+    # source's own tags so every event carries a structured category alongside
+    # the loose tag list. Nullable — an unrecognised tag set leaves it NULL.
+    ev.category = derive_event_category(list(tags or []))
     try:
         db.add(ev)
         create_event_and_entity(db, ev)
@@ -320,6 +325,17 @@ def auto_approve_event_sources() -> frozenset[str]:
     return computed - _NEVER_AUTO_APPROVE_EVENT_SOURCES
 
 
+# Structured feeds whose events may legitimately be all-day / time-TBD (a civic
+# meeting date with no posted time, a multi-day festival). A missing start time
+# from these is NOT a parse failure, so it should auto-approve as all-day rather
+# than dumping to the pending queue (2026-07-03 parity plan C3). The vision /
+# flyer sources are deliberately excluded: for them a missing start time signals
+# an incomplete OCR parse and must stay held for review.
+_ALLDAY_OK_SOURCES = frozenset(
+    {"chamber", "go_lake_havasu", "river_scene", "river_scene_import", "legistar", "lhusd"}
+)
+
+
 def should_auto_approve_event(contribution: Contribution) -> bool:
     """High-trust scrape sources skip manual review when payload is complete."""
     if contribution.entity_type != "event":
@@ -328,7 +344,8 @@ def should_auto_approve_event(contribution: Contribution) -> bool:
         return False
     if not contribution.submission_name or not contribution.event_date:
         return False
-    if not contribution.event_time_start:
+    if not contribution.event_time_start and contribution.source not in _ALLDAY_OK_SOURCES:
+        # vision/flyer sources: a missing start time signals an incomplete parse.
         return False
     return True
 

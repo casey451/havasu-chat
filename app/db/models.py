@@ -192,6 +192,21 @@ class Provider(Base):
     # c5d6e7f8a9b0; legacy five values predate operator enrichment CSV vocab).
     verification_method: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
+    # Source-parity campaign (2026-07-03) — see
+    # docs/audits/2026-07/PARITY_AND_COMPLETENESS_PLAN_2026-07-03.md.
+    # ``region``: coarse locality slug from app.contrib.source_category_map
+    # (``havasu-core`` or an out-of-area region like ``parker`` / ``laughlin-
+    # bullhead``). Finer than the tri-state ``is_local`` boolean above; used as
+    # the exclusion gate (Casey's Lake-Havasu-only decision) so out-of-area rows
+    # can be filtered/excluded rather than silently mixed in. Nullable — legacy
+    # rows stay NULL (treated as unknown-core).
+    # ``category_provenance``: which precedence rule set the current leaf
+    # (``source_crosswalk`` / ``name_signal`` / ``google_type`` / ``legacy``) so
+    # a categorization is explainable and backfills are auditable. Nullable +
+    # additive; NO serving path reads either. See the srcparity01 migration.
+    region: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    category_provenance: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
     # BUILD.md step 2: editorial "Hava's pick" flag. Hand-curated via DB
     # script; admin UI deferred. Distinct from spotlight placement on
     # Provider.tier / sponsored_until.
@@ -342,6 +357,14 @@ class Event(Base):
     # ingest from the RAW title using that module's shared INSTRUCTOR_NAMES set so
     # the host survives even after the title is stripped. Nullable + additive.
     host: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Source-parity campaign (2026-07-03) — canonical event category stamped at
+    # ingest from the source's own category via app.contrib.source_category_map
+    # (one of ~26 buckets: music, festival, boating-and-lake, ...). Additive
+    # alongside the loose ``tags`` list; nullable until backfilled. ``region``
+    # mirrors Provider.region (Lake-Havasu-only exclusion gate). See the
+    # srcparity01 migration and the parity plan.
+    category: Mapped[str | None] = mapped_column(String(48), nullable=True, index=True)
+    region: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String, default="live", nullable=False)
     source: Mapped[str] = mapped_column(String, default="admin", nullable=False)
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -1733,6 +1756,94 @@ class MovieShowtime(Base):
         nullable=False,
     )
     scraped_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
+
+
+class SourceListing(Base):
+    """Coverage-ledger row for one external *business* listing (Part B of the
+    source-parity plan).
+
+    One row per ``(source, source_url)`` ever seen on a source directory
+    (golakehavasu partner directory today; chamber / downtown_lhc later),
+    written by ``scripts/reconcile_sources.py``. It turns completeness from an
+    assertion into a measured invariant: every in-area listing is ``matched``,
+    or ``excluded`` with a reason. ``mapped_leaf`` records the crosswalk's leaf
+    so ``miscategorized`` (matched provider whose leaf != crosswalk leaf) is
+    detectable. Additive, no serving path reads it.
+    """
+
+    __tablename__ = "source_listings"
+    __table_args__ = (
+        UniqueConstraint("source", "source_url", name="uq_source_listings_source_url"),
+        CheckConstraint(
+            "match_status IN ('matched', 'missing', 'miscategorized', 'excluded')",
+            name="ck_source_listings_match_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    source_category: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    address: Mapped[str | None] = mapped_column(String, nullable=True)
+    region: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    # crosswalk leaf the source category resolves to (for miscategorized detection)
+    mapped_leaf: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    match_status: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="missing", index=True
+    )
+    matched_provider_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("providers.id"), nullable=True
+    )
+    exclusion_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    first_seen: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    last_seen: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+
+
+class SourceEvent(Base):
+    """Coverage-ledger row for one external *event* (Part B of the parity plan).
+
+    One row per ``(source, source_url)`` event ever seen on River Scene /
+    golakehavasu event feeds, written by ``scripts/reconcile_sources.py``.
+    ``mapped_category`` records the canonical event-category the source tag
+    resolves to. Additive, no serving path reads it.
+    """
+
+    __tablename__ = "source_events"
+    __table_args__ = (
+        UniqueConstraint("source", "source_url", name="uq_source_events_source_url"),
+        CheckConstraint(
+            "match_status IN ('matched', 'missing', 'miscategorized', 'excluded')",
+            name="ck_source_events_match_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    source_category: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    title: Mapped[str | None] = mapped_column(String, nullable=True)
+    event_date: Mapped[_Date | None] = mapped_column(Date, nullable=True)
+    venue: Mapped[str | None] = mapped_column(String, nullable=True)
+    region: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    mapped_category: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    match_status: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="missing", index=True
+    )
+    matched_event_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("events.id"), nullable=True
+    )
+    exclusion_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    first_seen: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    last_seen: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
 
 
 # Phase 4.1 ships the ``Outbox`` ORM class above this line. The provider-slug

@@ -140,6 +140,12 @@
     "count": 4,
     "gate_ok": true,
     "new": false
+   },
+   "wildlife-and-nature": {
+    "name": "Wildlife & Nature",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
    }
   }
  },
@@ -182,6 +188,12 @@
     "count": 1,
     "gate_ok": false,
     "new": false
+   },
+   "event-venues": {
+    "name": "Event Venues",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
    },
    "bikes-and-e-bikes": {
     "name": "Bikes & E-Bikes",

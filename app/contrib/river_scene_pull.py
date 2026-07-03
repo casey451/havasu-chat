@@ -29,6 +29,7 @@ from app.contrib.river_scene import (
     fetch_sitemap_urls,
     normalize_to_contribution,
 )
+from app.core.timezone import now_lake_havasu
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
 from app.db.models import Contribution, Event
@@ -131,10 +132,17 @@ def run_pull(
     *,
     dry_run: bool,
     http_client: httpx.Client | None = None,
+    backfill_history: bool = False,
 ) -> int:
     """
     Discover event URLs from the site sitemap, dedupe before fetching HTML,
     then insert contributions (or dry-run). Returns 0 on success, 1 on fetch error.
+
+    ``backfill_history`` (Casey's decision #3, 2026-07-03): for a one-time
+    full-history ingest, pass True so past events are NOT dropped at fetch time
+    (they land, then ``scripts/expire_past_events.py`` marks them expired and they
+    stay out of every user-facing view). Default False keeps the normal
+    upcoming-only pull.
     """
     errors = 0
     imported = 0
@@ -175,8 +183,11 @@ def run_pull(
                     skipped_duplicate += 1
                     continue
 
+            # AZ-local "today" so UTC skew never drops a same-day event; for a
+            # full-history backfill, date.min disables the past-drop entirely.
+            as_of = date.min if backfill_history else now_lake_havasu().date()
             try:
-                rse = fetch_and_parse_event(url, client=client, today=date.today())
+                rse = fetch_and_parse_event(url, client=client, today=as_of)
             except Exception as e:
                 print(f"error: event {url}: {e}", file=sys.stderr)
                 errors += 1

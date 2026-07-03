@@ -1,0 +1,61 @@
+name: reconcile-sources
+
+# Weekly coverage reconciliation (source-parity plan, Part B / Phase 4).
+#
+# Crawls golakehavasu's partner directory + River Scene's event sitemap and
+# proves every in-area listing/event is on Ask Hava, or excluded with a reason.
+# REPORT-ONLY: it writes a Markdown + CSV summary artifact and prints counts; it
+# does NOT mutate providers/events. Persisting the ledger tables is opt-in
+# (--persist-ledger) and left out here so the scheduled run is side-effect-free
+# by default; flip it on once the baseline is reviewed.
+#
+# The completeness invariant (0 missing, 0 miscategorized, every excluded row has
+# a reason) is printed as GREEN/RED at the end of the run.
+#
+# NOTE: GitHub only runs scheduled workflows from the DEFAULT branch, so this
+# must be merged to main before the cron fires. Until then use "Run workflow".
+
+on:
+  schedule:
+    # Weekly, Sundays 07:30 Arizona (MST/UTC-7, no DST) = 14:30 UTC. Off the
+    # daily event-scraper slots so it reads a settled catalog.
+    - cron: "30 14 * * 0"
+  workflow_dispatch:
+    inputs:
+      limit:
+        description: "Cap items per source (blank = full crawl)"
+        required: false
+        default: ""
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Reconcile sources (report-only)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ -n "${{ github.event.inputs.limit }}" ]; then
+            python scripts/reconcile_sources.py --limit "${{ github.event.inputs.limit }}"
+          else
+            python scripts/reconcile_sources.py
+          fi
+
+      - name: Upload reconciliation report
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: reconcile-report
+          path: docs/audits/2026-07/reconcile_sources_*.*
+          if-no-files-found: ignore

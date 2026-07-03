@@ -35,12 +35,22 @@ def main() -> int:
         action="store_true",
         help="Do not write to the database",
     )
+    p.add_argument(
+        "--backfill-history",
+        action="store_true",
+        help="One-time full-history ingest: do NOT drop past events (they land, "
+        "get marked expired, and stay out of user-facing views).",
+    )
     args = p.parse_args()
     if args.start_date:
         start_date = date.fromisoformat(args.start_date)
     else:
         start_date = date.today()
-    return run_pull(start_date, dry_run=bool(args.dry_run))
+    return run_pull(
+        start_date,
+        dry_run=bool(args.dry_run),
+        backfill_history=bool(args.backfill_history),
+    )
 
 
 if __name__ == "__main__":

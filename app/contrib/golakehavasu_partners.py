@@ -212,6 +212,23 @@ def map_cvb_legacy_category(cvb_name: str | None) -> str | None:
     return CVB_PRIMARY_CATEGORY_TO_LEGACY.get(key)
 
 
+def map_cvb_leaf(cvb_name: str | None, name: str | None = None) -> str | None:
+    """Map a CVB primary category (+ business name) to an Ask Hava **leaf** slug.
+
+    This is the source-parity upgrade: instead of collapsing the CVB tag to a
+    coarse Tier-1 bucket (``map_cvb_category``), it resolves the precise leaf via
+    the shared crosswalk — so a captained charter tagged "Charters" lands in
+    ``boat-tours-and-charters``, not the generic ``on-the-water`` bucket. Falls
+    to the name signal for ambiguous CVB tags (Casey's decision #4). ``None``
+    when the CVB tag is unrecognised (caller falls back to the Tier-1 mapping,
+    then the ``--category-slug`` default). See
+    docs/audits/2026-07/PARITY_AND_COMPLETENESS_PLAN_2026-07-03.md.
+    """
+    from app.contrib.source_category_map import map_business_leaf
+
+    return map_business_leaf(cvb_name, name=name, source=SOURCE_NAME)
+
+
 PARTNER_PAGE_HTTP_TIMEOUT = httpx.Timeout(60.0, connect=20.0)
 
 _LATLON_RE = re.compile(r"markers=color:[^\"'&]*?%7C(-?\d+\.\d+),(-?\d+\.\d+)")
@@ -412,10 +429,13 @@ def partner_to_entity_payload(
     """Map a :class:`PartnerListing` to a source-agnostic :class:`EntityPayload`.
 
     The payload's ``category_slug`` is the per-listing Hava slug derived from the
-    CVB primary category when a confident mapping exists; otherwise it falls back
-    to the passed ``category_slug`` default (so unmapped CVB categories keep the
-    loader's ``--category-slug`` behaviour rather than being mis-bucketed).
+    CVB primary category. Source-parity precedence (2026-07-03): the crosswalk
+    **leaf** wins (``boat-tours-and-charters`` over the coarse ``on-the-water``),
+    then the legacy Tier-1 mapping, then the passed ``category_slug`` default —
+    so unmapped CVB categories keep the loader's ``--category-slug`` behaviour
+    rather than being mis-bucketed, but recognised ones get the precise leaf.
     """
+    leaf = map_cvb_leaf(listing.category, listing.name)
     mapped = map_cvb_category(listing.category)
     return EntityPayload(
         name=listing.name,
@@ -429,7 +449,7 @@ def partner_to_entity_payload(
         phone=listing.phone,
         website=listing.website,
         description=listing.description,
-        category_slug=mapped or category_slug,
+        category_slug=leaf or mapped or category_slug,
         legacy_category=map_cvb_legacy_category(listing.category),
         google_place_id=None,
         source=SOURCE_NAME,
