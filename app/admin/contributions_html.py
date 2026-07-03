@@ -2,8 +2,7 @@
 
 from __future__ import annotations
 
-import html
-from datetime import date, datetime, time
+from datetime import date, time
 from typing import Any, get_args
 from urllib.parse import quote, urlencode
 
@@ -14,7 +13,9 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from app.admin.auth import admin_guard as _guard
-from app.admin.nav_html import admin_phase5_nav_html
+from app.admin.shell import admin_shell
+from app.admin.shell import esc as _esc
+from app.admin.shell import fmt_compact_ts as _fmt_compact_ts
 from app.admin.url_safety import safe_href
 from app.contrib.approval_service import (
     approve_contribution_as_event,
@@ -41,20 +42,6 @@ from app.schemas.contribution import (
 
 _VALID_LIST_STATUSES = frozenset({"pending", "approved", "rejected", "needs_info", "all"})
 
-
-
-def _esc(s: str | None) -> str:
-    return html.escape(s or "", quote=True)
-
-
-def _fmt_compact_ts(dt: datetime | None) -> str:
-    if dt is None:
-        return "—"
-    h24 = dt.hour
-    h12 = h24 % 12 or 12
-    ampm = "am" if h24 < 12 else "pm"
-    mon = dt.strftime("%b")
-    return f"{mon} {dt.day}, {h12}:{dt.minute:02d}{ampm}"
 
 
 def _ip_display(h: str | None) -> str:
@@ -215,68 +202,44 @@ def _merged_category_suggestions(db: Session) -> list[str]:
     return sorted(s)
 
 
-def _nav_shell(title: str, inner: str) -> str:
-    return f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1"/>
-  <title>{_esc(title)}</title>
-  <style>
-    * {{ box-sizing: border-box; }}
-    body {{ font-family: system-ui, sans-serif; margin: 0; padding: 16px; background: #fff; color: #212529;
-      line-height: 1.45; padding-bottom: 48px; }}
-    .wrap {{ max-width: 920px; margin: 0 auto; }}
-    h1 {{ font-size: 1.35rem; margin: 0 0 8px; }}
-    h2 {{ font-size: 1.05rem; margin: 22px 0 10px; color: #343a40; }}
-    .sub {{ color: #6c757d; font-size: 0.9rem; margin-bottom: 14px; }}
-    .nav {{ margin-bottom: 18px; display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }}
-    .nav a {{ color: #0d6efd; font-weight: 600; text-decoration: none; }}
-    .nav a:hover {{ text-decoration: underline; }}
-    table {{ width: 100%; border-collapse: collapse; font-size: 0.88rem; margin-bottom: 12px; }}
-    th, td {{ border: 1px solid #dee2e6; padding: 8px 10px; text-align: left; vertical-align: top; }}
-    th {{ background: #f8f9fa; font-weight: 600; }}
-    tbody tr:nth-child(even) {{ background: #fcfcfc; }}
-    .pill {{ display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }}
-    .pill-pending {{ background: #fff3cd; color: #664d03; }}
-    .pill-approved {{ background: #d1e7dd; color: #0f5132; }}
-    .pill-rejected {{ background: #f8d7da; color: #842029; }}
-    .pill-needs {{ background: #cff4fc; color: #055160; }}
-    .pill-provider {{ background: #e7f1ff; color: #084298; }}
-    .pill-program {{ background: #ede7f6; color: #4a148c; }}
-    .pill-event {{ background: #e8f5e9; color: #1b5e20; }}
-    .pill-tip {{ background: #fce4ec; color: #880e4f; }}
-    .flash {{ padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 0.92rem; }}
-    .flash-ok {{ background: #d1e7dd; color: #0f5132; }}
-    .flash-err {{ background: #f8d7da; color: #842029; }}
-    .section {{ border: 1px solid #e9ecef; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; background: #fafafa; }}
-    .kv {{ margin: 6px 0; font-size: 0.92rem; }}
-    .kv .k {{ color: #868e96; font-weight: 600; margin-right: 6px; }}
-    .actions {{ display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }}
-    .btn {{ display: inline-block; padding: 10px 16px; border-radius: 8px; font-weight: 600; text-decoration: none;
-      border: none; cursor: pointer; font-size: 0.95rem; }}
-    .btn-primary {{ background: #198754; color: #fff; }}
-    .btn-secondary {{ background: #6c757d; color: #fff; }}
-    .btn-danger {{ background: #dc3545; color: #fff; }}
-    .btn-info {{ background: #0dcaf0; color: #212529; }}
-    .btn-muted {{ background: #e9ecef; color: #6c757d; cursor: not-allowed; }}
-    label {{ display: block; font-weight: 600; font-size: 0.88rem; margin: 10px 0 4px; }}
-    input[type=text], input[type=url], input[type=date], input[type=time], select, textarea {{
-      width: 100%; max-width: 100%; padding: 8px 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.95rem; }}
-    textarea {{ min-height: 90px; }}
-    .empty {{ color: #6c757d; padding: 20px; text-align: center; }}
-    .err {{ color: #842029; font-size: 0.88rem; margin-top: 4px; }}
-    .pagination {{ margin-top: 12px; font-size: 0.9rem; }}
-    pre.hours {{ white-space: pre-wrap; font-family: inherit; font-size: 0.88rem; margin: 0; }}
-  </style>
-</head>
-<body>
-  <div class="wrap">
-{admin_phase5_nav_html()}
-    {inner}
-  </div>
-</body>
-</html>"""
+# Page-specific CSS layered over the shared admin_shell base (the entity-type
+# pills, flash banners, the review detail section/kv layout, the action buttons,
+# and the approval form controls including the time input + hours <pre>).
+_CONTRIB_CSS = """    .pill { display: inline-block; padding: 2px 8px; border-radius: 999px; font-size: 0.75rem; font-weight: 600; }
+    .pill-pending { background: #fff3cd; color: #664d03; }
+    .pill-approved { background: #d1e7dd; color: #0f5132; }
+    .pill-rejected { background: #f8d7da; color: #842029; }
+    .pill-needs { background: #cff4fc; color: #055160; }
+    .pill-provider { background: #e7f1ff; color: #084298; }
+    .pill-program { background: #ede7f6; color: #4a148c; }
+    .pill-event { background: #e8f5e9; color: #1b5e20; }
+    .pill-tip { background: #fce4ec; color: #880e4f; }
+    .flash { padding: 10px 14px; border-radius: 8px; margin-bottom: 14px; font-size: 0.92rem; }
+    .flash-ok { background: #d1e7dd; color: #0f5132; }
+    .flash-err { background: #f8d7da; color: #842029; }
+    .section { border: 1px solid #e9ecef; border-radius: 10px; padding: 14px 16px; margin-bottom: 16px; background: #fafafa; }
+    .kv { margin: 6px 0; font-size: 0.92rem; }
+    .kv .k { color: #868e96; font-weight: 600; margin-right: 6px; }
+    .actions { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 12px; }
+    .btn { display: inline-block; padding: 10px 16px; border-radius: 8px; font-weight: 600; text-decoration: none;
+      border: none; cursor: pointer; font-size: 0.95rem; }
+    .btn-primary { background: #198754; color: #fff; }
+    .btn-secondary { background: #6c757d; color: #fff; }
+    .btn-danger { background: #dc3545; color: #fff; }
+    .btn-info { background: #0dcaf0; color: #212529; }
+    .btn-muted { background: #e9ecef; color: #6c757d; cursor: not-allowed; }
+    label { display: block; font-weight: 600; font-size: 0.88rem; margin: 10px 0 4px; }
+    input[type=text], input[type=url], input[type=date], input[type=time], select, textarea {
+      width: 100%; max-width: 100%; padding: 8px 10px; border: 1px solid #ced4da; border-radius: 6px; font-size: 0.95rem; }
+    textarea { min-height: 90px; }
+    .err { color: #842029; font-size: 0.88rem; margin-top: 4px; }
+    .pagination { margin-top: 12px; font-size: 0.9rem; }
+    pre.hours { white-space: pre-wrap; font-family: inherit; font-size: 0.88rem; margin: 0; }"""
+
+
+def _shell(title: str, inner: str) -> str:
+    """Contribution pages: shared admin skeleton + this module's page CSS."""
+    return admin_shell(title, inner, css=_CONTRIB_CSS)
 
 
 def _status_pill(status: str) -> str:
@@ -417,7 +380,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
 {filter_form}
 {table_body}
 {pages}"""
-        return HTMLResponse(_nav_shell("Contributions", inner))
+        return HTMLResponse(_shell("Contributions", inner))
 
     @router.get(
         "/contributions/{contribution_id}", response_class=HTMLResponse, response_model=None
@@ -564,7 +527,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
 {_proposed_record_section(c)}
 {enrich_section}
 {actions}"""
-        return HTMLResponse(_nav_shell(f"Contribution {c.id}", inner))
+        return HTMLResponse(_shell(f"Contribution {c.id}", inner))
 
     def _datalist_categories(db: Session, list_id: str) -> str:
         opts = "".join(f'<option value="{_esc(v)}"/>' for v in _merged_category_suggestions(db))
@@ -584,7 +547,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             raise HTTPException(status_code=404, detail="Not found")
         if c.status != "pending":
             return HTMLResponse(
-                _nav_shell(
+                _shell(
                     "Cannot approve",
                     f'<p class="sub">Contribution is not pending (status={_esc(c.status)}).</p><p><a href="/admin/contributions/{c.id}">Back</a></p>',
                 ),
@@ -592,7 +555,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             )
         if c.entity_type == "tip":
             return HTMLResponse(
-                _nav_shell(
+                _shell(
                     "Tip approval",
                     "<p><strong>Tip approval is not supported in Phase 5.3.</strong> Use Needs Info to flag this tip for later processing.</p>"
                     f'<p><a href="/admin/contributions/{c.id}">Back to detail</a></p>',
@@ -706,7 +669,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
         inner = f"""<h1>Approve contribution #{c.id}</h1>
 <p class="sub"><a href="/admin/contributions/{c.id}">← Detail</a></p>
 {err_html}{inner_body}"""
-        return HTMLResponse(_nav_shell("Approve", inner))
+        return HTMLResponse(_shell("Approve", inner))
 
     @router.post(
         "/contributions/{contribution_id}/approve", response_class=HTMLResponse, response_model=None
@@ -749,7 +712,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             raise HTTPException(status_code=404, detail="Not found")
         if c.entity_type == "tip":
             return HTMLResponse(
-                _nav_shell(
+                _shell(
                     "Tip approval",
                     "<p><strong>Tip approval is not supported in Phase 5.3.</strong> Use Needs Info to flag this tip for later processing.</p>"
                     f'<p><a href="/admin/contributions/{c.id}">Back</a></p>',
@@ -758,7 +721,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             )
         if c.status != "pending":
             return HTMLResponse(
-                _nav_shell(
+                _shell(
                     "Cannot approve",
                     f'<p>Contribution is not pending.</p><p><a href="/admin/contributions/{c.id}">Back</a></p>',
                 ),
@@ -834,7 +797,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
         except (ValueError, ValidationError) as e:
             err = str(e)
             return HTMLResponse(
-                _nav_shell(
+                _shell(
                     "Approve — validation error",
                     f'<p class="flash flash-err">{_esc(err)}</p><p><a href="/admin/contributions/{contribution_id}/approve">Try again</a></p>',
                 ),
@@ -857,7 +820,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             raise HTTPException(status_code=404, detail="Not found")
         if c.status != "pending":
             return HTMLResponse(
-                _nav_shell(
+                _shell(
                     "Reject",
                     f'<p>Not pending.</p><p><a href="/admin/contributions/{c.id}">Back</a></p>',
                 ),
@@ -878,7 +841,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
     <a href="/admin/contributions/{c.id}" style="margin-left:10px">Cancel</a>
   </div>
 </form>"""
-        return HTMLResponse(_nav_shell("Reject", inner))
+        return HTMLResponse(_shell("Reject", inner))
 
     @router.post(
         "/contributions/{contribution_id}/reject", response_class=HTMLResponse, response_model=None
@@ -898,11 +861,11 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             raise HTTPException(status_code=404, detail="Not found")
         if c.status != "pending":
             return HTMLResponse(
-                _nav_shell("Reject", "<p>Not pending.</p>"),
+                _shell("Reject", "<p>Not pending.</p>"),
                 status_code=400,
             )
         if rejection_reason not in get_args(RejectionReason):
-            return HTMLResponse(_nav_shell("Reject", "<p>Invalid reason.</p>"), status_code=400)
+            return HTMLResponse(_shell("Reject", "<p>Invalid reason.</p>"), status_code=400)
         update_contribution_status(
             db,
             contribution_id,
@@ -929,7 +892,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             raise HTTPException(status_code=404, detail="Not found")
         if c.status != "pending":
             return HTMLResponse(
-                _nav_shell(
+                _shell(
                     "Needs info",
                     f'<p>Not pending.</p><p><a href="/admin/contributions/{c.id}">Back</a></p>',
                 ),
@@ -944,7 +907,7 @@ def register_contribution_html_routes(router: APIRouter) -> None:
     <a href="/admin/contributions/{c.id}" style="margin-left:10px">Cancel</a>
   </div>
 </form>"""
-        return HTMLResponse(_nav_shell("Needs info", inner))
+        return HTMLResponse(_shell("Needs info", inner))
 
     @router.post(
         "/contributions/{contribution_id}/needs-info",
@@ -965,13 +928,13 @@ def register_contribution_html_routes(router: APIRouter) -> None:
             raise HTTPException(status_code=404, detail="Not found")
         if c.status != "pending":
             return HTMLResponse(
-                _nav_shell("Needs info", "<p>Not pending.</p>"),
+                _shell("Needs info", "<p>Not pending.</p>"),
                 status_code=400,
             )
         notes = (review_notes or "").strip()
         if not notes:
             return HTMLResponse(
-                _nav_shell("Needs info", '<p class="err">Review notes are required.</p>'),
+                _shell("Needs info", '<p class="err">Review notes are required.</p>'),
                 status_code=400,
             )
         update_contribution_status(db, contribution_id, "needs_info", review_notes=notes)
