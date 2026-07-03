@@ -27,7 +27,26 @@ def parsed_until_from_rrule(rrule: str | None) -> date | None:
 
 
 def _event_is_recurring(event: Event) -> bool:
-    return bool(event.rrule or event.rdate or event.is_recurring)
+    # Source-parity fix (2026-07-03): recurrence is decided by actual recurrence
+    # DATA (rrule/rdate), NOT the bare ``is_recurring`` flag. ~266 rows carry
+    # ``is_recurring=True`` with no rrule and no rdate; the old flag-based check
+    # sent them down the expansion branch, which then produced ZERO occurrences
+    # (empty rrule + empty rdate) and dropped them off the calendar entirely.
+    # Ignoring the data-less flag makes them fall through to the single-date
+    # branch and render on their stored date. This render-time fix covers both
+    # existing and future rows; ``normalize_recurrence_flag`` additionally lets a
+    # dry-run cleanup clear the stray flag at the data layer.
+    return bool(event.rrule or event.rdate)
+
+
+def normalize_recurrence_flag(
+    *, is_recurring: bool, rrule: str | None, rdate: list[str] | None
+) -> bool:
+    """Return a truthful ``is_recurring`` flag: True only with real recurrence
+    data (rrule or rdate). Call at ingest so no new row can carry the flag with
+    no data — the state that dropped ~266 events off the calendar. Idempotent.
+    """
+    return bool(is_recurring and (rrule or rdate))
 
 
 def expand_event(

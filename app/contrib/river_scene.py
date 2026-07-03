@@ -21,6 +21,7 @@ import httpx
 from bs4 import BeautifulSoup, NavigableString, Tag
 from dateutil import parser as dateutil_parser
 
+from app.core.timezone import now_lake_havasu
 from app.db.contribution_store import normalize_submission_url
 from app.schemas.contribution import ContributionCreate
 
@@ -374,7 +375,9 @@ def fetch_and_parse_event(
         with build_river_scene_client(timeout=EVENT_PAGE_HTTP_TIMEOUT) as c:
             return fetch_and_parse_event(url, client=c, today=today)
 
-    as_of = today if today is not None else date.today()
+    # Use Lake Havasu (America/Phoenix) local date, not the server's UTC date, so
+    # same-day / edge events aren't dropped by the UTC skew on every run.
+    as_of = today if today is not None else now_lake_havasu().date()
     html = _http_get_text(url, client, timeout=EVENT_PAGE_HTTP_TIMEOUT)
     soup = BeautifulSoup(html, "html.parser")
     table = _find_event_details_table(soup)

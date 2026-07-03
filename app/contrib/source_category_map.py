@@ -254,6 +254,28 @@ def map_event_category(source_category: str | None) -> str | None:
     return _EVENT_SOURCE_TO_CATEGORY.get(key)
 
 
+def derive_event_category(tags: list[str] | None) -> str | None:
+    """Pick the best canonical event category from a list of source tags/labels.
+
+    An event usually carries several tags (its source category plus keyword
+    tags). Prefer the first *specific* canonical hit; fall back to ``"misc"``
+    only if that's all that matched; ``None`` if nothing mapped. Used to stamp
+    ``Event.category`` at approval time.
+    """
+    if not tags:
+        return None
+    saw_misc = False
+    for tag in tags:
+        mapped = map_event_category(tag)
+        if mapped is None:
+            continue
+        if mapped == "misc":
+            saw_misc = True
+            continue
+        return mapped
+    return "misc" if saw_misc else None
+
+
 # ---------------------------------------------------------------------------
 # Locality / region (exclusion gate — Casey's decision #2, Lake Havasu only)
 # ---------------------------------------------------------------------------
