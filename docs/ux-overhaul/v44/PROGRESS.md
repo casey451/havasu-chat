@@ -31,7 +31,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 |----|--------|--------|------|-----------|-------|
 | 1 gas-truth      | feat/v44-01-gas-truth        | ✅ merged | pytest 12477✅ ruff✅ mypy✅ | commit 2a59edcd → merge e8663045 | GasService single source |
 | 2 date-keys      | feat/v44-02-date-keys        | ✅ merged | pytest 12482✅ ruff✅ | commit 20001edb → merge 41d4614b | rollover regression + no-cache pin (tests only) |
-| 3 count-parity   | feat/v44-03-count-parity     | 🔨 gating | parity 3✅ affected 29✅ ruff✅ mypy✅; full suite next | — | day_counts one base (summary headers); cells keep audit display |
+| 3 count-parity   | feat/v44-03-count-parity     | ✅ merged | pytest 12485✅ ruff✅ mypy✅ | commit → merge 172d6d07 | day_counts one base (summary headers); cells keep audit display |
 | 4 conditions     | feat/v44-04-conditions       | ⏳ | — | — | water+sunset, retire clouds |
 | 5 ads-rail       | feat/v44-05-ads-rail         | ⏳ | — | — | one paid unit + working rail |
 | 6 gas-ui         | feat/v44-06-gas-ui           | ⏳ | — | — | grade switch + /gas page |
@@ -106,7 +106,18 @@ plumbing residue swept in PR-9.
   >7d hide, cheapest/grades, key normalization); 3 fixture dates in
   `test_gas_prices_page.py`.
 
-## NEXT ACTION
+## NEXT ACTION (updated)
+PR-3 ✅ merged (172d6d07). START PR-4 (conditions) on `feat/v44-04-conditions`:
+per the PR-4 scouting below — in `app/home/redesign.py::conditions_tiles` drop the
+clouds block, add a sunset tile (value from `payload["sunset_local"]` split into
+"7:42" + unit "pm", icon `sunset`), mark the water tile `is_water:True` (icon `wave`),
+reorder Temp·Water·Wind·UV·Sunset·Gas; add `.cond .c.water` tint CSS to
+`lake_redesign.css`; add `wave`+`sunset` monoline icons to `redesign_icons.html`;
+render new tiles/class in `base_redesign.html` cond loop; honest-omit water when
+absent; sunset util already tested (`app/conditions/sun.py`) — add a tile-level test;
+update visual refs. Gate (pytest+ruff+mypy) → merge → PR-5.
+
+## (prior) NEXT ACTION
 PR-2 gating: run full suite. If green → commit `feat/v44-02-date-keys` (tests only:
 `tests/test_date_keyed_pages.py` + PROGRESS), merge into `v44-integration`, mark
 PR-2 ✅. Then START PR-3 (count-parity): build one `day_counts(date) -> DayCount`
