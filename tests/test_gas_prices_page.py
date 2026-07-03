@@ -91,7 +91,10 @@ def test_no_source_column_and_no_google_feed_line() -> None:
 def test_freshness_label_and_timestamp_share_one_clock() -> None:
     """Fix 2: the banner's staleness label and the displayed timestamp both
     derive from row.fetched_at, so they cannot disagree."""
-    fetched = datetime(2026, 6, 2, 14, 30, 0)
+    # Relative + recent so the v4.4 >7d honest-hide rule (PR-1) keeps the board
+    # live; the test only cares that the label/timestamp track fetched_at, not the
+    # payload's bogus 2099 updated_at_iso.
+    fetched = _now() - timedelta(hours=3)
     body = _get_gas(_result(_payload(), fetched_at=fetched))
     # The header timestamp is rendered from fetched_at, NOT the payload's bogus
     # updated_at_iso (2099) — proving a single source of truth.
@@ -143,8 +146,9 @@ def test_stale_banner_flags_out_of_date() -> None:
 def test_cheapest_heading_is_today_as_of_time() -> None:
     """N-27 / M-10: the cheapest strip heading reads 'Cheapest today (as of
     {time})' on the live render path, not 'Cheapest right now'."""
-    # 21:30 UTC -> 2:30 PM Lake Havasu (America/Phoenix, UTC-7).
-    fetched = datetime(2026, 6, 2, 21, 30, 0)
+    # 21:30 UTC -> 2:30 PM Lake Havasu (America/Phoenix, UTC-7). Anchored to
+    # yesterday so it stays within the v4.4 >7d honest-hide window (PR-1).
+    fetched = (_now() - timedelta(days=1)).replace(hour=21, minute=30, second=0, microsecond=0)
     body = _get_gas(_result(_payload(), fetched_at=fetched))
     assert "Cheapest today (as of" in body
     assert "Cheapest right now" not in body
@@ -155,7 +159,7 @@ def test_cheapest_heading_is_today_as_of_time() -> None:
 def test_single_updated_phrasing() -> None:
     """M-11: the page says 'Updated' exactly once (the freshness banner), so the
     header's absolute timestamp and the banner can't read as two updates."""
-    fetched = datetime(2026, 6, 2, 14, 30, 0)
+    fetched = _now() - timedelta(hours=3)  # recent -> board stays live post-PR-1
     body = _body_only(_get_gas(_result(_payload(), fetched_at=fetched)))
     assert body.count("Updated") == 1
 

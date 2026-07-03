@@ -24,12 +24,12 @@ from fastapi.responses import HTMLResponse, JSONResponse
 from sqlalchemy.orm import Session
 
 from app.conditions.cache import read_source
-from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
-from app.conditions.staleness import staleness_label
+from app.conditions.constants import SOURCE_GAS
 from app.core.rate_limit import limiter, public_api_rate_limit, public_html_rate_limit
 from app.core.templates import make_templates
 from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.database import get_db
+from app.gas.service import GasBoard, board_from_cache, to_legacy_station_dict
 
 router = APIRouter(tags=["gas"])
 
@@ -44,24 +44,25 @@ templates = make_templates()
 _CHEAPEST_SHOWN = 6
 
 
-def _read_payload(
+def _read_board(
     db: Session,
-) -> tuple[dict[str, Any], str | None, bool, str | None, str | None]:
-    """Return (payload, staleness_label, is_stale, fetched_at_label, fetched_at_time_label).
+) -> tuple[GasBoard, dict[str, Any], str | None, str | None]:
+    """Return (board, city_avg, fetched_at_label, fetched_at_time_label).
 
-    The staleness label AND both human timestamps derive from a SINGLE clock
-    (``row.fetched_at``), so the banner can never read "updated 2 min ago" next
-    to an absolute time that disagrees. ``fetched_at_time_label`` is a time-only
-    form ("2:30 PM") for the "Cheapest today (as of {time})" heading.
+    The board is the single source of truth (v4.4 PR-1) the strip tile and home
+    panel also use, so /gas can never disagree with them on a station or a
+    cheapest figure. ``city_avg`` is a page-only aggregate read straight off the
+    stored payload (it is not a per-station price, so it cannot "disagree" across
+    surfaces). Both human timestamps derive from ``board.pulled_at`` — one clock.
     """
     now = datetime.now(UTC).replace(tzinfo=None)
     row = read_source(db, SOURCE_GAS, now=now)
-    if row is None or not isinstance(row.data, dict):
-        return {}, None, False, None, None
-    label, stale = staleness_label(row.fetched_at, now, stale_after_hours=GAS_STALE_AFTER_HOURS)
-    fetched_at_label = _format_fetched_at(row.fetched_at)
-    fetched_at_time_label = _format_fetched_at_time(row.fetched_at)
-    return row.data, label, bool(stale or row.is_stale), fetched_at_label, fetched_at_time_label
+    board = board_from_cache(row, now=now)
+    raw = row.data if (row is not None and isinstance(row.data, dict)) else {}
+    city_avg = raw.get("city_avg") if isinstance(raw.get("city_avg"), dict) else {}
+    label = _format_fetched_at(board.pulled_at) if board.pulled_at else None
+    time_label = _format_fetched_at_time(board.pulled_at) if board.pulled_at else None
+    return board, city_avg or {}, label, time_label
 
 
 def _local_fetched_at(fetched_at: datetime) -> datetime:
@@ -102,23 +103,23 @@ def _shell_context(db: Session) -> dict[str, Any]:
 @router.get("/gas", response_class=HTMLResponse)
 @limiter.limit(public_html_rate_limit)
 def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    data, staleness, is_stale, fetched_at_label, fetched_at_time_label = _read_payload(db)
-    stations = [s for s in (data.get("stations") or []) if isinstance(s, dict)]
-    cheapest = [s for s in (data.get("cheapest") or []) if isinstance(s, dict)]
+    board, city_avg, fetched_at_label, fetched_at_time_label = _read_board(db)
+    stations = [to_legacy_station_dict(s) for s in board.stations]
+    cheapest = [to_legacy_station_dict(s) for s in board.cheapest("reg", _CHEAPEST_SHOWN)]
     return templates.TemplateResponse(
         request=request,
         name="gas_prices_lake.html",
         context={
             **_shell_context(db),
-            "data": data,
-            "staleness_label": staleness,
-            "is_stale": is_stale,
+            "data": {"station_count": len(stations)},
+            "staleness_label": board.label,
+            "is_stale": board.is_stale,
             "fetched_at_label": fetched_at_label,
             "fetched_at_time_label": fetched_at_time_label,
             "has_data": bool(stations),
             "stations": stations,
-            "cheapest": cheapest[:_CHEAPEST_SHOWN],
-            "city_avg": data.get("city_avg") or {},
+            "cheapest": cheapest,
+            "city_avg": city_avg,
             "grades": ["regular", "midgrade", "premium", "diesel"],
             "grade_labels": {
                 "regular": "Regular",
@@ -133,5 +134,22 @@ def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
 @router.get("/api/gas", response_class=JSONResponse)
 @limiter.limit(public_api_rate_limit)
 def gas_api(request: Request, db: Session = Depends(get_db)) -> JSONResponse:
-    data, staleness, is_stale, _, _ = _read_payload(db)
-    return JSONResponse(content={**data, "staleness_label": staleness, "is_stale": is_stale})
+    board, city_avg, _, _ = _read_board(db)
+    stations = [to_legacy_station_dict(s) for s in board.stations]
+    pulled_iso = (
+        board.pulled_at.replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
+        if board.pulled_at
+        else None
+    )
+    return JSONResponse(
+        content={
+            "stations": stations,
+            "cheapest": [to_legacy_station_dict(s) for s in board.cheapest("reg", _CHEAPEST_SHOWN)],
+            "city_avg": city_avg,
+            "station_count": len(stations),
+            "grades_available": board.grades_available,
+            "updated_at_iso": pulled_iso,
+            "staleness_label": board.label,
+            "is_stale": board.is_stale,
+        }
+    )
