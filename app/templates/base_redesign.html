@@ -60,7 +60,7 @@
         <span class="val">{{ t.value }}<span class="caret">{{ icon('chev', 11) }}</span></span>
       </button>
       {% else %}
-      <span class="c"{% if t.is_stale %} title="Updated a while ago"{% endif %}>
+      <span class="c{% if t.is_water %} water{% endif %}"{% if t.is_stale %} title="Updated a while ago"{% endif %}>
         <span class="lab">{{ icon(t.icon, 12) }}{{ t.label }}</span>
         <span class="val">{% if t.color %}<span style="color:{{ t.color }}">{{ t.value }}</span>{% else %}{{ t.value }}{% endif %}{% if t.unit %}<u>{{ t.unit }}</u>{% endif %}</span>
       </span>
