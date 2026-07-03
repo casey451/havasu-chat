@@ -25,6 +25,11 @@ from sqlalchemy.orm import Session
 
 from app.db.models import Category, Entity, EntityCategory, Provider, Schedule
 from app.events.activity_taxonomy import provider_activity_label
+from app.events.dedup_match import (
+    DEFAULT_DEDUP_TIME_WINDOW_MINUTES,
+    times_within_window,
+    tokens_subset_match,
+)
 
 _DAY_TO_INT = {
     "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
@@ -239,8 +244,8 @@ def class_occurrences_in_window(
 # --------------------------------------------------------------------------- #
 
 #: Start-time tolerance for treating same-titled rows as one occurrence.
-#: Mirrors app.events.dedup.DEDUP_DATETIME_WINDOW_MINUTES' default.
-DEDUP_TIME_WINDOW_MINUTES = 30
+#: The shared default (also backs app.events.dedup's env-tunable ingest window).
+DEDUP_TIME_WINDOW_MINUTES = DEFAULT_DEDUP_TIME_WINDOW_MINUTES
 
 _PAREN_RE = re.compile(r"\([^)]*\)")
 _TIME_TOKEN_RE = re.compile(
@@ -277,15 +282,11 @@ def _times_compatible(
     title+date alone, and TBD-time Event rows must still suppress their
     Schedule twin).
     """
-    if a is None or b is None:
-        return True
-    am = a.hour * 60 + a.minute
-    bm = b.hour * 60 + b.minute
-    return abs(am - bm) <= window_minutes
+    return times_within_window(a, b, window_minutes=window_minutes, missing_is_wildcard=True)
 
 
 def _tokens_match(a: frozenset[str], b: frozenset[str]) -> bool:
-    return bool(a) and bool(b) and (a <= b or b <= a)
+    return tokens_subset_match(a, b)
 
 
 def drop_event_duplicates(
