@@ -75,7 +75,7 @@ def test_end_dt_fully_tbd_is_none():
 # --- Motor Madness scenario: upcoming on BOTH surfaces ---------------------
 def test_detail_banner_motor_madness_not_passed():
     ev = _ev(start_time=time(13, 0), end_time=time(0, 0))
-    with patch("app.main.now_lake_havasu", return_value=NOW_0854):
+    with patch("app.events.permalink.now_lake_havasu", return_value=NOW_0854):
         assert _event_is_past(ev) is False
 
 
@@ -88,14 +88,14 @@ def test_event_later_today_is_upcoming_earlier_today_is_past():
     assert _occurrence_expired(DAY, time(13, 0), time(15, 0), NOW_0854) is False
     # earlier today, finished well over the grace window -> past
     assert _occurrence_expired(DAY, time(5, 0), time(6, 0), NOW_0854) is True
-    with patch("app.main.now_lake_havasu", return_value=NOW_0854):
+    with patch("app.events.permalink.now_lake_havasu", return_value=NOW_0854):
         assert _event_is_past(_ev(start_time=time(5, 0), end_time=time(6, 0))) is True
 
 
 # --- feed and detail banner AGREE for the same event -----------------------
 def _both_surfaces(start_t, end_t, now):
     feed_past = _occurrence_expired(DAY, start_t, end_t, now)
-    with patch("app.main.now_lake_havasu", return_value=now):
+    with patch("app.events.permalink.now_lake_havasu", return_value=now):
         detail_past = _event_is_past(_ev(start_time=start_t, end_time=end_t))
     return feed_past, detail_past
 

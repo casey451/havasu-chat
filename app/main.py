@@ -6,31 +6,27 @@ from app.bootstrap_env import ensure_dotenv_loaded
 ensure_dotenv_loaded()
 
 import asyncio
-import html
 import logging
 import logging.config
 import os
-import re
 from contextlib import asynccontextmanager
-from datetime import date, datetime, timezone
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
     JSONResponse,
-    PlainTextResponse,
     RedirectResponse,
     Response,
 )
 from fastapi.staticfiles import StaticFiles
 from fastapi.templating import Jinja2Templates
 from slowapi.errors import RateLimitExceeded
-from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
 from starlette.middleware.base import BaseHTTPMiddleware
@@ -40,7 +36,6 @@ from app.admin.provider_approval import router as admin_provider_approval_router
 from app.admin.provider_merge_review import router as admin_provider_merge_review_router
 from app.admin.router import router as admin_router
 from app.admin.sponsor_surface import merchant_upgrade_router
-from app.admin.url_safety import safe_href
 from app.admin.v1_overview import router as admin_v1_overview_router
 from app.admin_portal.router import portal_router as admin_portal_router
 from app.api.routes.account_alerts import router as account_alerts_router
@@ -73,25 +68,42 @@ from app.core.provider_name import (
 from app.core.provider_name import (
     register_template_globals as _register_template_globals,
 )
-from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter, public_html_rate_limit
-from app.core.timezone import now_lake_havasu, occurrence_end_dt, to_lake_naive
+from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.jobs_store import count_stale_running, requeue_stale_claims
-from app.db.models import AuthSession, Event, Provider
+from app.db.models import AuthSession, Event
 from app.digest.routes import router as digest_router
-from app.events.directions import directions_url as event_directions_url
-from app.events.event_type_tags import event_type_label
-from app.events.recurrence import _event_is_recurring, next_occurrence
-from app.events.tag_display import public_event_tags
-from app.events.time_labels import is_time_tbd
-from app.events.title_clean import clean_event_title
+
+# Event permalink feature (/events, /events/{id}, .ics) lives in
+# app/events/permalink.py. The tested render helpers are re-exported below under
+# their historical private names so app.main._event_is_past etc. resolve unchanged.
+from app.events.permalink import (
+    _display_date,  # noqa: F401 — re-export
+    _event_is_past,  # noqa: F401 — re-export
+    _event_link_html,  # noqa: F401 — re-export
+    _format_event_datetime,  # noqa: F401 — re-export
+    _link_domain,  # noqa: F401 — re-export
+    _link_label,  # noqa: F401 — re-export
+    _truncate_for_og,  # noqa: F401 — re-export
+    _venue_profile_url,  # noqa: F401 — re-export
+)
+from app.events.permalink import router as events_permalink_router
 from app.feedback.routes import router as feedback_router
 from app.home.calendar_route import router as calendar_page_router
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.lake_preview import router as lake_preview_router
 from app.home.router import router as home_router
 from app.home.static_pages import router as static_pages_router
-from app.monitoring.canaries import not_canary_clause
+
+# Static legal/policy pages (/privacy, /terms). The renderer + doc-path names are
+# re-exported below under their historical private names so existing callers/tests
+# resolve app.main._render_doc_markdown_to_html / app.main._TOS_MD_PATH unchanged.
+from app.legal_docs import (
+    _PRIVACY_MD_PATH,  # noqa: F401 — re-export for back-compat
+    _TOS_MD_PATH,  # noqa: F401 — re-export for back-compat
+    _render_doc_markdown_to_html,  # noqa: F401 — re-export
+)
+from app.legal_docs import router as legal_docs_router
 from app.movies.router import router as movies_router
 from app.news.router import router as news_router
 from app.photos.routes import router as photos_router
@@ -101,6 +113,19 @@ from app.portal.router import router as portal_router
 from app.programs.router import router as programs_router
 from app.providers.router import router as providers_router
 from app.search.routes import router as search_router
+
+# robots.txt + sitemap.xml routes live in app/seo/site_routes.py. The sitemap
+# builders + cache are re-exported below under their historical private names so
+# app.main._build_sitemap_pages_xml / the sitemap tests' _sitemap_cache reset
+# resolve unchanged.
+from app.seo.site_routes import (
+    _SITEMAP_BUILDERS,  # noqa: F401 — re-export
+    _build_sitemap_events_xml,  # noqa: F401 — re-export
+    _build_sitemap_pages_xml,  # noqa: F401 — re-export
+    _build_sitemap_providers_xml,  # noqa: F401 — re-export
+    _sitemap_cache,  # noqa: F401 — re-export
+)
+from app.seo.site_routes import router as seo_router
 from app.v1.routes import router as v1_master_spec_router
 
 
@@ -142,9 +167,6 @@ def _configure_logging() -> None:
 _configure_logging()
 logger = logging.getLogger(__name__)
 
-_DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
-_PRIVACY_MD_PATH = _DOCS_DIR / "privacy.md"
-_TOS_MD_PATH = _DOCS_DIR / "tos.md"
 _TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
 templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
 # CLUSTER-08 name hygiene: ``clean_name`` strips vendor marketing tails
@@ -205,133 +227,6 @@ def scrub_sentry_breadcrumb(crumb: dict[str, Any], hint: dict[str, Any]) -> dict
             if k in data:
                 data[k] = "<scrubbed>"
     return crumb
-
-
-def _privacy_inline_formats(text: str) -> str:
-    parts = re.split(r"(\*\*.+?\*\*)", text)
-    chunks: list[str] = []
-    for p in parts:
-        if len(p) >= 4 and p.startswith("**") and p.endswith("**"):
-            inner = html.escape(p[2:-2])
-            chunks.append(f"<strong>{inner}</strong>")
-        else:
-            chunks.append(html.escape(p))
-    s = "".join(chunks)
-
-    def _link(m: re.Match[str]) -> str:
-        u = m.group(1)
-        safe = html.escape(u, quote=True)
-        return f'<a href="{safe}" rel="noopener noreferrer">{html.escape(u)}</a>'
-
-    s = re.sub(r"(https?://[^\s<>]+)", _link, s)
-
-    def _path_link(m: re.Match[str]) -> str:
-        label, path = m.group(1), m.group(2)
-        p = html.escape(path, quote=True)
-        return f'<a href="{p}">{html.escape(label)}</a>'
-
-    return re.sub(r"\[([^\]]+)\]\((/[^)]+)\)", _path_link, s)
-
-
-def _render_doc_markdown_to_html(md: str) -> str:
-    out: list[str] = []
-    lines = md.splitlines()
-    i = 0
-    in_ul = False
-    while i < len(lines):
-        raw = lines[i]
-        stripped = raw.strip()
-        if stripped.startswith("<!--") and "-->" in stripped:
-            # Source comments are for editors, not the public page source —
-            # the live /terms shipped its "Drafted by AI … needs attorney
-            # review" note to anyone who hit View Source. Drop them.
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            i += 1
-            continue
-        if stripped.startswith("# ") and not stripped.startswith("## "):
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            out.append(f"<h1>{html.escape(stripped[2:].strip())}</h1>")
-            i += 1
-            continue
-        if stripped.startswith("## "):
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            out.append(f"<h2>{html.escape(stripped[3:].strip())}</h2>")
-            i += 1
-            continue
-        if stripped.startswith("- "):
-            if not in_ul:
-                out.append("<ul>")
-                in_ul = True
-            # A markdown bullet hard-wraps across source lines; the
-            # continuation lines are indented and belong to the SAME <li>.
-            # The old line-by-line pass closed the list and emitted each
-            # continuation as an orphan <p>, splitting every wrapped bullet
-            # mid-sentence on the live /privacy page.
-            item_parts = [stripped[2:].lstrip()]
-            i += 1
-            while i < len(lines):
-                cont_raw = lines[i]
-                cont = cont_raw.strip()
-                if (
-                    not cont
-                    or not cont_raw[:1].isspace()
-                    or cont.startswith("- ")
-                    or cont.startswith("#")
-                    or cont.startswith("<!--")
-                ):
-                    break
-                item_parts.append(cont)
-                i += 1
-            out.append(f"<li>{_privacy_inline_formats(' '.join(item_parts))}</li>")
-            continue
-        if not stripped:
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            i += 1
-            continue
-        if in_ul:
-            out.append("</ul>")
-            in_ul = False
-        para_parts: list[str] = [stripped]
-        i += 1
-        while i < len(lines):
-            nxt = lines[i].strip()
-            if not nxt:
-                i += 1
-                break
-            if lines[i].lstrip().startswith("- ") or lines[i].lstrip().startswith("##"):
-                break
-            if lines[i].strip().startswith("<!--"):
-                break
-            para_parts.append(nxt)
-            i += 1
-        out.append(f"<p>{_privacy_inline_formats(' '.join(para_parts))}</p>")
-    if in_ul:
-        out.append("</ul>")
-    return "\n".join(out)
-
-
-def _render_static_doc(
-    request: Request, *, path: Path, head_title: str, meta_description: str | None = None
-) -> HTMLResponse:
-    md = path.read_text(encoding="utf-8")
-    body = _render_doc_markdown_to_html(md)
-    return templates.TemplateResponse(
-        request=request,
-        name="privacy_doc_lake.html",
-        context={
-            "head_title": head_title,
-            "body": body,
-            "meta_description": meta_description,
-        },
-    )
 
 
 def _init_sentry() -> None:
@@ -704,6 +599,9 @@ app.include_router(conditions_router)
 app.include_router(today_router)
 app.include_router(gas_router)
 app.include_router(static_pages_router)
+app.include_router(legal_docs_router)
+app.include_router(seo_router)
+app.include_router(events_permalink_router)
 app.include_router(news_router)
 app.include_router(calendar_feed_router)
 app.include_router(ingest_router)
@@ -833,349 +731,8 @@ if _CONTRIB_UPLOADS.is_dir():
     )
 
 
-def _display_date(event: Event) -> date:
-    """The date to SHOW on the detail page. For a recurring series ``event.date``
-    is just the RRULE anchor (often a 2024 "Monday, January 1" seed), so show the
-    next upcoming occurrence instead — matching the live day/index listing and
-    killing the N1 "January 1 / This event has passed" contradiction. One-offs
-    keep their own date."""
-    if _event_is_recurring(event):
-        nxt = next_occurrence(event, on_or_after=now_lake_havasu().date())
-        if nxt is not None:
-            return nxt
-    return event.date
-
-
-def _format_event_datetime(event: Event) -> str:
-    display = _display_date(event)
-    weekday = display.strftime("%A")
-    month = display.strftime("%B")
-    day = display.day
-    # 2026-07-01 master audit §5.4: a next-calendar-year date rendered as
-    # "Thursday, January 14" reads as PAST in July. Show the year whenever the
-    # displayed date isn't in the current calendar year.
-    year_suffix = (
-        f", {display.year}" if display.year != now_lake_havasu().year else ""
-    )
-    if is_time_tbd(event.start_time, event.end_time):
-        # WP-4 allows NULL times at ingest (never fabricate noon), and a bare
-        # 00:00 start with no real end is the aggregator-ingest "no time given"
-        # fallback, not a real midnight event — show the date only. The single
-        # definition of that contract lives in app/events/time_labels.py.
-        return f"{weekday}, {month} {day}{year_suffix}"
-    hour_24 = event.start_time.hour
-    minute = event.start_time.minute
-    suffix = "AM" if hour_24 < 12 else "PM"
-    hour_12 = hour_24 % 12 or 12
-    return f"{weekday}, {month} {day}{year_suffix}, {hour_12}:{minute:02d} {suffix}"
-
-
-def _event_is_past(event: Event) -> bool:
-    # Drives the "This event has passed" banner on the detail page. A recurring
-    # series is "passed" only when it has NO future occurrence left (e.g. an
-    # RRULE whose UNTIL is in the past) -- never while it still recurs. The old
-    # guard only checked ``event.rdate``, so RRULE-only series (the senior-center
-    # rows: rrule set, rdate NULL, anchored at 2024-01-01) fell through and wore
-    # a false "passed" banner while listed live all week (N1). Compare against
-    # Lake Havasu local time. A date-only one-off (NULL time) is past only once
-    # the whole day is over -- never mid-day -- so a same-day all-day event is
-    # not prematurely buried.
-    if _event_is_recurring(event):
-        return next_occurrence(event, on_or_after=now_lake_havasu().date()) is None
-    now = now_lake_havasu()
-    end_d = event.end_date or event.date
-    if end_d < now.date():
-        return True
-    if end_d > now.date():
-        return False
-    if event.end_time is not None:
-        # Shared end-moment resolution: an end_time of 00:00 (or any time at/
-        # before the start) means the event runs PAST midnight, so it is not
-        # "passed" earlier the same day (live bug: 1 PM "Motor Madness" stored
-        # with a 00:00 end read as passed at 08:54 AM). Compare in Phoenix
-        # wall-clock, consistent with the feed and /events-ui.
-        end_dt = occurrence_end_dt(end_d, event.start_time, event.end_time)
-        if end_dt is not None:
-            return to_lake_naive(now) > end_dt
-    # No end time on file (whether or not a start time is known): a same-day
-    # event is NOT "passed" until the local day is over. The old 3-hour-run
-    # assumption flipped a morning event to "passed" mid-morning (live bug: the
-    # 9:00 AM Board of Adjustment meeting wore "This event has passed" at 9:07
-    # AM). end_d == now.date() here (the earlier date checks handled past/future
-    # days), so the event still has the rest of the day to run.
-    return False
-
-
-def _truncate_for_og(value: str, limit: int = 160) -> str:
-    # og:description should never cut a word in half ("...Lake Hav"). Collapse
-    # whitespace, then if we're over the limit trim back to the last word
-    # boundary inside the budget and append an ellipsis. Falls back to a hard
-    # slice only when a single token is longer than the limit.
-    clean = " ".join(value.split()).strip()
-    if len(clean) <= limit:
-        return clean
-    head = clean[:limit].rstrip()
-    cut = head.rfind(" ")
-    if cut > 0:
-        head = head[:cut].rstrip()
-    return head + "..."
-
-
-def _link_domain(url: str | None) -> str:
-    """Bare hostname for a URL (no leading ``www.``), or ``""`` when unparseable."""
-    if not url:
-        return ""
-    try:
-        host = urlparse(url).netloc.lower()
-    except ValueError:
-        return ""
-    return host[4:] if host.startswith("www.") else host
-
-
-def _link_label(url: str | None) -> str:
-    """Friendly link text — the site's domain, else a generic fallback."""
-    return _link_domain(url) or "Visit event page"
-
-
-def _event_link_html(event_url: str | None, source_url: str | None) -> str:
-    """The 'Event Link' block for the detail page.
-
-    Shows a friendly domain label rather than the raw URL string, and — when we
-    hold a distinct ``source_url`` (where the listing was found) — a quiet
-    provenance byline. Falls back to ``source_url`` as the primary link when no
-    ``event_url`` is stored, so a source-only event still links somewhere.
-    ``safe_href`` strips dangerous schemes (the URLs are scraped/unvalidated and
-    this is a public page; audit M2).
-    """
-    primary = (event_url or source_url or "").strip()
-    if not primary:
-        return ""
-    safe_url = html.escape(safe_href(primary))
-    label = html.escape(_link_label(primary))
-    out = (
-        f"<p><strong>Event Link:</strong> "
-        f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer">{label}</a></p>'
-    )
-    src = (source_url or "").strip()
-    if src and _link_domain(src) and _link_domain(src) != _link_domain(primary):
-        src_safe = html.escape(safe_href(src))
-        src_label = html.escape(_link_domain(src))
-        out += (
-            f'<p class="ev-source"><small>Source: '
-            f'<a href="{src_safe}" target="_blank" rel="noopener noreferrer">{src_label}</a>'
-            f"</small></p>"
-        )
-    return out
-
-
-def _render_not_found_response(request: Request, *, gone: bool = False) -> HTMLResponse:
-    """Render the event error page. ``gone=True`` → 410 (the event was removed:
-    status ``deleted``); otherwise 404 (missing or not-yet-public)."""
-    return templates.TemplateResponse(
-        request=request,
-        name="event_not_found_lake.html",
-        context={"gone": gone},
-        status_code=410 if gone else 404,
-    )
-
-
-def _venue_profile_url(db: Session, event: Event) -> str | None:
-    """Internal ``/provider/<slug>`` link for the event's venue, when that venue
-    has a live directory page — so the event detail links back to the place
-    (site review §1). Returns None when the venue has no published profile.
-    """
-    prov: Provider | None = None
-    if event.provider_id:
-        prov = db.query(Provider).filter(Provider.id == event.provider_id).first()
-    if prov is None and event.entity_id:
-        prov = db.query(Provider).filter(Provider.entity_id == event.entity_id).first()
-    if prov is None or not prov.slug or prov.draft or prov.is_active is False:
-        return None
-    return f"/provider/{prov.slug}"
-
-
-def _render_permalink_response(
-    request: Request, *, event: Event, permalink_url: str, venue_url: str | None = None
-) -> HTMLResponse:
-    contact_html = ""
-    if event.contact_name or event.contact_phone:
-        parts = [html.escape(p) for p in [event.contact_name, event.contact_phone] if p]
-        contact_html = f"<p><strong>Contact:</strong> {' | '.join(parts)}</p>"
-
-    event_link_html = _event_link_html(event.event_url, event.source_url)
-
-    tags_html = ""
-    display_tags = public_event_tags(event.tags)
-    if display_tags:
-        tag_nodes = "".join(f'<span class="tag">{html.escape(tag)}</span>' for tag in display_tags)
-        tags_html = f'<div class="tags"><h2>Tags</h2><div class="tag-wrap">{tag_nodes}</div></div>'
-
-    # Event JSON-LD (SEO audit §2.7: zero Event schema on a hyperlocal events
-    # product — a free rich-results win). Built as a dict here so missing
-    # fields are OMITTED, never emitted as ``"key": null``. Arizona ignores
-    # DST: the offset is -07:00 year-round.
-    # Schema.org wants the upcoming date, so a recurring series advertises its
-    # next occurrence (not the 2024 RRULE anchor) — same source as the visible
-    # date, keeping the rich result and the page in agreement.
-    disp_date = _display_date(event)
-    if is_time_tbd(event.start_time, event.end_time):
-        start_iso = disp_date.isoformat()
-    else:
-        start_iso = (
-            f"{disp_date.isoformat()}T{event.start_time.strftime('%H:%M')}:00-07:00"
-        )
-    event_jsonld: dict[str, Any] = {
-        "@context": "https://schema.org",
-        "@type": "Event",
-        "name": event.title,
-        "startDate": start_iso,
-        "url": permalink_url,
-        "eventStatus": "https://schema.org/EventScheduled",
-        "location": {
-            "@type": "Place",
-            "name": event.location_name or "Lake Havasu City",
-            "address": {
-                "@type": "PostalAddress",
-                "addressLocality": "Lake Havasu City",
-                "addressRegion": "AZ",
-                "addressCountry": "US",
-            },
-        },
-    }
-    if event.end_time is not None and not is_time_tbd(event.start_time, event.end_time):
-        end_d = disp_date if _event_is_recurring(event) else (event.end_date or event.date)
-        event_jsonld["endDate"] = (
-            f"{end_d.isoformat()}T{event.end_time.strftime('%H:%M')}:00-07:00"
-        )
-    if event.description:
-        event_jsonld["description"] = _truncate_for_og(event.description, limit=300)
-    if event.image_url and str(event.image_url).startswith("http"):
-        event_jsonld["image"] = [event.image_url]
-
-    return templates.TemplateResponse(
-        request=request,
-        name="event_permalink_lake.html",
-        context={
-            "event_title": clean_event_title(event.title, location_name=event.location_name),
-            "og_description": _truncate_for_og(event.description),
-            "og_url": permalink_url,
-            "image_url": event.image_url,
-            "formatted_datetime": _format_event_datetime(event),
-            "is_past": _event_is_past(event),
-            # P2: the type folded into the detail eyebrow ("Live Music"/"Comedy").
-            "type_label": event_type_label(event.title, event.tags, event.location_name),
-            "location_name": event.location_name,
-            "venue_url": venue_url,
-            "directions_url": event_directions_url(event.location_name),
-            "description": event.description,
-            "cost": getattr(event, "cost", None),
-            "cost_description": getattr(event, "cost_description", None),
-            "host": getattr(event, "host", None),
-            "contact_html": contact_html,
-            "event_link_html": event_link_html,
-            "tags_html": tags_html,
-            "event_jsonld": event_jsonld,
-            "ics_url": f"/events/{event.id}.ics",
-        },
-    )
-
-
-# --------------------------------------------------------------------------
-# robots.txt + sitemap.xml (launch hardening v48)
-# --------------------------------------------------------------------------
-#
-# robots.txt is fully static. sitemap.xml enumerates the home page, static
-# legal/contribute pages, every taxonomy department + gate-clearing leaf, every
-# active non-draft provider profile, and every live event. The XML is
-# cached in-process for one hour because regeneration walks providers +
-# events tables (thousands of rows). The cache is a simple
-# (timestamp, xml) tuple rather than functools.lru_cache so it correctly
-# expires by wall-clock time and is easy to reason about under tests.
-# Canonical base-URL helpers live in app/seo/urls.py (P1.0 — single source of
-# truth, shared with templates via the canonical_url Jinja global). Re-exported
-# here under their historical private names so existing callers/tests resolve
-# ``app.main._base_url`` / ``app.main._coerce_https`` unchanged.
 from app.seo.urls import _coerce_https  # noqa: F401 — re-export for back-compat/tests
 from app.seo.urls import base_url as _base_url
-
-_SITEMAP_TTL_SECONDS = 3600
-# P1.6 — /sitemap.xml is a sitemap *index* referencing per-section child
-# sitemaps (pages / providers / events) so each section can scale and carry
-# honest <lastmod> values:
-#   - pages: static surfaces carry no lastmod (they rarely change; advertising
-#     "today" every day told crawlers everything churned daily). Category pages
-#     use the max Provider.updated_at of their member categories.
-#   - providers: Provider.updated_at (as before).
-#   - events: Event.created_at (no updated_at column).
-# Each section is cached independently for one hour (same TTL/shape rationale
-# as the original single-document cache). ``_sitemap_cache`` keys are section
-# names; tests reset the whole dict between cases.
-_sitemap_cache: dict[str, tuple[float, str]] = {}
-
-_SITEMAP_SECTIONS = ("pages", "providers", "events")
-
-
-# A3 (anti-scrape): AI training / scraper crawlers blocked from the whole site.
-# Search engines (Googlebot, Bingbot, DuckDuckBot, …) are deliberately NOT on
-# this list — blocking them would tank the SEO this whole effort is for. These
-# are the well-published AI/data-harvest agents that honor robots.txt; the ones
-# that don't are Cloudflare/limiter's job (Track A1/A2), not robots'.
-_BLOCKED_CRAWLER_AGENTS: tuple[str, ...] = (
-    "GPTBot",
-    "ChatGPT-User",
-    "OAI-SearchBot",
-    "anthropic-ai",
-    "ClaudeBot",
-    "Claude-Web",
-    "CCBot",
-    "Google-Extended",
-    "PerplexityBot",
-    "Bytespider",
-    "Amazonbot",
-    "Applebot-Extended",
-    "FacebookBot",
-    "meta-externalagent",
-    "Diffbot",
-    "Omgilibot",
-    "Omgili",
-    "ImagesiftBot",
-    "DataForSeoBot",
-    "YouBot",
-    "cohere-ai",
-    "Scrapy",
-)
-
-# Paths every crawler (even the allowed ones) should skip: the JSON/data APIs and
-# the bulk iCal feed are cheap full-dataset pulls with no SEO value to crawl.
-_ROBOTS_DISALLOWED_PATHS: tuple[str, ...] = ("/api/", "/events.ics")
-
-
-def _build_robots_txt(base: str) -> str:
-    """robots.txt body: block AI/scraper agents site-wide, keep the HTML
-    directory crawlable for search engines, and steer everyone away from the
-    JSON/data endpoints. ``Allow: /`` stays in the wildcard group (default-allow
-    semantics + back-compat); the per-path ``Disallow`` wins by longest-match."""
-    lines: list[str] = []
-    # One grouped block: many ``User-agent`` lines sharing a single ``Disallow: /``
-    # rule (valid per the robots spec — a group may name multiple agents).
-    for agent in _BLOCKED_CRAWLER_AGENTS:
-        lines.append(f"User-agent: {agent}")
-    lines.append("Disallow: /")
-    lines.append("")
-    # Everyone else (incl. search engines): crawl HTML, skip the data endpoints.
-    lines.append("User-agent: *")
-    for path in _ROBOTS_DISALLOWED_PATHS:
-        lines.append(f"Disallow: {path}")
-    lines.append("Allow: /")
-    lines.append("")
-    lines.append(f"Sitemap: {base}/sitemap.xml")
-    return "\n".join(lines) + "\n"
-
-
-@app.get("/robots.txt", response_class=PlainTextResponse)
-@limiter.limit(public_html_rate_limit)
-def robots_txt(request: Request) -> PlainTextResponse:
-    return PlainTextResponse(_build_robots_txt(_base_url()))
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -1185,287 +742,6 @@ def favicon_ico() -> FileResponse:
     scripts/gen_favicon_assets.py from app/static/img/favicon.svg."""
     return FileResponse(
         _STATIC_DIR / "img" / "favicon.ico", media_type="image/x-icon"
-    )
-
-
-def _sitemap_url_entry(loc: str, lastmod: str | None = None) -> str:
-    lastmod_line = f"    <lastmod>{lastmod}</lastmod>\n" if lastmod else ""
-    return (
-        "  <url>\n"
-        f"    <loc>{html.escape(loc, quote=False)}</loc>\n"
-        f"{lastmod_line}"
-        "  </url>\n"
-    )
-
-
-def _format_lastmod(value: datetime | None, *, today_iso: str) -> str:
-    if value is None:
-        return today_iso
-    try:
-        return value.date().isoformat()
-    except Exception:
-        return today_iso
-
-
-def _iso_or_none(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    try:
-        return value.date().isoformat()
-    except Exception:
-        return None
-
-
-def _wrap_urlset(entries: list[str]) -> str:
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        + "".join(entries)
-        + "</urlset>\n"
-    )
-
-
-def _build_sitemap_pages_xml() -> str:
-    base = _base_url()
-    entries: list[str] = []
-
-    # Static surfaces. /home is the canonical editorial home; bare / 301s to it
-    # and so is intentionally NOT listed. No <lastmod>: these are stable pages
-    # and the element is optional — omitting beats fabricating daily churn.
-    static_paths = (
-        "/home",
-        "/chat",
-        "/map",
-        "/gas",
-        "/today",
-        "/events-ui",
-        "/categories",
-        # Editorial guide pages (2026-07-01 master audit §6.5: the strongest
-        # editorial content on the site was invisible to crawlers).
-        "/lake",
-        "/night",
-        "/family",
-        "/seniors",
-        "/privacy",
-        "/terms",
-        "/contribute",
-        "/about",
-        "/help",
-        "/contact",
-        "/portal",
-        "/portal/claim",
-    )
-    for path in static_paths:
-        entries.append(_sitemap_url_entry(f"{base}{path}"))
-
-    # The retired flat /categories/{slug} bucket routes 301 to taxonomy
-    # departments (A.3 nav rewire) and are deliberately NOT listed — a sitemap
-    # should never advertise a redirect. Departments + leaves are enumerated
-    # below.
-
-    # P2.1 dedicated trade pages — only trades clearing the thin-page gate
-    # (TRADE_PAGE_MIN_PROVIDERS) are listed; under-minimum trades 404 and are
-    # excluded here so near-empty templated pages are never exposed to crawlers.
-    # lastmod: max updated_at of the trade's matching providers.
-    try:
-        from app.categories.leaf_pages import (
-            LEAF_PAGE_MIN_PROVIDERS,
-            leaf_renderable_count,
-            resolve_leaf,
-        )
-        from app.categories.trades import (
-            LEAF_TWINS,
-            TRADE_LEAF_DEPARTMENT_SLUG,
-            TRADE_PARENT_SLUG,
-            _trade_provider_rows,
-        )
-        from app.categories.trades import qualifying_trades as _qualifying_trades
-
-        with SessionLocal() as db:
-            for trade_obj, _count in _qualifying_trades(db):
-                # PR-B consolidation: a trade whose taxonomy-leaf twin ships
-                # 301s to it, so the sitemap lists only the leaf (below).
-                twin_slug = LEAF_TWINS.get(trade_obj.slug)
-                if twin_slug:
-                    twin = resolve_leaf(db, TRADE_LEAF_DEPARTMENT_SLUG, twin_slug)
-                    if (
-                        twin is not None
-                        and leaf_renderable_count(db, twin)
-                        >= LEAF_PAGE_MIN_PROVIDERS
-                    ):
-                        continue
-                rows = _trade_provider_rows(db, trade_obj)
-                stamps2 = [r.updated_at for r in rows if r.updated_at is not None]
-                lastmod = _iso_or_none(max(stamps2)) if stamps2 else None
-                entries.append(
-                    _sitemap_url_entry(
-                        f"{base}/categories/{TRADE_PARENT_SLUG}/{trade_obj.slug}",
-                        lastmod,
-                    )
-                )
-    except Exception as exc:  # pragma: no cover — defensive
-        logger.warning("sitemap: trade page enumeration failed: %s", exc)
-
-    # B.2 taxonomy leaf pages + department landings — only gate-clearing leaves
-    # (sub-gate leaves 404), and only departments that own at least one such
-    # leaf (so a listed landing is never empty). No <lastmod> — the counts move
-    # on the order of days and a per-leaf max(updated_at) would be N queries.
-    try:
-        from app.categories.leaf_pages import qualifying_leaves
-
-        with SessionLocal() as db:
-            seen_departments: set[str] = set()
-            for leaf, _count in qualifying_leaves(db):
-                entries.append(
-                    _sitemap_url_entry(
-                        f"{base}/categories/{leaf.department_slug}/{leaf.slug}"
-                    )
-                )
-                if leaf.department_slug not in seen_departments:
-                    seen_departments.add(leaf.department_slug)
-                    entries.append(
-                        _sitemap_url_entry(f"{base}/categories/{leaf.department_slug}")
-                    )
-    except Exception as exc:  # pragma: no cover — defensive
-        logger.warning("sitemap: leaf page enumeration failed: %s", exc)
-
-    # A3 cuisine SEO landings (/lake-havasu/{cuisine}) — only cuisines clearing
-    # the thin-page gate (CUISINE_PAGE_MIN_PROVIDERS); thin cuisines 404 and are
-    # excluded so near-empty templated pages are never exposed to crawlers.
-    try:
-        from app.categories.cuisine_pages import qualifying_cuisines
-
-        with SessionLocal() as db:
-            for cuisine_slug, _label, _count in qualifying_cuisines(db):
-                entries.append(
-                    _sitemap_url_entry(f"{base}/lake-havasu/{cuisine_slug}")
-                )
-    except Exception as exc:  # pragma: no cover — defensive
-        logger.warning("sitemap: cuisine page enumeration failed: %s", exc)
-
-    return _wrap_urlset(entries)
-
-
-def _build_sitemap_providers_xml() -> str:
-    base = _base_url()
-    today_iso = datetime.now(timezone.utc).date().isoformat()
-    entries: list[str] = []
-    try:
-        with SessionLocal() as db:
-            providers = (
-                db.query(Provider.slug, Provider.updated_at)
-                .filter(
-                    Provider.is_active.is_(True),
-                    Provider.draft.is_(False),
-                    Provider.slug.isnot(None),
-                    # A4: seeded canary listings never enter the sitemap (we don't
-                    # want a decoy business indexed by Google).
-                    not_canary_clause(),
-                )
-                .all()
-            )
-        for slug, updated_at in providers:
-            if not slug:
-                continue
-            entries.append(
-                _sitemap_url_entry(
-                    f"{base}/provider/{slug}",
-                    _format_lastmod(updated_at, today_iso=today_iso),
-                )
-            )
-    except Exception as exc:  # pragma: no cover — defensive
-        logger.warning("sitemap: provider enumeration failed: %s", exc)
-    return _wrap_urlset(entries)
-
-
-def _build_sitemap_events_xml() -> str:
-    base = _base_url()
-    today_iso = datetime.now(timezone.utc).date().isoformat()
-    # Lake Havasu LOCAL date for the past/future split — a July-1 event is not
-    # past while it is still July 1 in Arizona, even once UTC rolls over.
-    today_local = now_lake_havasu().date()
-    entries: list[str] = []
-    try:
-        with SessionLocal() as db:
-            # 2026-07-01 master audit §5.1: never advertise a past event to
-            # crawlers — half the event sitemap was past-dated. A one-off stays
-            # listed through its (end) date; a recurring series is evergreen
-            # (its ``date`` is just the RRULE anchor, often long past).
-            events = (
-                db.query(Event.id, Event.created_at)
-                .filter(
-                    Event.status == "live",
-                    or_(
-                        Event.is_recurring.is_(True),
-                        Event.rrule.isnot(None),
-                        func.coalesce(Event.end_date, Event.date) >= today_local,
-                    ),
-                )
-                .all()
-            )
-        for event_id, created_at in events:
-            entries.append(
-                _sitemap_url_entry(
-                    f"{base}/events/{event_id}",
-                    _format_lastmod(created_at, today_iso=today_iso),
-                )
-            )
-    except Exception as exc:  # pragma: no cover — defensive
-        logger.warning("sitemap: event enumeration failed: %s", exc)
-    return _wrap_urlset(entries)
-
-
-_SITEMAP_BUILDERS = {
-    "pages": _build_sitemap_pages_xml,
-    "providers": _build_sitemap_providers_xml,
-    "events": _build_sitemap_events_xml,
-}
-
-
-def _build_sitemap_index_xml() -> str:
-    base = _base_url()
-    refs = "".join(
-        f"  <sitemap>\n    <loc>{base}/sitemap-{section}.xml</loc>\n  </sitemap>\n"
-        for section in _SITEMAP_SECTIONS
-    )
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        + refs
-        + "</sitemapindex>\n"
-    )
-
-
-def _get_cached_sitemap_xml(section: str) -> str:
-    now = datetime.now(timezone.utc).timestamp()
-    cache = _sitemap_cache.get(section)
-    if cache is not None and (now - cache[0]) < _SITEMAP_TTL_SECONDS:
-        return cache[1]
-    if section == "index":
-        xml = _build_sitemap_index_xml()
-    else:
-        xml = _SITEMAP_BUILDERS[section]()
-    _sitemap_cache[section] = (now, xml)
-    return xml
-
-
-@app.get("/sitemap.xml")
-@limiter.limit(public_html_rate_limit)
-def sitemap_xml(request: Request) -> Response:
-    return Response(
-        content=_get_cached_sitemap_xml("index"),
-        media_type="application/xml",
-    )
-
-
-@app.get("/sitemap-{section}.xml")
-@limiter.limit(public_html_rate_limit)
-def sitemap_section_xml(request: Request, section: str) -> Response:
-    if section not in _SITEMAP_SECTIONS:
-        raise HTTPException(status_code=404, detail="unknown_sitemap")
-    return Response(
-        content=_get_cached_sitemap_xml(section),
-        media_type="application/xml",
     )
 
 
@@ -1510,32 +786,6 @@ def logout_get(request: Request, db: Session = Depends(get_db)) -> RedirectRespo
         samesite="lax",
     )
     return response
-
-
-@app.get("/privacy", response_class=HTMLResponse)
-def privacy_page(request: Request) -> HTMLResponse:
-    return _render_static_doc(
-        request,
-        path=_PRIVACY_MD_PATH,
-        head_title="Privacy — Ask Hava",
-        meta_description=(
-            "How Hava handles your data: what we store, who processes it, "
-            "and the choices you have. No ads, no profiles, no data sales."
-        ),
-    )
-
-
-@app.get("/terms", response_class=HTMLResponse)
-def terms_page(request: Request) -> HTMLResponse:
-    return _render_static_doc(
-        request,
-        path=_TOS_MD_PATH,
-        head_title="Terms — Ask Hava",
-        meta_description=(
-            "The terms for using Ask Hava — Lake Havasu City's free local "
-            "guide, directory, and AI concierge."
-        ),
-    )
 
 
 @app.exception_handler(RequestValidationError)
@@ -1587,49 +837,3 @@ def health_check(db: Session = Depends(get_db)) -> JSONResponse:
             status_code=503,
             content={"status": "error", "db_connected": False, "event_count": 0},
         )
-
-
-@app.get("/events")
-def events_redirect() -> RedirectResponse:
-    # /events used to serve the raw EventRead JSON dump (leaking embedding,
-    # source, and internal columns to any caller). The public JSON contract now
-    # lives at /api/events (app/v1/routes/events.py, scrubbed serializer); the
-    # human-facing list is /events-ui. 301 so the old JSON path folds into the
-    # browsable UI for crawlers.
-    return RedirectResponse(url="/events-ui", status_code=301)
-
-
-@app.get("/events/{event_id}.ics", include_in_schema=False)
-def event_ics(event_id: str, db: Session = Depends(get_db)) -> Response:
-    """Per-event iCalendar download (UX-4 "Add to calendar"). Registered before
-    the HTML permalink so ``/events/{id}.ics`` matches this route, not the
-    ``{event_id}`` catch-all."""
-    from app.api.routes.calendar_feed import build_single_event_ics
-
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if event is None or event.status == "pending_review":
-        raise HTTPException(status_code=404, detail="event_not_found")
-    return Response(
-        content=build_single_event_ics(event),
-        media_type="text/calendar; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="event-{event.id}.ics"'},
-    )
-
-
-@app.get("/events/{event_id}", response_class=HTMLResponse)
-def event_permalink(event_id: str, request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if event is None or event.status == "pending_review":
-        return _render_not_found_response(request)
-    # SEO: a removed event (status "deleted") is permanently gone — return 410,
-    # not the full page (a soft-404/served-removed-content bug). Only the literal
-    # "deleted" status takes this path, so a live event is never mistakenly gone.
-    if event.status == "deleted":
-        return _render_not_found_response(request, gone=True)
-    # ED-5: build a canonical https URL from the configured base (request.url is
-    # http behind Railway's proxy when X-Forwarded-Proto isn't honored).
-    permalink_url = f"{_base_url()}/events/{event.id}"
-    venue_url = _venue_profile_url(db, event)
-    return _render_permalink_response(
-        request, event=event, permalink_url=permalink_url, venue_url=venue_url
-    )
