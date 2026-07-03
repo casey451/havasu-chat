@@ -30,7 +30,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | PR | branch | status | gate | merge sha | notes |
 |----|--------|--------|------|-----------|-------|
 | 1 gas-truth      | feat/v44-01-gas-truth        | ✅ merged | pytest 12477✅ ruff✅ mypy✅ | commit 2a59edcd → merge e8663045 | GasService single source |
-| 2 date-keys      | feat/v44-02-date-keys        | ⏳ | — | — | date-keyed cache |
+| 2 date-keys      | feat/v44-02-date-keys        | 🔨 gating | 5 rollover tests✅ ruff✅; full suite next | — | rollover regression + no-cache pin |
 | 3 count-parity   | feat/v44-03-count-parity     | ⏳ | — | — | day_counts one base |
 | 4 conditions     | feat/v44-04-conditions       | ⏳ | — | — | water+sunset, retire clouds |
 | 5 ads-rail       | feat/v44-05-ads-rail         | ⏳ | — | — | one paid unit + working rail |
@@ -54,6 +54,19 @@ gate results recorded here; do not redo a row marked ✅ merged.
 - **PR-1 honest label is gas-specific:** added `_gas_label` in the service; left the
   shared `staleness_label` untouched (all other conditions tiles + its tests use it).
 
+- **PR-2 = tests + no-cache pin, no app cache change (decision 15).** Investigated
+  exhaustively: routes (/home, /calendar, /events-ui) already resolve today/month
+  via `now_lake_havasu()` fresh per request; HTML ships `no-cache, max-age=0,
+  must-revalidate` (middleware); the only in-process caches are request-scoped
+  (`_LIVE_EVENTS_MEMO` keyed by Session), static-file (`lru_cache`), or short-TTL
+  data (conditions 300s, pullquote 1h) — NONE date-blind. Empirical probe confirms
+  /home + /calendar + /events-ui roll over correctly. So there is no app render
+  cache to date-key; the 6-day prod staleness was edge/CDN caching of bare URLs
+  (infra, out of scope per "no railway"). BUILD_PLAN says "TTLs unchanged... do
+  not add new perf infra" — so PR-2 correctly ADDS the rollover regression tests
+  (the acceptance criterion) + a test pinning `no-cache` on the date-scoped routes
+  (the edge-cache guard), and changes no app code. New: `tests/test_date_keyed_pages.py`.
+
 ## PR-1 implementation (files touched)
 - NEW `app/gas/__init__.py`, `app/gas/service.py` — `GasStation`/`GasBoard`,
   `board_from_cache` (pure transform = single call site), `load_gas_board`,
@@ -68,19 +81,33 @@ gate results recorded here; do not redo a row marked ✅ merged.
   `test_gas_prices_page.py`.
 
 ## NEXT ACTION
-PR-1 ✅ merged (e8663045). START PR-2 now: create `feat/v44-02-date-keys` off
-`v44-integration`. Find the in-process data-layer cache that memoizes a
-"today"/"this month" value without the date in its key; resolve today/month
-(America/Phoenix) BEFORE the cache lookup and include it in the key for /home,
-/events-ui, /calendar. Add the rollover regression test (freeze D, warm, advance
-to D+1, assert D+1 reflected). Gate (pytest+ruff+mypy) → merge → log → PR-3.
+PR-2 gating: run full suite. If green → commit `feat/v44-02-date-keys` (tests only:
+`tests/test_date_keyed_pages.py` + PROGRESS), merge into `v44-integration`, mark
+PR-2 ✅. Then START PR-3 (count-parity): build one `day_counts(date) -> DayCount`
+(DATA_CONTRACTS §2) whose `.total` == what the home feed renders for that date
+(events + class sessions + venue-hours rows + movie titles, after redesign._enrich
+filters). Wire it to home headline/pills (already F6-pinned — reuse), calendar
+month cells (`+N more` = total − chips), agenda header, and expose for PR-7 dots.
+Start by reading `redesign.feed_view_model` + `_enrich` (how home computes total
+today) and `sandstone.calendar_month` cell counts to unify their base.
 
-**PR-2 scouting (done):** HTML responses already carry `Cache-Control: no-cache`
-(`app/main.py:480`), so the stale-page bug is NOT browser/CDN — it's an in-process
-data-layer cache keyed WITHOUT the resolved date (DATA_CONTRACTS §4: "never cache a
-bare-'today' key"). Candidates to inspect: in-process caches in `app/home/collections.py`
-(`reset_cache`), `app/home/queries_c.py` (`reset_cache`), and any `lru_cache`/TTLCache
-that memoizes a "today"/"this month" computed value. PR-2 = resolve today/month
-(America/Phoenix) BEFORE the cache lookup and include it in the key for /home,
-/events-ui, /calendar. Regression test: freeze date D, warm cache, advance to D+1,
-assert response reflects D+1.
+**PR-3 scouting (done):**
+- Home/agenda base = `events_views.calendar_day_view_model(db, day=d)["total"]`
+  = `sum(section counts)` over `day_groups(events_only=False)` + movies section.
+  Includes events + classes + venue-hours rows + movies + civic. This IS §2.1's
+  base (F6 already pinned home headline/pills to it via `feed_view_model.total`).
+- Calendar cells (`sandstone.calendar_month`, sandstone.py:698) count DIFFERENTLY:
+  one-off events only for the cell `count`/pills; recurring → separate `class_count`
+  badge; venue-hours rows (`_is_venue_hours_row`) and civic meetings EXCLUDED
+  (2026-07-01 month audit). That mismatch is the F6 cross-surface bug (home 54 vs
+  cell 87 vs agenda 17).
+- PR-3 = one `day_counts(db, d, now) -> DayCount` with `.total` == the home base;
+  wire home headline/pills (reuse), calendar cell `+N more` (= total − chips
+  shown), agenda header, and expose for PR-7 dots. TENSION to resolve per contract
+  (§2.1 wins): the month audit deliberately excluded venue-hours/civic from cells;
+  unifying to the home base re-includes them in the cell TOTAL (pills stay one-off;
+  only the count/"+N more" changes). PERF: month grid needs ~35 per-day totals —
+  day_counts must compute the total WITHOUT building the full render tree (share
+  day_groups' occurrence/dedup logic), or the 42× full-build is too slow. Parity
+  test `tests/test_home_calendar_parity.py` already guards (section,count) tuples —
+  keep it green.
