@@ -325,12 +325,31 @@ def test_follow_and_optin_routes(
         r2 = client.post("/api/venues/follow", json={"entity_id": venue_eid})
         assert r2.json()["action"] == "exists"
 
-        # Opt-in defaults to not-subscribed.
-        assert client.get("/api/digest/subscription").json() == {"opted_in": False}
+        # Opt-in defaults to not-subscribed. Sign-ups are gated OFF until a
+        # sender ships (2026-07-03), so ``available`` is False and an opt-in is
+        # refused without creating a subscription.
+        monkeypatch.delenv("FEATURE_FLAG_WEEKEND_DIGEST", raising=False)
+        assert client.get("/api/digest/subscription").json() == {
+            "opted_in": False,
+            "available": False,
+        }
+        assert client.post("/api/digest/subscription", json={"enabled": True}).json() == {
+            "opted_in": False,
+            "available": False,
+        }
+        assert client.get("/api/digest/subscription").json()["opted_in"] is False
+
+        # With the flag on (sender wired), opt-in works and toggles as before.
+        monkeypatch.setenv("FEATURE_FLAG_WEEKEND_DIGEST", "true")
         assert client.post("/api/digest/subscription", json={"enabled": True}).json() == {
             "opted_in": True
         }
-        assert client.get("/api/digest/subscription").json() == {"opted_in": True}
+        assert client.get("/api/digest/subscription").json() == {
+            "opted_in": True,
+            "available": True,
+        }
+        # Opt-OUT is always honored regardless of the flag.
+        monkeypatch.delenv("FEATURE_FLAG_WEEKEND_DIGEST", raising=False)
         assert client.post("/api/digest/subscription", json={"enabled": False}).json() == {
             "opted_in": False
         }

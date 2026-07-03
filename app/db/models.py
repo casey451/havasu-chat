@@ -1586,8 +1586,13 @@ class UpgradeRequest(Base):
         String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
     )
     business_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Default is PROMOTED (a slot with a live v4 render surface). Was SPOTLIGHT
+    # until 2026-07-03, when the Featured/spotlight tier was retired from sellable
+    # inventory — it has no v4 surface, so it can no longer be requested.
+    # App-layer default only (no server_default), so this is a code change with
+    # no migration; existing rows keep their stored value.
     requested_slot: Mapped[str] = mapped_column(
-        String(32), nullable=False, default=AdSlot.SPOTLIGHT.value
+        String(32), nullable=False, default=AdSlot.PROMOTED.value
     )
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, default=UpgradeRequestStatus.PENDING.value
