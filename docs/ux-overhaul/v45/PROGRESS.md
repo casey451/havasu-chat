@@ -34,7 +34,7 @@ gates recorded here; never redo a ✅ row.
 | 4 directory  | feat/v45-04-directory       | ✅ merged | pytest 12517✅ ruff✅ mypy✅ live-QA✅ | merge f2dab10d | /categories index+dept+trade+leaf+faceted → v4; card v4 + SVG star (no ★); cond+gas via _chrome_context |
 | 5 remaining  | feat/v45-05-remaining-pages | ✅ merged | pytest 12520✅ ruff✅ mypy✅ live-QA✅ | merge f8e8094e | 12 pages → v4 (about/help/contact/privacy/terms/seniors/login/sponsor/portal/family/night/provider/chat); SVG star+heart; provider fixes already present |
 | 6 water-temp | feat/v45-06-water-temp      | ✅ merged | pytest 12525✅ ruff✅ mypy✅ live-fetch✅ | merge aa7f540a | RISE Accept header 406→fixed (vnd.api+json); retry-once; 6h window; WATER_TEMP_STALE ≤1/hr |
-| 7 dead-shell | feat/v45-07-dead-shell      | ⏳ | — | — | delete base_lake + old ribbon/cards |
+| 7 dead-shell | feat/v45-07-dead-shell      | ✅ merged | pytest 12526✅ ruff✅ mypy✅ | merge d2c51284 | swept 4 templates + 6 CSS (mode_sandstone/events_lake/movies_lake/movies_body + desert_home/movies/chat + lake_events/directory/profile); base_lake KEPT (still live) |
 | final        | v45-integration → main      | ⏳ | — | — | grant merge + smoke |
 
 ## PR-1 scouting (done)
@@ -169,6 +169,13 @@ gates recorded here; never redo a ✅ row.
   tile is still blank post-deploy, confirm the flag is ON in Railway vars.
 
 ## NEXT ACTION
+PR-7 ✅ merged (d2c51284). ALL 8 item PRs (PR-0…PR-7) merged into v45-integration.
+FINAL: open ONE `v45-integration → main` PR under the kickoff grant; wait for CI green;
+merge under the grant (main auto-deploys to prod); post-deploy smoke (/home /gas /calendar
+/events-ui /categories /movies → 200, today's Phoenix date, base_redesign shell present, zero
+emoji); revert on failure. Then mark v45 COMPLETE in this file + write the memory pointer.
+
+## (older) NEXT ACTION
 PR-6 ✅ merged (aa7f540a). START PR-7 (`feat/v45-07-dead-shell`) — sweep the old shell.
 grep-PROVE-then-delete: base_lake.html (only if NOTHING still extends it — many admin/account/
 today/404 pages may still), old ribbon partials, site_chrome.css, the retired templates
