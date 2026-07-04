@@ -37,8 +37,8 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | 6 gas-ui         | feat/v44-06-gas-ui           | ✅ merged | pytest 12499✅ ruff✅ mypy✅ smoke✅ | merge fa4c76aa | grade switch + /gas page |
 | 7 schedule       | feat/v44-07-schedule-niceties| ✅ merged | pytest 12504✅ ruff✅ mypy✅ smoke✅ | merge 2f31a7f4 | previews/tpills/pills/dots |
 | 8 shell          | feat/v44-08-shell            | ✅ merged | pytest 12510✅ ruff✅ mypy✅ smoke✅ | merge 10bf6e8a | 6-link shell + footer/email |
-| 9 dead-code      | feat/v44-09-dead-code        | 🔨 gating | dead-code 4✅ affected 23✅ ruff✅ mypy✅ renders✅; full suite next | — | sweep old UX |
-| final            | v44-integration → main       | ⏳ | — | — | grant merge + smoke |
+| 9 dead-code      | feat/v44-09-dead-code        | ✅ merged | pytest 12514✅ ruff✅ mypy✅ | merge edcb4a86 | sweep old UX |
+| final            | v44-integration → main       | 🔨 opening PR | all 9 merged; pushing + PR + CI + grant merge + smoke | — | grant merge + smoke |
 
 ## Judgment calls (decision 15 log)
 - **PR-1 cheapest derivation:** the board's `cheapest(grade)` derives from
@@ -264,7 +264,20 @@ marquee keyline §2, add `search`/`arrow` icons if missing.
   >7d hide, cheapest/grades, key normalization); 3 fixture dates in
   `test_gas_prices_page.py`.
 
-## NEXT ACTION (now)
+## NEXT ACTION (FINAL)
+All 9 PRs ✅ merged into `v44-integration` @ `edcb4a86`. Remaining:
+1. Push `v44-integration` to origin.
+2. Open the single `v44-integration → main` PR (body: scratchpad/v44_pr_body.md).
+3. Wait for CI green (gh pr checks).
+4. Merge to main under the kickoff autonomy grant — all APPLICABLE gates green
+   (CI, local pytest/ruff/mypy, PROGRESS complete, smoke ready). Visual-refs gate is
+   N/A (mock not in repo; visual test is CI-optional + self-baselining — documented).
+5. Post-deploy smoke: /home 200 + today's Phoenix date + feed.total-consistent
+   headline; /gas 200 honest label no >7d; /calendar current month.
+6. If smoke fails → git revert the merge on a branch → emergency revert PR → merge
+   it under the grant → stop with a PROGRESS note.
+
+## (older) NEXT ACTION
 PR-7 ✅ merged (2f31a7f4). START PR-8 (shell) on `feat/v44-08-shell` — see "PR-8 scouting".
 Split site_header `_nav` into full (drawer) + `_nav_primary` (6 desktop links); footer
 `.biz` brass + verify single-source + de-noindex /sponsor; grep test zero havasuchat.com.
