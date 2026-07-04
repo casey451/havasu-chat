@@ -1,17 +1,16 @@
-{% extends "base_lake.html" %}
-{#- Lake gas-prices page (GET /gas, public). Same context as gas_prices.html.
-   Single "Updated" freshness phrasing; honest empty state (never a guessed
-   price). Cheapest 6-up grid + the full station table. -#}
+{% extends "base_redesign.html" %}
+{#- /gas in the v4 language (v4.5 PR-2). Same GasBoard context; the v4 cond strip
+   (its gas tile is a plain span here — cond_gas_plain) + serif heads + the PR-6
+   grade segment, all-grade matrix table, Cheapest chip and honest clock. -#}
+{% from "components/redesign_icons.html" import icon %}
 {% block title %}Gas prices — Ask Hava{% endblock %}
 {% block meta_description %}Today's cheapest gas stations in Lake Havasu City, with regular, mid, premium and diesel prices updated daily. Always confirm at the pump.{% endblock %}
-{% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_conditions.css') }}">
-{% endblock %}
-{% block content %}
-<div class="wrap">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Home</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Gas</span></nav>
+
+{% block main %}
+<div class="gaswrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Gas</span></nav>
   <div class="pagehead">
-    <h1>Gas prices in Lake Havasu City</h1>
+    <h1 class="serif">Gas prices in Lake Havasu City</h1>
     {% if has_data %}
     <p class="sub">{{ data.station_count }} stations tracked.</p>
     <div class="gas-fresh{% if is_stale %} is-stale{% endif %}">
@@ -25,7 +24,7 @@
   {% if city_avg and city_avg.regular %}
   <div class="card gas-avg" aria-label="City average">
     <div class="gas-avg-main">
-      <p class="eyebrow">City average &middot; regular</p>
+      <p class="eyebrow">City average · regular</p>
       <div class="price tnum">${{ '%.2f'|format(city_avg.regular) }}</div>
       <div class="gas-avg-sub">Average across all {{ data.station_count }} tracked stations</div>
     </div>
@@ -38,16 +37,12 @@
   {% endif %}
 
   {% if cheapest %}
-  <div class="sec-head"><h2>Cheapest today{% if fetched_at_time_label %} (as of {{ fetched_at_time_label }}){% endif %}</h2></div>
+  <div class="sec-head"><h2 class="serif">Cheapest today{% if fetched_at_time_label %} (as of {{ fetched_at_time_label }}){% endif %}</h2></div>
   <div class="gas-cheap">
     {% for s in cheapest %}
     {% if s.provider_slug %}<a class="card gas-card" href="/provider/{{ s.provider_slug }}">{% else %}<div class="card gas-card">{% endif %}
-      {#- 2026-07-01 master audit §6.4: "#4 · Rebel Oil" over a "Riverbound RV
-          Park" name line read as a label/data mismatch. The rank line carries
-          the brand only when it matches the station name; a differing brand
-          (branded pumps at another venue) moves to a note on the name line. -#}
       {% set brand_matches = s.brand and s.name and (s.brand | lower in s.name | lower or s.name | lower in s.brand | lower) %}
-      <div class="rank">#{{ loop.index }}{% if brand_matches or (s.brand and not s.name) %} &middot; {{ s.brand }}{% elif s.name %} &middot; {{ s.name }}{% endif %}{% if loop.first %} <span class="chp">Cheapest</span>{% endif %}</div>
+      <div class="rank">#{{ loop.index }}{% if brand_matches or (s.brand and not s.name) %} · {{ s.brand }}{% elif s.name %} · {{ s.name }}{% endif %}{% if loop.first %} <span class="chp">Cheapest</span>{% endif %}</div>
       <div class="price tnum">{% if s.prices and s.prices.regular %}${{ '%.2f'|format(s.prices.regular) }}{% else %}&mdash;{% endif %}</div>
       <div class="name">{{ s.name }}{% if s.brand and s.name and not brand_matches %} <span class="brand-note">({{ s.brand }} pumps)</span>{% endif %}</div>
       {% if s.address %}<div class="addr">{{ s.address }}</div>{% endif %}
@@ -56,7 +51,7 @@
   </div>
   {% endif %}
 
-  <div class="sec-head"><h2>All stations</h2></div>
+  <div class="sec-head"><h2 class="serif">All stations</h2></div>
   {% if not single_grade %}
   <div class="gsegwrap">
     <div class="gseg lg" id="gasSeg" role="group" aria-label="Sort by fuel grade">
@@ -84,7 +79,7 @@
   {% endif %}
   {% else %}
   <div class="card gas-empty" aria-label="No gas data">
-    <h2>No gas prices yet</h2>
+    <h2 class="serif">No gas prices yet</h2>
     <p>The daily price pull hasn't returned data yet. Check back soon. We never show a guessed price.</p>
   </div>
   {% endif %}
@@ -94,8 +89,8 @@
 {% if not single_grade %}
 <script>
 /* v4.4 PR-6: sort the station table by the selected grade; stations without that
-   grade drop off (no dashes). Progressive enhancement — the server already ships
-   a regular-sorted, all-columns table that works with no JS. */
+   grade drop off (no dashes). Progressive enhancement — the server ships a
+   regular-sorted, all-columns table that works with no JS. */
 (function () {
   "use strict";
   var seg = document.getElementById("gasSeg");

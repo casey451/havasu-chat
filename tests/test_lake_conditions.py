@@ -39,7 +39,7 @@ def test_lake_gas_route_is_themed() -> None:
     # test can seed gas rows; don't assert the empty state through the route.
     b = TestClient(app).get("/gas?theme=lake").text
     assert 'data-theme="lake"' in b
-    assert "/static/styles/lake_conditions.css" in b
+    assert "/static/styles/lake_redesign.css" in b  # v4.5 PR-2: the v4 shell stylesheet
     assert b.count("<h1") == 1
     assert not _a11y(b)
 
