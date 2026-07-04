@@ -105,4 +105,4 @@ def test_senior_center_exercise_class_twin_renders_once() -> None:
     )
     r = TestClient(app).get(f"/events-ui?date={when.isoformat()}")
     assert r.status_code == 200
-    assert r.text.count(f'rtitle">{base}') == 1
+    assert r.text.count(f'et">{base}<') == 1

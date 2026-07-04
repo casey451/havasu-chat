@@ -16,7 +16,9 @@ from test_ada_compliance import _A11yChecker
 
 from app.main import app
 
-_INNER = ["/events-ui", "/categories", "/about", "/help", "/contact"]
+# /events-ui migrated to the base_redesign shell (v4.5 PR-1) — it no longer uses
+# the base_lake reskin these assertions check; its own v4 shell is tested elsewhere.
+_INNER = ["/categories", "/about", "/help", "/contact"]
 
 
 @pytest.mark.parametrize("url", _INNER)
@@ -40,7 +42,7 @@ def test_standalone_v4_home_not_double_skinned() -> None:
     assert "/static/styles/lake_redesign_site.css" not in b  # not double-linked
 
 
-@pytest.mark.parametrize("url", ["/about", "/events-ui"])
+@pytest.mark.parametrize("url", ["/about"])
 def test_reskinned_pages_a11y(url: str) -> None:
     checker = _A11yChecker()
     checker.feed(TestClient(app).get(url).text)

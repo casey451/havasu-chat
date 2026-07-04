@@ -154,8 +154,8 @@ def test_events_ui_renders_view_toggle_and_today_accordion() -> None:
         assert 'aria-label="Calendar view"' in body  # view toggle present
         assert "?view=week" in body and "?view=month" in body
         # Today view is the default: the Today tab is current, the accordion renders.
-        assert 'aria-current="page">Today</a>' in body
-        assert 'class="ev-acc"' in body  # today section accordion (seeded happening)
+        assert 'aria-current="page"><span class="cl">Today</span>' in body
+        assert 'class="sec' in body  # today section accordion (seeded happening)
     finally:
         with SessionLocal() as db:
             db.execute(delete(Event).where(Event.id == eid))
@@ -166,8 +166,8 @@ def test_events_ui_when_today_maps_to_today_view() -> None:
     """Legacy ?when=today still narrows to today only (now the Today view)."""
     with TestClient(app) as client:
         body = client.get("/events-ui?when=today").text
-    assert 'aria-current="page">Today</a>' in body  # Today view current
-    assert 'class="ev-week"' not in body  # not the week view
+    assert 'aria-current="page"><span class="cl">Today</span>' in body  # Today view current
+    assert 'wklist' not in body  # not the week view
 
 
 def test_events_ui_when_weekend_still_responds_with_week_view() -> None:
@@ -177,14 +177,14 @@ def test_events_ui_when_weekend_still_responds_with_week_view() -> None:
         for legacy in ("weekend", "this-week", "next-week", "all"):
             resp = client.get(f"/events-ui?when={legacy}")
             assert resp.status_code == 200
-            assert 'class="ev-week"' in resp.text
+            assert 'wklist' in resp.text
 
 
 def test_events_ui_date_deeplink_shows_single_day() -> None:
     with TestClient(app) as client:
         body = client.get("/events-ui?date=2099-04-12").text
     assert "Sunday, April 12" in body  # the single-day H1
-    assert 'class="ev-daynav"' in body  # day navigation strip
+    assert 'class="evnav"' in body  # day navigation strip
     assert "/events-ui?date=2099-04-11" in body  # prev-day link
     assert "/events-ui?date=2099-04-13" in body  # next-day link
 

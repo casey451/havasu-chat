@@ -79,7 +79,7 @@ def test_movies_feature_renders_under_lake_theme(monkeypatch: pytest.MonkeyPatch
         # category accordion (two-surface spec §2; promoted from the old strip).
         assert events.status_code == 200
         assert _LAKE_MARKER in events.text
-        assert 'data-group="movies"' in events.text
+        assert 'data-k="movies"' in events.text
         assert film in events.text
     finally:
         _cleanup(ids)

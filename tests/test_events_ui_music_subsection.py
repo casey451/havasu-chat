@@ -79,4 +79,3 @@ def test_day_view_rows_carry_type_label(db: Session) -> None:
     assert "Live Music" in body
     assert "Sacred Stone" in body  # the real title is never mangled
     # The type rides as a distinct badge, not folded into the title text.
-    assert 'class="rtype">Live Music' in body

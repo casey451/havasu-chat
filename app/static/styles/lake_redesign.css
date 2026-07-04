@@ -316,6 +316,21 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .cell .dots i{width:5px;height:5px;border-radius:50%}
 .cell.past{opacity:.5}
 .cell.wknd{background:linear-gradient(180deg,#fbfaf6,var(--surface))}
+/* v4.5 PR-1: /events-ui in the v4 shell. */
+.evx{padding-bottom:8px}
+.crumbs{display:flex;align-items:center;gap:6px;font-size:12px;color:var(--ink3);margin:12px 16px 0;flex-wrap:wrap}
+.crumbs a{color:var(--ink3);text-decoration:none}.crumbs a:hover{color:var(--teal)}
+.crumbs .sep{color:var(--ink4)}
+.evx .sections{padding:0 16px 6px}
+.evnav{display:flex;align-items:center;gap:8px;margin:10px 16px 0}
+.evnav a{display:inline-flex;align-items:center;justify-content:center;min-width:36px;height:34px;padding:0 11px;border:1px solid var(--hair);border-radius:10px;color:var(--ink2);text-decoration:none;font-size:12.5px;font-weight:600;background:var(--surface)}
+.evnav a:hover{border-color:var(--teal-line);color:var(--teal)}
+.wklist .ev{padding-left:11px;padding-right:11px}
+.wklist .ev .evt{min-width:78px;color:var(--teal-deep);font-weight:600}
+.wklist .ev.wktoday{background:var(--teal-soft);border-radius:12px}
+.calwd{display:grid;grid-template-columns:repeat(7,1fr);gap:6px;padding:0 16px;margin-top:8px;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);text-align:center}
+.calnote{font-size:12px;color:var(--ink3);margin:12px 16px 0}
+.cell .more.cls{color:var(--ink3)}
 /* mobile default: dots, not chips */
 .cell .chips{display:none}
 /* agenda panel */

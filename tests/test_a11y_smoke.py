@@ -122,7 +122,7 @@ def test_events_page_sections_are_labelled_for_screen_readers() -> None:
     body = resp.text
     assert 'aria-label="Breadcrumb"' in body
     assert 'aria-label="Calendar view"' in body
-    assert body.count("<h1>") == 1
+    assert body.count("<h1") == 1
     assert "view=month" in body
 
 
