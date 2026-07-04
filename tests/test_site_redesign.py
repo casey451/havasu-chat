@@ -16,9 +16,14 @@ from test_ada_compliance import _A11yChecker
 
 from app.main import app
 
-# /events-ui migrated to the base_redesign shell (v4.5 PR-1) — it no longer uses
-# the base_lake reskin these assertions check; its own v4 shell is tested elsewhere.
-_INNER = ["/categories", "/about", "/help", "/contact"]
+# /events-ui (v4.5 PR-1) and the /categories directory (v4.5 PR-4) migrated to the
+# standalone base_redesign shell — they no longer use the base_lake reskin these
+# assertions check; their own v4 shell is tested below + in the directory tests.
+_INNER = ["/about", "/help", "/contact"]
+
+# Pages fully on the standalone v4 shell (base_redesign → its own lake_redesign.css,
+# never the base_lake reskin sheet).
+_V4_STANDALONE = ["/home", "/categories"]
 
 
 @pytest.mark.parametrize("url", _INNER)
@@ -36,10 +41,12 @@ def test_reskin_needs_no_flag_and_sets_no_cookie() -> None:
     assert "home_redesign" not in (r.headers.get("set-cookie") or "")
 
 
-def test_standalone_v4_home_not_double_skinned() -> None:
-    b = TestClient(app).get("/home").text
+@pytest.mark.parametrize("url", _V4_STANDALONE)
+def test_standalone_v4_not_double_skinned(url: str) -> None:
+    b = TestClient(app).get(url, follow_redirects=True).text
     assert "/static/styles/lake_redesign.css" in b  # its own v4 sheet
     assert "/static/styles/lake_redesign_site.css" not in b  # not double-linked
+    assert "data-redesign" not in b  # not the base_lake reskin path
 
 
 @pytest.mark.parametrize("url", ["/about"])

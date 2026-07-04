@@ -75,3 +75,23 @@ def test_movies_page_wears_v4_shell() -> None:
     )
     # the old drawn head-art scene is gone (§0 guardrail 3).
     assert "head-art" not in html
+
+
+def test_directory_index_wears_v4_shell() -> None:
+    """PR-4: the /categories directory index renders in the v4 language.
+
+    (The listing/leaf/faceted pages need seeded taxonomy data — their v4 markup
+    is covered against sample context in ``test_lake_directory.py``.)
+    """
+    with TestClient(app) as client:
+        html = client.get("/categories").text
+    assert "/static/styles/lake_redesign.css" in html
+    assert "/static/styles/lake_directory.css" not in html
+    assert "data-redesign" not in html  # the standalone v4 shell, not base_lake
+    assert 'class="cond"' in html  # cond strip on the discovery page
+    assert 'class="dirx"' in html  # v4 directory wrapper
+    assert html.count("<h1") == 1
+    # zero emoji — the rating star (on cards) is an inline SVG icon, not a ★ glyph.
+    assert not any(
+        0x1F000 <= ord(ch) <= 0x1FAFF or 0x2600 <= ord(ch) <= 0x27BF for ch in html
+    )

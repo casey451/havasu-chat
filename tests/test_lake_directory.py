@@ -48,9 +48,12 @@ def test_card_provider_link_sponsored_and_open() -> None:
     h = _render_card(_sample_card())
     assert "/provider/mudshark" in h
     assert "Mudshark Brewery" in h and "Sponsored" in h
-    assert "★ 4.7" in h and "Open now" in h
+    # v4.5 PR-4: the rating is an SVG star icon + number (no ★ glyph — zero emoji).
+    assert 'class="star"' in h and "4.7" in h and "Open now" in h
     assert "tel:19285550100" in h
-    assert "ph--art" in h and ">M<" in h  # monogram fallback (no image)
+    # No image block at all when there's no photo (v45 §0: real photo or nothing —
+    # the old ph--art monogram placeholder is gone).
+    assert 'class="bph"' not in h and "ph--art" not in h and ">M<" not in h
 
 
 def test_card_place_without_slug_links_out() -> None:
@@ -68,7 +71,7 @@ def test_card_place_without_slug_links_out() -> None:
 def test_lake_categories_index() -> None:
     b = TestClient(app).get("/categories?theme=lake").text
     assert 'data-theme="lake"' in b
-    assert "/static/styles/lake_directory.css" in b
+    assert "/static/styles/lake_redesign.css" in b  # v4.5 PR-4: the v4 shell stylesheet
     assert b.count("<h1") == 1
     assert '"@type": "CollectionPage"' in b
     checker = _A11yChecker()

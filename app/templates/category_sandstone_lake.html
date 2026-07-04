@@ -1,16 +1,16 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {% from "_partials/dir_toolbar.html" import dir_toolbar %}
-{#- Lake Ink & Brass category browse page (/categories/{slug}) — the rich
-   directory listing: subcategory + cuisine chips, filter/sort, the ONE labeled
-   category-sponsor slot, real cards, pagination. SAME real context as
-   category_sandstone.html (incl. the ``facet_href`` callable). D4 kept: cards
-   show visible stars; structured data is CollectionPage + ItemList only. -#}
+{#- Faceted category browse page (/categories/{slug}) in the v4 language
+   (v4.5 PR-4) — the rich directory listing: subcategory + cuisine chips,
+   filter/sort, the ONE labeled category-sponsor slot, real cards, pagination.
+   SAME real context as category_sandstone.html (incl. the ``facet_href``
+   callable). D4 kept: cards show visible stars; structured data is
+   CollectionPage + ItemList only. -#}
 
 {% block title %}{{ category_label }}{% if page and page > 1 %} — Page {{ page }}{% endif %} in Lake Havasu City — Ask Hava{% endblock %}
 {% block meta_description %}{{ category_one_liner | meta_desc(160) if category_one_liner else (category_label ~ ' in Lake Havasu City — real local listings, open-now first.') }}{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_directory.css') }}">
 {% if prev_url %}<link rel="prev" href="{{ prev_url }}">{% endif %}
 {% if next_url %}<link rel="next" href="{{ next_url }}">{% endif %}
 {% if canonical_url is defined %}
@@ -31,12 +31,12 @@
 {% endif %}
 {% endblock %}
 
-{% block content %}
-<div class="wrap dir-wrap">
+{% block main %}
+<div class="dirx">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><a href="/categories">Directory</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">{{ category_label }}</span></nav>
   <div class="pagehead">
     <h1>{{ category_label }}</h1>
-    {% if category_one_liner %}<p class="sub">{{ category_one_liner }}</p>{% endif %}
+    {% if category_one_liner %}<p class="dsub">{{ category_one_liner }}</p>{% endif %}
   </div>
 
   {% if trade_links %}
@@ -79,9 +79,9 @@
   {{ dir_toolbar(_toolbar_groups, note=sort_note, aria='Filter and sort') }}
 
   {% if active_filter_labels %}
-  <p class="cat-empty" style="margin:6px 0 0">{{ active_filter_labels|join(' · ') }} · {{ category_count or 0 }} place{{ '' if category_count == 1 else 's' }} · <a href="{{ clear_filters_url }}">clear</a></p>
+  <p class="cat-empty">{{ active_filter_labels|join(' · ') }} · {{ category_count or 0 }} place{{ '' if category_count == 1 else 's' }} · <a href="{{ clear_filters_url }}">clear</a></p>
   {% endif %}
-  {% if page_summary %}<p class="sub" style="margin:8px 0 0">{{ page_summary }}</p>{% endif %}
+  {% if page_summary %}<p class="dsub">{{ page_summary }}</p>{% endif %}
 
   {% if category_cards or sponsored %}
     {# P3: the category ad slot lives at the TOP, above the listing grid, on every
@@ -89,24 +89,24 @@
        labeled claim CTA holds the same top spot (real-or-claim, never a fake
        sponsor) so the slot is consistent across categories. #}
     {% if sponsored %}
-    <aside class="cat-sponsor" aria-label="Category sponsor" style="margin-top:16px">
+    <aside class="cat-sponsor" aria-label="Category sponsor">
       <a class="adbar" href="{% if sponsored.click_url %}{{ sponsored.click_url }}{% else %}/sponsor/click?id={{ sponsored.id }}&slot=promoted{% endif %}">
         <span class="mono" aria-hidden="true">{{ (sponsored.headline or sponsored.name or '·')[0]|upper }}</span>
-        <div class="ab"><span class="stag">Sponsored · {{ category_label }}</span><div class="an">{{ sponsored.headline or sponsored.name }}</div>{% if sponsored.pitch %}<div class="am">{{ sponsored.pitch }}</div>{% endif %}</div>
+        <div class="ab"><span class="stag">Sponsored · {{ category_label }}</span><div class="an serif">{{ sponsored.headline or sponsored.name }}</div>{% if sponsored.pitch %}<div class="am">{{ sponsored.pitch }}</div>{% endif %}</div>
         <span class="ar"><span class="btn btn-ghost">View</span></span>
       </a>
     </aside>
     {% else %}
-    <aside class="cat-sponsor" aria-label="Category sponsor" style="margin-top:16px">
+    <aside class="cat-sponsor cat-sponsor-claim" aria-label="Category sponsor">
       <a class="adbar" href="/sponsor">
         <span class="mono" aria-hidden="true">+</span>
-        <div class="ab"><span class="stag">Sponsored · {{ category_label }}</span><div class="an">Your business at the top of {{ category_label }}</div><div class="am">Quiet, clearly labeled.</div></div>
+        <div class="ab"><span class="stag">Sponsored · {{ category_label }}</span><div class="an serif">Your business at the top of {{ category_label }}</div><div class="am">Quiet, clearly labeled.</div></div>
         <span class="ar"><span class="btn btn-ghost">Advertise</span></span>
       </a>
     </aside>
     {% endif %}
 
-    <div class="listcard" id="bizGrid" style="margin-top:16px">
+    <div class="listcard" id="bizGrid">
       {% set ns = namespace(new_shown=false) %}
       {% for card in category_cards %}{% if card.is_new_unrated and not ns.new_shown %}{% set ns.new_shown = true %}<div class="grid-divider" role="separator">New / Not yet rated</div>{% endif %}{% include 'components/lake_biz_card.html' %}{% endfor %}
     </div>
@@ -119,15 +119,15 @@
     </nav>
     {% endif %}
 
-    <p style="text-align:center;margin:26px 0 4px;font-size:13px"><a href="/contribute?kind=provider&amp;category={{ category_label|urlencode }}" style="color:var(--brass-deep);font-weight:600">Missing a business? Suggest one →</a>
+    <p class="dir-suggest"><a href="/contribute?kind=provider&amp;category={{ category_label|urlencode }}">Missing a business? Suggest one →</a>
       <span aria-hidden="true">·</span>
-      <a href="/feedback?type=wrong_info&amp;target_type=category&amp;ref={{ category_label|urlencode }}&amp;name={{ category_label|urlencode }}" style="color:var(--brass-deep);font-weight:600">Report wrong info</a></p>
+      <a href="/feedback?type=wrong_info&amp;target_type=category&amp;ref={{ category_label|urlencode }}&amp;name={{ category_label|urlencode }}">Report wrong info</a></p>
   {% else %}
     <p class="cat-empty">No listings here yet. <a href="/chat?q={{ category_label|urlencode }}">Ask Hava →</a></p>
   {% endif %}
 
   <section class="askstrip">
-    <h2>Can't decide? <em>Ask.</em></h2>
+    <h2 class="serif">Can't decide? <em>Ask.</em></h2>
     <form action="/chat" method="get" role="search">
       <label class="skip" for="cat-ask">Ask Hava</label>
       <input id="cat-ask" name="q" type="search" placeholder="Ask about {{ category_label | lower }}…" autocomplete="off">
