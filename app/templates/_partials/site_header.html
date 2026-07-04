@@ -47,7 +47,9 @@
           {% for href, label, keys in _nav_full %}<a href="{{ href }}"{% if active_tab in keys %} class="active" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
           <a class="biz{% if active_tab == 'portal' %} active{% endif %}" href="/portal">For Business</a>
           <a class="{% if active_tab == 'account' %}active{% endif %}" href="/account">Account</a>
-          <a href="/login">Sign in</a>
+          {#- Session 1 (2026-07-04): drawer "Sign in" hidden — auth isn't in use
+             yet. The /login route + login_lake.html template are kept; restore
+             this link to bring it back. -#}
         </div>
       </details>
       <a class="brand" href="/home" aria-label="Ask Hava — home">{{ logo_nav(26, cls="rdlogo") }}<span class="wm">Ask <span class="b">Hava</span></span></a>
@@ -57,8 +59,11 @@
       </span>
       <span class="nav-sp"></span>
       <a class="ico sc-only-d" href="/chat" aria-label="Search">{{ icon('search', 17) }}</a>
-      <a class="btn-ghost sc-only-d" href="/login">Sign in</a>
-      <a class="avatar sc-only-m" href="/account" aria-label="Account">{{ icon('pin', 15) }}</a>
+      {#- Session 1 (2026-07-04): sign-in UI removed from the masthead — the
+         desktop "Sign in" ghost button and the mobile avatar circle (which led to
+         "Sign in with email") are hidden because auth isn't in use yet. The
+         /login and /account routes/templates are untouched; restore these two
+         anchors to bring the entry points back. -#}
     </div>
   </nav>
 </header>

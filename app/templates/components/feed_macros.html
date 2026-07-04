@@ -16,7 +16,11 @@
     <span class="et">{{ row.title }}</span>
     {% if row.venue %}<span class="em">{{ row.venue }}</span>{% endif %}
     {% if row.blurb %}<span class="eb">{{ row.blurb }}</span>{% endif %}
-    {% if row.tags %}<span class="tags">{{ tags(row.tags) }}</span>{% endif %}
+    {#- Session 1 (2026-07-04): backend sorting tags (e.g. "church events",
+       "farmers market") are no longer shown on event rows — users already know
+       the section they're in. The tags() macro below is kept intact for future
+       use (e.g. a clean "Free" badge). Re-enable by restoring the span. -#}
+    {#- {% if row.tags %}<span class="tags">{{ tags(row.tags) }}</span>{% endif %} -#}
   </span>
   {% if row.url %}<span class="det" aria-hidden="true">{{ icon('arrow', 15) }}</span>{% endif %}
 {% if row.url %}</a>{% else %}</div>{% endif %}

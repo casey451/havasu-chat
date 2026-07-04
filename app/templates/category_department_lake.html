@@ -22,7 +22,10 @@
   {# P2 (2026-06-23): a few real "open now first" listings above the sub-tiles, so
      the landing honors its "open-now first" promise instead of forcing a click
      into a leaf before any business is visible. Omitted entirely when empty. #}
-  {% if landing_cards %}
+  {% if false and landing_cards %}{#- Session 1 (2026-07-04): "Open now & popular"
+     hidden across department pages — the contents read as arbitrary. The
+     _landing_cards builder (categories/router.py) is kept; restore by removing
+     `false and` above. A proper featured section will replace it later. -#}
   <section class="dir-listings" aria-label="Open now in {{ department_label }}">
     <div class="sec-head"><h2 class="serif">Open now &amp; popular</h2></div>
     <div class="listcard">

@@ -395,6 +395,13 @@ body.scrolled .head-stack{box-shadow:0 6px 18px -10px rgba(19,32,29,.28)}
 .gseg button.on{background:#fff;color:var(--teal-deep);box-shadow:var(--sh-sm)}
 .gseg.lg{border-radius:11px;padding:3px}
 .gseg.lg button{font-size:12.5px;padding:8px 16px;border-radius:8px}
+/* Session 1 (Casey 2026-07-04): Diesel reads green (US pump convention) in the
+   grade segment — home strip uses data-grade="dsl", the /gas page uses
+   data-grade="diesel". Shade is provisional; adjust to taste. */
+.gseg button[data-grade="dsl"],
+.gseg button[data-grade="diesel"]{color:#1e8e3e}
+.gseg button[data-grade="dsl"].on,
+.gseg button[data-grade="diesel"].on{color:#15803d;background:#fff;box-shadow:var(--sh-sm)}
 /* v4.5 PR-2: /gas page body in the v4 language (scoped under .gaswrap). */
 .gaswrap{padding:0 16px 12px}
 .gaswrap .pagehead{margin:16px 0 2px}

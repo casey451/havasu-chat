@@ -72,9 +72,11 @@ def test_section_preview_rows_from_real_rows_capped_at_three() -> None:
 
 
 def test_home_renders_places_pills() -> None:
+    # Session 1 declutter (2026-07-04): the category-count pill rail — including the
+    # For Kids / For Seniors "places" shortcuts — was removed from the feed (it
+    # duplicated the sections below). Both hubs stay one tap away via the hamburger
+    # menu (_nav_full), so they remain reachable.
     with TestClient(app) as client:
         html = client.get("/home").text
-    # Brass audience shortcuts, no count, linking the hubs.
-    assert 'class="cpill places" href="/family"' in html
-    assert 'class="cpill places" href="/seniors"' in html
-    assert "For Kids" in html and "For Seniors" in html
+    assert 'class="cpill places"' not in html  # feed pill rail gone
+    assert ">For Kids<" in html and ">For Seniors<" in html  # still in the menu

@@ -612,15 +612,19 @@ def day_groups(
     # only groups stay collapsed, and an event-less day loads fully collapsed.
     # The gated Seniors group never auto-opens on its routine weekly programming —
     # only a genuine senior special/competition opens it.
+    # Session 1/2a declutter (Casey 2026-07-04): the day now loads FULLY COLLAPSED
+    # so it can be scanned by header + preview line instead of "drowning in
+    # headers". This intentionally overrides the older behavior that auto-opened
+    # any section holding a real happening (kept `_row_is_event`/`_row_has_special`
+    # available for reuse). When a top-level section IS opened it reveals ALL of
+    # its subcategories at once — subgroups render pre-expanded, so there is no
+    # second click into each subgroup — EXCEPT Fitness & classes (key "classes"),
+    # which stays nested to avoid overwhelming busy class days.
     for g in groups:
-        if g["key"] == "seniors":
-            g["open"] = any(_row_has_special(r) for r in g["rows"])
-        else:
-            g["open"] = any(_row_is_event(r) for r in g["rows"])
-        # Subcategories stay collapsed until expanded (spec §5.3); only the
-        # top-level header auto-opens on a real event.
+        g["open"] = False
+        sub_open = g["key"] != "classes"
         for sub in g.get("subgroups", []):
-            sub["open"] = False
+            sub["open"] = sub_open
     return groups
 
 

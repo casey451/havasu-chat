@@ -251,7 +251,11 @@ def gas_top5(db: Session, *, now: datetime | None = None) -> dict[str, Any]:
 # ── gas grade switch (v4.4 PR-6 panel + /gas) ──────────────────────────────────
 # Compact panel labels vs the large /gas-page labels (DESIGN_SPEC §5.1). "reg"
 # carries no tile-echo suffix (regular is the default, un-annotated state).
-GAS_GRADE_LABELS_SHORT: dict[str, str] = {"reg": "Reg", "mid": "Mid", "prem": "Prem", "dsl": "Diesel"}
+# Session 1 (Casey 2026-07-04): one clean label per grade — Regular / Mid /
+# Premium / Diesel — for the strip-panel segment. The tile-echo suffix is now
+# blank for every grade (see gas_panel_data) so the Gas tile never crams into
+# "gas · Mid" / "gas · Premium"; the selected grade reads from the segment button.
+GAS_GRADE_LABELS_SHORT: dict[str, str] = {"reg": "Regular", "mid": "Mid", "prem": "Premium", "dsl": "Diesel"}
 GAS_GRADE_LABELS_LONG: dict[str, str] = {
     "reg": "Regular", "mid": "Midgrade", "prem": "Premium", "dsl": "Diesel",
 }
@@ -285,7 +289,10 @@ def gas_panel_data(db: Session, *, now: datetime | None = None) -> dict[str, Any
     by_grade = {g: _grade_rows(board, g, 5) for g in grades}
     echo = {
         g: {
-            "suffix": "" if g == "reg" else GAS_GRADE_LABELS_SHORT[g],
+            # Session 1 (2026-07-04): blank suffix — the Gas tile shows only the
+            # price for the selected grade, never "gas · Mid" cramming. The grade
+            # is read from the highlighted segment button instead.
+            "suffix": "",
             "value": by_grade[g][0]["price"] if by_grade[g] else "",
         }
         for g in grades
