@@ -45,8 +45,11 @@ def test_home_redesign_structure() -> None:
     assert 'role="search"' in b  # hero search
     assert 'class="daystrip' in b  # one-week date strip
     assert 'class="calbtn"' in b  # Calendar button
-    assert 'class="counts' in b  # count overview rail
-    assert 'id="jump"' in b  # jump-to-category dropdown
+    # Session 1 declutter (2026-07-04): the count overview rail (class="counts")
+    # and the "Jump to" dropdown (id="jump") were removed — they duplicated the
+    # sections below. Their absence is asserted so they don't quietly return.
+    assert 'class="counts' not in b
+    assert 'id="jump"' not in b
     assert "/static/js/lake_redesign.js" in b  # progressive-enhancement layer
     # buyable ad placeholder, never a fake business
     assert "Ad space · Available" in b or "Sponsored" in b

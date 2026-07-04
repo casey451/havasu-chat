@@ -29,7 +29,10 @@ _REQUIRED_MENU_LINKS = (
     ">Explore<",
     ">Ask<",
     ">For Business<",
-    ">Sign in<",
+    # Session 1 declutter (2026-07-04): the drawer "Sign in" link is intentionally
+    # hidden (auth isn't in use yet); /login stays routable. So it's no longer a
+    # required menu surface. For Kids / For Seniors remain required — they stay in
+    # _nav_full even though their feed pills were removed.
 )
 
 

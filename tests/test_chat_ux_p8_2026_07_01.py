@@ -99,15 +99,18 @@ def test_leaf_page_echoes_search_term():
 # --- home count unification (F6) --------------------------------------------------
 
 
-def test_home_headline_uses_feed_total():
-    # Structural check: the template reads feed.total for the headline — the
-    # same variable as the "All today" pill — so the two can never drift.
+def test_home_headline_drops_the_count():
+    # Session 1 declutter (Casey 2026-07-04): the headline "· N going on" count and
+    # the "All today" count pill were both removed — the collapsed sections are the
+    # scan target now, so feed.total is no longer rendered anywhere in the feed
+    # header. (Original F6 intent — headline and pill can't drift — is moot once
+    # neither exists.)
     from pathlib import Path
 
     tpl = (Path(__file__).resolve().parents[1] / "app" / "templates"
            / "home_redesign.html").read_text(encoding="utf-8")
     assert "{{ happenings }}" not in tpl
-    assert tpl.count("{{ feed.total }}") >= 2  # headline + All-today pill
+    assert "{{ feed.total }}" not in tpl  # count removed from headline + pill rail
 
 
 # --- F2 product carry-through ------------------------------------------------------

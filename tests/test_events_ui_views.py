@@ -112,9 +112,12 @@ def test_today_view_groups_by_category_events_first(
         # ?view=places tab is retired). Cleanliness comes from collapse, not a
         # second surface.
         assert i_events < i_music < i_water
-        # Auto-expand (Casey 2026-06-26): a group holds a real EVENT → opens.
+        # Session 1 declutter (Casey 2026-07-04): the day loads FULLY COLLAPSED —
+        # no top-level section auto-opens, even one holding a real event. The rows
+        # still render inside their (closed) <details>, so the order and membership
+        # checks below are unaffected; only the `open` attribute is gone.
         for key in ("events", "music", "water"):
-            assert f'data-k="{key}" open' in body
+            assert f'data-k="{key}" open' not in body
         events_block = body[i_events:i_music]
         assert festival in events_block and stroll in events_block
         assert band in body[i_music:i_water]
@@ -161,8 +164,9 @@ def test_classes_appear_collapsed_on_unified_calendar() -> None:
         assert spin in body and yoga in body
         assert 'data-k="classes"' in body
         assert 'data-k="classes" open' not in body
-        # The happening's group leads and is open.
-        assert 'data-k="events" open' in body
+        # Session 1 declutter (2026-07-04): every top-level section loads collapsed
+        # now — the happening's group leads by ORDER, not by auto-open.
+        assert 'data-k="events" open' not in body
     finally:
         _cleanup(eids)
 

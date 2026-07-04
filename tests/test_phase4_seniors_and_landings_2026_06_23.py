@@ -121,7 +121,12 @@ def _cleanup(leaf_slug: str, created_dept: bool) -> None:
         db.commit()
 
 
-def test_department_landing_shows_listings_above_subtiles() -> None:
+def test_department_landing_hides_open_now_section_but_keeps_grid() -> None:
+    # Session 1 declutter (2026-07-04): the "Open now & popular" landing strip
+    # (class="dir-listings") is hidden on department pages — its contents read as
+    # arbitrary. Even with a real open-now business seeded, the section does NOT
+    # render; only the sub-tile leaf grid shows. The _dept_landing_cards builder is
+    # kept (see the two builder tests below) for a future curated featured section.
     leaf_slug, names, created = _seed_pets_dept_with_providers(
         [{"name": f"Paws Grooming {uuid4().hex[:5]}", "rating": 4.8, "reviews": 120}]
     )
@@ -129,11 +134,8 @@ def test_department_landing_shows_listings_above_subtiles() -> None:
         r = TestClient(app, follow_redirects=False).get("/categories/pets?theme=lake")
         assert r.status_code == 200
         body = r.text
-        # The "open now first" listing section renders a real business card …
-        assert "dir-listings" in body
-        assert names[0] in body
-        # … and it sits ABOVE the sub-tile leaf grid (honoring "open-now first").
-        assert body.index("dir-listings") < body.index("leafgrid")
+        assert "dir-listings" not in body  # section hidden
+        assert "leafgrid" in body  # sub-tile grid still renders
     finally:
         _cleanup(leaf_slug, created)
 

@@ -57,11 +57,12 @@ def test_per_grade_top5_and_dropoff() -> None:
 
 def test_tile_echo_strings() -> None:
     panel = _panel(_MIXED)
-    # Regular carries no suffix (default, un-annotated); its value is the cheapest.
+    # Session 1 (2026-07-04): the tile echo suffix is now blank for EVERY grade —
+    # the Gas tile shows only the cheapest price, never "gas · Diesel" cramming;
+    # the selected grade reads from the highlighted segment button instead. The
+    # per-grade cheapest VALUE is still exposed so the tile swaps on switch.
     assert panel["echo"]["reg"] == {"suffix": "", "value": "$3.20"}
-    # Diesel echoes " · Diesel"-style suffix + its cheapest value.
-    assert panel["echo"]["dsl"]["suffix"] == "Diesel"
-    assert panel["echo"]["dsl"]["value"] == "$4.50"
+    assert panel["echo"]["dsl"] == {"suffix": "", "value": "$4.50"}
 
 
 def test_single_grade_suppresses_the_segment() -> None:

@@ -105,32 +105,17 @@
 
 {# ── Feed heading + jump-to-category ─────────────────────────────────── #}
 <div class="calbar">
-  {#- F6 (2026-07-01 master audit §6.7): this headline count and the "All today"
-      pill below sit on the same screen and MUST agree — both now read
-      feed.total, the count of what the feed actually renders (events + classes
-      + venue hours), so they can never drift again. "going on" keeps the noun
-      honest for that mix ("events" was wrong for two-thirds of it). -#}
-  <h1 class="serif" id="feedTitle">Happening {{ 'today' if is_today else feed_day_label }} <span class="n">· <span class="num">{{ feed.total }}</span> going on</span></h1>
-  <div class="dd" id="jump">
-    <button type="button" class="dd-btn" aria-haspopup="true" aria-expanded="false">Jump to <span class="cv">{{ icon('chev', 14) }}</span></button>
-    <div class="dd-menu" role="menu">
-      {% for s in feed.sections %}
-      <a role="menuitem" href="{{ '/movies' if s.is_movies else '/events-ui?view=' ~ s.key }}" data-k="{{ s.key }}"><span class="l">{{ cicon(s.key, 16) }} {{ s.label }}</span><span class="c num">{{ s.count }}</span></a>
-      {% endfor %}
-    </div>
-  </div>
+  {#- Session 1 declutter (2026-07-04): dropped the "· N going on" count and the
+      "Jump to" dropdown. The collapsed sections below are the scan target now,
+      so both were redundant chrome. -#}
+  <h1 class="serif" id="feedTitle">Happening {{ 'today' if is_today else feed_day_label }}</h1>
 </div>
 
-{# ── Count overview rail ─────────────────────────────────────────────── #}
-<div class="counts hscroll" id="counts">
-  <a class="cpill all on" data-k="all" href="/events-ui">{{ icon('spark', 15) }}<span class="cl">All today</span><span class="cb num">{{ feed.total }}</span></a>
-  {% for s in feed.sections %}
-  <a class="cpill" data-k="{{ s.key }}" href="{{ '/movies' if s.is_movies else '/events-ui?view=' ~ s.key }}">{{ cicon(s.key, 15) }}<span class="cl">{{ s.label }}</span><span class="cb num">{{ s.count }}</span></a>
-  {% endfor %}
-  {# v4.4 §6.3: audience shortcuts — brass places pills, no count (they're hubs, not a day count). #}
-  <a class="cpill places" href="/family">{{ icon('kid', 15) }}<span class="cl">For Kids</span></a>
-  <a class="cpill places" href="/seniors">{{ icon('people', 15) }}<span class="cl">For Seniors</span></a>
-</div>
+{#- Session 1 declutter (2026-07-04): removed the repeating category-count pill
+   rail — it duplicated the sections directly below. For Kids / For Seniors stay
+   reachable in the hamburger menu (_nav_full). The count-filter JS in
+   lake_redesign.js is now inert (its #counts element is gone) and is harmless;
+   re-add a compact rail here if a filter is wanted later. -#}
 
 {# ── Sections (accordion; only Events open) + ad placements ───────────── #}
 <div class="main">
