@@ -19,14 +19,46 @@ from app.main import app
 _TEMPLATES = Path(app_pkg.__file__).parent / "templates"
 
 
-def test_only_styleguide_still_extends_base_lake() -> None:
-    """PR-1 acceptance: zero app templates extend base_lake except the internal
-    styleguide gallery (removed in PR-2 with base_lake + lake.css)."""
+_STYLES = _TEMPLATES.parent / "static" / "styles"
+
+# The whole base_lake shell + its CSS lineage, deleted in PR-2.
+_DELETED = [
+    _TEMPLATES / "base_lake.html",
+    _STYLES / "site_chrome.css",
+    _STYLES / "lake.css",
+    _STYLES / "lake-components.css",
+    _STYLES / "lake_redesign_site.css",
+    _STYLES / "lake_conditions.css",
+    _STYLES / "lake_account.css",
+    _STYLES / "lake_editorial.css",
+    _STYLES / "lake_landing.css",
+    _STYLES / "lake_error.css",
+    _STYLES / "lake_search.css",
+    _STYLES / "lake_map.css",
+    _STYLES / "lake_group.css",
+    _STYLES / "desert_portal.css",
+]
+
+
+def test_base_lake_and_its_css_lineage_are_deleted() -> None:
+    """PR-2: base_lake.html + site_chrome.css + every stylesheet only they used
+    are gone from disk — ONE shell remains (lake_redesign.css)."""
+    present = [p.name for p in _DELETED if p.exists()]
+    assert not present, f"should be deleted: {present}"
+
+
+def test_zero_templates_extend_base_lake_or_link_deleted_sheets() -> None:
+    """No app template extends base_lake or links any deleted stylesheet."""
+    dead_links = {p.name for p in _DELETED if p.suffix == ".css"}
     offenders = []
-    for tpl in _TEMPLATES.glob("*.html"):
-        if 'extends "base_lake.html"' in tpl.read_text(encoding="utf-8"):
-            offenders.append(tpl.name)
-    assert offenders == ["lake_styleguide.html"], offenders
+    for tpl in _TEMPLATES.rglob("*.html"):
+        body = tpl.read_text(encoding="utf-8")
+        if 'extends "base_lake.html"' in body:
+            offenders.append(f"{tpl.name}: extends base_lake")
+        for css in dead_links:
+            if f"/static/styles/{css}" in body:
+                offenders.append(f"{tpl.name}: links {css}")
+    assert not offenders, offenders
 
 
 def test_public_last_pages_wear_v4_shell() -> None:

@@ -52,9 +52,6 @@ ROUTES = [
     "/terms",
     "/today",
     "/account",
-    # Lake Ink & Brass redesign (Phase 0): the new base_lake layout + the full
-    # component library, exercised through the same structural a11y contract.
-    "/lake-styleguide",
 ]
 
 
@@ -184,13 +181,14 @@ def test_page_meets_structural_a11y_contract(client: TestClient, path: str) -> N
 
 
 # --------------------------------------------------------------------------- #
-# Contrast regression — palette parsed live from lake.css (the live theme)
+# Contrast regression — palette parsed live from lake_redesign.css (the one
+# shell as of v4.6 PR-2; base_lake.html + lake.css were deleted).
 # --------------------------------------------------------------------------- #
 
 
 def _palette() -> dict[str, str]:
-    css = (_CSS_DIR / "lake.css").read_text(encoding="utf-8")
-    return dict(re.findall(r"--([a-z-]+):(#[0-9a-fA-F]{6})", css))
+    css = (_CSS_DIR / "lake_redesign.css").read_text(encoding="utf-8")
+    return dict(re.findall(r"--([a-z0-9-]+):(#[0-9a-fA-F]{6})", css))
 
 
 def _luminance(hexv: str) -> float:
@@ -208,27 +206,32 @@ def _ratio(a: str, b: str) -> float:
 
 
 # (foreground, background, minimum). 4.5 = AA normal text; 3.0 = AA large
-# text / UI components. Pairs reflect how the Lake Ink & Brass design system
-# actually uses the palette (ink text on the three light surfaces, brass-deep
-# for accents at body sizes, light text/brass on ink chrome).
+# text / UI components. Pairs reflect how the v4 (lake_redesign.css) design
+# system actually uses the palette: ink text on the light surfaces, --brass-ink
+# for brass accents at body sizes (plain --brass is display-size only), teal
+# links, light text/brass on the ink chrome, state colours on white cards.
 _CONTRAST_CONTRACT = [
     ("ink", "paper", 4.5),
+    ("ink", "paper2", 4.5),
     ("ink", "surface", 4.5),
-    ("ink", "raised", 4.5),
-    ("ink", "brass-wash", 4.5),
-    ("ink-soft", "paper", 4.5),
-    ("muted", "paper", 4.5),  # secondary text on the page background
-    ("muted", "raised", 4.5),
-    ("brass-deep", "paper", 4.5),
-    ("brass-deep", "surface", 4.5),
-    ("brass-deep", "raised", 4.5),
-    ("brass-deep", "brass-wash", 4.5),  # accent text on the brass tint
+    ("ink", "brass-soft", 4.5),
+    ("ink2", "paper", 4.5),  # secondary text on the page background
+    ("ink2", "paper2", 4.5),
+    ("ink2", "surface", 4.5),
+    ("ink3", "surface", 4.5),  # tertiary/muted text — AA on white cards
+    ("brass-ink", "paper", 4.5),  # AA brass accent at body sizes
+    ("brass-ink", "paper2", 4.5),
+    ("brass-ink", "surface", 4.5),
+    ("brass-ink", "brass-soft", 4.5),  # accent text on the brass tint
+    ("teal", "paper", 4.5),  # teal links / accents
+    ("teal", "surface", 4.5),
+    ("teal-deep", "surface", 4.5),
     ("paper", "ink", 4.5),  # light text on the ink chrome/footer
-    ("brass-light", "ink", 4.5),  # brass accents on ink chrome
-    ("good", "raised", 4.5),  # open-now state text on cards
-    ("warn", "raised", 4.5),
-    ("havasu", "ink", 4.5),  # lake-blue accent on ink chrome
-    ("brass", "raised", 3.0),  # display-size headings / UI accents only
+    ("brass-br", "ink", 4.5),  # bright brass accents on ink chrome
+    ("good", "surface", 4.5),  # open-now state text on cards
+    ("bad", "surface", 4.5),  # error/closed state text on cards
+    ("ink3", "paper", 3.0),  # muted text on paper — AA-large by design
+    ("brass", "surface", 3.0),  # plain brass = display-size accents only (<4.5 on white)
 ]
 
 

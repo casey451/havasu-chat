@@ -86,8 +86,6 @@ def serve_movies(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
     selected = _parse_selected(request.query_params.get("date"), today)
     day_label = selected.strftime("%A, %B ") + str(selected.day)
     is_today = selected == today
-    # THEME flag (Lake Ink & Brass): the lake skin renders the SAME context
-    # through base_lake; default stays desert until/unless the flip.
     # v4.5 PR-3: /movies wears the v4 shell (base_redesign) — the cond-tile strip +
     # gas panel like every discovery page (v45 §Pre-answered 1).
     from app.home import redesign

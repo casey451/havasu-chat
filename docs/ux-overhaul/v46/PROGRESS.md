@@ -30,7 +30,7 @@ v44/DESIGN_SPEC (§0 guardrails) + v44/BUILD_PLAN decision 15, then continue fro
 |----|--------|--------|------|-----------|-------|
 | 0 polish     | feat/v46-00-polish     | ✅ merged | pytest 12535✅ ruff✅ mypy✅ live-QA✅ | merge e462715a | water flag default-ON; provider About factual line + .pautonote footnote; /movies .tpill anchors (text-decoration:none) |
 | 1 last-pages | feat/v46-01-last-pages  | ✅ merged | pytest 12537✅ ruff✅ mypy✅ live-QA✅ | merge 2e0ad068 | ALL 27 live base_lake pages → v4 shell; base_plain.html created; only lake_styleguide left (→PR-2 delete) |
-| 2 one-shell  | feat/v46-02-one-shell   | 🔨 building | — | — | delete base_lake.html + lake_styleguide + site_chrome.css + orphaned CSS; guard test |
+| 2 one-shell  | feat/v46-02-one-shell   | 🔨 gating | pytest (running) ruff✅ mypy✅ live-QA✅ | — | deleted base_lake+styleguide+lake_components+lake_preview + 13 orphaned CSS; admin middleware simplified; guard tests |
 | final        | v46-integration → main  | ⬜ todo | — | — | grant-merge after CI + smoke |
 
 ## PR-0 implementation (done, gating)
@@ -99,7 +99,41 @@ v4 scope, and port that CSS into lake_redesign.css retokenized (v4 palette). Gro
   NEW test_v46_last_pages.py (only styleguide extends base_lake; public pages on v4 shell; 404
   = base_plain + errx + Today link).
 
+## PR-2 implementation (done, gating)
+Deleted the entire base_lake shell + its CSS lineage (grep-proven orphaned across app+tests+
+scripts first, per verify_dead_code_before_deleting):
+- **Templates/route:** base_lake.html, lake_styleguide.html, components/lake_components.html,
+  app/home/lake_preview.py (+ its import + include_router in main.py — the /lake-styleguide
+  gallery, a Phase-0 demo of the deleted lake.css component library, now 404s).
+- **CSS (14):** site_chrome.css, lake.css, lake-components.css, lake_redesign_site.css,
+  lake_conditions.css, lake_account.css, lake_editorial.css, lake_landing.css, lake_error.css,
+  lake_search.css, lake_map.css, lake_group.css, desert_portal.css.
+- **Admin middleware simplified:** AdminLakeSkinMiddleware now injects only lake_admin.css +
+  noindex (dropped the lake_redesign_site.css link + the data-redesign stamp) — the .d-admin
+  templates extend base_plain now, and lake_admin.css is self-contained (--la-* tokens), so the
+  legacy base_lake-reskin injection was dead.
+- **Comment-only refs updated** (not code): site_header/site_footer partials, main.py, admin/shell.py,
+  feedback/routes.py, movies/router.py docstrings.
+- **Tests repointed to the one shell (lake_redesign.css):** test_ada_compliance (`_palette` +
+  the whole `_CONTRAST_CONTRACT` rewritten to v4 tokens — brass-ink for body-size brass, ink3
+  only on white, etc.; ratios verified ≥ their minimum), test_a11y_smoke, test_static_cache,
+  test_static_url_fingerprint, test_lake_seo (font self-host + dropped /lake-styleguide);
+  test_lake_contrast dropped its one lake-components.css reader (the hex-math pins stay).
+  Sweep guards: test_v45_punchlist `gone` list extended; NEW test_v46_last_pages guards
+  (base_lake + all 13 sheets absent from disk; zero templates extend base_lake or link a dead sheet).
+- Live-QA: /home /today /feedback /portal/claim /search /map /gas /categories /movies + 404 all
+  200 (404 correct), zero dead CSS links, all on lake_redesign.css; /lake-styleguide → 404.
+
 ## Judgment calls (decision 15 log)
+- **PR-2 contrast contract rewritten, not deleted.** test_ada_compliance parsed lake.css as
+  "the live palette"; the live palette is now lake_redesign.css. Rewrote `_CONTRAST_CONTRACT`
+  with the v4 tokens and *computed* each pair's ratio before committing it (ink3 clears 4.5 only
+  on white — kept at 4.5 on `surface`, 3.0 on `paper`; plain `brass` is a 3.0 display accent,
+  `brass-ink` the AA body brass). Same intent, real numbers.
+- **lake_redesign_site.css deletion required a middleware change.** It wasn't template-orphaned —
+  the admin middleware injected it. Since admin now natively wears the v4 shell (base_plain →
+  lake_redesign.css) and lake_admin.css is self-contained, the injection + data-redesign stamp
+  were dead; removed them so the file could go. Admin still renders (test_lake_admin green + live).
 - **PR-1 scope = ALL 27 live base_lake pages, not just the 7 named.** PR-2's guard test
   (base_lake absent) can't pass with any extender left, so the "seven surfaces" had to expand to
   every live page. lake_styleguide (a Phase-0 gallery of the lake.css component library being

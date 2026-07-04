@@ -60,8 +60,3 @@ def test_white_on_midtone_brass_would_fail_aa() -> None:
     (#b07a22) is only ~3.7:1 — the trap pa11y caught."""
     assert _contrast("#ffffff", "#b07a22") < AA_NORMAL
 
-
-def test_hardening_is_present_in_css() -> None:
-    css = (_STYLES / "lake-components.css").read_text(encoding="utf-8")
-    assert ".btn-brass{background:var(--brass-deep)" in css
-    assert ".ft .tag{background:none" in css
