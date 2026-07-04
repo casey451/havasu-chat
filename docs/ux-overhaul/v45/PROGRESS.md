@@ -33,7 +33,7 @@ gates recorded here; never redo a ✅ row.
 | 3 movies     | feat/v45-03-movies          | ✅ merged | pytest 12516✅ ruff✅ mypy✅ live-QA✅ | merge 991876ea | /movies → v4 shell, posters/tpills kept, rating→.tg, no head-art |
 | 4 directory  | feat/v45-04-directory       | ✅ merged | pytest 12517✅ ruff✅ mypy✅ live-QA✅ | merge f2dab10d | /categories index+dept+trade+leaf+faceted → v4; card v4 + SVG star (no ★); cond+gas via _chrome_context |
 | 5 remaining  | feat/v45-05-remaining-pages | ✅ merged | pytest 12520✅ ruff✅ mypy✅ live-QA✅ | merge f8e8094e | 12 pages → v4 (about/help/contact/privacy/terms/seniors/login/sponsor/portal/family/night/provider/chat); SVG star+heart; provider fixes already present |
-| 6 water-temp | feat/v45-06-water-temp      | ⏳ | — | — | dependable gauge + retry + WATER_TEMP_STALE |
+| 6 water-temp | feat/v45-06-water-temp      | ✅ merged | pytest 12525✅ ruff✅ mypy✅ live-fetch✅ | merge aa7f540a | RISE Accept header 406→fixed (vnd.api+json); retry-once; 6h window; WATER_TEMP_STALE ≤1/hr |
 | 7 dead-shell | feat/v45-07-dead-shell      | ⏳ | — | — | delete base_lake + old ribbon/cards |
 | final        | v45-integration → main      | ⏳ | — | — | grant merge + smoke |
 
@@ -154,12 +154,29 @@ gates recorded here; never redo a ✅ row.
   /portal/claim & account pages stay base_lake (didn't over-swap their css asserts); the empty
   test DB 404s unseeded provider/leaf slugs → base_lake 404 (out of scope, PR-7).
 
+## PR-6 implementation (done, merged aa7f540a)
+- ROOT CAUSE: RISE (data.usbr.gov) is JSON:API — it **406s on `Accept: application/json`** and
+  only serves `application/vnd.api+json`. The fetcher sent the wrong header, so the water tile
+  silently omitted even with FEATURE_FLAG_WATER_TEMP_RISE_6127 ON. DEPENDABLE GAUGE = **RISE
+  item 6127 (Parker Dam water temp, °F, daily)**; verified via live fetch 2026-07-04 →
+  **80.7°F @ 2026-07-04T07:00** with the correct header (USGS 09426630 stays sentinel-dead).
+- rise_water_temp.py: Accept→vnd.api+json; retry-once on transport error / empty parse; header
+  forced on every request. api_payload.py: 6h staleness window (matches RISE TTL 21600) so a
+  daily reading doesn't flash stale; throttled `WATER_TEMP_STALE` log ≤1/hr, only when stale OR
+  a gage is enabled-but-empty (silent when flags intentionally OFF). Honest-omit unchanged.
+- CASEY (Railway): FEATURE_FLAG_WATER_TEMP_RISE_6127 should already be =true (set prior session).
+  With the header fix now deployed, the water tile will populate on the next cron tick. If the
+  tile is still blank post-deploy, confirm the flag is ON in Railway vars.
+
 ## NEXT ACTION
-PR-5 ✅ merged (f8e8094e). START PR-6 (`feat/v45-06-water-temp`) — water-temp reliability.
-Verify the USGS gauge actually returns param 00010 (real fetch; record the site ID in PROGRESS),
-add retry-once, a WATER_TEMP_STALE log token (≤1/hr), keep the 6h window + honest-omit. If no
-gauge returns a live value, document it and leave the honest-omit. Scout app/conditions water-temp
-source first. Gate → merge → PR-7.
+PR-6 ✅ merged (aa7f540a). START PR-7 (`feat/v45-07-dead-shell`) — sweep the old shell.
+grep-PROVE-then-delete: base_lake.html (only if NOTHING still extends it — many admin/account/
+today/404 pages may still), old ribbon partials, site_chrome.css, the retired templates
+(mode_sandstone.html + any *_lake page fully replaced), desert_*.css / lake_profile.css /
+lake_editorial.css / lake_account.css / lake_landing.css / lake_portal.css / desert_chat.css /
+lake_events.css that no template references any more, orphaned CSS. Guard tests: zero emoji +
+zero base_lake refs on the migrated routes. Be conservative — verify_dead_code_before_deleting:
+grep whole repo (app+tests+scripts) before deleting anything. Gate → merge → FINAL PR.
 
 ## (older) NEXT ACTION
 PR-1 ✅ merged (978cf71e). START PR-2 (`feat/v45-02-gas-shell`) — see "PR-2 scouting":
