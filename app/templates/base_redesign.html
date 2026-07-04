@@ -23,12 +23,12 @@
   <link rel="canonical" href="{{ _canonical }}">
   <meta property="og:url" content="{{ _canonical }}">
   <meta property="og:site_name" content="Ask Hava">
-  <meta property="og:type" content="website">
-  <meta property="og:title" content="{{ self.title() }}">
-  <meta property="og:description" content="{{ self.meta_description() }}">
+  <meta property="og:type" content="{% block og_type %}website{% endblock %}">
+  <meta property="og:title" content="{% block og_title %}{{ self.title() }}{% endblock %}">
+  <meta property="og:description" content="{% block og_description %}{{ self.meta_description() }}{% endblock %}">
   <meta property="og:image" content="{% block og_image %}{{ absolute_url('/static/img/lake/og-default.png') }}{% endblock %}">
   <meta name="twitter:card" content="summary_large_image">
-  <meta name="twitter:title" content="{{ self.title() }}">
+  <meta name="twitter:title" content="{{ self.og_title() }}">
   <meta name="twitter:image" content="{{ self.og_image() }}">
   {% endif %}
   <link rel="icon" type="image/svg+xml" href="{{ static_url('/static/img/lake/favicon.svg') }}">

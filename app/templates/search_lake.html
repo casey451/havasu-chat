@@ -1,4 +1,4 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake Ink & Brass — /search keyword results page. Same data + behaviour as
    search.html (GET /search?q=, provider + event lists, empty states, Ask-Hava
    fallback); the concierge falls through here for descriptive queries that
@@ -7,12 +7,11 @@
 {% block title %}{% if q %}{{ q }} — Search — Ask Hava{% else %}Search — Ask Hava{% endif %}{% endblock %}
 {% block meta_description %}Keyword search across Lake Havasu City businesses and events on Ask Hava.{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_search.css') }}">
 {% if q %}<meta name="robots" content="noindex">{% endif %}
 {% endblock %}
 
-{% block content %}
-<div class="wrap srch">
+{% block main %}
+<div class="srch">
   <div class="pagehead">
     <h1>Search <span class="srch-accent">Lake Havasu.</span></h1>
   </div>

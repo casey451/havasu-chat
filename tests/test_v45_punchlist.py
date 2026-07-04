@@ -152,6 +152,25 @@ def test_old_shell_files_are_swept() -> None:
         "static/styles/desert_chat.css",
         "static/styles/lake_directory.css",
         "static/styles/lake_profile.css",
+        # v4.6 PR-2: the old base_lake shell + its whole CSS lineage are gone
+        # (every page is on base_redesign / base_plain → lake_redesign.css).
+        "templates/base_lake.html",
+        "templates/lake_styleguide.html",
+        "templates/components/lake_components.html",
+        "home/lake_preview.py",
+        "static/styles/site_chrome.css",
+        "static/styles/lake.css",
+        "static/styles/lake-components.css",
+        "static/styles/lake_redesign_site.css",
+        "static/styles/lake_conditions.css",
+        "static/styles/lake_account.css",
+        "static/styles/lake_editorial.css",
+        "static/styles/lake_landing.css",
+        "static/styles/lake_error.css",
+        "static/styles/lake_search.css",
+        "static/styles/lake_map.css",
+        "static/styles/lake_group.css",
+        "static/styles/desert_portal.css",
     ]
     still_here = [p for p in gone if (root / p).exists()]
     assert not still_here, f"old-shell files should be swept: {still_here}"

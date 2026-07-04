@@ -45,7 +45,8 @@ _FETCHERS: dict[str, Callable[[], dict[str, Any]]] = {
     SOURCE_USGS_WATER_TEMP: usgs_water_temp.fetch_usgs_water_temp_09426630,
     # Reclamation RISE Parker Dam water temp — the representative main-lake
     # reading, preferred over the sentinel-stuck Bill Williams USGS gage. Self-
-    # gates on FEATURE_FLAG_WATER_TEMP_RISE_6127 (default OFF; no HTTP when off).
+    # gates on FEATURE_FLAG_WATER_TEMP_RISE_6127 (v4.6: default ON; an explicit
+    # falsy env var disables it and suppresses HTTP).
     SOURCE_RISE_WATER_TEMP: rise_water_temp.fetch_rise_water_temp,
 }
 

@@ -30,7 +30,7 @@ router = APIRouter(tags=["feedback"])
 
 _templates = Jinja2Templates(directory="app/templates")
 # Match the other page routers: register the shared filters (clean_name) +
-# globals (static_url, plausible_domain) so base_lake/desert_base render.
+# globals (static_url, plausible_domain) so the base_redesign shell renders.
 register_template_filters(_templates)
 register_template_globals(_templates)
 

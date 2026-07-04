@@ -1,7 +1,6 @@
-{% extends "base_lake.html" %}
+{% extends "base_plain.html" %}
 {% block title %}Demand dashboard — Admin{% endblock %}
-{% block head_extra %}<link rel="stylesheet" href="{{ static_url('/static/styles/desert_portal.css') }}">{% endblock %}
-{% block content %}
+{% block main %}
 <div class="d-admin">
   <p class="backrow" style="margin:0 0 14px"><a href="/admin">&larr; Admin</a></p>
   <h1>Demand dashboard <small>· last {{ demand.days }} days</small></h1>

@@ -1,4 +1,4 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake merchant upgrade-request form (GET/POST /merchant/upgrade/{slug},
    owner-only). Same context as merchant_upgrade_form.html
    ({entity, slots, pending}). Lead capture only — NO payment is taken here.
@@ -6,10 +6,9 @@
 {% block title %}Feature your listing — {{ entity.name }}{% endblock %}
 {% block head_extra %}
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_account.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="authx">
   <div class="authwrap">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/provider/{{ entity.slug }}">&larr; Back to listing</a></nav>
     <p class="eyebrow">Sponsored placement</p>

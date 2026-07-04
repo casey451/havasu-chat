@@ -1,4 +1,4 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {% set account_active = "alerts" %}
 {#- Lake conditions-alerts settings (/account/alerts, auth-gated). Same context
    as account_alerts.html: {user, active_types(set), alert_types, saved}. Real
@@ -7,10 +7,9 @@
 {% block title %}Alerts — Ask Hava{% endblock %}
 {% block head_extra %}
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_account.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="acctx">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/account">My account</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Alerts</span></nav>
   <div class="pagehead">
     <h1>Conditions alerts</h1>

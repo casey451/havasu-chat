@@ -83,3 +83,25 @@ def test_movies_feature_renders_under_lake_theme(monkeypatch: pytest.MonkeyPatch
         assert film in events.text
     finally:
         _cleanup(ids)
+
+
+def test_movies_showtimes_are_tpill_anchors() -> None:
+    """v4.6 PR-0.3: /movies showtimes are .tpill-styled booking anchors (pill
+    chrome, never underlined text links), matching home's movies rows. The
+    booking href is preserved and .tpill carries text-decoration:none in CSS."""
+    suffix = uuid.uuid4().hex[:6]
+    film = f"ZZ Tpill Movie {suffix}"
+    ids = [_seed(film, f"tp-{suffix}")]
+    try:
+        with TestClient(app) as client:
+            movies = client.get("/movies")
+            css = client.get("/static/styles/lake_redesign.css")
+        assert movies.status_code == 200
+        # The showtime is an <a class="tpill" ...> booking link (real ticketing href kept).
+        assert 'class="tpill"' in movies.text
+        assert 'href="https://example.com/book"' in movies.text
+        # Pill chrome, not an underlined link.
+        assert css.status_code == 200
+        assert "text-decoration:none" in css.text.split(".tpill{", 1)[1].split("}", 1)[0]
+    finally:
+        _cleanup(ids)

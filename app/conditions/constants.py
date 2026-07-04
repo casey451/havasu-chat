@@ -34,7 +34,8 @@ SOURCE_USGS_WATER_TEMP = "usgs_water_temp_09426630"
 # impounds Lake Havasu, so this is the representative main-lake reading and the
 # PREFERRED water-temp source over the Bill Williams USGS gage (09426630), which
 # has published the -100000 missing-data sentinel since 2026-05-21. Gated at the
-# fetcher on FEATURE_FLAG_WATER_TEMP_RISE_6127 (default OFF; no HTTP when off).
+# fetcher on FEATURE_FLAG_WATER_TEMP_RISE_6127 (v4.6: default ON; a falsy env var
+# disables it and suppresses HTTP).
 # See app/conditions/rise_water_temp.py.
 SOURCE_RISE_WATER_TEMP = "rise_water_temp_6127"
 

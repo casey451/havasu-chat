@@ -1,11 +1,11 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake themed-group landing (/group/{slug}). CHROME reskin of
    themed_group_landing.html: ALL data-wiring preserved verbatim — body data
    attributes (boat_mode.js + map.js), [data-hava-search] (search_bar.js),
    district/ops chips via cat_href (category_filters.js), [data-map-toggle] +
    #map-container (map.js), the shared (theme-neutral) hava_card partial, and the
    group-accent-{accent} body class that test_phase6_themed_groups pins.
-   lake_group.css reskins the chrome; hava_card.css is the shared card sheet. -#}
+   the group chrome is in lake_redesign.css (.grpx, v4.6); hava_card.css is the shared card sheet. -#}
 {% set active_tab = "explore" %}
 {% block title %}{{ group_label }} — Ask Hava{% endblock %}
 {% block meta_description %}{{ group_one_liner }}{% endblock %}
@@ -14,12 +14,11 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="{{ static_url('/static/styles/components/hava_card.css') }}">
-  <link rel="stylesheet" href="{{ static_url('/static/styles/lake_group.css') }}">
 {% endblock %}
 {% block body_attrs %} class="themed-group-page group-accent-{{ group_accent }}" data-boat-reload-on-toggle data-map-scope="{{ map_scope_slug }}"{% if category_slug == 'on-the-water' %} data-map-default-expanded="true"{% endif %}{% endblock %}
 
-{% block content %}
-<div class="page category-page">
+{% block main %}
+<div class="grpx category-page">
 
   <section class="cat-head">
     <div class="cathead wrap">
@@ -30,7 +29,6 @@
         <p class="cat-head-meta" data-bundled-categories="{{ category_slugs | join(',') }}">Lake Havasu City &middot; {{ today_label }} &middot; <a href="/contribute">Add to Hava</a></p>
       </div>
     </div>
-    <div class="ridge" aria-hidden="true"></div>
   </section>
 
   {% if show_sparse_banner %}

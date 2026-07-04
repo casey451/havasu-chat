@@ -143,6 +143,37 @@ def test_profile_claim_cta_variant() -> None:
     assert "Claim &amp; manage it" in h or "Claim this listing →" in h
 
 
+def test_profile_about_without_description_leads_with_factual_line() -> None:
+    """v4.6 PR-0.2: a provider with no description of their own gets a short
+    factual About line (name · category · address), NOT the auto-built disclaimer
+    as the lead. The disclaimer becomes a .gasnote footnote by the suggest control."""
+    h = _render(_vm(description=None, address="210 Swanson Ave"))
+    about = h.split('class="pabout">', 1)[1].split("</p>", 1)[0]
+    assert not about.lstrip().startswith("This listing is auto-built")
+    assert "Mudshark Brewery" in about
+    assert "Eat &amp; Drink" in about or "Eat & Drink" in about
+    assert "210 Swanson Ave" in about
+    # The disclaimer still appears, but as a small footnote next to suggest-an-edit.
+    assert 'class="pautonote"' in h
+    assert "auto-built from trusted public data" in h
+
+
+def test_profile_about_with_description_has_no_autobuilt_footnote() -> None:
+    """When the provider has its own description, the auto-built footnote is absent."""
+    h = _render(_vm())  # default vm has a real description
+    assert "auto-built from trusted public data" not in h
+    assert "original craft brewery" in h
+
+
+def test_profile_about_service_area_only_uses_area() -> None:
+    """A service-area-only provider (no street address) falls back to the area."""
+    h = _render(_vm(description=None, address=None, service_area_only=True,
+                    service_area=["Lake Havasu City"], postal_address=None))
+    about = h.split('class="pabout">', 1)[1].split("</p>", 1)[0]
+    assert not about.lstrip().startswith("This listing is auto-built")
+    assert "Lake Havasu City" in about
+
+
 def test_profile_structural_a11y() -> None:
     for vm in (_vm(), _vm(show_claim_cta=True), _vm(hero_photo_url=None, gallery_photo_urls=[], service_area_only=True, service_area=["Lake Havasu City"], postal_address=None, address=None)):
         checker = _A11yChecker()

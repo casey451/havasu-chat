@@ -27,7 +27,7 @@ from fastapi.testclient import TestClient
 from app.categories import queries as cat_queries
 from app.main import app
 
-_CSS_PATH = Path(__file__).resolve().parents[1] / "app" / "static" / "styles" / "lake.css"
+_CSS_PATH = Path(__file__).resolve().parents[1] / "app" / "static" / "styles" / "lake_redesign.css"
 
 
 def _stub_cards(n: int) -> list[dict]:

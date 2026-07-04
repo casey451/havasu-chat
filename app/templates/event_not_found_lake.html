@@ -1,23 +1,21 @@
-{% extends "base_lake.html" %}
-{#- Lake event error page — 404 (missing / pending review) or 410 (gone, when an
-   event has been removed: status == "deleted"). `gone` flips the code, copy, and
-   the route's status code. noindex. -#}
+{% extends "base_plain.html" %}
+{#- v4 event error page (v4.6 PR-1) — 404 (missing / pending review) or 410 (gone,
+   status == "deleted"). `gone` flips the code, copy, and the route's status code.
+   Plain v4 shell, serif message, a Today link. noindex. -#}
 {% block title %}{% if gone %}Event removed{% else %}Event not found{% endif %} — Ask Hava{% endblock %}
 {% block meta_description %}{% if gone %}This event has been removed.{% else %}This event may be removed, pending review, or unavailable.{% endif %}{% endblock %}
 {% block head_extra %}
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_error.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
-  <div class="e404">
-    <div class="big tnum">{% if gone %}410{% else %}404{% endif %}</div>
-    <h1>{% if gone %}This event is gone.{% else %}Event not found.{% endif %}</h1>
-    <p>{% if gone %}This event has been removed. Here's what's happening now instead.{% else %}This event may be removed, pending review, or unavailable.{% endif %}</p>
-    <div class="links">
-      <a class="btn btn-primary" href="/events-ui">View events</a>
-      <a class="btn btn-ghost" href="/chat">Ask Hava</a>
-    </div>
+{% block main %}
+<div class="errx">
+  <div class="big num">{% if gone %}410{% else %}404{% endif %}</div>
+  <h1 class="serif">{% if gone %}This event is gone.{% else %}Event not found.{% endif %}</h1>
+  <p>{% if gone %}This event has been removed. Here's what's happening now instead.{% else %}This event may be removed, pending review, or unavailable.{% endif %}</p>
+  <div class="errlinks">
+    <a class="btn btn-primary" href="/events-ui">View events</a>
+    <a class="btn btn-ghost" href="/today">Today in Havasu</a>
+    <a class="btn btn-ghost" href="/home">Home</a>
   </div>
 </div>
 {% endblock %}
