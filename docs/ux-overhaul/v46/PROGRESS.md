@@ -30,8 +30,8 @@ v44/DESIGN_SPEC (§0 guardrails) + v44/BUILD_PLAN decision 15, then continue fro
 |----|--------|--------|------|-----------|-------|
 | 0 polish     | feat/v46-00-polish     | ✅ merged | pytest 12535✅ ruff✅ mypy✅ live-QA✅ | merge e462715a | water flag default-ON; provider About factual line + .pautonote footnote; /movies .tpill anchors (text-decoration:none) |
 | 1 last-pages | feat/v46-01-last-pages  | ✅ merged | pytest 12537✅ ruff✅ mypy✅ live-QA✅ | merge 2e0ad068 | ALL 27 live base_lake pages → v4 shell; base_plain.html created; only lake_styleguide left (→PR-2 delete) |
-| 2 one-shell  | feat/v46-02-one-shell   | 🔨 gating | pytest (running) ruff✅ mypy✅ live-QA✅ | — | deleted base_lake+styleguide+lake_components+lake_preview + 13 orphaned CSS; admin middleware simplified; guard tests |
-| final        | v46-integration → main  | ⬜ todo | — | — | grant-merge after CI + smoke |
+| 2 one-shell  | feat/v46-02-one-shell   | ✅ merged | pytest 12536✅ ruff✅ mypy✅ live-QA✅ | merge 0ac36537 | deleted base_lake+styleguide+lake_components+lake_preview + 13 orphaned CSS; admin middleware simplified; guard tests |
+| final        | v46-integration → main  | 🔨 opening PR | all 3 merged; push + PR + CI + grant-merge + smoke | — | grant merge + smoke |
 
 ## PR-0 implementation (done, gating)
 Three polish fixes from the 2026-07-04 live QA sweep:
@@ -186,9 +186,14 @@ of the lake.css component library). PR-2 deletes:
   `extends "base_lake"` and zero links to the deleted sheets across app templates.
 Acceptance: guard tests + full gates + every public route still 200 (smoke list).
 
-## NEXT ACTION
-PR-1 gating: authoritative full suite running (bg bntkopksm). If green → stage the PR-1 files
-(explicit paths, NOT the schedule_hunt noise; include base_plain.html + all migrated templates +
-lake_redesign.css + today.py + base_redesign.html + the repointed tests + PROGRESS), commit
-`feat/v46-01-last-pages`, merge into `v46-integration`, mark PR-1 ✅ here. Then START PR-2
-(`feat/v46-02-one-shell`) per the "PR-2 plan" above. Gate → merge → FINAL PR.
+## NEXT ACTION (FINAL)
+All 3 item PRs ✅ merged into `v46-integration` @ 0ac36537. Remaining:
+1. Push `v46-integration` to origin.
+2. Open the single `v46-integration → main` PR (changelog + before/after + smoke checklist).
+3. Wait for CI green (`gh pr checks`).
+4. Merge to main under the kickoff autonomy grant (main auto-deploys to prod) once all gates green.
+5. Post-deploy smoke (BUILD_PLAN list): /home /gas /calendar /events-ui /categories /movies /today
+   /account /feedback /contribute → 200, v4 shell, zero emoji, Phoenix date where dated; 404 route
+   returns styled page with status 404; provider About fixture spot-check on a live no-desc provider.
+6. If smoke fails → git revert the merge on a branch → emergency revert PR → merge under the grant
+   → stop with a PROGRESS note. (Grant covers both the merge and the emergency revert.)
