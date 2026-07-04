@@ -31,13 +31,12 @@ def test_mode_landing_renders_pretheme_and_real_links(path: str, mode: str, head
         r = client.get(path)
     assert r.status_code == 200
     body = r.text
-    # Pre-themed server-side (Night fires its dark transformation here).
-    assert f'data-mode="{mode}"' in body
+    # v4.5 PR-5: the Family/Night landings wear the standalone v4 shell — the
+    # desert in-page mode-switcher + data-mode dark transformation are retired
+    # (the v4 six-link header is the navigation; v4 has a single lake theme).
     assert heading in body
     assert 'data-theme="lake"' in body  # Lake Ink & Brass is the only theme now
-    # Active mode control is stamped (now the in-page mode switcher pills).
-    assert f'href="/{mode}" data-mode="{mode}"' in body
-    assert "aria-current=\"page\"" in body
+    assert "/static/styles/lake_redesign.css" in body
     # Sub-tiles are navigation to real destinations only.
     assert "/categories/" in body or "/chat?q=" in body
     # Anti-confabulation: none of the prototype's mock counters.
@@ -45,11 +44,14 @@ def test_mode_landing_renders_pretheme_and_real_links(path: str, mode: str, head
         assert mock not in body, f"{path} leaked mock counter: {mock}"
 
 
-def test_night_landing_has_no_lime_and_real_dark_palette() -> None:
-    """Night landing loads in the hot-pink/teal/black party palette (data-mode)."""
+def test_night_landing_on_v4_shell_single_theme() -> None:
+    """v4.5 PR-5: /night is on the v4 shell — one lake theme, no desert dark
+    transformation (data-mode is gone)."""
     with TestClient(app) as client:
         r = client.get("/night")
-    assert 'data-mode="night"' in r.text
+    assert 'data-theme="lake"' in r.text
+    assert 'data-mode="night"' not in r.text
+    assert "/static/styles/desert_home.css" not in r.text
 
 
 def test_mode_landing_data_contract() -> None:

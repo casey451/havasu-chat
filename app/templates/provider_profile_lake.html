@@ -1,9 +1,11 @@
-{% extends "base_lake.html" %}
-{#- Lake Ink & Brass business profile (/provider/{slug}) — the highest-SEO-value
-   page. SAME ProviderProfileVM the desert profile uses; preserves the favorites
-   /owner JS hooks (.fav-save / .favorite-heart / data-* + body_attrs) so
-   favorites.js + sandstone_profile.js keep working. Full LocalBusiness JSON-LD
-   (address, geo, openingHoursSpecification, aggregateRating) + BreadcrumbList. -#}
+{% extends "base_redesign.html" %}
+{#- Business profile (/provider/{slug}) in the v4 language (v4.5 PR-5) — the
+   highest-SEO-value page. SAME ProviderProfileVM; preserves the favorites/owner
+   JS hooks (.fav-save / .favorite-heart / data-* + body_attrs) so favorites.js +
+   sandstone_profile.js keep working. Full LocalBusiness JSON-LD (address, geo,
+   openingHoursSpecification, aggregateRating) + BreadcrumbList. Rating + Featured
+   + Save use inline SVG icons, not ★/♥ glyphs (§0 zero-emoji guard). -#}
+{% from "components/redesign_icons.html" import icon %}
 {%- macro clean_about(text) -%}
 {%- set ns = namespace(t = text or '') -%}
 {%- for marker in ['Stay Connected', 'Stay connected', 'Follow us on', 'Categories:', 'Category:', 'Tags:'] -%}
@@ -18,13 +20,11 @@
 
 {% block title %}{{ _name }} — Ask Hava, Lake Havasu City{% endblock %}
 {% block meta_description %}{{ _seo_desc | meta_desc(160) }}{% endblock %}
-{% block og_type %}business.business{% endblock %}
-{% block og_title %}{{ _name }}{% endblock %}
-{% block og_description %}{{ _seo_desc | meta_desc(200) }}{% endblock %}
 {% block og_image %}{{ social_image_url(vm.hero_photo_url) }}{% endblock %}
 
 {% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_profile.css') }}">
+{# hava_card.css is a self-contained BEM component (its own --hava-card-* tokens)
+   used by the venue-events strip below — shell-independent, so it stays. #}
 <link rel="stylesheet" href="{{ static_url('/static/styles/components/hava_card.css') }}">
 {%- set _ohs = [] -%}
 {%- if vm.hours_structured -%}
@@ -75,8 +75,8 @@
 
 {% block body_attrs %} data-current-user="{{ current_user_id }}" data-favorite-entity-id="{{ favorite_entity_id }}" data-viewer-is-owner="{% if vm.viewer_is_owner %}1{% else %}0{% endif %}"{% endblock %}
 
-{% block content %}
-<div class="wrap prof-wrap">
+{% block main %}
+<div class="prof-wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><a href="{{ vm.category_url }}">{{ vm.category_label }}</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">{{ _name }}</span></nav>
 
   {% set _photos = [] %}
@@ -89,15 +89,13 @@
       <div class="pgallery pg-{{ _photos[:5]|length }}" role="img" aria-label="Photos of {{ _name }}">
         {% for _p in _photos[:5] %}<span class="g" style="background-image:url('{{ _p }}')"></span>{% endfor %}
       </div>
-      {% else %}
-      <div class="pgallery is-art" role="img" aria-label="{{ _name }}"><span class="mono" aria-hidden="true">{{ (_name or '?')|first|upper }}</span></div>
       {% endif %}
 
-      <div class="ptitle"><h1>{{ _name }}</h1>{% if vm.is_sponsored and vm.sponsor_disclosure_label %}<span class="tag spon">{{ vm.sponsor_disclosure_label }}</span>{% endif %}</div>
+      <div class="ptitle"><h1 class="serif">{{ _name }}</h1>{% if vm.is_sponsored and vm.sponsor_disclosure_label %}<span class="tg spon">{{ vm.sponsor_disclosure_label }}</span>{% endif %}</div>
       <div class="pmeta">
-        {% if _show_rating %}<span class="star">★ {{ "%.1f"|format(vm.google_rating) }}</span><span>({{ vm.google_review_count }} reviews)</span>{% else %}<span>New / few reviews yet</span>{% endif %}
+        {% if _show_rating %}<span class="star">{{ icon('star', 13) }}{{ "%.1f"|format(vm.google_rating) }}</span><span>({{ vm.google_review_count }} reviews)</span>{% else %}<span>New / few reviews yet</span>{% endif %}
         <span class="sep" aria-hidden="true">·</span><span>{{ vm.category_label }}</span>
-        {% if vm.is_featured or vm.is_sponsored %}<span class="sep" aria-hidden="true">·</span><span class="feat">★ Featured Local</span>{% endif %}
+        {% if vm.is_featured or vm.is_sponsored %}<span class="sep" aria-hidden="true">·</span><span class="feat">{{ icon('star', 12) }}Featured Local</span>{% endif %}
         {% if vm.open_status_copy %}<span class="sep" aria-hidden="true">·</span><span class="open">{{ vm.open_status_copy }}</span>{% endif %}
         {% if vm.district %}<span class="sep" aria-hidden="true">·</span><span>{{ vm.district }}</span>{% endif %}
       </div>
@@ -110,12 +108,12 @@
           {% if vm.directions_url %}<a class="btn btn-ghost" href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">Directions</a>{% endif %}
           {% if vm.website_url and not vm.show_claim_cta %}<a class="btn btn-ghost" href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer">Website</a>{% endif %}
           {% if current_user_id and favorite_entity_id %}
-          <button type="button" class="fav-save favorite-heart{% if is_favorited %} is-saved{% endif %}" data-entity-id="{{ favorite_entity_id }}" aria-label="Save to favorites" aria-pressed="{% if is_favorited %}true{% else %}false{% endif %}"><span class="heart" aria-hidden="true"><span class="heart-on">♥</span><span class="heart-off">♡</span></span> Save</button>
+          <button type="button" class="fav-save favorite-heart{% if is_favorited %} is-saved{% endif %}" data-entity-id="{{ favorite_entity_id }}" aria-label="Save to favorites" aria-pressed="{% if is_favorited %}true{% else %}false{% endif %}"><span class="heart" aria-hidden="true">{{ icon('heart', 15) }}</span> Save</button>
           {% else %}
-          <button type="button" class="fav-save" data-requires-login="1" aria-label="Save to favorites"><span class="heart" aria-hidden="true"><span class="heart-off">♡</span></span> Save</button>
+          <button type="button" class="fav-save" data-requires-login="1" aria-label="Save to favorites"><span class="heart" aria-hidden="true">{{ icon('heart', 15) }}</span> Save</button>
           {% endif %}
         </div>
-        {% if vm.directions_url %}<a class="pmap" href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open map and directions for {{ _name }}"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" aria-hidden="true"><path d="M12 21s7-5.6 7-11a7 7 0 1 0-14 0c0 5.4 7 11 7 11Z" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><circle cx="12" cy="10" r="2.4" stroke="currentColor" stroke-width="1.8"/></svg>View on the map →</a>{% endif %}
+        {% if vm.directions_url %}<a class="pmap" href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open map and directions for {{ _name }}">{{ icon('pin', 16) }}View on the map →</a>{% endif %}
         <div class="pclaim">{% if vm.show_claim_cta %}Own this business? <a href="{{ vm.claim_url or '/contribute' }}">Claim &amp; manage it →</a>{% else %}Listing kept fresh from public data.{% endif %}</div>
       </div>
     </aside>
@@ -125,14 +123,14 @@
     <div>
       <h2>About</h2>
       <p class="pabout">{% if _about %}{{ _about }}{% else %}This listing is auto-built from trusted public data. Spot an error? Suggest an edit below.{% endif %}</p>
-      {% if vm.service_chips %}<div class="amen">{% for chip in vm.service_chips %}<span class="tag">{{ chip }}</span>{% endfor %}</div>{% endif %}
+      {% if vm.service_chips %}<div class="amen">{% for chip in vm.service_chips %}<span class="tg">{{ chip }}</span>{% endfor %}</div>{% endif %}
 
       {% if vm.google_review_snippets %}
       {% set _revs = [] %}
       {% for s in vm.google_review_snippets %}{% if s.text and _revs|length < 3 %}{% set _ = _revs.append(s) %}{% endif %}{% endfor %}
       {% if _revs %}
-      <h2 style="margin-top:30px">Reviews</h2>
-      {% if _show_rating %}<div class="aggr"><div class="big tnum">{{ "%.1f"|format(vm.google_rating) }}</div><div><div class="src">{{ vm.google_review_count }} public reviews · From Google reviews, unedited</div></div></div>{% endif %}
+      <h2 class="mt">Reviews</h2>
+      {% if _show_rating %}<div class="aggr"><div class="big num">{{ "%.1f"|format(vm.google_rating) }}</div><div><div class="src">{{ vm.google_review_count }} public reviews · From Google reviews, unedited</div></div></div>{% endif %}
       <div class="revlist">
         {% for s in _revs %}
         <div class="rev">
@@ -170,20 +168,20 @@
       </div>
       {% elif vm.open_status_copy %}<p class="prow">{{ vm.open_status_copy }}</p>
       {% elif vm.hours_freetext %}<p class="prow">{{ vm.hours_freetext }}</p>
-      {% else %}<p class="prow" style="color:var(--muted)">Hours not available — call to confirm.</p>{% endif %}
+      {% else %}<p class="prow muted">Hours not available — call to confirm.</p>{% endif %}
 
-      <h2 style="margin-top:24px">Find it</h2>
+      <h2 class="mt">Find it</h2>
       {% if vm.postal_address %}<address class="paddr">{{ vm.postal_address.street }}<br>{{ vm.postal_address.city }}, {{ vm.postal_address.state }}{% if vm.postal_address.get('zip') %} {{ vm.postal_address.zip }}{% endif %}</address>
       {% elif vm.address %}<p class="paddr">{{ vm.address }}</p>
       {% elif vm.service_area_only and vm.service_area %}<p class="paddr">Serves: {{ vm.service_area|join(', ') }}</p>
-      {% else %}<p class="prow" style="color:var(--muted)">Address not listed.</p>{% endif %}
+      {% else %}<p class="prow muted">Address not listed.</p>{% endif %}
       {% if vm.call_phone_display %}<p class="prow"><span class="lab">Call</span> <a href="tel:{{ vm.call_phone }}">{{ vm.call_phone_display }}</a></p>{% endif %}
       {% if vm.website_url and not vm.show_claim_cta %}<p class="prow"><a href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer">Visit website →</a></p>{% endif %}
       {% if vm.freshness_copy %}<p class="prow"><span class="lab">Fresh</span> {{ vm.freshness_copy }}</p>{% endif %}
       {% if vm.verification_method_copy %}<p class="prow"><span class="lab">Verified</span> {{ vm.verification_method_copy }}</p>{% endif %}
 
       {% if vm.show_claim_cta %}
-      <div class="pclaim-block"><b>Claim this listing to add photos, details, and offers.</b><div style="margin-top:6px">It's free. A real person reviews every claim. <a href="{{ vm.claim_url or '/contribute' }}">Claim this listing →</a></div></div>
+      <div class="pclaim-block"><b>Claim this listing to add photos, details, and offers.</b><div class="pcb-sub">It's free. A real person reviews every claim. <a href="{{ vm.claim_url or '/contribute' }}">Claim this listing →</a></div></div>
       {% elif vm.show_upgrade_cta %}
       <div class="pclaim-block"><b>Local offer:</b> show this screen for a featured-local welcome offer this week.</div>
       {% endif %}
@@ -193,8 +191,8 @@
 
   {% if vm.class_schedule %}
   <section class="pclasses" aria-label="Classes and schedule">
-    <h2 style="font-family:var(--disp);font-weight:600;font-size:20px">Classes &amp; schedule</h2>
-    {% if vm.class_schedule_as_of %}<p class="prow" style="color:var(--muted)">Times as of {{ vm.class_schedule_as_of }} — confirm with the venue.</p>{% endif %}
+    <h2 class="serif">Classes &amp; schedule</h2>
+    {% if vm.class_schedule_as_of %}<p class="prow muted">Times as of {{ vm.class_schedule_as_of }} — confirm with the venue.</p>{% endif %}
     <ul>
       {% for c in vm.class_schedule %}
       <li><div class="ct">{{ c.title }}</div>{% if c.days or c.time %}<div class="cm">{% if c.days %}{{ c.days }}{% endif %}{% if c.days and c.time %} · {% endif %}{% if c.time %}{{ c.time }}{% endif %}</div>{% endif %}{% if c.cost %}<div class="cm">Cost: {{ c.cost }}</div>{% endif %}{% if c.description %}<div class="cm">{{ c.description }}</div>{% endif %}</li>

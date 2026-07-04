@@ -71,10 +71,11 @@ def _ld_blocks(html: str) -> list[dict]:
 def test_profile_renders_core_bindings() -> None:
     h = _render(_vm())
     assert 'data-theme="lake"' in h
-    assert "/static/styles/lake_profile.css" in h
+    assert "/static/styles/lake_redesign.css" in h
     assert h.count("<h1") == 1
     assert "Mudshark Brewery" in h
-    assert "★ 4.7" in h and "(312 reviews)" in h
+    # v4.5 PR-5: rating renders as an inline SVG star icon + number (no ★ glyph).
+    assert 'class="star"' in h and "4.7" in h and "(312 reviews)" in h
     assert "Open until 10 PM" in h
     assert "(928) 555-0142" in h
     assert "Best patio in town" in h  # review snippet
@@ -103,8 +104,10 @@ def test_profile_gallery_class_tracks_photo_count() -> None:
     # Five+ photos keep the full mosaic (capped at 5).
     five = _render(_vm(gallery_photo_urls=[f"https://img.example/g{i}.jpg" for i in range(6)]))
     assert 'class="pgallery pg-5"' in five
-    # No photos -> the monogram art fallback, never a pg-0.
-    assert 'class="pgallery is-art"' in _render(_vm(hero_photo_url=None, gallery_photo_urls=[]))
+    # v4.5 PR-5: no photos -> NO image block at all (real photo or nothing; the
+    # old monogram-art fallback is retired, §0 guardrail 3).
+    _no_photos = _render(_vm(hero_photo_url=None, gallery_photo_urls=[]))
+    assert "pgallery" not in _no_photos
 
 
 def test_profile_localbusiness_jsonld_is_full() -> None:
