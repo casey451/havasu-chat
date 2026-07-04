@@ -106,6 +106,12 @@ def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     board, city_avg, fetched_at_label, fetched_at_time_label = _read_board(db)
     stations = [to_legacy_station_dict(s) for s in board.stations]
     cheapest = [to_legacy_station_dict(s) for s in board.cheapest("reg", _CHEAPEST_SHOWN)]
+    long_labels = {"regular": "Regular", "midgrade": "Midgrade", "premium": "Premium", "diesel": "Diesel"}
+    short_to_long = {"reg": "regular", "mid": "midgrade", "prem": "premium", "dsl": "diesel"}
+    # v4.4 PR-6: the grade segment offers only the grades the data actually has
+    # (a single grade -> no segment). The table columns stay the four canonical
+    # grades so the tabular view still shows what each station carries.
+    grades_available = [short_to_long[g] for g in board.grades_available if g in short_to_long]
     return templates.TemplateResponse(
         request=request,
         name="gas_prices_lake.html",
@@ -121,12 +127,15 @@ def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
             "cheapest": cheapest,
             "city_avg": city_avg,
             "grades": ["regular", "midgrade", "premium", "diesel"],
+            "grades_available": grades_available,
+            "single_grade": len(grades_available) <= 1,
             "grade_labels": {
                 "regular": "Regular",
                 "midgrade": "Mid",
                 "premium": "Premium",
                 "diesel": "Diesel",
             },
+            "grade_seg_labels": long_labels,
         },
     )
 

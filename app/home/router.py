@@ -206,7 +206,7 @@ def serve_home(
             "feed_day_label": _long_day_label(feed_day),
             "is_today": feed_day == now.date(),
             "cond_tiles": redesign.conditions_tiles(db, now=now),
-            "gas": redesign.gas_top5(db, now=now),
+            "gas": redesign.gas_panel_data(db, now=now),
             "week": sandstone.week_strip(db, today=now.date(), selected=feed_day),
             "feed": redesign.feed_view_model(db, day=feed_day, now=now),
             # (F6 2026-07-01: the headline now reads feed.total — the same

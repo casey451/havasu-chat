@@ -34,7 +34,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | 3 count-parity   | feat/v44-03-count-parity     | ✅ merged | pytest 12485✅ ruff✅ mypy✅ | commit → merge 172d6d07 | day_counts one base (summary headers); cells keep audit display |
 | 4 conditions     | feat/v44-04-conditions       | ✅ merged | pytest 12489✅ ruff✅ mypy✅ live✅ | merge 2a54d850 | water+sunset, retire clouds |
 | 5 ads-rail       | feat/v44-05-ads-rail         | ✅ merged | pytest 12494✅ ruff✅ mypy✅ smoke✅ | merge 15d2a77f | one paid unit + working rail |
-| 6 gas-ui         | feat/v44-06-gas-ui           | ⏳ | — | — | grade switch + /gas page |
+| 6 gas-ui         | feat/v44-06-gas-ui           | 🔨 gating | grade-switch 5✅ affected 30✅ ruff✅ mypy✅ render-smoke✅; full suite next | — | grade switch + /gas page |
 | 7 schedule       | feat/v44-07-schedule-niceties| ⏳ | — | — | previews/tpills/pills/dots |
 | 8 shell          | feat/v44-08-shell            | ⏳ | — | — | 6-link shell + footer/email |
 | 9 dead-code      | feat/v44-09-dead-code        | ⏳ | — | — | sweep old UX |
@@ -104,6 +104,39 @@ Temp·Water·Wind·UV·Sunset·Gas; template: add `water` class + render new til
 `.cond .c.water` tint (DESIGN_SPEC §1); add `wave`+`sunset` monoline icons to
 `redesign_icons.html` (§8); honest-omit water when absent; update visual refs. Clouds
 plumbing residue swept in PR-9.
+
+**PR-7 scouting (done) — depends PR-3 ✅ (day_counts):**
+- Date-strip dots: `sandstone.week_strip` (sandstone.py:398) builds the 7 day cards; add an
+  `act` field per card from `day_counts(d).total` thresholds (§2.3: 1–19→1 dot, 20–49→2,
+  ≥50→3, 0→none) + brass spark for HEADLINER_DATES. Render `<span class="act">` per card in
+  the week-strip template (find it — home_redesign uses `week`). CSS §6.4 `.dcard .act`.
+- Movies rows: `home_redesign.html` ~l.196-204 — currently `.evt`+`.et`+`.em`+times. §6.1:
+  title-first (drop `.evt`), theater `.em`, `.tpill` showtimes; `.tpill` CSS §6.1.
+- Counts row: l.174-178 — append `For Kids`/`For Seniors` as `.cpill.places` (brass, no
+  count) → /family, /seniors. Icons `kid`(head+shoulders), `people`(two figures) → add to
+  redesign_icons.html (§6.3/§8).
+- Closed-section `.sp` previews (§6.2): server macro `sec_preview(s)` from section's first 3
+  rows (needs `preview_rows`/`time_short` on sections — check what day_groups sections carry;
+  may need to add preview_rows). Placed in `.sechd` between `.sc` and `.cv`; hidden when open
+  + mobile (CSS §6.2). This is the fiddliest bit — sections need preview data.
+- `HEADLINER_DATES` config dict (§8): NEW, seed `{"2026-07-04": "4th of July Fireworks at
+  the Beach · 9 PM"}`. No DB. Put in day_counts.py or a config module.
+
+**PR-6 implementation (done, gating):** Home panel grade switch — `redesign.gas_panel_data`
+(per-grade top-5 via board.cheapest(grade), drop-off, echo strings, single_grade,
+station_count); home + calendar routes pass it; `base_redesign.html` gaspanel gains `.gseg`
+segment (aria-pressed) + `#gasList` aria-live + `.gpall` footer + `.gl` tile-echo span +
+embedded `gasByGrade`/`gasEcho` JSON (guarded for non-panel gas shapes); `lake_redesign.js`
+grade switch (list swap + tile echo + revert-on-close, stateless). `/gas` page: `.gseg.lg`
+segment + brass `Cheapest` chip + row data-attrs + inline sort/drop-off JS + honest footnote;
+CSS in lake_conditions.css (its own token set). Tests `test_gas_grade_switch_v44.py`.
+- **Decision 15 — /gas kept on base_lake, not migrated to base_redesign (v4 shell).**
+  DESIGN_SPEC §5.3 says "v4 shell", but /gas already wears the lake shell (nav + conditions
+  ribbon) and a full base_lake→base_redesign migration would rewrite ~20 gas-page tests for
+  cosmetic chrome — high risk, low user value. Delivered the §5.3 SUBSTANCE (grade segment +
+  per-grade sort/drop-off + Cheapest chip + honest clock + footnote + a11y) on the existing
+  shell. Full shell migration left for a later polish pass if Casey wants it.
+- Gas new visual refs can't be mock-regenerated (mock absent) — same as PR-4/5.
 
 **PR-6 scouting (done) — LARGEST remaining PR (depends PR-1 ✅):**
 - Gas panel toggle JS: `app/static/js/lake_redesign.js` l.23-30 (simple open toggle) —

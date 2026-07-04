@@ -45,5 +45,13 @@ a.gas-card:hover{border-color:var(--ink);box-shadow:var(--sh-pop)}
 .gas-empty h2{font-family:var(--disp);font-weight:600;font-size:22px}
 .gas-empty p{font-size:14.5px;color:var(--ink-2);margin-top:8px;max-width:46ch;margin-inline:auto}
 
+/* v4.4 PR-6: grade segment + Cheapest chip (DESIGN_SPEC §5). */
+.gsegwrap{margin:14px 0 2px}
+.gseg{display:inline-flex;background:var(--paper);border:1px solid var(--hair-2);border-radius:11px;padding:3px;gap:2px}
+.gseg button{border:0;background:transparent;font:700 12.5px/1 var(--ui);letter-spacing:.04em;color:var(--muted);padding:8px 16px;border-radius:8px;cursor:pointer;transition:.15s}
+.gseg button:hover{color:var(--ink)}
+.gseg button.on{background:var(--raised);color:var(--brass-deep);box-shadow:var(--sh-1)}
+.chp{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.09em;text-transform:uppercase;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:5px;padding:2px 6px;margin-left:6px;vertical-align:1px}
+
 @media(max-width:860px){.cgrid,.gas-cheap{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.cgrid,.gas-cheap{grid-template-columns:1fr}}

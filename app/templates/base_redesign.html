@@ -56,8 +56,8 @@
       {% for t in cond_tiles %}
       {% if t.is_gas %}
       <button type="button" class="c gas" id="gasTile" aria-expanded="false" aria-controls="gasPanel">
-        <span class="lab">{{ icon(t.icon, 12) }}{{ t.label }}</span>
-        <span class="val">{{ t.value }}<span class="caret">{{ icon('chev', 11) }}</span></span>
+        <span class="lab">{{ icon(t.icon, 12) }}{{ t.label }}<span class="gl"></span></span>
+        <span class="val"><span class="gval">{{ t.value }}</span><span class="caret">{{ icon('chev', 11) }}</span></span>
       </button>
       {% else %}
       <span class="c{% if t.is_water %} water{% endif %}"{% if t.is_stale %} title="Updated a while ago"{% endif %}>
@@ -70,16 +70,32 @@
     {% if gas and gas.cheapest %}
     <div class="gaspanel" id="gasPanel" role="region" aria-label="Cheapest gas near you">
       <div class="gp">
-        <div class="gphead"><span>Cheapest gas near you</span>{% if gas.staleness_label %}<span>{{ gas.staleness_label }}</span>{% endif %}</div>
-        {% for g in gas.cheapest %}
-        <a class="gasrow" href="{{ g.directions_url }}" target="_blank" rel="noopener nofollow">
-          <span class="gr num">{{ g.price }}</span>
-          <span style="min-width:0"><span class="gn">{{ g.name }}</span>{% if g.cross_street %}<span class="gs"> · {{ g.cross_street }}</span>{% endif %}</span>
-          <span class="gd">Directions ›</span>
-        </a>
-        {% endfor %}
+        <div class="gphead">
+          <span>Cheapest gas near you</span>
+          {% if gas.grades and not gas.single_grade %}
+          <div class="gseg" id="gasSeg" role="group" aria-label="Fuel grade">
+            {% for gk in gas.grades %}
+            <button type="button" data-grade="{{ gk }}" aria-pressed="{{ 'true' if gk == 'reg' else 'false' }}"{% if gk == 'reg' %} class="on"{% endif %}>{{ gas.grade_labels[gk] }}</button>
+            {% endfor %}
+          </div>
+          {% endif %}
+        </div>
+        <div class="gplist" id="gasList" aria-live="polite">
+          {% for g in gas.cheapest %}
+          <a class="gasrow" href="{{ g.directions_url }}" target="_blank" rel="noopener nofollow">
+            <span class="gr num">{{ g.price }}</span>
+            <span style="min-width:0"><span class="gn">{{ g.name }}</span>{% if g.cross_street %}<span class="gs"> · {{ g.cross_street }}</span>{% endif %}</span>
+            <span class="gd">Directions ›</span>
+          </a>
+          {% endfor %}
+        </div>
+        <a class="gpall" href="/gas">{% if gas.station_count %}All {{ gas.station_count }} stations · {% endif %}updated {{ gas.staleness_label }} {{ icon('arrow', 13) }}</a>
       </div>
     </div>
+    {% if gas.by_grade %}
+    <script type="application/json" id="gasByGrade">{{ gas.by_grade|tojson }}</script>
+    <script type="application/json" id="gasEcho">{{ gas.echo|tojson }}</script>
+    {% endif %}
     {% endif %}
   {% endif %}
 

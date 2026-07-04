@@ -374,6 +374,18 @@ body.scrolled .head-stack{box-shadow:0 6px 18px -10px rgba(19,32,29,.28)}
 .gasrow .gn{font-size:12.5px;font-weight:600;color:var(--ink)}
 .gasrow .gs{font-size:11px;color:var(--ink3)}
 .gasrow .gd{margin-left:auto;font-size:11px;font-weight:600;color:var(--teal);white-space:nowrap}
+/* v4.4 PR-6 gas grade switch (DESIGN_SPEC §5.1/§5.2). */
+.gseg{display:inline-flex;background:var(--paper2);border:1px solid var(--hair);border-radius:9px;padding:2px;gap:2px}
+.gseg button{border:0;background:transparent;font-family:var(--ui);font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:none;color:var(--ink3);padding:5px 10px;border-radius:7px;cursor:pointer;transition:.15s}
+.gseg button:hover{color:var(--ink)}
+.gseg button.on{background:#fff;color:var(--teal-deep);box-shadow:var(--sh-sm)}
+.gseg.lg{border-radius:11px;padding:3px}
+.gseg.lg button{font-size:12.5px;padding:8px 16px;border-radius:8px}
+.cond .lab .gl{color:var(--brass);font-weight:700}
+.cond .caret{transition:transform .25s}
+.cond .c.gas[aria-expanded="true"] .caret{transform:rotate(180deg)}
+.gpall{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border-top:1px solid var(--hair2);font-size:11.5px;font-weight:600;color:var(--teal);text-decoration:none}
+.gpall:hover{background:var(--teal-soft)}
 
 @media (prefers-reduced-motion:reduce){.feature-slot:hover::before{animation:none}.gaspanel,.util,.cond .c,.cond .val{transition:none}}
 
