@@ -29,7 +29,7 @@ gates recorded here; never redo a ✅ row.
 |----|--------|--------|------|-----------|-------|
 | 0 punchlist  | feat/v45-00-punchlist       | ✅ merged | pytest 12516✅ ruff✅ mypy✅ | merge 02ceafcf | gas footer literal dropped; /news date → Phoenix via router `news_updated_label` |
 | 1 events-ui  | feat/v45-01-events-ui       | ✅ merged | pytest 12515✅ ruff✅ mypy✅ live-QA✅ | merge 978cf71e | /events-ui → v4 shell, emoji pill → places |
-| 2 gas-shell  | feat/v45-02-gas-shell       | 🔨 gating | gas tests✅ ruff✅ mypy✅ live-QA✅ (no overflow, table scrolls in-wrap); full suite next | — | /gas → base_redesign |
+| 2 gas-shell  | feat/v45-02-gas-shell       | ✅ merged | pytest 12515✅ ruff✅ mypy✅ live-QA✅ | merge 6e2e5f32 | /gas → base_redesign |
 | 3 movies     | feat/v45-03-movies          | ⏳ | — | — | /movies body v4 (keep posters/tpills) |
 | 4 directory  | feat/v45-04-directory       | ⏳ | — | — | /categories + listing pages v4 |
 | 5 remaining  | feat/v45-05-remaining-pages | ⏳ | — | — | family/seniors/provider/legal + provider fixes |
@@ -112,6 +112,11 @@ gates recorded here; never redo a ✅ row.
   each migrated page via the havasu-local preview (structure + mobile-fit) instead, logged per PR.
 
 ## NEXT ACTION
+PR-2 ✅ merged (6e2e5f32). START PR-3 (`feat/v45-03-movies`) — see "PR-3 scouting":
+new movies_redesign.html extends base_redesign, v4 body (serif heads, day cards, KEEP posters
++ tpills, rating→.tg chips); route renders it; v4 movie CSS; update movies tests. Gate → merge → PR-4.
+
+## (older) NEXT ACTION
 PR-1 ✅ merged (978cf71e). START PR-2 (`feat/v45-02-gas-shell`) — see "PR-2 scouting":
 gas_prices_lake.html extends base_redesign; pass cond_tiles+today_label+cond_gas_plain (gas
 tile = plain span, no panel); keep PR-6 grade segment/matrix/Cheapest chip/JS; move .gseg.lg/
