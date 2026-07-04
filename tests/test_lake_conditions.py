@@ -95,7 +95,7 @@ def test_lake_gas_populated() -> None:
 def test_lake_today_route() -> None:
     b = TestClient(app).get("/today?theme=lake").text
     assert 'data-theme="lake"' in b
-    assert "/static/styles/lake_conditions.css" in b
+    assert "/static/styles/lake_redesign.css" in b  # v4.6 PR-1: /today on the v4 shell
     assert "Today in Havasu" in b
     assert b.count("<h1") == 1
     assert not _a11y(b)

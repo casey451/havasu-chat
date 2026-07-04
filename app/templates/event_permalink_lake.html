@@ -1,4 +1,4 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake Ink & Brass event permalink (/events/{id}) — SAME route context. The
    self-canonical comes from the route's absolute og_url via canonical_override;
    event_jsonld (full Event rich-results schema) is pre-built in the route. -#}
@@ -9,12 +9,11 @@
 {% block og_title %}{{ event_title }}{% endblock %}
 {% block og_image %}{% if image_url %}{{ image_url }}{% else %}{{ absolute_url('/static/img/lake/og-default.png') }}{% endif %}{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_landing.css') }}">
 {% if event_jsonld %}<script type="application/ld+json">{{ event_jsonld | tojson }}</script>{% endif %}
 {% endblock %}
 
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="evx-detail">
   <article class="evd">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><a href="/events-ui">Events</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Detail</span></nav>
 
@@ -34,8 +33,7 @@
       {% if host %}<span class="evd-note">Hosted by {{ host }}</span>{% endif %}
     </div>
 
-    {% if image_url %}<img class="evd-image" src="{{ image_url }}" alt="{{ event_title }}" loading="lazy" onerror="this.style.display='none'">
-    {% else %}<div class="evd-image-art" aria-hidden="true"><span class="sun"></span><span class="ridge"></span></div>{% endif %}
+    {% if image_url %}<img class="evd-image" src="{{ image_url }}" alt="{{ event_title }}" loading="lazy" onerror="this.style.display='none'">{% endif %}
 
     <div class="evd-actions">
       {% if directions_url %}<a class="btn btn-primary" href="{{ directions_url }}" target="_blank" rel="noopener noreferrer">Directions</a>{% endif %}

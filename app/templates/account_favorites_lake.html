@@ -1,4 +1,4 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {% set account_active = "favorites" %}
 {#- Lake saved-listings page (/account/favorites, auth-gated). Same context as
    account_favorites.html: {user, favorites:[{name, href}]}. Live-or-omit —
@@ -7,10 +7,9 @@
 {% block meta_description %}Your saved Lake Havasu City listings on Ask Hava — the local places you've kept for later.{% endblock %}
 {% block head_extra %}
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_account.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="acctx">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/account">My account</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Saved listings</span></nav>
   <div class="pagehead">
     <h1>Saved listings</h1>

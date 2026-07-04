@@ -1,17 +1,15 @@
-{% extends "base_lake.html" %}
-{#- Lake "Today in Havasu" conditions dashboard (GET /today, public). Same
-   context as today.html: {fields, any_available, local_time_label}. Honest
-   live-or-omit: each field renders its real value or an "Unavailable" state. -#}
+{% extends "base_redesign.html" %}
+{#- v4 "Today in Havasu" lake report (GET /today, public) — v4.6 PR-1. Full v4
+   shell + live-conditions strip. Same context as before: {fields, any_available,
+   local_time_label}. Honest live-or-omit: each field renders its real value or an
+   "Unavailable" state; no fabricated imagery (DESIGN_SPEC §0). -#}
 {% block title %}Today in Havasu — Ask Hava{% endblock %}
 {% block meta_description %}Today in Lake Havasu City: lake level and water temp, wind, air quality, sunset, and the cheapest gas — updated from live local sources.{% endblock %}
-{% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_conditions.css') }}">
-{% endblock %}
-{% block content %}
-<div class="wrap">
-  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Home</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Today</span></nav>
+{% block main %}
+<div class="todayx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Today</span></nav>
   <div class="pagehead">
-    <h1>Today in Lake Havasu</h1>
+    <h1 class="serif">Today in Lake Havasu</h1>
     <p class="sub">Live conditions &middot; as of {{ local_time_label }}</p>
   </div>
   {% if not any_available %}
@@ -22,7 +20,7 @@
     <div class="card cstat">
       <p class="l">{{ f.label }}</p>
       {% if f.available %}
-      <p class="v tnum">{{ f.primary }}</p>
+      <p class="v num">{{ f.primary }}</p>
       {% if f.secondary %}<p class="sub">{{ f.secondary }}</p>{% endif %}
       {% if f.attribution %}<p class="attr">{{ f.attribution }}{% if f.staleness_label %} &middot; {{ f.staleness_label }}{% endif %}</p>{% endif %}
       {% else %}

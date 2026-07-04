@@ -1,14 +1,13 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake claim form (GET /claim/{slug}, auth-gated). Same context as
    claim_form.html ({entity}); POSTs to /claim/{slug} with the optional `notes`
    textarea unchanged. noindex. -#}
 {% block title %}Claim listing — Ask Hava{% endblock %}
 {% block head_extra %}
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_account.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="authx">
   <div class="authwrap">
     <nav class="crumbs" aria-label="Breadcrumb"><a href="/account">My account</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Claim</span></nav>
     <p class="eyebrow">Business ownership</p>

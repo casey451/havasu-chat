@@ -1,4 +1,4 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake buy-a-placement form (GET/POST /portal/placements/new, auth-gated).
    Same context as portal_placement_new.html: {providers, selected_provider_id,
    categories, types, prices, creatives, errors, form}. Every field name
@@ -9,10 +9,9 @@
 {% block meta_description %}Buy a clearly-labeled paid placement for your Lake Havasu listing.{% endblock %}
 {% block head_extra %}
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_portal.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap" style="max-width:760px">
+{% block main %}
+<div class="portx" style="max-width:760px">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/portal/placements">Your placements</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Buy a placement</span></nav>
   <div class="pagehead">
     <h1>Buy a placement</h1>

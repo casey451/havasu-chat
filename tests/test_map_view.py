@@ -20,9 +20,8 @@ def test_map_view_returns_200_with_container_and_leaflet() -> None:
     assert "leaflet/1.9.4/leaflet.min.css" in r.text
     assert "leaflet/1.9.4/leaflet.min.js" in r.text
     assert "leaflet.markercluster/1.5.3/leaflet.markercluster.min.js" in r.text
-    # Lake Ink & Brass chrome (base_lake) + the lake map skin.
-    assert "/static/styles/lake.css" in r.text
-    assert "/static/styles/lake_map.css" in r.text
+    # v4.6 PR-1: the v4 shell (base_plain) + its chrome.
+    assert "/static/styles/lake_redesign.css" in r.text
     assert 'class="map-page"' in r.text
     # Full-page map stylesheet.
     assert "/static/styles/components/map_view.css" in r.text

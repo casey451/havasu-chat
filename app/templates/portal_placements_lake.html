@@ -1,4 +1,4 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake merchant placements dashboard (GET /portal/placements, auth-gated).
    Same context as portal_placements.html: {providers, placements, prov_by_id,
    type_labels, purchased}. noindex. -#}
@@ -6,10 +6,9 @@
 {% block meta_description %}Manage your clearly-labeled paid placements on Ask Hava.{% endblock %}
 {% block head_extra %}
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_portal.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="portx">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/portal">For businesses</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Your placements</span></nav>
   <div class="pagehead">
     <h1>Your placements</h1>

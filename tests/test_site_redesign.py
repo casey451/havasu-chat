@@ -1,11 +1,10 @@
-"""Sitewide v4 reskin — baked into the base layout (flag collapsed 2026-07-02).
+"""Sitewide v4 shell — the standalone base_redesign layout.
 
-Every page extending ``base_lake.html`` carries ``data-redesign="1"`` on <html>
-plus the scoped ``lake_redesign_site.css`` link directly in the template — the
-HomeRedesignSkinMiddleware that used to buffer and string-rewrite every HTML
-response is gone. The standalone v4 home/calendar (base_redesign, their own
-lake_redesign.css) are not double-skinned. Reskinned pages must still clear the
-structural WCAG 2.1 AA contract.
+v4.6 PR-1 moved the last discovery/utility pages (/today, /account, /contribute,
+/feedback, /portal/claim, errors) off the old base_lake reskin; PR-2 deletes
+base_lake.html entirely. So there is no base_lake reskin sentinel left — every
+public page rides the standalone v4 shell (base_redesign → its own
+lake_redesign.css), which must still clear the structural WCAG 2.1 AA contract.
 """
 
 from __future__ import annotations
@@ -16,38 +15,19 @@ from test_ada_compliance import _A11yChecker
 
 from app.main import app
 
-# The v4.5 interior migration moved the discovery + utility pages off the base_lake
-# reskin onto the standalone base_redesign shell (events-ui/gas/movies/categories/
-# family/seniors/provider + about/help/contact/privacy/terms/login/sponsor/portal/
-# chat). /today still rides the base_lake reskin — it's the sentinel here.
-_INNER = ["/today"]
-
 # Pages fully on the standalone v4 shell (base_redesign → its own lake_redesign.css,
-# never the base_lake reskin sheet).
-_V4_STANDALONE = ["/home", "/categories", "/about", "/help", "/contact", "/sponsor"]
-
-
-@pytest.mark.parametrize("url", _INNER)
-def test_reskin_is_baked_into_base_layout(url: str) -> None:
-    b = TestClient(app).get(url).text
-    assert 'data-redesign="1"' in b
-    assert "/static/styles/lake_redesign_site.css" in b
-    # the shared Lake CSS is still present (overrides layer on top of it)
-    assert "/static/styles/lake.css" in b
-
-
-def test_reskin_needs_no_flag_and_sets_no_cookie() -> None:
-    r = TestClient(app).get("/today")
-    assert 'data-redesign="1"' in r.text
-    assert "home_redesign" not in (r.headers.get("set-cookie") or "")
+# never the deleted base_lake reskin sheet). /today joined this set in v4.6 PR-1.
+_V4_STANDALONE = ["/home", "/categories", "/about", "/help", "/contact", "/sponsor", "/today"]
 
 
 @pytest.mark.parametrize("url", _V4_STANDALONE)
-def test_standalone_v4_not_double_skinned(url: str) -> None:
+def test_standalone_v4_shell(url: str) -> None:
     b = TestClient(app).get(url, follow_redirects=True).text
     assert "/static/styles/lake_redesign.css" in b  # its own v4 sheet
-    assert "/static/styles/lake_redesign_site.css" not in b  # not double-linked
-    assert "data-redesign" not in b  # not the base_lake reskin path
+    # The deleted base_lake reskin path is gone: no data-redesign flag, no
+    # lake_redesign_site.css override layer.
+    assert "/static/styles/lake_redesign_site.css" not in b
+    assert "data-redesign" not in b
 
 
 @pytest.mark.parametrize("url", ["/today"])
@@ -55,4 +35,4 @@ def test_reskinned_pages_a11y(url: str) -> None:
     checker = _A11yChecker()
     checker.feed(TestClient(app).get(url).text)
     issues = checker.finish()
-    assert not issues, f"A11y issues on reskinned {url}: {issues}"
+    assert not issues, f"A11y issues on {url}: {issues}"

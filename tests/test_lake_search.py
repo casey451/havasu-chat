@@ -38,7 +38,7 @@ def test_search_lake_theme_select() -> None:
     b = TestClient(app).get(f"/search?q={mark}&theme=lake")
     assert b.status_code == 200
     assert mark in b.text  # the results page rendered the row
-    assert "/static/styles/lake_search.css" in b.text
+    assert "/static/styles/lake_redesign.css" in b.text  # v4.6 PR-1: v4 shell
     assert 'data-theme="lake"' in b.text
     assert 'name="robots" content="noindex"' in b.text  # results page = noindex
 
@@ -46,5 +46,5 @@ def test_search_lake_theme_select() -> None:
 def test_search_lake_blank_query_indexable() -> None:
     b = TestClient(app).get("/search?theme=lake")
     assert b.status_code == 200
-    assert "/static/styles/lake_search.css" in b.text
+    assert "/static/styles/lake_redesign.css" in b.text  # v4.6 PR-1: v4 shell
     assert 'name="robots" content="noindex"' not in b.text  # bare form stays indexable

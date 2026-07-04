@@ -1,14 +1,13 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake "check your email" confirmation. Reached after POST /api/auth/request-link
    (link sent or rate-limited). Resend re-POSTs the known email to the same,
    server-rate-limited endpoint; "different email" is a plain GET back to /login. -#}
 {% block title %}Check your email — Ask Hava{% endblock %}
 {% block head_extra %}
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_account.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="authx">
   <div class="authwrap">
     <p class="eyebrow">Sign-in email sent</p>
     <h1>Check your <em>inbox.</em></h1>
