@@ -1,29 +1,29 @@
-{% extends "base_lake.html" %}
-{#- ─────────── /chat — Desert Modern skin ───────────
+{% extends "base_redesign.html" %}
+{#- ─────────── /chat — v4 language (v4.5 PR-5) ───────────
    The transcript is rendered client-side by chat-new.js. Every id / class the
    JS queries is load-bearing and preserved verbatim:
      ids:    thread, empty-state, composer-form, composer-input, composer-send,
              composer-photo, composer-photo-btn
      hooks:  .chip[data-q]  (empty-state suggestion chips)
    Body keeps `ll-page ll-chat` because chat_cards.css (B-01 SVG/img clamps,
-   feedback controls, composer clearance) scopes everything under
-   body.ll-chat. desert_chat.css loads AFTER chat_cards.css so the clamps win
-   where they overlap. -#}
+   feedback controls, composer clearance) scopes everything under body.ll-chat.
+   The v4 chat skin (shell, empty state, composer) lives in lake_redesign.css. -#}
 {% set active_tab = "ask" %}
 
 {% block title %}{% if initial_query %}{{ initial_query }} — Ask Hava{% else %}Chat — Ask Hava{% endif %}{% endblock %}
 {% block meta_description %}Ask Hava about anything in Lake Havasu City — restaurants, classes, what's open, what's worth your Saturday.{% endblock %}
 
 {% block head_extra %}
-  {# chat_cards.css first (carries the B-01 size clamps + feedback/clearance
-     rules), then the Desert Modern chat skin, which must load after it. #}
+  {# chat_cards.css carries the B-01 size clamps + feedback/clearance rules for
+     the JS-rendered answer cards (self-contained, scoped under body.ll-chat) —
+     it stays. The desert chat skin is replaced by the v4 chat rules in
+     lake_redesign.css. #}
   <link rel="stylesheet" href="{{ static_url('/static/styles/chat_cards.css') }}">
-  <link rel="stylesheet" href="{{ static_url('/static/styles/desert_chat.css') }}">
 {% endblock %}
 
 {% block body_attrs %} class="ll-page ll-chat"{% endblock %}
 
-{% block content %}
+{% block main %}
 <div class="chat-shell">
 
   {# ─────────── empty state ─────────── #}

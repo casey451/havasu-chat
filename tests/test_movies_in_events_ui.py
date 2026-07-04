@@ -4,7 +4,7 @@ side strip).
 
 serve_events_ui inserts a ``movies`` render group (``is_movies``) into the
 today + day groups (not week or month), and the events template renders it as a
-first-class accordion (``data-group="movies"``). This pins that wiring
+first-class accordion (``data-k="movies"``). This pins that wiring
 end-to-end: a showtime seeded for the mocked "today" renders in the accordion on
 the today view and is absent from the week view.
 
@@ -30,7 +30,7 @@ from app.main import app
 _LHC = ZoneInfo("America/Phoenix")
 _NOW = datetime(2099, 7, 13, 9, 0, tzinfo=_LHC)
 # The promoted first-class accordion (was the side-strip's aria-label marker).
-_MOVIES_MARKER = 'data-group="movies"'
+_MOVIES_MARKER = 'data-k="movies"'
 
 
 def _seed_showtime(film_title: str, sid: str, *, booking_url: str | None = "https://example.com/book") -> str:

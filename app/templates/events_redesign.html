@@ -1,0 +1,112 @@
+{% extends "base_redesign.html" %}
+{#- /events-ui in the v4 language (v4.5 PR-1). Same serve_events_ui context; the
+   day view reuses the SHARED feed macros (parity Rule 0), week/month use the v4
+   .ev rows and .cell grid. No emoji — monoline icons only. -#}
+{% from "components/redesign_icons.html" import icon, cicon %}
+{% from "components/feed_macros.html" import section %}
+
+{%- set _h1 = day_label if mode == 'day'
+      else ('This week' if mode == 'week'
+      else (month_label if mode == 'month' else 'Happening today')) -%}
+{% block title %}{{ _h1 }} — Ask Hava events, Lake Havasu City{% endblock %}
+{% block meta_description %}What's happening in Lake Havasu City — events, live music, family fun, lake outings, and fitness classes by day, week, and month.{% endblock %}
+
+{% block head_extra %}
+{% if canonical_url is defined %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    { "@type": "ListItem", "position": 1, "name": "Ask Hava", "item": "{{ absolute_url('/home') }}" },
+    { "@type": "ListItem", "position": 2, "name": "Events", "item": "{{ absolute_url('/events-ui') }}" }
+  ]
+}
+</script>
+{% if mode in ('today', 'day') and groups %}
+{%- set _rows = [] -%}
+{%- for g in groups -%}{%- if g.subgroups -%}{%- for sub in g.subgroups -%}{%- for r in sub.rows -%}{%- set _ = _rows.append(r) -%}{%- endfor -%}{%- endfor -%}{%- else -%}{%- for r in g.rows -%}{%- set _ = _rows.append(r) -%}{%- endfor -%}{%- endif -%}{%- endfor -%}
+{% if _rows %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "ItemList",
+  "name": {{ (_h1 ~ ' — events in Lake Havasu City')|tojson }},
+  "itemListElement": [{% for r in _rows[:25] %}{ "@type": "ListItem", "position": {{ loop.index }}, "name": {{ r.title|tojson }}{% if r.url %}, "url": {{ absolute_url(r.url)|tojson }}{% endif %} }{% if not loop.last %}, {% endif %}{% endfor %}]
+}
+</script>
+{% endif %}
+{% endif %}
+{% endif %}
+{% endblock %}
+
+{% block main %}
+<div class="evx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Events</span></nav>
+
+  <div class="calbar">
+    <h1 class="serif" id="feedTitle">{{ _h1 }}</h1>
+  </div>
+
+  {# View zoom (Today / Week / Month) + audience narrows — v4 pills, no emoji. #}
+  <div class="counts hscroll" id="evseg" role="tablist" aria-label="Calendar view">
+    {% for v in view_links %}
+    <a class="cpill{% if v.active %} on{% endif %}" href="{{ v.url }}"{% if v.active %} aria-current="page"{% endif %}><span class="cl">{{ v.label }}</span></a>
+    {% endfor %}
+    <a class="cpill places{% if family_mode %} on{% endif %}" href="{{ family_toggle_url }}" role="button" aria-pressed="{{ 'true' if family_mode else 'false' }}">{{ icon('kid', 15) }}<span class="cl">For Kids</span></a>
+    <a class="cpill places{% if seniors_mode %} on{% endif %}" href="{{ seniors_toggle_url }}" role="button" aria-pressed="{{ 'true' if seniors_mode else 'false' }}">{{ icon('people', 15) }}<span class="cl">For Seniors</span></a>
+  </div>
+
+  {% if mode in ('today', 'day') %}
+    {% if mode == 'day' %}
+    <div class="evnav">
+      {% if prev_iso %}<a href="/events-ui?date={{ prev_iso }}{{ family_qs }}" aria-label="Previous day">{{ icon('back', 16) }}</a>{% endif %}
+      {% if not is_today %}<a class="today" href="/events-ui{{ '?' ~ family_qs[1:] if family_qs }}">Today</a>{% endif %}
+      {% if next_iso %}<a href="/events-ui?date={{ next_iso }}{{ family_qs }}" aria-label="Next day">{{ icon('arrow', 16) }}</a>{% endif %}
+    </div>
+    {% endif %}
+    <div class="sections" id="sections">
+      {% if not groups %}
+      <div class="sec open"><div class="sechd"><span class="sl serif">Nothing posted for {{ day_label if mode == 'day' else 'today' }} yet</span></div></div>
+      {% endif %}
+      {% for s in groups %}{{ section(s, loop.index0) }}{% endfor %}
+    </div>
+
+  {% elif mode == 'week' %}
+    <div class="sections"><div class="host wklist">
+      {% for d in week_rows %}
+      <a class="ev{% if d.is_today %} wktoday{% endif %}" href="/events-ui?date={{ d.iso }}{{ family_qs }}">
+        <span class="evt">{{ d.label }} {{ d.daynum }}</span>
+        <span class="b">
+          <span class="et">{% if d.headline %}{% if d.headline.time %}{{ d.headline.time }} · {% endif %}{{ d.headline.title }}{% elif d.total %}Classes &amp; ongoing only{% else %}Nothing posted yet{% endif %}</span>
+          {% if d.summary %}<span class="em">{{ d.summary }}</span>{% endif %}
+        </span>
+        <span class="det" aria-hidden="true">{{ icon('arrow', 15) }}</span>
+      </a>
+      {% endfor %}
+    </div></div>
+
+  {% elif mode == 'month' %}
+    <div class="calgrid">
+      <div class="calwd"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+      <div class="calmonth">
+        {% for wk in calendar.weeks %}{% for cell in wk %}
+        {% if not cell.in_month %}
+        <span class="cell empty" aria-hidden="true"></span>
+        {% elif cell.has %}
+        <a class="cell{% if cell.is_today %} today{% endif %}" href="/events-ui?date={{ cell.iso }}{{ family_qs }}"
+           aria-label="{% if cell.count %}{{ cell.count }} event{{ '' if cell.count == 1 else 's' }}{% endif %}{% if cell.count and cell.class_count %} and {% endif %}{% if cell.class_count %}{{ cell.class_count }} class{{ '' if cell.class_count == 1 else 'es' }}{% endif %} on day {{ cell.day }}">
+          <span class="dnum">{{ cell.day }}</span>
+          {% if cell.count %}<span class="more">{{ cell.count }} event{{ '' if cell.count == 1 else 's' }}</span>{% endif %}
+          {% if cell.class_count %}<span class="more cls">{{ cell.class_count }} class{{ '' if cell.class_count == 1 else 'es' }}</span>{% endif %}
+        </a>
+        {% else %}
+        <span class="cell{% if cell.is_today %} today{% endif %}"><span class="dnum">{{ cell.day }}</span></span>
+        {% endif %}
+        {% endfor %}{% endfor %}
+      </div>
+    </div>
+    <p class="calnote"><b>{{ calendar.month_oneoff_total or 0 }}</b> one-off events · <b>{{ calendar.month_class_total or 0 }}</b> classes this month — tap a date.</p>
+  {% endif %}
+</div>
+{% endblock %}

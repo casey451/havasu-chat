@@ -64,13 +64,18 @@ templates = make_templates()
 router = APIRouter(tags=["categories"])
 
 
-def _chrome_context(db: Session) -> dict[str, Any]:
+def _chrome_context(db: Session, now: datetime) -> dict[str, Any]:
     """Header/ribbon nav context shared by every category page.
 
     Each chrome query is guarded so a hiccup (e.g. a conditions-cache read that
     raises) degrades to an empty element instead of bubbling up to blank or 500
     the whole listing — the P0 "200 but empty body" failure mode. The page's
     actual content (the listings) is built by the caller and is unaffected.
+
+    v4.5 PR-4: the directory now wears the v4 shell (base_redesign), so it also
+    carries the live-conditions strip + cheapest-gas panel like every other
+    discovery page. Both are ``_safe``-guarded — a conditions/gas hiccup degrades
+    to no strip, never a 500.
     """
 
     def _safe(fn: Callable[[], Any]) -> Any:
@@ -79,8 +84,12 @@ def _chrome_context(db: Session) -> dict[str, Any]:
         except Exception:  # noqa: BLE001 — chrome must never break the page
             return []
 
+    from app.home import redesign
+
     return {
         "utility_chips": _safe(lambda: _home_utility_chips(db)),
+        "cond_tiles": _safe(lambda: redesign.conditions_tiles(db, now=now)),
+        "gas": _safe(lambda: redesign.gas_panel_data(db, now=now)) or None,
     }
 
 
@@ -386,6 +395,7 @@ def serve_categories_index(
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
             "categories": categories,
             "active_tab": "all-categories",
+            **_chrome_context(db, now),
         },
     )
 
@@ -602,7 +612,7 @@ def _render_category_page(
             # serve_category_page_ad returns None on an empty book.
             "sponsored": serving.serve_category_page_ad(db, route_slug)
             or sponsor_store.active_promoted(db),
-            **_chrome_context(db),
+            **_chrome_context(db, now),
         }
     if extra_context:
         context.update(extra_context)
@@ -845,7 +855,7 @@ def _render_trade_page(
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": "explore",
-            **_chrome_context(db),
+            **_chrome_context(db, now),
         },
     )
 
@@ -1175,7 +1185,7 @@ def _render_leaf_page(
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": "explore",
-            **_chrome_context(db),
+            **_chrome_context(db, now),
         },
     )
 
@@ -1263,7 +1273,7 @@ def _render_department_page(
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": "explore",
-            **_chrome_context(db),
+            **_chrome_context(db, now),
         },
     )
 

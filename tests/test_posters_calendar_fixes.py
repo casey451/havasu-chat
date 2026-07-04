@@ -9,6 +9,7 @@ tests/test_events_ui_views.py; the live site is lake-default.)
 
 from __future__ import annotations
 
+import re
 from datetime import date, timedelta
 
 from fastapi.testclient import TestClient
@@ -46,26 +47,21 @@ def test_swipe_weeks_builder_shape_and_today_flagging() -> None:
     assert all(starts[i + 1] - starts[i] == timedelta(days=7) for i in range(4))
 
 
-def test_lake_week_view_has_swipe_carousel_and_mobile_toggle() -> None:
+def test_lake_week_view_is_the_v4_day_list() -> None:
+    # v4.5 PR-1: the events-ui week view is the v4 seven-day .ev list (the old
+    # swipe carousel + Day/Full mobile toggle were dropped for the single v4
+    # language — mobile scrolls the same list, matching /calendar). See PROGRESS.
     body = TestClient(app).get("/events-ui?view=week&theme=lake").text
-    # Swipeable carousel present, opening on the current week.
-    assert 'class="ev-swipe"' in body
-    assert "data-swipe-slide" in body
-    assert "data-current" in body
-    # Simplified mobile toggle: Day / Full calendar.
-    assert 'class="ev-seg-m"' in body
-    assert ">Day</a>" in body and ">Full calendar</a>" in body
-    # Desktop flat week list still rendered (CSS hides it on mobile).
-    assert 'class="ev-week"' in body
+    assert "This week" in body
+    assert "wklist" in body
+    assert re.search(r'href="/events-ui\?date=\d{4}-\d{2}-\d{2}"', body)
 
 
-def test_lake_month_view_keeps_desktop_grid_and_adds_swipe() -> None:
+def test_lake_month_view_is_the_v4_grid() -> None:
     body = TestClient(app).get("/events-ui?view=month&theme=lake&cal=2099-07").text
     assert "July 2099" in body
-    # Desktop month grid renders a Sunday-anchored header and a full set of day
-    # cells (≥28 — links only on days with events, plain cells otherwise).
-    assert 'class="mcal"' in body
+    # v4 month grid: a Sunday-anchored header and a full set of day cells (≥28 —
+    # links on days with events, plain cells otherwise). Dots on mobile, no swipe.
+    assert 'class="calmonth"' in body
     assert "<span>Sun</span>" in body
     assert body.count('class="cell') >= 28
-    # … and the mobile swipeable week is present (the grid is hidden ≤720px).
-    assert 'class="ev-swipe"' in body

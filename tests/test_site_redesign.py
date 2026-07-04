@@ -16,7 +16,15 @@ from test_ada_compliance import _A11yChecker
 
 from app.main import app
 
-_INNER = ["/events-ui", "/categories", "/about", "/help", "/contact"]
+# The v4.5 interior migration moved the discovery + utility pages off the base_lake
+# reskin onto the standalone base_redesign shell (events-ui/gas/movies/categories/
+# family/seniors/provider + about/help/contact/privacy/terms/login/sponsor/portal/
+# chat). /today still rides the base_lake reskin — it's the sentinel here.
+_INNER = ["/today"]
+
+# Pages fully on the standalone v4 shell (base_redesign → its own lake_redesign.css,
+# never the base_lake reskin sheet).
+_V4_STANDALONE = ["/home", "/categories", "/about", "/help", "/contact", "/sponsor"]
 
 
 @pytest.mark.parametrize("url", _INNER)
@@ -29,18 +37,20 @@ def test_reskin_is_baked_into_base_layout(url: str) -> None:
 
 
 def test_reskin_needs_no_flag_and_sets_no_cookie() -> None:
-    r = TestClient(app).get("/about")
+    r = TestClient(app).get("/today")
     assert 'data-redesign="1"' in r.text
     assert "home_redesign" not in (r.headers.get("set-cookie") or "")
 
 
-def test_standalone_v4_home_not_double_skinned() -> None:
-    b = TestClient(app).get("/home").text
+@pytest.mark.parametrize("url", _V4_STANDALONE)
+def test_standalone_v4_not_double_skinned(url: str) -> None:
+    b = TestClient(app).get(url, follow_redirects=True).text
     assert "/static/styles/lake_redesign.css" in b  # its own v4 sheet
     assert "/static/styles/lake_redesign_site.css" not in b  # not double-linked
+    assert "data-redesign" not in b  # not the base_lake reskin path
 
 
-@pytest.mark.parametrize("url", ["/about", "/events-ui"])
+@pytest.mark.parametrize("url", ["/today"])
 def test_reskinned_pages_a11y(url: str) -> None:
     checker = _A11yChecker()
     checker.feed(TestClient(app).get(url).text)

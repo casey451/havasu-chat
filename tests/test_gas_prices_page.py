@@ -68,12 +68,13 @@ def _get_gas(result: CacheReadResult | None) -> str:
     return resp.text
 
 
-def test_gas_page_extends_lake_and_loads_page_css() -> None:
-    # Lake Ink & Brass: /gas extends base_lake + its own conditions stylesheet.
+def test_gas_page_extends_v4_shell_and_loads_v4_css() -> None:
+    # v4.5 PR-2: /gas is in the v4 language (base_redesign + lake_redesign.css); the
+    # old base_lake sheet and the page-specific lake_conditions.css are gone.
     body = _get_gas(_result(_payload(), fetched_at=_now() - timedelta(minutes=5)))
-    assert "/static/styles/lake.css" in body  # from base_lake
-    assert "/static/styles/lake_conditions.css" in body  # page-specific stylesheet
-    assert "/static/styles/lake_light.css" not in body  # old skin gone
+    assert "/static/styles/lake_redesign.css" in body  # the v4 shell stylesheet
+    assert "/static/styles/lake_conditions.css" not in body  # old page sheet gone
+    assert "/static/styles/lake.css" not in body  # old base_lake sheet gone
 
 
 def test_no_source_column_and_no_google_feed_line() -> None:
@@ -179,11 +180,13 @@ def test_gas_page_carries_shell_nav() -> None:
     assert 'href="/events-ui"' in body  # a primary-nav link from the lake header
 
 
-def test_gas_page_renders_conditions_ribbon_with_gas_chip() -> None:
-    """The conditions ribbon renders on /gas with the cheapest-gas chip.
+def test_gas_page_renders_v4_cond_strip_with_plain_gas_tile() -> None:
+    """v4.5 PR-2: /gas wears the v4 cond-tile strip. Its gas tile is a PLAIN span
+    here (no caret/panel — you're already on the gas page), so the expandable
+    #gasPanel never renders.
 
-    The home ribbon builder reads gas via its own ``read_source`` import, so we
-    patch that one too (alongside the gas-route patch) to feed it live data."""
+    The strip's gas tile reads gas via the home builder's own ``read_source``
+    import, so we patch that one too (alongside the gas-route patch)."""
     from app.home import router as home_router
 
     payload = _payload()
@@ -192,8 +195,9 @@ def test_gas_page_renders_conditions_ribbon_with_gas_chip() -> None:
         with patch.object(home_router, "read_source", return_value=result):
             with TestClient(app) as client:
                 body = client.get("/gas").text
-    assert 'class="condband"' in body  # Lake conditions strip
-    assert "Cheapest gas" in body
+    assert 'class="cond"' in body  # v4 conditions strip
+    assert 'id="gasPanel"' not in body  # no expandable panel on the gas page
+    assert 'id="gasTile"' not in body  # gas tile is a plain span, not the toggle button
 
 
 def test_format_fetched_at_helpers_are_lake_local() -> None:

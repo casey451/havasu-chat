@@ -97,23 +97,51 @@ def parse_result(payload: Any) -> dict[str, Any]:
     }
 
 
+# RISE is a JSON:API service: it 406s on ``Accept: application/json`` and only
+# serves ``application/vnd.api+json``. Sending the wrong Accept header silently
+# broke the "dependable gauge" — the fetch 406'd and the water tile omitted even
+# with the flag ON (v4.5 PR-6, verified with a live fetch on 2026-07-04:
+# item 6127 = Parker Dam water temp, °F, returned 80.7°F @ 2026-07-04T07:00).
+_ACCEPT = "application/vnd.api+json"
+
+
 def fetch_rise_water_temp(*, lookback_days: int = 14, client: httpx.Client | None = None) -> dict[str, Any]:
-    """Fetch the latest Parker Dam water temp. No HTTP when the feature flag is OFF."""
+    """Fetch the latest Parker Dam water temp. No HTTP when the feature flag is OFF.
+
+    Retries once on a transport error or an empty/no-reading parse (on top of the
+    limiter's status-code retries) so a single transient hiccup doesn't blank the
+    water tile for a whole TTL window.
+    """
     if not feature_enabled():
         return _empty_payload(feature_on=False)
 
     after = (date.today() - timedelta(days=lookback_days)).isoformat()
     params = {"itemId": str(PARKER_DAM_WATER_TEMP_ITEM), "dateTime[after]": after}
-    headers = {"Accept": "application/json", "User-Agent": "havasu-chat/1.0 source-expansion"}
+    headers = {"Accept": _ACCEPT, "User-Agent": "havasu-chat/1.0 source-expansion"}
     owns = client is None
     c = client or httpx.Client(headers=headers, follow_redirects=True)
     try:
-        resp = _LIMITER.call_with_retry(lambda: c.get(RESULT_URL, params=params, timeout=20.0))
-        if resp is None:
-            logger.warning("rise_water_temp.fetch_returned_none")
-            return _empty_payload(feature_on=True)
-        resp.raise_for_status()
-        return parse_result(resp.json())
+        for attempt in (1, 2):  # retry-once on transport error / empty parse
+            try:
+                resp = _LIMITER.call_with_retry(
+                    lambda: c.get(RESULT_URL, params=params, headers=headers, timeout=20.0)
+                )
+            except httpx.HTTPError as exc:
+                logger.warning("rise_water_temp.transport_error attempt=%s err=%s", attempt, exc)
+                if attempt == 2:
+                    return _empty_payload(feature_on=True)
+                continue
+            if resp is None:
+                logger.warning("rise_water_temp.fetch_returned_none attempt=%s", attempt)
+                if attempt == 2:
+                    return _empty_payload(feature_on=True)
+                continue
+            resp.raise_for_status()
+            parsed = parse_result(resp.json())
+            if parsed.get("water_temp_f") is not None or attempt == 2:
+                return parsed
+            logger.warning("rise_water_temp.empty_reading attempt=%s — retrying once", attempt)
+        return _empty_payload(feature_on=True)
     finally:
         if owns:
             c.close()

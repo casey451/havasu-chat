@@ -11,9 +11,9 @@ def test_portal_landing_renders() -> None:
     with TestClient(app) as client:
         r = client.get("/portal")
     assert r.status_code == 200
-    # Lake Ink & Brass: base tokens + the portal page stylesheet.
-    assert "/static/styles/lake.css" in r.text
-    assert "/static/styles/lake_portal.css" in r.text
+    # v4.5 PR-5: the business portal wears the standalone v4 shell.
+    assert "/static/styles/lake_redesign.css" in r.text
+    assert "/static/styles/lake_portal.css" not in r.text
     assert 'href="/portal/claim"' in r.text
     assert 'href="/portal/placements"' in r.text
 

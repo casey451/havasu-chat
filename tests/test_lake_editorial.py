@@ -35,7 +35,7 @@ def _client() -> TestClient:
 def test_lake_about_aboutpage_schema() -> None:
     b = _client().get("/about?theme=lake").text
     assert 'data-theme="lake"' in b
-    assert "/static/styles/lake_editorial.css" in b
+    assert "/static/styles/lake_redesign.css" in b
     about = next(x for x in _ld(b) if x.get("@type") == "AboutPage")
     assert about["name"] == "About Ask Hava"
     assert "no engagement loops" in b  # real copy ported
@@ -67,7 +67,7 @@ def test_lake_privacy_and_terms() -> None:
     for path, marker in (("/privacy", "Privacy"), ("/terms", "Terms")):
         b = _client().get(f"{path}?theme=lake").text
         assert 'data-theme="lake"' in b, path
-        assert "/static/styles/lake_editorial.css" in b, path
+        assert "/static/styles/lake_redesign.css" in b, path
         assert marker in b, path  # markdown body rendered
         assert b.count("<h1") == 1, path  # one h1 (from the markdown body)
         assert not _a11y(b), path

@@ -41,7 +41,7 @@
   <link rel="stylesheet" href="{{ static_url('/static/styles/lake_redesign.css') }}">
   {% block head_extra %}{% endblock %}
 </head>
-<body data-theme="lake" id="rd-body">
+<body data-theme="lake" id="rd-body"{% block body_attrs %}{% endblock %}>
 <a class="skip" href="#main">Skip to content</a>
 
 <div class="rd-shell">
@@ -54,7 +54,9 @@
   {% if cond_tiles %}
     <div class="cond" aria-label="Live conditions">
       {% for t in cond_tiles %}
-      {% if t.is_gas %}
+      {# v4.5 PR-2: on the /gas page the gas tile is a plain span (no caret/panel) —
+         you're already on the gas page. cond_gas_plain routes it to the else branch. #}
+      {% if t.is_gas and not cond_gas_plain %}
       <button type="button" class="c gas" id="gasTile" aria-expanded="false" aria-controls="gasPanel">
         <span class="lab">{{ icon(t.icon, 12) }}{{ t.label }}<span class="gl"></span></span>
         <span class="val"><span class="gval">{{ t.value }}</span><span class="caret">{{ icon('chev', 11) }}</span></span>
@@ -89,7 +91,7 @@
           </a>
           {% endfor %}
         </div>
-        <a class="gpall" href="/gas">{% if gas.station_count %}All {{ gas.station_count }} stations · {% endif %}updated {{ gas.staleness_label }} {{ icon('arrow', 13) }}</a>
+        <a class="gpall" href="/gas">{% if gas.station_count %}All {{ gas.station_count }} stations · {% endif %}{{ gas.staleness_label }} {{ icon('arrow', 13) }}</a>
       </div>
     </div>
     {% if gas.by_grade %}

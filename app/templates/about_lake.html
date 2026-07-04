@@ -1,16 +1,15 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake About page (GET /about, public, indexable). Ports the page-editorial
    layout, bound to the real about copy. AboutPage JSON-LD. -#}
 {% block title %}About — Ask Hava{% endblock %}
 {% block meta_description %}About Ask Hava — an honest, local guide to Lake Havasu City. What we are, how we work, and how to reach us.{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_editorial.css') }}">
 {% if absolute_url is defined %}
 <script type="application/ld+json">{"@context":"https://schema.org","@type":"AboutPage","name":"About Ask Hava","url":"{{ absolute_url('/about') }}","description":"The local directory for Lake Havasu City: what we are, how we work, and how to reach us.","publisher":{"@type":"Organization","name":"Ask Hava"}}</script>
 {% endif %}
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="artx">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Home</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">About</span></nav>
   <div class="ah">
     <span class="eyebrow">Who we are</span>

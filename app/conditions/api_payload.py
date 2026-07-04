@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import logging
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -21,6 +22,26 @@ from app.conditions.constants import (
 from app.conditions.staleness import staleness_label
 from app.conditions.sun import sunset_utc
 from app.core.timezone import LAKE_HAVASU_TZ
+
+logger = logging.getLogger(__name__)
+
+# Water temp is a slow (roughly daily) feed with a 6h cache TTL, so it reads
+# "fresh" for the whole window rather than flashing stale after the default 2h.
+_WATER_TEMP_STALE_AFTER_HOURS = 6
+# Throttle the WATER_TEMP_STALE observability log to at most once per hour so a
+# stale/omitted gage doesn't spam the logs on every /api/conditions build.
+_WATER_TEMP_STALE_LOG_INTERVAL = timedelta(hours=1)
+_last_water_temp_stale_log: datetime | None = None
+
+
+def _log_water_temp_stale(now: datetime, reason: str, attribution: str | None) -> None:
+    """Emit a WATER_TEMP_STALE marker at most once per hour (process-wide)."""
+    global _last_water_temp_stale_log
+    last = _last_water_temp_stale_log
+    if last is not None and (now - last) < _WATER_TEMP_STALE_LOG_INTERVAL:
+        return
+    _last_water_temp_stale_log = now
+    logger.warning("WATER_TEMP_STALE reason=%s source=%s", reason, attribution or "none")
 
 _COMPASS_16 = (
     "N",
@@ -220,7 +241,12 @@ def build_conditions_api_payload(db: Session, *, now: datetime | None = None) ->
         chosen_wt, wt_attribution = None, None
     if chosen_wt is not None:
         d = chosen_wt.data
-        label, stale = staleness_label(chosen_wt.fetched_at, now)
+        # 6h window (matches the RISE cache TTL) so a daily reading doesn't flash
+        # "stale" 2h after each cron tick.
+        label, stale = staleness_label(
+            chosen_wt.fetched_at, now, stale_after_hours=_WATER_TEMP_STALE_AFTER_HOURS
+        )
+        is_stale = stale or chosen_wt.is_stale
         payload.update(
             {
                 "water_temp_c": d.get("water_temp_c"),
@@ -228,9 +254,24 @@ def build_conditions_api_payload(db: Session, *, now: datetime | None = None) ->
                 "water_temp_attribution": wt_attribution,
                 "water_temp_updated_at_iso": _iso(chosen_wt.fetched_at),
                 "water_temp_staleness_label": label,
-                "water_temp_is_stale": stale or chosen_wt.is_stale,
+                "water_temp_is_stale": is_stale,
             }
         )
+        if is_stale:
+            _log_water_temp_stale(now, "stale_reading", wt_attribution)
+    else:
+        # Honest-omit: no live gage reading. Only flag it in the logs when a gage
+        # was ENABLED but returned nothing (a real fetch/parse failure worth
+        # noticing) — not when both flags are intentionally OFF (the default).
+        def _enabled_but_empty(row: Any) -> bool:
+            return (
+                row is not None
+                and isinstance(row.data, dict)
+                and bool(row.data.get("feature_enabled"))
+            )
+
+        if _enabled_but_empty(rise_wt) or _enabled_but_empty(usgs_wt):
+            _log_water_temp_stale(now, "no_live_reading", None)
 
     # Sunset: PREFER the true astronomical sunset from Open-UV
     # (sun_info.sun_times.sunset, stored on the SOURCE_OPENUV row as

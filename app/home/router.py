@@ -236,12 +236,21 @@ def _serve_mode_landing(request: Request, db: Session, mode: str) -> HTMLRespons
     counters (anti-confabulation, §4.10).
     """
     landing = sandstone.mode_landing(db, mode)
+    # v4.5 PR-5: the Family / Night landings wear the standalone v4 shell
+    # (base_redesign) — the live-conditions strip + cheapest-gas panel like every
+    # other discovery page, instead of the retired desert mode-hero.
+    from app.home import redesign
+
+    now = now_lake_havasu()
     return templates.TemplateResponse(
         request=request,
-        name="mode_sandstone.html",
+        name="mode_redesign.html",
         context={
             "utility_chips": _utility_chips(db),
             "current_mode": mode,
+            "cond_tiles": redesign.conditions_tiles(db, now=now),
+            "gas": redesign.gas_panel_data(db, now=now),
+            "active_tab": "family" if mode == "family" else None,
             **landing,
         },
     )
@@ -448,7 +457,11 @@ def serve_events_ui(
     # Today/Week/Month zoom levels over the single unified tree.
     context: dict[str, Any] = {
         "active_tab": "events",
-        "utility_chips": _utility_chips(db),
+        # v4.5 PR-1: /events-ui wears the v4 shell (base_redesign) — the cond-tile
+        # strip + gas panel like home/calendar, not the old utility ribbon.
+        "today_label": now.strftime("%A, %B ") + str(now.day),
+        "cond_tiles": redesign.conditions_tiles(db, now=now),
+        "gas": redesign.gas_panel_data(db, now=now),
         "family_mode": family_on,
         "seniors_mode": seniors_on,
         "family_qs": family_qs,
@@ -499,6 +512,7 @@ def serve_events_ui(
         context.update(
             {
                 "mode": "month",
+                "month_label": dt_date(cal_year, cal_month, 1).strftime("%B %Y"),
                 "calendar": sandstone.calendar_month(
                     db, year=cal_year, month=cal_month, today=today,
                     family=family_on, seniors=seniors_on,
@@ -520,7 +534,7 @@ def serve_events_ui(
                 "day_label": _long_day_label(today),
             }
         )
-    events_template = "events_lake.html"
+    events_template = "events_redesign.html"
     return templates.TemplateResponse(
         request=request, name=events_template, context=context
     )
