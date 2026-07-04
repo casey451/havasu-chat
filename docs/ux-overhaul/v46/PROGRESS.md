@@ -186,8 +186,18 @@ of the lake.css component library). PR-2 deletes:
   `extends "base_lake"` and zero links to the deleted sheets across app templates.
 Acceptance: guard tests + full gates + every public route still 200 (smoke list).
 
+## Final PR (#705) — CI notes
+Opened PR #705 (v46-integration → main). First CI run: required gates (ruff/pytest/mypy/CodeRabbit)
++ Playwright advisory all GREEN; the **axe/pa11y + Lighthouse advisory FAILED** with
+ERRORED_DOCUMENT_REQUEST because `.pa11yci.json` + `lighthouserc.json` still listed the deleted
+`/lake-styleguide` (a 404 crashes the whole pa11y/LHCI run). Fixed both configs + tidied the
+redesign-a11y workflow's stale path triggers (commit 6e1fb182) and re-pushed → CI re-running.
+GOTCHA for future deletions: when you delete a ROUTE, also grep `.pa11yci.json` /
+`.github/lighthouse/lighthouserc.json` / `.github/workflows/*a11y*` for its URL.
+
 ## NEXT ACTION (FINAL)
-All 3 item PRs ✅ merged into `v46-integration` @ 0ac36537. Remaining:
+All 3 item PRs ✅ merged into `v46-integration` @ 0ac36537 (+ CI-config follow-up 6e1fb182).
+Remaining:
 1. Push `v46-integration` to origin.
 2. Open the single `v46-integration → main` PR (changelog + before/after + smoke checklist).
 3. Wait for CI green (`gh pr checks`).
