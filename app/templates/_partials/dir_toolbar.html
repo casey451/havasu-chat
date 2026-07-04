@@ -11,9 +11,9 @@
    `note`:  optional trailing line (e.g. "12 open now" or the sort explainer).
    `aria`:  the toolbar's aria-label.
 
-   The chip/label markup below is lifted verbatim from the original trade
-   toolbar so the existing .toolbar/.chip/.tlab/.shown styles (lake_directory.css)
-   apply unchanged. -#}
+   The chip/label markup below is styled by the v4 `.dirx .toolbar` rules in
+   lake_redesign.css (the directory pages moved to the base_redesign shell in
+   v4.5 PR-4). -#}
 {% macro dir_toolbar(groups, note=None, aria='Filter and sort listings') -%}
 <div class="toolbar" role="group" aria-label="{{ aria }}">
   {%- for g in groups %}

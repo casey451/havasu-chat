@@ -40,12 +40,14 @@ def test_havasu_headlines_stay_unlabeled():
 
 
 def test_movie_poster_has_failure_fallback():
-    tpl = (_ROOT / "app" / "templates" / "_partials" / "movies_body.html").read_text(
+    # v4.5: /movies renders movies_redesign.html (the old movies_body.html was
+    # swept in PR-7). The fallback-before-img ordering contract is preserved.
+    tpl = (_ROOT / "app" / "templates" / "movies_redesign.html").read_text(
         encoding="utf-8"
     )
     assert 'onerror="this.remove()"' in tpl
     # The title card renders unconditionally behind the poster.
-    assert tpl.index("mv-poster-fallback") < tpl.index("mv-poster-img")
+    assert tpl.index("mvposter-fallback") < tpl.index("mvposter-img")
 
 
 def test_gas_card_brand_never_contradicts_name():

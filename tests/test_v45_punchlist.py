@@ -10,6 +10,7 @@ from __future__ import annotations
 
 import re
 from datetime import UTC, datetime
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -132,3 +133,25 @@ def test_interior_pages_wear_v4_shell() -> None:
                 0x1F000 <= ord(ch) <= 0x1FAFF or 0x2600 <= ord(ch) <= 0x27BF
                 for ch in html
             ), f"{path} has emoji codepoints"
+
+
+def test_old_shell_files_are_swept() -> None:
+    """PR-7: the templates + stylesheets fully replaced by the v4 shell are gone
+    (they'd only be dead weight / a re-skin regression risk if they crept back)."""
+    import app as _app_pkg
+
+    root = Path(_app_pkg.__file__).resolve().parent
+    gone = [
+        "templates/mode_sandstone.html",
+        "templates/events_lake.html",
+        "templates/movies_lake.html",
+        "templates/_partials/movies_body.html",
+        "static/styles/desert_home.css",
+        "static/styles/desert_movies.css",
+        "static/styles/lake_events.css",
+        "static/styles/desert_chat.css",
+        "static/styles/lake_directory.css",
+        "static/styles/lake_profile.css",
+    ]
+    still_here = [p for p in gone if (root / p).exists()]
+    assert not still_here, f"old-shell files should be swept: {still_here}"
