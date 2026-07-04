@@ -32,7 +32,7 @@ gates recorded here; never redo a ✅ row.
 | 2 gas-shell  | feat/v45-02-gas-shell       | ✅ merged | pytest 12515✅ ruff✅ mypy✅ live-QA✅ | merge 6e2e5f32 | /gas → base_redesign |
 | 3 movies     | feat/v45-03-movies          | ✅ merged | pytest 12516✅ ruff✅ mypy✅ live-QA✅ | merge 991876ea | /movies → v4 shell, posters/tpills kept, rating→.tg, no head-art |
 | 4 directory  | feat/v45-04-directory       | ✅ merged | pytest 12517✅ ruff✅ mypy✅ live-QA✅ | merge f2dab10d | /categories index+dept+trade+leaf+faceted → v4; card v4 + SVG star (no ★); cond+gas via _chrome_context |
-| 5 remaining  | feat/v45-05-remaining-pages | ⏳ | — | — | family/seniors/provider/legal + provider fixes |
+| 5 remaining  | feat/v45-05-remaining-pages | ✅ merged | pytest 12520✅ ruff✅ mypy✅ live-QA✅ | merge f8e8094e | 12 pages → v4 (about/help/contact/privacy/terms/seniors/login/sponsor/portal/family/night/provider/chat); SVG star+heart; provider fixes already present |
 | 6 water-temp | feat/v45-06-water-temp      | ⏳ | — | — | dependable gauge + retry + WATER_TEMP_STALE |
 | 7 dead-shell | feat/v45-07-dead-shell      | ⏳ | — | — | delete base_lake + old ribbon/cards |
 | final        | v45-integration → main      | ⏳ | — | — | grant merge + smoke |
@@ -132,13 +132,34 @@ gates recorded here; never redo a ✅ row.
   themselves are v4 (verified via prod-DB TestClient render: dirx/listcard/extile/leaftile,
   zero emoji, base_redesign shell on index+dept+trade+leaf).
 
+## PR-5 implementation (done, merged f8e8094e)
+- Editorial/legal (about/help/contact/privacy/terms/seniors): base_lake→base_redesign, block
+  content→main, `.wrap`→`.artx` prose scope, dropped lake_editorial.css. Auth/landing:
+  login→`.authx`, sponsor→`.sponx`, portal→`.portx`; btn-primary = v4 teal pill.
+- Family/Night: mode_sandstone.html (desert + emoji tiles + data-mode dark) → NEW
+  mode_redesign.html (v4 tiles, no emoji, cond strip replaces hero mini-conditions). Desert
+  4-mode switch + data-mode retired (decision-15: v4 6-link header is the nav; one lake theme).
+  _serve_mode_landing renders mode_redesign + passes cond_tiles+gas.
+- Provider (SEO-critical): rebuilt in `.prof-wrap` v4; preserved ALL favorites/owner JS hooks
+  (.fav-save/.favorite-heart + body data-* via a NEW `{% block body_attrs %}` in base_redesign),
+  LocalBusiness+Breadcrumb JSON-LD, Website button, own-description (the "provider fixes" the
+  prompt asked for were ALREADY present — verified). ★rating/★Featured/♥save → SVG star/heart
+  icons (zero emoji). No-photo → NO image block (monogram retired). hava_card.css kept (self-
+  contained BEM component for the venue-events strip).
+- Chat (/chat + /ask): →base_redesign; desert_chat.css retired (ported to lake_redesign.css);
+  chat_cards.css KEPT (B-01 clamps); every JS id/hook + `ll-page ll-chat` body class preserved.
+- redesign_icons gained star/heart/phone. Live-QA (havasu-local preview): /about /portal /chat
+  render clean v4, no console errors.
+- Test repointing GOTCHAs: /today is now the base_lake-reskin sentinel (test_site_redesign);
+  /portal/claim & account pages stay base_lake (didn't over-swap their css asserts); the empty
+  test DB 404s unseeded provider/leaf slugs → base_lake 404 (out of scope, PR-7).
+
 ## NEXT ACTION
-PR-4 ✅ merged (f2dab10d). START PR-5 (`feat/v45-05-remaining-pages`) — migrate the remaining
-interior pages to v4: /family /seniors /provider/<slug> + the utility/legal set (/about /help
-/contact /sponsor /portal /privacy /terms /login /ask). Discovery pages (family/seniors/provider)
-get the cond strip + gas; utility/legal get shell+footer only (v45 §Pre-answered). Provider
-pages: add a Website button when a URL is present, and use the provider's OWN description, not the
-auto-disclaimer. Scout which router+template serves each; update shell-coupled tests. Gate → merge → PR-6.
+PR-5 ✅ merged (f8e8094e). START PR-6 (`feat/v45-06-water-temp`) — water-temp reliability.
+Verify the USGS gauge actually returns param 00010 (real fetch; record the site ID in PROGRESS),
+add retry-once, a WATER_TEMP_STALE log token (≤1/hr), keep the 6h window + honest-omit. If no
+gauge returns a live value, document it and leave the honest-omit. Scout app/conditions water-temp
+source first. Gate → merge → PR-7.
 
 ## (older) NEXT ACTION
 PR-1 ✅ merged (978cf71e). START PR-2 (`feat/v45-02-gas-shell`) — see "PR-2 scouting":
