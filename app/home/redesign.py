@@ -21,11 +21,12 @@ from sqlalchemy.orm import Session
 
 from app.conditions.api_payload import build_conditions_api_payload
 from app.conditions.cache import read_source
-from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
-from app.conditions.staleness import staleness_label
+from app.conditions.constants import SOURCE_GAS
 from app.db.models import Event
 from app.events.tag_display import public_event_tags
+from app.gas.service import board_from_cache
 from app.home import events_views, sandstone
+from app.home.day_counts import day_counts
 
 # ── category accents / icons (v4 CICON + CCOLOR, mapped onto the app's real
 # bucket keys). The app's "classes" bucket is Fitness & sports, so it borrows the
@@ -81,21 +82,8 @@ CAT_LABEL: dict[str, str] = {
     "civic": "City",
 }
 
-# Gradient thumbnail class per category (the v4 .im-* fallbacks until a real
-# photo exists). Honest fallback — never a fake photo.
-CAT_THUMB: dict[str, str] = {
-    "events": "im-sunset",
-    "things": "im-market",
-    "music": "im-sunset",
-    "water": "im-boat",
-    "family": "im-water",
-    "seniors": "im-court",
-    "fitness": "im-court",
-    "classes": "im-art",
-    "learn": "im-art",
-    "movies": "im-movie",
-    "civic": "im-civic",
-}
+# v4.4 PR-9: CAT_THUMB (the .im-* gradient thumbnail fallbacks) was removed with the
+# plain-time-column change — the feed rows never rendered `row.thumb`.
 
 
 def category_color(key: str) -> str:
@@ -115,33 +103,13 @@ def uv_color(uv: float | int) -> str:
     return "#8a4fb8"
 
 
-# ── conditions bar (Temp · Wind · UV · Clouds · Gas) ───────────────────────────
-_SKY_SHORT = (
-    (re.compile(r"mostly\s+sunny|mostly\s+clear", re.I), "Mostly clear"),
-    (re.compile(r"partly\s+sunny|partly\s+cloudy", re.I), "Partly cloudy"),
-    (re.compile(r"mostly\s+cloudy", re.I), "Mostly cloudy"),
-    (re.compile(r"\bsunny\b|\bclear\b|\bfair\b", re.I), "Clear"),
-    (re.compile(r"\bcloud", re.I), "Cloudy"),
-    (re.compile(r"\brain|\bshower|\bstorm|\bthunder", re.I), "Rain"),
-    (re.compile(r"\bwind", re.I), "Windy"),
-)
-
-
-def _short_sky(text: str) -> str:
-    for pat, label in _SKY_SHORT:
-        if pat.search(text):
-            return label
-    # First word, capitalized — never longer than the tile can hold.
-    return (text.split(",")[0].split()[0] if text.split() else text).title()
-
-
+# ── conditions bar (Temp · Water · Wind · UV · Sunset · Gas) ───────────────────
 def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[str, Any]]:
-    """The 5 clean conditions tiles. Each is honest-omit: a tile only renders when
-    its live source has a value.
-
-    NOTE on "Clouds": the conditions pipeline exposes the NWS sky *condition* word
-    (e.g. "Mostly cloudy"), not a numeric cloud-cover %. The v4 mockup showed a
-    placeholder "15%"; we render the real sky word instead (no fabricated number).
+    """The conditions tiles in the v4.4 order Temp · Water · Wind · UV · Sunset ·
+    Gas. Each is honest-omit: a tile only renders when its live source has a value
+    (the strip simply shows fewer columns). Clouds retired (v4.4 Δ2): the pipeline
+    only exposed the NWS sky *word*, not a real cloud-cover %, so it was dropped in
+    favor of Water + Sunset — both honest, computed/measured values.
     """
     # The conditions payload + gas read use naive-UTC time internally (and an
     # in-process cache keyed on it); the caller's ``now`` may be Lake-tz-aware, so
@@ -161,6 +129,24 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
                 "color": None,
                 "is_gas": False,
                 "is_stale": bool(payload.get("temp_is_stale")),
+            }
+        )
+
+    # Water temp — second in the strip (v4.4 §1), carries the teal-soft tint via
+    # ``is_water``. Honest-omit: only when the gage feed has a live reading.
+    water_temp = payload.get("water_temp_f")
+    if isinstance(water_temp, (int, float)):
+        tiles.append(
+            {
+                "key": "water_temp",
+                "icon": "wave",
+                "label": "Water",
+                "value": f"{round(water_temp)}°",
+                "unit": None,
+                "color": None,
+                "is_gas": False,
+                "is_water": True,
+                "is_stale": bool(payload.get("water_temp_is_stale")),
             }
         )
 
@@ -194,37 +180,22 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
             }
         )
 
-    sky = payload.get("sky_condition")
-    if isinstance(sky, str) and sky.strip():
+    # Sunset — computed astronomically (app.conditions.sun), always available and
+    # never stale; ``sunset_local`` is Lake-local wall-clock like "7:42 PM", split
+    # into the "7:42" value + "pm" unit the v4.4 tile renders (§1).
+    sunset_local = payload.get("sunset_local")
+    if isinstance(sunset_local, str) and sunset_local.strip():
+        parts = sunset_local.split()
         tiles.append(
             {
-                "key": "clouds",
-                "icon": "cloud",
-                "label": "Clouds",
-                "value": _short_sky(sky.strip()),
-                "unit": None,
+                "key": "sunset",
+                "icon": "sunset",
+                "label": "Sunset",
+                "value": parts[0],
+                "unit": parts[1].lower() if len(parts) > 1 else None,
                 "color": None,
                 "is_gas": False,
-                "is_stale": bool(payload.get("sky_is_stale")),
-            }
-        )
-
-    # Water temp (USGS 09426630, ~25mi south in the Bill Williams backwater).
-    # Added to the conditions bar at Casey's request (2026-06-29). Honest-omit:
-    # only renders when FEATURE_FLAG_WATER_TEMP_GAGE_09426630 is ON and the gage
-    # has a reading; otherwise the bar simply shows one fewer tile.
-    water_temp = payload.get("water_temp_f")
-    if isinstance(water_temp, (int, float)):
-        tiles.append(
-            {
-                "key": "water_temp",
-                "icon": "wave",
-                "label": "Water",
-                "value": f"{round(water_temp)}°",
-                "unit": None,
-                "color": None,
-                "is_gas": False,
-                "is_stale": bool(payload.get("water_temp_is_stale")),
+                "is_stale": bool(payload.get("sunset_is_stale")),
             }
         )
 
@@ -247,47 +218,137 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
     return tiles
 
 
-def _maps_url(name: str, cross_street: str | None) -> str:
-    dest = ", ".join(p for p in (name, cross_street, "Lake Havasu City AZ") if p)
-    from urllib.parse import quote_plus
-
-    return f"https://www.google.com/maps/dir/?api=1&destination={quote_plus(dest)}"
-
-
 def gas_top5(db: Session, *, now: datetime | None = None) -> dict[str, Any]:
     """The 5 cheapest current stations for the gas-tile expander (price + name +
-    cross-street + directions). Mirrors the home gas chip's single source of truth
-    (``data['cheapest']`` from the gas pull) so it never disagrees with /gas."""
+    cross-street + directions).
+
+    Built from the single :class:`~app.gas.service.GasBoard` (v4.4 PR-1), the
+    same board the strip tile and /gas page use, so the figures can never
+    disagree. ``read_source`` stays imported here so tests that patch this
+    module's cache seam still feed the board."""
     now_utc = now or datetime.now(UTC).replace(tzinfo=None)
     if now_utc.tzinfo is not None:
         now_utc = now_utc.astimezone(UTC).replace(tzinfo=None)
-    row = read_source(db, SOURCE_GAS, now=now_utc)
-    if row is None or not isinstance(row.data, dict):
-        return {"cheapest": [], "is_stale": False, "staleness_label": None}
-    raw = [s for s in (row.data.get("cheapest") or []) if isinstance(s, dict)]
-    label, stale = staleness_label(
-        row.fetched_at, now_utc, stale_after_hours=GAS_STALE_AFTER_HOURS
-    )
+    board = board_from_cache(read_source(db, SOURCE_GAS, now=now_utc), now=now_utc)
     out: list[dict[str, Any]] = []
-    for s in raw[:5]:
-        price = s.get("prices", {}).get("regular") if isinstance(s.get("prices"), dict) else None
-        if not isinstance(price, (int, float)):
-            continue
-        name = s.get("station_name") or s.get("name") or "Station"
-        cross = s.get("cross_street") or s.get("address")
+    for s in board.cheapest("reg", 5):
+        price = s.prices["reg"]
         out.append(
             {
                 "price": f"${price:.2f}",
-                "name": name,
-                "cross_street": cross,
-                "directions_url": _maps_url(name, cross),
+                "name": s.name,
+                "cross_street": s.address,
+                "directions_url": s.directions_url,
             }
         )
     return {
         "cheapest": out,
-        "is_stale": bool(stale or row.is_stale),
-        "staleness_label": label,
+        "is_stale": board.is_stale,
+        "staleness_label": board.label,
     }
+
+
+# ── gas grade switch (v4.4 PR-6 panel + /gas) ──────────────────────────────────
+# Compact panel labels vs the large /gas-page labels (DESIGN_SPEC §5.1). "reg"
+# carries no tile-echo suffix (regular is the default, un-annotated state).
+GAS_GRADE_LABELS_SHORT: dict[str, str] = {"reg": "Reg", "mid": "Mid", "prem": "Prem", "dsl": "Diesel"}
+GAS_GRADE_LABELS_LONG: dict[str, str] = {
+    "reg": "Regular", "mid": "Midgrade", "prem": "Premium", "dsl": "Diesel",
+}
+
+
+def _grade_rows(board: Any, grade: str, n: int | None) -> list[dict[str, Any]]:
+    return [
+        {
+            "price": f"${s.prices[grade]:.2f}",
+            "name": s.name,
+            "cross_street": s.address,
+            "directions_url": s.directions_url,
+        }
+        for s in board.cheapest(grade, n)
+    ]
+
+
+def gas_panel_data(db: Session, *, now: datetime | None = None) -> dict[str, Any]:
+    """Home gas panel with the grade switch (v4.4 PR-6).
+
+    Server renders the Regular top-5 (``cheapest``); ``by_grade`` carries every
+    available grade's top-5 so the client-side switch is a pure list swap (no
+    re-fetch, progressive enhancement). ``echo`` gives the strip-tile echo per
+    grade (suffix + cheapest value) while the panel is open. When only one grade
+    exists the segment is suppressed everywhere (``single_grade``)."""
+    now_utc = now or datetime.now(UTC).replace(tzinfo=None)
+    if now_utc.tzinfo is not None:
+        now_utc = now_utc.astimezone(UTC).replace(tzinfo=None)
+    board = board_from_cache(read_source(db, SOURCE_GAS, now=now_utc), now=now_utc)
+    grades = board.grades_available
+    by_grade = {g: _grade_rows(board, g, 5) for g in grades}
+    echo = {
+        g: {
+            "suffix": "" if g == "reg" else GAS_GRADE_LABELS_SHORT[g],
+            "value": by_grade[g][0]["price"] if by_grade[g] else "",
+        }
+        for g in grades
+    }
+    return {
+        "cheapest": by_grade.get("reg", []),
+        "grades": grades,
+        "grade_labels": {g: GAS_GRADE_LABELS_SHORT[g] for g in grades},
+        "by_grade": by_grade,
+        "echo": echo,
+        "single_grade": len(grades) <= 1,
+        "station_count": len(board.stations),
+        "is_stale": board.is_stale,
+        "staleness_label": board.label,
+    }
+
+
+# ── directory launcher (v4.4 PR-5 rail card) ───────────────────────────────────
+# The 8 launcher categories (DESIGN_SPEC §4.1): department slug → short label
+# (exact — they truncate otherwise) + monoline icon. Counts come from the cached
+# /categories index payload (DATA_CONTRACTS §5), so the launcher can never disagree
+# with the directory's own numbers.
+_LAUNCHER_CATEGORIES: tuple[tuple[str, str, str], ...] = (
+    ("eat-and-drink", "Eat & Drink", "fork"),
+    ("home-and-property-services", "Home Services", "wrench"),
+    ("auto-rv-and-marine", "Auto & Boat", "car"),
+    ("health-and-medical", "Health", "health"),
+    ("shopping-and-retail", "Shopping", "bag"),
+    ("beauty-and-personal-care", "Salons", "scissors"),
+    ("on-the-water", "Lake & Boating", "anchor"),
+    ("lodging", "Lodging", "bed"),
+)
+
+
+def directory_launcher(db: Session) -> dict[str, Any]:
+    """The rail's Find-any-business launcher: the 8 category tiles with live counts
+    + a floor-rounded total, all from the cached /categories index (the same query
+    the directory pages use, DATA_CONTRACTS §5). A category with no row is omitted
+    (honest — never a fabricated count)."""
+    # Function-scope import avoids a module-load cycle (categories.router imports
+    # a wide slice of the app).
+    from app.categories.router import _get_index_payload
+
+    rows = _get_index_payload(db)
+    by_slug = {r.get("slug"): r for r in rows}
+    total = sum(int(r.get("count") or 0) for r in rows)
+    tiles: list[dict[str, Any]] = []
+    for slug, label, icon in _LAUNCHER_CATEGORIES:
+        row = by_slug.get(slug)
+        if row is None:
+            continue
+        tiles.append(
+            {
+                "label": label,
+                "url": f"/categories/{slug}",
+                "count": int(row.get("count") or 0),
+                "icon": icon,
+            }
+        )
+    # Floor-rounded hundreds, e.g. 2437 -> "2,400+"; None when the directory is
+    # empty so the template can omit the count clause.
+    total_label = f"{total // 100 * 100:,}+" if total >= 100 else None
+    return {"total": total_label, "total_raw": total, "tiles": tiles}
 
 
 # ── events feed (count overview + accordion buckets + blurbs + fitness subs) ────
@@ -332,7 +393,6 @@ def _enrich(row: dict[str, Any], blurbs: dict[str, str], cat: str) -> dict[str, 
     m = _EVENT_ID_RE.match(row.get("url") or "")
     out = dict(row)
     out["blurb"] = blurbs.get(m.group(1)) if m else None
-    out["thumb"] = CAT_THUMB.get(cat, "im-market")
     out["cat"] = cat
     # SEO: the v4 home row template renders ``row.tags`` verbatim, so the
     # internal ``KEY:value`` taxonomy tokens (``activity:billiards``,
@@ -355,12 +415,33 @@ def _feed_walk(node: dict[str, Any], acc: list[dict[str, Any]]) -> None:
 
 
 def _feed_enrich(node: dict[str, Any], blurbs: dict[str, str], cat: str) -> None:
-    """Enrich every row in a node tree in place (blurb + category thumb)."""
+    """Enrich every row in a node tree in place (a one-line blurb)."""
     node["rows"] = [_enrich(r, blurbs, cat) for r in (node.get("rows") or [])]
     for sub in node.get("subgroups") or []:
         _feed_enrich(sub, blurbs, cat)
     for child in node.get("children") or []:
         _feed_enrich(child, blurbs, cat)
+
+
+def _section_preview_rows(section: dict[str, Any]) -> list[dict[str, str]]:
+    """Up to 3 {title, time_short} from a section's OWN first rows, for the closed-
+    section preview line (v4.4 §6.2). Built server-side from real rows — never
+    hardcoded copy. A "Time TBD" placeholder becomes a blank time."""
+    if section.get("is_movies"):
+        rows = list(section.get("rows") or [])
+    else:
+        rows = []
+        _feed_walk(section, rows)
+    out: list[dict[str, str]] = []
+    for r in rows:
+        title = (r.get("title") or "").strip()
+        if not title:
+            continue
+        tl = (r.get("time_label") or "").strip()
+        out.append({"title": title, "time_short": "" if "TBD" in tl.upper() else tl})
+        if len(out) == 3:
+            break
+    return out
 
 
 def feed_view_model(
@@ -371,7 +452,7 @@ def feed_view_model(
     rows. The structure comes straight from
     :func:`events_views.calendar_day_view_model`, so the home and the main
     calendar can't drift; the home only *enriches* each event row (a one-line
-    blurb + a category thumb) and styles it in the v4 idiom. No more chips."""
+    blurb) and styles it in the v4 idiom. No more chips."""
     vm = events_views.calendar_day_view_model(db, day=day, now=now, family=family)
     sections = vm["sections"]
 
@@ -391,8 +472,13 @@ def feed_view_model(
         # so dropping the split `subgroups` renders just the learn list flat.
         if s.get("key") == "learn":
             s["subgroups"] = []
+        # v4.4 §6.2: a server-built preview of this section's first rows for the
+        # collapsed-section teaser line (CSS hides it when the section is open).
+        s["preview_rows"] = _section_preview_rows(s)
 
-    return {"sections": sections, "total": vm["total"]}
+    # The headline count comes from the single day-count service (v4.4 PR-3), the
+    # same base the calendar agenda header uses — so they can never disagree.
+    return {"sections": sections, "total": day_counts(db, day, now=now, family=family, vm=vm).total}
 
 
 # ── calendar (glanceable month grid + selected-day agenda) ─────────────────────
@@ -474,7 +560,8 @@ def calendar_month_view(
 def _agenda(db: Session, day: date, *, now: datetime | None = None) -> dict[str, Any]:
     # UNIFY (Rule 0b 2026-06-26): the agenda shows the full unified tree (hours +
     # classes inline) — the same builder every calendar surface consumes.
-    groups = events_views.calendar_day_view_model(db, day=day, now=now)["sections"]
+    vm = events_views.calendar_day_view_model(db, day=day, now=now)
+    groups = vm["sections"]
     rows: list[dict[str, Any]] = []
     for g in groups:
         key = g["key"]
@@ -508,12 +595,17 @@ def _agenda(db: Session, day: date, *, now: datetime | None = None) -> dict[str,
                 }
             )
     rows.sort(key=lambda it: (it["_h"] is None, it["_h"] or 0))
+    # "N events & classes" header = the single day-count base (v4.4 PR-3), the same
+    # number the home headline shows — reusing the vm we already built so the day
+    # is never counted twice.
+    total = day_counts(db, day, now=now, vm=vm).total
+    shown = rows[:8]
     return {
         "iso": day.isoformat(),
         "heading": day.strftime("%A, %B ") + str(day.day),
-        "total": len(rows),
-        "rows": rows[:8],
-        "more": max(0, len(rows) - 8),
+        "total": total,
+        "rows": shown,
+        "more": max(0, total - len(shown)),
     }
 
 

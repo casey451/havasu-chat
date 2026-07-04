@@ -1,12 +1,9 @@
-"""Nav parity — the desktop nav and the mobile hamburger menu expose the same
-primary destinations.
+"""Nav shape — desktop bar is the six primary links; the drawer is complete.
 
-The unified v4 masthead (``_partials/site_header.html``, F11) drives both the
-desktop ``.navlinks`` inline nav and the mobile ``.navdrawer-menu`` (the
-hamburger menu). This asserts both carry the SAME primary set — so a phone user
-never loses a destination the desktop has. The hamburger menu is the COMPLETE
-menu (it additionally carries Account + Sign in); the desktop keeps those as the
-right-side Sign-in button, so they are not required inside ``.navlinks``.
+v4.4 §7 (2026-07-02) deliberately split the shared header: the desktop ``.navlinks``
+shows only the six primary destinations, while the mobile ``.navdrawer-menu`` keeps
+the FULL list so a phone user never loses a destination. (Before v4.4 both carried
+the same set; that parity was replaced by this primary/complete split.)
 """
 
 from __future__ import annotations
@@ -17,25 +14,33 @@ from fastapi.testclient import TestClient
 
 from app.main import app
 
-#: Primary destinations that MUST appear on both the desktop nav and the menu.
-SHARED_HREFS = {
+#: The six primary destinations on the desktop bar (For Business = /portal).
+DESKTOP_HREFS = {
     "/home",
     "/events-ui",
-    "/calendar",  # F10: Calendar in the menu
+    "/lake",
+    "/categories/eat-and-drink",
+    "/categories#search",
+    "/portal",
+}
+
+#: The complete destination set the mobile drawer must still expose (nothing
+#: becomes unreachable when it leaves the desktop bar).
+COMPLETE_HREFS = DESKTOP_HREFS | {
+    "/calendar",
     "/news",
     "/movies",
     "/family",
     "/seniors",
-    "/lake",  # F10/F11: Lake added to the menu
-    "/gas",  # F10: Gas in the menu
-    "/categories#search",
+    "/gas",
     "/ask",
-    "/portal",
 }
+
+#: Secondary destinations that must NOT clutter the desktop bar.
+SECONDARY_HREFS = {"/calendar", "/news", "/movies", "/gas", "/family", "/seniors", "/ask"}
 
 
 def _block(html: str, cls: str) -> str:
-    """Inner HTML of the first ``<tag class="{cls} …">…</tag>`` (span/div/nav)."""
     m = re.search(rf'<(span|div|nav) class="{cls}\b[^>]*>(.*?)</\1>', html, re.DOTALL)
     assert m, f"no element with class \"{cls}\" found in page"
     return m.group(2)
@@ -45,17 +50,23 @@ def _hrefs(block: str) -> set[str]:
     return set(re.findall(r'href="([^"]+)"', block))
 
 
-def test_desktop_nav_and_mobile_menu_expose_same_destinations() -> None:
+def test_desktop_bar_is_the_six_primary_links() -> None:
     html = TestClient(app).get("/home?theme=lake").text
     desktop = _hrefs(_block(html, "navlinks"))
-    drawer = _hrefs(_block(html, "navdrawer-menu"))
-    assert SHARED_HREFS <= desktop, f"desktop nav missing {SHARED_HREFS - desktop}"
-    assert SHARED_HREFS <= drawer, f"mobile menu missing {SHARED_HREFS - drawer}"
+    assert DESKTOP_HREFS <= desktop, f"desktop nav missing {DESKTOP_HREFS - desktop}"
+    assert not (SECONDARY_HREFS & desktop), (
+        f"secondary destinations should not be on the desktop bar: {SECONDARY_HREFS & desktop}"
+    )
 
 
-def test_for_kids_and_ask_front_doors_present() -> None:
+def test_drawer_keeps_the_complete_menu() -> None:
     html = TestClient(app).get("/home?theme=lake").text
-    for cls in ("navlinks", "navdrawer-menu"):
-        hrefs = _hrefs(_block(html, cls))
-        assert "/family" in hrefs, f"For Kids (/family) missing from .{cls}"
-        assert "/ask" in hrefs, f"Ask (/ask) missing from .{cls}"
+    drawer = _hrefs(_block(html, "navdrawer-menu"))
+    assert COMPLETE_HREFS <= drawer, f"mobile drawer missing {COMPLETE_HREFS - drawer}"
+
+
+def test_for_kids_and_ask_reachable_via_drawer() -> None:
+    html = TestClient(app).get("/home?theme=lake").text
+    drawer = _hrefs(_block(html, "navdrawer-menu"))
+    assert "/family" in drawer, "For Kids (/family) must stay reachable in the drawer"
+    assert "/ask" in drawer, "Ask (/ask) must stay reachable in the drawer"

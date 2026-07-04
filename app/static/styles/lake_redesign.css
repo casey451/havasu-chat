@@ -91,6 +91,8 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .cond .c.gas{background:linear-gradient(180deg,rgba(244,236,218,.55),transparent);cursor:pointer}
 .cond .lab{font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center;gap:4px}
 .cond .c.gas .lab{color:var(--brass)} .cond .lab .ic{color:var(--ink3)} .cond .c.gas .lab .ic{color:var(--brass)}
+.cond .c.water{background:linear-gradient(180deg,rgba(231,240,240,.6),transparent)}
+.cond .c.water .lab{color:var(--teal)}
 .cond .val{font-family:var(--disp);font-weight:500;font-size:18px;letter-spacing:-.01em;line-height:1;white-space:nowrap;display:flex;align-items:baseline;gap:2px;color:var(--ink)}
 .cond .val u{font-style:normal;text-decoration:none;font-size:10px;color:var(--ink2);font-weight:600}
 .cond .caret{color:var(--brass);display:inline-flex}
@@ -121,18 +123,8 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .feature-marquee.sold::before{display:none}
 .feature-marquee .spon-eyebrow{font-size:9.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#dcbd6f}
 
-/* compact buyable ad slot (fills every in-feed / rail ad) */
-.feature-slot{display:flex;gap:13px;align-items:center;border:1.5px dashed var(--brass-line);background:linear-gradient(110deg,#fffdf5,#fff 72%);border-radius:var(--rad);padding:13px;cursor:pointer;transition:.25s;text-decoration:none;color:inherit;position:relative;overflow:hidden}
-.feature-slot:hover{border-color:var(--brass);box-shadow:var(--sh);transform:translateY(-1px)}
-.feature-slot::before{content:"";position:absolute;top:0;left:-65%;width:55%;height:100%;pointer-events:none;
-  background:linear-gradient(100deg,transparent,rgba(201,168,90,.16),transparent);transform:skewX(-18deg)}
-.feature-slot:hover::before{animation:sheen 1.1s ease}
-.feature-slot .pic{width:60px;height:60px;border-radius:12px;border:1.5px dashed var(--brass-line);display:flex;align-items:center;justify-content:center;color:var(--brass);flex:0 0 auto}
-.feature-slot .ab{flex:1;min-width:0}
-.feature-slot .at{font-size:9.5px;font-weight:700;letter-spacing:.13em;text-transform:uppercase;color:var(--brass);display:block}
-.feature-slot .an{font-family:var(--disp);font-weight:500;font-size:15.5px;letter-spacing:-.01em;margin-top:2px;display:block}
-.feature-slot .as{font-size:11.5px;color:var(--ink2);margin-top:2px;display:block}
-.feature-slot .ac{align-self:center;margin-left:auto;display:inline-flex;align-items:center;gap:6px;font-size:12px;font-weight:600;color:#fff;background:linear-gradient(180deg,var(--teal),var(--teal-deep));padding:9px 13px;border-radius:10px;white-space:nowrap;flex:0 0 auto}
+/* v4.4 PR-9: the buyable rail/in-feed ad slot was removed with the rail ad units
+   (PR-5). The marquee is the only ad-shaped unit now. */
 
 .searchwrap{padding:18px 16px 2px;position:relative}
 .search{display:flex;align-items:center;gap:11px;background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:0 14px;height:52px;box-shadow:var(--sh-sm);transition:.2s}
@@ -155,6 +147,12 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .dcard .dn{font-family:var(--disp);font-weight:500;font-size:19px;letter-spacing:-.02em;line-height:1}
 .dcard.on{background:linear-gradient(165deg,var(--teal),var(--teal-deep));border-color:transparent;box-shadow:0 8px 20px rgba(8,63,68,.26)}
 .dcard.on .dw{color:#bfe0e1}.dcard.on .dn{color:#fff}
+/* v4.4 PR-7: date-strip activity dots + headliner spark (DESIGN_SPEC §6.4). */
+.dcard .act{display:flex;gap:3px;align-items:center;height:6px;margin-top:1px}
+.dcard .act i{width:4px;height:4px;border-radius:50%;background:var(--teal-br);opacity:.5;display:block}
+.dcard .act .ic{color:var(--brass-br)}
+.dcard.on .act i{background:#cfe7e8;opacity:.8}
+.dcard.wknd:not(.on){background:linear-gradient(180deg,#fbfaf6,var(--surface))}
 
 .calbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:22px 16px 2px}
 .calbar h3,.calbar h1{font-family:var(--disp);font-weight:500;font-size:22px;letter-spacing:-.02em;margin:0}
@@ -181,12 +179,41 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .cpill.all.on{background:linear-gradient(150deg,var(--teal),var(--teal-deep))}.cpill.all .ic{color:var(--brass)}.cpill.all.on .ic{color:#ecd49b}
 /* Two-surface affordance: link to the Places & Ongoing tab (venues + classes). */
 .cpill.places{border-color:var(--brass)}
-.cpill.places .cl,.cpill.places .ic{color:var(--brass)}
+.cpill.places .ic{color:var(--brass)}
+/* v4.4: a darker brass for the pill LABEL so the text clears WCAG AA 4.5:1 on the
+   white pill (plain --brass is 4.21:1). The icon + border keep the brand brass. */
+.cpill.places .cl{color:#8a691d}
 .cpill.places:hover{border-color:var(--brass);box-shadow:var(--sh-sm)}
+/* Screen-reader-only utility (e.g. the launcher's submit button). */
+.visually-hidden{position:absolute;width:1px;height:1px;padding:0;margin:-1px;overflow:hidden;clip:rect(0,0,0,0);white-space:nowrap;border:0}
 .calplacesbar{display:flex;margin:2px 16px 10px}
 
 .main{padding:8px 16px 0}
-.rail{display:none}
+/* v4.4: the rail now carries the directory launcher + news card, so it flows
+   below the sections on mobile (the news card is hidden — the ticker covers it). */
+.rail{display:flex;flex-direction:column;gap:14px;margin-top:14px}
+.newscard{display:none}
+/* v4.4 rail cards — Find-any-business launcher + local-news card (DESIGN_SPEC §4). */
+.railcard{background:var(--surface);border:1px solid var(--hair);border-radius:var(--rad);box-shadow:var(--sh-sm);overflow:hidden}
+.rc-hd{padding:14px 16px 4px}
+.rc-hd .rt{font-family:var(--disp);font-weight:500;font-size:16.5px;letter-spacing:-.01em}
+.rc-hd .rs{font-size:11.5px;color:var(--ink3);margin-top:3px;line-height:1.4}
+.minisearch{display:flex;align-items:center;gap:8px;margin:11px 16px 0;background:var(--paper2);border:1px solid var(--hair);border-radius:10px;padding:0 11px;height:40px;transition:.2s}
+.minisearch:focus-within{background:#fff;border-color:var(--teal-line);box-shadow:0 0 0 3px rgba(12,90,96,.07)}
+.minisearch .mag{color:var(--ink3);display:inline-flex}
+.minisearch input{flex:1;border:0;outline:0;background:transparent;font-family:var(--ui);font-size:12.5px;color:var(--ink);min-width:0}
+.dirgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--hair2);margin-top:12px;border-top:1px solid var(--hair2)}
+.dirit{display:flex;align-items:center;gap:8px;padding:10px 11px;background:var(--surface);text-decoration:none;transition:background .15s;min-width:0}
+.dirit:hover{background:var(--paper2)}
+.dirit .ic{color:var(--teal);flex:0 0 auto}
+.dirit .dl{font-size:11.5px;font-weight:600;color:var(--ink2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dirit .dc{margin-left:auto;font-size:10px;font-weight:700;color:var(--ink3)}
+.rc-ft{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;color:var(--teal);padding:11px;border-top:1px solid var(--hair2);text-decoration:none}
+.rc-ft:hover{background:var(--teal-soft)}
+.newsit{display:flex;flex-direction:column;gap:3px;padding:11px 16px;border-top:1px solid var(--hair2);text-decoration:none;transition:background .15s}
+.newsit:hover{background:var(--paper2)}
+.newsit .nh{font-family:var(--disp);font-weight:500;font-size:14px;letter-spacing:-.01em;color:var(--ink);line-height:1.3}
+.newsit .nm{font-size:11px;color:var(--ink3)}
 
 .sections{display:flex;flex-direction:column;gap:11px}
 .sec{background:var(--surface);border:1px solid var(--hair);border-radius:var(--rad);box-shadow:var(--sh-sm);overflow:hidden;transition:box-shadow .28s,border-color .28s}
@@ -198,8 +225,10 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .sechd .sl{font-family:var(--disp);font-weight:500;font-size:16.5px;letter-spacing:-.01em}
 .sechd .sc{font-size:11px;font-weight:600;color:var(--teal-deep);background:var(--teal-soft);border-radius:999px;padding:3px 9px}  /* --teal-deep on --teal-soft ≥4.5:1 (was --teal 3.58:1) */
 .sec.lead .sechd .sc{color:#5a4510;background:var(--brass-soft)}  /* dark brass on --brass-soft ≥4.5:1 (was --brass 3.58:1) */
-.sechd .sp{font-size:12px;color:var(--ink3);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38%}
+.sechd .sp{font-size:12px;color:var(--ink3);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44%}
 .sec[open] .sechd .sp{display:none}
+/* v4.4 §6.2: the closed-section preview is a desktop nicety — hide it on mobile. */
+@media(max-width:979px){.sechd .sp{display:none}}
 .sechd .cv{margin-left:10px;color:var(--ink3);transition:transform .3s cubic-bezier(.4,0,.2,1);flex:0 0 auto}
 .sec[open] .sechd .cv{transform:rotate(180deg)}
 .secbody>.host{padding:0 16px 14px}
@@ -229,9 +258,8 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .ev{display:flex;gap:14px;padding:13px 0;border-top:1px solid var(--hair2);text-decoration:none;color:inherit}
 .ev:first-child{border-top:0}
 .ev .evt{flex:0 0 auto;min-width:52px;font-family:var(--disp);font-weight:600;font-size:13px;line-height:1.3;color:var(--ink2);font-variant-numeric:tabular-nums;white-space:nowrap;padding-top:1px}
-.ev .ph{width:60px;height:60px;border-radius:12px;flex:0 0 auto;position:relative;overflow:hidden;box-shadow:inset 0 0 0 1px rgba(19,32,29,.06)}
-.ev .ph .glyph{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;color:rgba(255,255,255,.34)}
-.ev .ph .t{position:absolute;left:0;right:0;bottom:0;padding:4px 0;text-align:center;background:linear-gradient(0deg,rgba(8,28,30,.82),transparent);color:#fff;font-size:9px;font-weight:600}
+/* v4.4 PR-9: the event-row gradient thumbnail + the gradient backgrounds it used
+   were removed with the plain-time-column change — rows never render them. */
 .ev .b{min-width:0;flex:1}
 .ev .et{display:block;font-family:var(--disp);font-weight:500;font-size:15px;letter-spacing:-.01em;line-height:1.2}
 .ev .em{display:block;font-size:11.5px;color:var(--ink2);margin-top:3px;font-weight:500}
@@ -244,17 +272,8 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .showall{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--teal);background:var(--teal-soft);border:1px solid var(--teal-line);border-radius:11px;padding:11px;margin-top:12px;cursor:pointer;text-decoration:none}
 .showall:hover{background:var(--teal);color:#fff}
 .times{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.tpill{font-size:11px;font-weight:600;color:var(--ink2);background:var(--paper2);border:1px solid var(--hair2);border-radius:6px;padding:3px 8px}
-
-.im{background-color:#dfe7e8}
-.im-sunset{background:linear-gradient(180deg,#274a6e,#b9743f 64%,#0c474d),radial-gradient(40% 38% at 66% 34%,#ffdf9e,transparent 60%)}
-.im-water{background:linear-gradient(160deg,#7fc7cf,#0c5a60)}
-.im-court{background:linear-gradient(150deg,#3a8a73,#0c4f53)}
-.im-movie{background:linear-gradient(180deg,#243a63,#0c1830),radial-gradient(46% 42% at 50% 36%,#ffe3a8,transparent 60%)}
-.im-market{background:linear-gradient(150deg,#caa14a,#7a4a2a)}
-.im-boat{background:linear-gradient(180deg,#cfeaee,#0c5a60)}
-.im-civic{background:linear-gradient(150deg,#8a958f,#454f4a)}
-.im-art{background:linear-gradient(150deg,#b59ad6,#5e3f86)}
+.tpill{font-size:11px;font-weight:600;color:var(--ink2);background:var(--paper2);border:1px solid var(--hair2);border-radius:6px;padding:3px 8px;font-variant-numeric:tabular-nums}
+.ev:hover .tpill{border-color:var(--teal-line)}
 
 .foot{margin-top:28px;background:var(--ink);color:#aebcb6;padding:28px 22px 24px}
 .foot .ft{font-family:var(--disp);font-weight:500;font-size:20px;color:#fff;letter-spacing:-.01em}
@@ -263,6 +282,7 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 /* a11y (F17): footer links were ~15px tall; give each a >=24px tap target. */
 .foot .fl a{display:inline-flex;align-items:center;min-height:24px;padding:2px 0;color:#cdd6d1;text-decoration:none;cursor:pointer}
 .foot .fl a:hover{color:#fff}
+.foot .fl a.biz{color:var(--brass-br);font-weight:600}
 .foot .rule{height:1px;background:linear-gradient(90deg,var(--brass-br),transparent);margin:14px 0}
 .foot .ftrust{font-size:11.5px;color:#9fb0a9;margin-bottom:6px}
 .foot .ftrust a{color:#cdd6d1;text-decoration:none}
@@ -322,7 +342,7 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .only-d,.sc-only-d{display:none}
 
 /* ---- v4 final polish ---- */
-.cpill:focus-visible,.dcard:focus-visible,.dd-btn:focus-visible,.calbtn:focus-visible,.cell:focus-visible,.sechd:focus-visible,.feature-slot:focus-visible,.feature-marquee:focus-visible,.dd-menu a:focus-visible,.arow:focus-visible,.navlinks a:focus-visible,.ico:focus-visible,.btn-ghost:focus-visible,.calback:focus-visible,.calnav a:focus-visible,.showall:focus-visible,.brand:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(12,90,96,.34);border-color:var(--teal)}
+.cpill:focus-visible,.dcard:focus-visible,.dd-btn:focus-visible,.calbtn:focus-visible,.cell:focus-visible,.sechd:focus-visible,.feature-marquee:focus-visible,.dd-menu a:focus-visible,.arow:focus-visible,.navlinks a:focus-visible,.ico:focus-visible,.btn-ghost:focus-visible,.calback:focus-visible,.calnav a:focus-visible,.showall:focus-visible,.brand:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(12,90,96,.34);border-color:var(--teal)}
 /* The shared site_header.html partial drops a location pin inside the avatar
    (it used to be an empty gradient chip), so center + color the glyph (F11). */
 .avatar{width:32px;height:32px;border-radius:50%;border:1.5px solid #fff;cursor:pointer;box-shadow:var(--sh-sm);text-decoration:none;display:inline-flex;align-items:center;justify-content:center;color:#fff;
@@ -348,16 +368,30 @@ body.scrolled .head-stack{box-shadow:0 6px 18px -10px rgba(19,32,29,.28)}
 .gasrow .gn{font-size:12.5px;font-weight:600;color:var(--ink)}
 .gasrow .gs{font-size:11px;color:var(--ink3)}
 .gasrow .gd{margin-left:auto;font-size:11px;font-weight:600;color:var(--teal);white-space:nowrap}
+/* v4.4 PR-6 gas grade switch (DESIGN_SPEC §5.1/§5.2). */
+.gseg{display:inline-flex;background:var(--paper2);border:1px solid var(--hair);border-radius:9px;padding:2px;gap:2px}
+.gseg button{border:0;background:transparent;font-family:var(--ui);font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:none;color:var(--ink3);padding:5px 10px;border-radius:7px;cursor:pointer;transition:.15s}
+.gseg button:hover{color:var(--ink)}
+.gseg button.on{background:#fff;color:var(--teal-deep);box-shadow:var(--sh-sm)}
+.gseg.lg{border-radius:11px;padding:3px}
+.gseg.lg button{font-size:12.5px;padding:8px 16px;border-radius:8px}
+.cond .lab .gl{color:var(--brass);font-weight:700}
+.cond .caret{transition:transform .25s}
+.cond .c.gas[aria-expanded="true"] .caret{transform:rotate(180deg)}
+.gpall{display:flex;align-items:center;justify-content:center;gap:6px;padding:10px 16px;border-top:1px solid var(--hair2);font-size:11.5px;font-weight:600;color:var(--teal);text-decoration:none}
+.gpall:hover{background:var(--teal-soft)}
 
-@media (prefers-reduced-motion:reduce){.feature-slot:hover::before{animation:none}.gaspanel,.util,.cond .c,.cond .val{transition:none}}
+@media (prefers-reduced-motion:reduce){.gaspanel,.util,.cond .c,.cond .val{transition:none}}
 
 /* ============ DESKTOP (production responsive — replaces .device.desktop) ===== */
 @media(min-width:980px){
   .only-d,.sc-only-d{display:flex}
   .only-m,.sc-only-m{display:none}
   .main{display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start;padding:8px 24px 0}
-  .rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:150px}
-  .feature-slot.infeed{display:none}            /* in-feed ads are mobile-only; desktop uses the rail */
+  .rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:150px;margin-top:0}
+  /* v4.4: desktop shows the rail news card and hides the mobile ticker. */
+  .newsbar{display:none}
+  .newscard{display:flex}
   .cell{min-height:104px}
   .cell .chips{display:flex}
   .cell .dots{display:none}
