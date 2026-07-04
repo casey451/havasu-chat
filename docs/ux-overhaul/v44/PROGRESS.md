@@ -37,7 +37,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | 6 gas-ui         | feat/v44-06-gas-ui           | ✅ merged | pytest 12499✅ ruff✅ mypy✅ smoke✅ | merge fa4c76aa | grade switch + /gas page |
 | 7 schedule       | feat/v44-07-schedule-niceties| ✅ merged | pytest 12504✅ ruff✅ mypy✅ smoke✅ | merge 2f31a7f4 | previews/tpills/pills/dots |
 | 8 shell          | feat/v44-08-shell            | ✅ merged | pytest 12510✅ ruff✅ mypy✅ smoke✅ | merge 10bf6e8a | 6-link shell + footer/email |
-| 9 dead-code      | feat/v44-09-dead-code        | ⏳ | — | — | sweep old UX |
+| 9 dead-code      | feat/v44-09-dead-code        | 🔨 gating | dead-code 4✅ affected 23✅ ruff✅ mypy✅ renders✅; full suite next | — | sweep old UX |
 | final            | v44-integration → main       | ⏳ | — | — | grant merge + smoke |
 
 ## Judgment calls (decision 15 log)
@@ -104,6 +104,17 @@ Temp·Water·Wind·UV·Sunset·Gas; template: add `water` class + render new til
 `.cond .c.water` tint (DESIGN_SPEC §1); add `wave`+`sunset` monoline icons to
 `redesign_icons.html` (§8); honest-omit water when absent; update visual refs. Clouds
 plumbing residue swept in PR-9.
+
+**PR-9 implementation (done, gating):** DELETED (each grep-proven unreachable):
+ad_placeholder+sponsor_slot macros (home_redesign.html); `.feature-slot` CSS block +
+`.feature-slot:focus-visible` + reduced-motion rule (lake_redesign.css); the dead
+`.feature-slot.infeed` JS branch (lake_redesign.js); `cloud` icon (redesign_icons.html);
+`.ev .ph` + `.im/.im-*` CSS; `CAT_THUMB` dict + `out["thumb"]` (redesign.py) + stale
+"thumb" docstrings. HOME_REDESIGN flag was ALREADY gone (only comments). KEPT: feature-marquee
+(the one ad unit), sky_condition in api_payload (still tested), old /gas template (PR-6 kept
+it live), shared `.ph` biz-card class (styled elsewhere). Guard test `test_dead_code_v44.py`
+(no live flag, no ad-slot/thumbnail/clouds CSS, zero havasuchat.com in templates). Renders
+200 on /home /gas /calendar /events-ui.
 
 **PR-9 recon (done) — the backstop sweep; grep-prove each before delete:**
 - HOME_REDESIGN flag + ?home_redesign= + pre-redesign home template: ALREADY REMOVED

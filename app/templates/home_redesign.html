@@ -75,21 +75,8 @@
 </details>
 {%- endmacro -%}
 
-{%- macro ad_placeholder(infeed=False) -%}
-<a class="feature-slot{% if infeed %} infeed{% endif %}" href="/sponsor" aria-label="Advertise on Ask Hava — claim this spot">
-  <span class="pic" aria-hidden="true">{{ icon('plus', 22) }}</span>
-  <span class="ab"><span class="at">Ad space · Available</span><span class="an">Your business here</span><span class="as">Reach locals &amp; visitors every day</span></span>
-  <span class="ac">Claim {{ icon('arrow', 14) }}</span>
-</a>
-{%- endmacro -%}
-
-{%- macro sponsor_slot(s) -%}
-<a class="feature-slot" style="border-style:solid;border-color:var(--hair);background:var(--surface)" href="/sponsor/click?id={{ s.id }}&slot=promoted">
-  <span class="pic" style="border-style:solid;border-color:var(--teal-line);color:var(--teal)">{{ (s.headline or s.name or '·')[0]|upper }}</span>
-  <span class="ab"><span class="at" style="color:var(--ink3)">Sponsored</span><span class="an">{{ s.headline or s.name }}</span>{% if s.pitch %}<span class="as">{{ s.pitch }}</span>{% endif %}</span>
-  <span class="ac">{{ s.cta_label or 'Visit' }} {{ icon('arrow', 14) }}</span>
-</a>
-{%- endmacro -%}
+{#- v4.4 PR-9: the ad_placeholder / sponsor_slot macros were removed with the rail
+   ad units (PR-5). The marquee (above) is the only ad-shaped unit on home. -#}
 
 {#- v4.4 §6.2: closed-section preview line, built from the section's own first rows. -#}
 {%- macro sec_preview(s) -%}
