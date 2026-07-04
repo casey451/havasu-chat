@@ -30,7 +30,7 @@ gates recorded here; never redo a ✅ row.
 | 0 punchlist  | feat/v45-00-punchlist       | ✅ merged | pytest 12516✅ ruff✅ mypy✅ | merge 02ceafcf | gas footer literal dropped; /news date → Phoenix via router `news_updated_label` |
 | 1 events-ui  | feat/v45-01-events-ui       | ✅ merged | pytest 12515✅ ruff✅ mypy✅ live-QA✅ | merge 978cf71e | /events-ui → v4 shell, emoji pill → places |
 | 2 gas-shell  | feat/v45-02-gas-shell       | ✅ merged | pytest 12515✅ ruff✅ mypy✅ live-QA✅ | merge 6e2e5f32 | /gas → base_redesign |
-| 3 movies     | feat/v45-03-movies          | ⏳ | — | — | /movies body v4 (keep posters/tpills) |
+| 3 movies     | feat/v45-03-movies          | ✅ merged | pytest 12516✅ ruff✅ mypy✅ live-QA✅ | merge 991876ea | /movies → v4 shell, posters/tpills kept, rating→.tg, no head-art |
 | 4 directory  | feat/v45-04-directory       | ⏳ | — | — | /categories + listing pages v4 |
 | 5 remaining  | feat/v45-05-remaining-pages | ⏳ | — | — | family/seniors/provider/legal + provider fixes |
 | 6 water-temp | feat/v45-06-water-temp      | ⏳ | — | — | dependable gauge + retry + WATER_TEMP_STALE |
@@ -112,9 +112,12 @@ gates recorded here; never redo a ✅ row.
   each migrated page via the havasu-local preview (structure + mobile-fit) instead, logged per PR.
 
 ## NEXT ACTION
-PR-2 ✅ merged (6e2e5f32). START PR-3 (`feat/v45-03-movies`) — see "PR-3 scouting":
-new movies_redesign.html extends base_redesign, v4 body (serif heads, day cards, KEEP posters
-+ tpills, rating→.tg chips); route renders it; v4 movie CSS; update movies tests. Gate → merge → PR-4.
+PR-3 ✅ merged (991876ea). START PR-4 (`feat/v45-04-directory`) — /categories index +
+category/listing pages → v4. Scout the directory routes/templates first (which router serves
+/categories + /category/<slug> + listing/leaf pages, which base they extend). v4: serif card
+heads, `.tg` chips, teal "Open now", `.btn-ghost` View/Call, KEEP star ratings + review counts,
+real photos or NO image block (no drawn/placeholder art), restyled breadcrumbs. cond strip +
+gas (discovery pages). Update shell-coupled directory tests to v4 markers. Gate → merge → PR-5.
 
 ## (older) NEXT ACTION
 PR-1 ✅ merged (978cf71e). START PR-2 (`feat/v45-02-gas-shell`) — see "PR-2 scouting":
