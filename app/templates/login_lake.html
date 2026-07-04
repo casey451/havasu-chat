@@ -1,4 +1,4 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake Ink & Brass sign-in (/login) — magic-link email form. noindex. The
    form action + field names + the optional hidden `next` are unchanged from
    login.html so the server contract (POST /api/auth/request-link) holds. -#}
@@ -6,10 +6,9 @@
 {% block meta_description %}Sign in to Ask Hava with a one-time email link — no password, nothing to remember.{% endblock %}
 {% block head_extra %}
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_account.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="authx">
   <div class="authwrap">
     <p class="eyebrow">Account access</p>
     <h1>Sign in <em>with email.</em></h1>

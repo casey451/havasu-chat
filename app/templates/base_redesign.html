@@ -41,7 +41,7 @@
   <link rel="stylesheet" href="{{ static_url('/static/styles/lake_redesign.css') }}">
   {% block head_extra %}{% endblock %}
 </head>
-<body data-theme="lake" id="rd-body">
+<body data-theme="lake" id="rd-body"{% block body_attrs %}{% endblock %}>
 <a class="skip" href="#main">Skip to content</a>
 
 <div class="rd-shell">

@@ -54,7 +54,7 @@ class _Placement:
 def test_lake_portal_funnel() -> None:
     b = TestClient(app).get("/portal?theme=lake").text
     assert 'data-theme="lake"' in b
-    assert "/static/styles/lake_portal.css" in b
+    assert "/static/styles/lake_redesign.css" in b
     assert 'name="robots" content="noindex"' not in b  # public funnel is indexable
     assert 'href="/portal/claim"' in b and 'href="/portal/placements"' in b
     assert "Rankings aren't for sale" in b  # honest brand card (no fabricated metrics)

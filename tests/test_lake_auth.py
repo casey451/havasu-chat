@@ -57,7 +57,7 @@ def test_tname_always_selects_lake() -> None:
 def test_lake_login_form() -> None:
     b = TestClient(app).get("/login?theme=lake").text
     assert 'data-theme="lake"' in b
-    assert "/static/styles/lake_account.css" in b
+    assert "/static/styles/lake_redesign.css" in b
     assert 'name="robots" content="noindex"' in b
     assert 'action="/api/auth/request-link"' in b
     assert 'name="email"' in b and 'id="email"' in b  # programmatically labeled

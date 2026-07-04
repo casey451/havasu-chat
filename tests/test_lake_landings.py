@@ -36,7 +36,7 @@ def _ld(html: str) -> list[dict]:
 def test_lake_sponsor_teaser() -> None:
     b = TestClient(app).get("/sponsor?theme=lake").text
     assert 'data-theme="lake"' in b
-    assert "/static/styles/lake_landing.css" in b
+    assert "/static/styles/lake_redesign.css" in b
     # v4.4 §7: /sponsor is a real advertiser landing — indexable now (noindex dropped).
     assert 'name="robots" content="noindex"' not in b
     assert "/portal/placements" in b

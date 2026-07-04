@@ -1,13 +1,12 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake Contact page (GET /contact, public, indexable). Ports the page-editorial
    layout, bound to the real contact copy. -#}
 {% block title %}Contact — Ask Hava{% endblock %}
 {% block meta_description %}Contact Ask Hava — reach our team, report wrong info, or get your Lake Havasu business listed.{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_editorial.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="artx">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Home</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Contact</span></nav>
   <div class="ah">
     <span class="eyebrow">Get in touch</span>

@@ -95,3 +95,40 @@ def test_directory_index_wears_v4_shell() -> None:
     assert not any(
         0x1F000 <= ord(ch) <= 0x1FAFF or 0x2600 <= ord(ch) <= 0x27BF for ch in html
     )
+
+
+def test_interior_pages_wear_v4_shell() -> None:
+    """PR-5: the remaining interior pages render on the standalone v4 shell."""
+    old_sheets = (
+        "lake_editorial.css",
+        "lake_account.css",
+        "lake_landing.css",
+        "lake_portal.css",
+        "lake_profile.css",
+        "desert_chat.css",
+        "desert_home.css",
+    )
+    with TestClient(app) as client:
+        for path in (
+            "/about",
+            "/help",
+            "/contact",
+            "/privacy",
+            "/terms",
+            "/seniors",
+            "/login",
+            "/sponsor",
+            "/portal",
+            "/family",
+            "/night",
+            "/chat",
+        ):
+            html = client.get(path, follow_redirects=True).text
+            assert "/static/styles/lake_redesign.css" in html, path
+            assert "data-redesign" not in html, f"{path} still on the base_lake reskin"
+            assert not any(s in html for s in old_sheets), path
+            assert html.count("<h1") == 1, path
+            assert not any(
+                0x1F000 <= ord(ch) <= 0x1FAFF or 0x2600 <= ord(ch) <= 0x27BF
+                for ch in html
+            ), f"{path} has emoji codepoints"

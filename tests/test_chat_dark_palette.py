@@ -43,13 +43,12 @@ def test_chat_loads_chat_css() -> None:
     with TestClient(app) as client:
         r = client.get("/chat")
     assert r.status_code == 200
-    assert "/static/styles/lake.css" in r.text
-    assert "/static/styles/desert_chat.css" in r.text
-    # Load-order contract: the chat skin must come AFTER chat_cards.css so the
-    # B-01 size clamps in chat_cards.css keep winning where selectors overlap.
-    assert r.text.index("/static/styles/chat_cards.css") < r.text.index(
-        "/static/styles/desert_chat.css"
-    )
+    # v4.5 PR-5: /chat moved to the standalone base_redesign shell; the desert
+    # chat skin is retired (its rules live in lake_redesign.css now). chat_cards.css
+    # stays — it carries the B-01 svg/img size clamps for the JS-rendered cards.
+    assert "/static/styles/lake_redesign.css" in r.text
+    assert "/static/styles/chat_cards.css" in r.text
+    assert "/static/styles/desert_chat.css" not in r.text
 
 
 def test_chat_empty_state_hooks_present() -> None:

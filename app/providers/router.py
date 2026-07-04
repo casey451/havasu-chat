@@ -80,8 +80,13 @@ def serve_provider_profile(
         and bool(provider.entity_id)
         and is_favorited(db, current_user.id, provider.entity_id)
     )
-    # THEME flag (Lake Ink & Brass, Phase 3b): the lake LocalBusiness profile
-    # reskins the SAME ProviderProfileVM. Default stays desert until the flip.
+    # v4.5 PR-5: the LocalBusiness profile wears the standalone v4 shell
+    # (base_redesign) — the live-conditions strip + cheapest-gas panel like every
+    # other discovery page — over the SAME ProviderProfileVM.
+    from app.core.timezone import now_lake_havasu
+    from app.home import redesign
+
+    now = now_lake_havasu()
     profile_template = "provider_profile_lake.html"
     return templates.TemplateResponse(
         request=request,
@@ -100,6 +105,8 @@ def serve_provider_profile(
             "has_boat_access": boat_access is not None,
             "venue_events": venue_events,
             "provider_name": vm.provider_name,
-            # Sandstone header chrome (shared base): real nav + mega-menu.
+            "cond_tiles": redesign.conditions_tiles(db, now=now),
+            "gas": redesign.gas_panel_data(db, now=now),
+            "active_tab": None,
         },
     )

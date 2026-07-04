@@ -1,4 +1,4 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake For-Business funnel (GET /portal, public). Ports the page-for-business
    mockup's hero + honest-by-design cards, bound to the REAL portal copy. The
    mockup's illustrative proof stats + specific pricing tiers are intentionally
@@ -6,10 +6,9 @@
 {% block title %}For businesses — Ask Hava{% endblock %}
 {% block meta_description %}The Ask Hava business portal: claim your Lake Havasu listing for free, or advertise with clearly-labeled placements at real prices.{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_portal.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="portx">
   <section class="bhero">
     <p class="eyebrow">For local businesses</p>
     <h1>Get found on <em>Ask&nbsp;Hava.</em></h1>

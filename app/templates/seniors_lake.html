@@ -1,13 +1,12 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake Seniors hub (GET /seniors, public, indexable). Lake Havasu Senior
    Center info, meal program, the two monthly calendars, recurring activities. -#}
 {% block title %}Seniors — Lake Havasu Senior Center | Ask Hava{% endblock %}
 {% block meta_description %}Lake Havasu Senior Center guide: daily community lunch, the monthly lunch menu and activities calendars, weekly classes and games, Meals on Wheels, and how to get involved.{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_editorial.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="artx">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Home</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Seniors</span></nav>
   <div class="ah">
     <span class="eyebrow">For our seniors</span>

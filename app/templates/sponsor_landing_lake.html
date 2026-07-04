@@ -1,15 +1,14 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake Ink & Brass sponsor teaser (/sponsor) — a thin teaser into the real
    rate card at /portal/placements. Indexable (v4.4 §7: /sponsor is a real
    advertiser landing, so the noindex was dropped). -#}
 {% block title %}Advertise on Ask Hava — Lake Havasu City{% endblock %}
 {% block meta_description %}Reach locals and visitors on Ask Hava with clearly labeled placements. One rate card, real prices, no media kit.{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_landing.css') }}">
 {% endblock %}
 
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="sponx">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Advertise</span></nav>
   <section class="spon-hero">
     <p class="eyebrow">Advertising</p>

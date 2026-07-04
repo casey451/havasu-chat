@@ -236,12 +236,21 @@ def _serve_mode_landing(request: Request, db: Session, mode: str) -> HTMLRespons
     counters (anti-confabulation, §4.10).
     """
     landing = sandstone.mode_landing(db, mode)
+    # v4.5 PR-5: the Family / Night landings wear the standalone v4 shell
+    # (base_redesign) — the live-conditions strip + cheapest-gas panel like every
+    # other discovery page, instead of the retired desert mode-hero.
+    from app.home import redesign
+
+    now = now_lake_havasu()
     return templates.TemplateResponse(
         request=request,
-        name="mode_sandstone.html",
+        name="mode_redesign.html",
         context={
             "utility_chips": _utility_chips(db),
             "current_mode": mode,
+            "cond_tiles": redesign.conditions_tiles(db, now=now),
+            "gas": redesign.gas_panel_data(db, now=now),
+            "active_tab": "family" if mode == "family" else None,
             **landing,
         },
     )
