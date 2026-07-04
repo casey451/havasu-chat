@@ -1,13 +1,12 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake "link expired" page — rendered by GET /auth/callback when a magic-link
    token is missing, already used, or past its 15-minute window. noindex. -#}
 {% block title %}Link expired — Ask Hava{% endblock %}
 {% block head_extra %}
 <meta name="robots" content="noindex">
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_account.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="authx">
   <div class="authwrap">
     <p class="eyebrow">Link no longer valid</p>
     <h1>Sign-in link <em>expired.</em></h1>

@@ -1,14 +1,13 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake feedback form (GET/POST /feedback, public). DB-backed: a submission is
    saved (source of truth) and forwarded to the operator. Replaces the old mailto
    and the phantom "feedback button" privacy/terms referenced. -#}
 {% block title %}Send feedback — Ask Hava{% endblock %}
 {% block meta_description %}Tell Ask Hava about wrong or missing info on a Lake Havasu listing, event, or page. We read everything and fix what's off.{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_editorial.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="artx">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Home</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Feedback</span></nav>
   <div class="ah">
     <span class="eyebrow">We read everything</span>
@@ -20,7 +19,7 @@
     <p><a href="/home">Back to home</a></p>
     {% else %}
     <p class="lead">See something wrong or missing on a listing, event, or page? Tell us here and we'll sort it out.</p>
-    {% if error %}<p class="lead" role="alert" style="color:#9a3b2f">{{ error }}</p>{% endif %}
+    {% if error %}<p class="lead" role="alert" style="color:var(--bad)">{{ error }}</p>{% endif %}
     <form method="post" action="/feedback">
       <input type="hidden" name="target_type" value="{{ target_type }}">
       <input type="hidden" name="target_ref" value="{{ target_ref }}">

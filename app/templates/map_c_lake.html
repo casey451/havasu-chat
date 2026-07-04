@@ -1,10 +1,10 @@
-{% extends "base_lake.html" %}
+{% extends "base_plain.html" %}
 {#- Lake /map — full-page Leaflet map, CHROME ONLY reskinned. Every piece of map
    JS wiring is preserved VERBATIM from map_c.html: body [data-map-scope] +
    data-map-default-expanded (read by map.js), the offscreen [data-map-toggle]
    binder, #map-container, the Leaflet + markercluster CDN assets, boat_mode.js,
    map.js, and the post-load resize tick. map_view.css keeps the load-bearing
-   full-viewport layout; lake_map.css reskins the topbar + scope bar. -#}
+   full-viewport layout; the topbar + scope-bar chrome is in lake_redesign.css (v4.6). -#}
 {% block title %}Map — Ask Hava{% endblock %}
 {% block meta_description %}Explore Lake Havasu businesses and places on a full-screen map.{% endblock %}
 {% block og_title %}Map — Ask Hava{% endblock %}
@@ -13,11 +13,10 @@
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/leaflet.markercluster/1.5.3/MarkerCluster.Default.min.css" crossorigin="anonymous">
   <link rel="stylesheet" href="{{ static_url('/static/styles/components/map_view.css') }}">
-  <link rel="stylesheet" href="{{ static_url('/static/styles/lake_map.css') }}">
 {% endblock %}
 {% block body_attrs %} class="map-page" data-map-scope="{{ default_scope }}" data-map-default-expanded="true"{% endblock %}
 
-{% block content %}
+{% block main %}
 <div class="map-page-main">
   <header class="map-page-topbar">
     <div class="map-page-heading">

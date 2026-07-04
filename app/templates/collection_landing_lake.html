@@ -1,11 +1,10 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake Ink & Brass curated collection (/collection/{slug}) — a hand-picked
    editorial grouping of local spots. SAME context: collection.{title,blurb,
    accent,places[{slug,image_url,name,where,blurb,meta_line}]}. -#}
 {% block title %}{{ collection.title }} — Ask Hava, Lake Havasu City{% endblock %}
 {% block meta_description %}{{ collection.blurb | meta_desc(160) }}{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_landing.css') }}">
 {% if canonical_url is defined %}
 <script type="application/ld+json">
 {
@@ -19,13 +18,13 @@
 {% endif %}
 {% endblock %}
 
-{% block content %}
-<div class="wrap coll-wrap">
+{% block main %}
+<div class="coll-wrap">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><a href="/categories">Directory</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">{{ collection.title }}</span></nav>
   <div class="pagehead">
     <h1>{{ collection.title }}</h1>
     {% if collection.blurb %}<p class="sub">{{ collection.blurb }}</p>{% endif %}
-    {% if today_label %}<p class="eyebrow" style="margin-top:12px;text-transform:none;letter-spacing:0;color:var(--muted);font-weight:500">Lake Havasu City · {{ today_label }} · <a href="/contribute" style="color:var(--brass-deep)">Add to Hava</a></p>{% endif %}
+    {% if today_label %}<p class="eyebrow" style="margin-top:12px;text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:500">Lake Havasu City · {{ today_label }} · <a href="/contribute" style="color:var(--brass-ink)">Add to Hava</a></p>{% endif %}
   </div>
 
   <section class="coll-stream" aria-label="{{ collection.title }} picks">

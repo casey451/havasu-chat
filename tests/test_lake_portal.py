@@ -66,7 +66,7 @@ def test_lake_portal_funnel() -> None:
 def test_lake_portal_claim_preserves_autocomplete() -> None:
     b = TestClient(app).get("/portal/claim?theme=lake").text
     assert 'data-theme="lake"' in b
-    assert "/static/styles/lake_portal.css" in b
+    assert "/static/styles/lake_redesign.css" in b  # v4.6 PR-1: v4 shell
     assert 'name="robots" content="noindex"' not in b  # public, indexable
     assert 'id="claim-search-q"' in b and 'id="claim-search-results"' in b  # JS hooks
     assert "/api/search/suggestions" in b  # autocomplete preserved verbatim

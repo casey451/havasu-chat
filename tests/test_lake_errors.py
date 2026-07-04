@@ -55,9 +55,10 @@ def test_lake_404_page() -> None:
     r = TestClient(app).get("/nonexistent-page-xyz?theme=lake")
     assert r.status_code == 404
     assert 'data-theme="lake"' in r.text
-    assert "/static/styles/lake_error.css" in r.text
+    assert "/static/styles/lake_redesign.css" in r.text  # v4.6 PR-1: base_plain v4 shell
     assert 'name="robots" content="noindex"' in r.text
-    assert 'action="/chat"' in r.text  # ask bar wired to the concierge
+    assert 'action="/categories"' in r.text  # search box → the directory
+    assert 'href="/today"' in r.text  # Today link (Pre-answered 2)
     assert r.text.count("<h1") == 1
     assert not _a11y(r.text)
 

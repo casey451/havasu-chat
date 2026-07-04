@@ -27,7 +27,7 @@ def test_lake_group_landing_preserves_wiring() -> None:
     r = TestClient(app).get(f"{_GROUP}?theme=lake")
     assert r.status_code == 200
     assert 'data-theme="lake"' in r.text
-    assert "/static/styles/lake_group.css" in r.text
+    assert "/static/styles/lake_redesign.css" in r.text  # v4.6 PR-1: v4 shell
     assert "/static/styles/components/hava_card.css" in r.text  # shared card sheet kept
     assert "group-accent-" in r.text  # body-accent hook pinned by test_phase6_themed_groups
     # JS wiring — all must survive the reskin

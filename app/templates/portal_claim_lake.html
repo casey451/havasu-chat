@@ -1,4 +1,4 @@
-{% extends "base_lake.html" %}
+{% extends "base_redesign.html" %}
 {#- Lake claim entry point (GET /portal/claim, public). Find your business, then
    claim it from its profile page. The autocomplete <script> + its IDs
    (claim-search-q / claim-search-results) and the .dp-suggest* classes it
@@ -6,10 +6,9 @@
 {% block title %}Claim your listing — Ask Hava{% endblock %}
 {% block meta_description %}Claim your Lake Havasu business listing on Ask Hava for free — unlock your full profile (photos, hours, menu, links) and the verified mark.{% endblock %}
 {% block head_extra %}
-<link rel="stylesheet" href="{{ static_url('/static/styles/lake_portal.css') }}">
 {% endblock %}
-{% block content %}
-<div class="wrap">
+{% block main %}
+<div class="portx">
   <nav class="crumbs" aria-label="Breadcrumb"><a href="/portal">For businesses</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Claim</span></nav>
   {% if advertise %}
   <div class="card resume-banner" role="status" style="margin:0 0 18px;padding:16px 18px">

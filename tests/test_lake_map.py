@@ -24,7 +24,7 @@ def _a11y(html: str) -> list[str]:
 def test_lake_map_preserves_all_js_wiring() -> None:
     b = TestClient(app).get("/map?theme=lake").text
     assert 'data-theme="lake"' in b
-    assert "/static/styles/lake_map.css" in b
+    assert "/static/styles/lake_redesign.css" in b  # v4.6 PR-1: base_plain v4 shell
     assert "/static/styles/components/map_view.css" in b  # shared layout kept
     # map JS wiring — all must survive the reskin untouched
     assert 'id="map-container"' in b

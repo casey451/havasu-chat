@@ -245,9 +245,9 @@ def test_event_detail_renders_lake_with_description() -> None:
             resp = client.get(f"/events/{_id}")
         assert resp.status_code == 200
         body = resp.text
-        # Lake Ink & Brass is the only theme now.
+        # v4.6 PR-1: the event permalink rides the standalone v4 shell.
         assert 'data-theme="lake"' in body
-        assert "/static/styles/lake.css" in body
+        assert "/static/styles/lake_redesign.css" in body
         # pre-line description container is present.
         assert "evd-desc" in body
     finally:
