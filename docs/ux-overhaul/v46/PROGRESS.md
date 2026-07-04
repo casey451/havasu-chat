@@ -29,8 +29,8 @@ v44/DESIGN_SPEC (§0 guardrails) + v44/BUILD_PLAN decision 15, then continue fro
 | PR | branch | status | gate | merge sha | notes |
 |----|--------|--------|------|-----------|-------|
 | 0 polish     | feat/v46-00-polish     | ✅ merged | pytest 12535✅ ruff✅ mypy✅ live-QA✅ | merge e462715a | water flag default-ON; provider About factual line + .pautonote footnote; /movies .tpill anchors (text-decoration:none) |
-| 1 last-pages | feat/v46-01-last-pages  | 🔨 gating | pytest (running) ruff✅ mypy✅ live-QA✅ | — | ALL 27 live base_lake pages → v4 shell; base_plain.html created; only lake_styleguide left (→PR-2 delete) |
-| 2 one-shell  | feat/v46-02-one-shell   | ⬜ todo | — | — | delete base_lake.html + site_chrome.css + orphaned CSS; guard test |
+| 1 last-pages | feat/v46-01-last-pages  | ✅ merged | pytest 12537✅ ruff✅ mypy✅ live-QA✅ | merge 2e0ad068 | ALL 27 live base_lake pages → v4 shell; base_plain.html created; only lake_styleguide left (→PR-2 delete) |
+| 2 one-shell  | feat/v46-02-one-shell   | 🔨 building | — | — | delete base_lake.html + lake_styleguide + site_chrome.css + orphaned CSS; guard test |
 | final        | v46-integration → main  | ⬜ todo | — | — | grant-merge after CI + smoke |
 
 ## PR-0 implementation (done, gating)
