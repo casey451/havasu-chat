@@ -35,7 +35,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | 4 conditions     | feat/v44-04-conditions       | ✅ merged | pytest 12489✅ ruff✅ mypy✅ live✅ | merge 2a54d850 | water+sunset, retire clouds |
 | 5 ads-rail       | feat/v44-05-ads-rail         | ✅ merged | pytest 12494✅ ruff✅ mypy✅ smoke✅ | merge 15d2a77f | one paid unit + working rail |
 | 6 gas-ui         | feat/v44-06-gas-ui           | ✅ merged | pytest 12499✅ ruff✅ mypy✅ smoke✅ | merge fa4c76aa | grade switch + /gas page |
-| 7 schedule       | feat/v44-07-schedule-niceties| ⏳ | — | — | previews/tpills/pills/dots |
+| 7 schedule       | feat/v44-07-schedule-niceties| 🔨 gating | niceties 5✅ affected 23✅ ruff✅ mypy✅ render-smoke✅; full suite next | — | previews/tpills/pills/dots |
 | 8 shell          | feat/v44-08-shell            | ⏳ | — | — | 6-link shell + footer/email |
 | 9 dead-code      | feat/v44-09-dead-code        | ⏳ | — | — | sweep old UX |
 | final            | v44-integration → main       | ⏳ | — | — | grant merge + smoke |
@@ -104,6 +104,33 @@ Temp·Water·Wind·UV·Sunset·Gas; template: add `water` class + render new til
 `.cond .c.water` tint (DESIGN_SPEC §1); add `wave`+`sunset` monoline icons to
 `redesign_icons.html` (§8); honest-omit water when absent; update visual refs. Clouds
 plumbing residue swept in PR-9.
+
+**PR-8 scouting (done) — riskiest, LAST:**
+- `_partials/site_header.html` (shared by base_lake + base_redesign) has ONE `_nav` list
+  (11 items) used by BOTH the mobile drawer (l.36) and desktop navlinks (l.44). PR-8 splits:
+  keep the FULL list for the drawer, add a 6-link `_nav_primary` for desktop:
+  Today(/home) · Events(/events-ui) · Lake(/lake) · Eat & Drink(/categories/eat-and-drink) ·
+  Explore(/categories#search) · For Business(/portal, biz). Drawer keeps News/Movies/Calendar/
+  Gas/For Kids/For Seniors/Ask so nothing becomes unreachable (acceptance: drawer lists all).
+- EMAIL ALREADY CLEAN: all templates use `hello@askhava.com`; grep found ZERO `havasuchat.com`.
+  Just keep the grep test. Verify no `havasuchat.com` repo-wide before claiming done.
+- Footer: `site_footer.html` is shared (base_redesign includes it l.91; VERIFY base_lake also
+  includes it — if so "single shared footer" is already true). Add `.biz` brass to For Business
+  + Advertise; keep trust line verbatim ("Real public reviews · Sponsored clearly labeled ·
+  Built in Lake Havasu"). Read site_footer.html when implementing.
+- `/sponsor` noindex: grep found none in seo/home routes — CHECK where /sponsor sets noindex
+  (meta robots in its template, or X-Robots-Tag) and de-noindex it.
+
+**PR-7 implementation (done, gating):** (1) Date-strip dots — NEW `app/home/activity.py`
+(`activity_dots`, `strip_activity`, `HEADLINER_DATES`); `sandstone.week_strip` adds
+`act`+`is_weekend` per card; `home_redesign.html` dcard renders `.act` dots/spark +
+`wknd` class + aria-label; CSS §6.4. **Decision 15: dots use the strip's per-day total,
+NOT day_counts — measured 560ms/day, ×7 = ~4s/home-render, unshippable.** (2) Movies rows
+title-first + `.tpill` showtimes (dropped `.evt`); §6.1 tpill CSS. (3) Kids/Seniors
+`.cpill.places` (brass, no count → /family, /seniors; routes+CSS exist); `kid`/`people`
+icons added. (4) Closed-section `.sp` previews — `redesign._section_preview_rows` (first 3
+real rows, TBD→blank) on each section; `sec_preview` macro in sechd between `.sc` and `.cv`;
+`.sp` CSS existed (added mobile hide + 44% width). Tests `test_schedule_niceties_v44.py`.
 
 **PR-7 scouting (done) — depends PR-3 ✅ (day_counts):**
 - Date-strip dots: `sandstone.week_strip` (sandstone.py:398) builds the 7 day cards; add an
