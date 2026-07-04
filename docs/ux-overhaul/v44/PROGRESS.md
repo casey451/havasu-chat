@@ -36,7 +36,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | 5 ads-rail       | feat/v44-05-ads-rail         | ✅ merged | pytest 12494✅ ruff✅ mypy✅ smoke✅ | merge 15d2a77f | one paid unit + working rail |
 | 6 gas-ui         | feat/v44-06-gas-ui           | ✅ merged | pytest 12499✅ ruff✅ mypy✅ smoke✅ | merge fa4c76aa | grade switch + /gas page |
 | 7 schedule       | feat/v44-07-schedule-niceties| ✅ merged | pytest 12504✅ ruff✅ mypy✅ smoke✅ | merge 2f31a7f4 | previews/tpills/pills/dots |
-| 8 shell          | feat/v44-08-shell            | 🔨 gating | shell 5✅ nav/seo 79✅ ruff✅ smoke✅; full suite next | — | 6-link shell + footer/email |
+| 8 shell          | feat/v44-08-shell            | ✅ merged | pytest 12510✅ ruff✅ mypy✅ smoke✅ | merge 10bf6e8a | 6-link shell + footer/email |
 | 9 dead-code      | feat/v44-09-dead-code        | ⏳ | — | — | sweep old UX |
 | final            | v44-integration → main       | ⏳ | — | — | grant merge + smoke |
 
