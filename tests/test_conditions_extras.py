@@ -43,8 +43,17 @@ def test_rise_parse_picks_latest() -> None:
     assert out["feature_enabled"] is True
 
 
-def test_rise_flag_off_no_http(monkeypatch) -> None:
+def test_rise_flag_default_on_when_env_absent(monkeypatch) -> None:
+    """v4.6: the code default is ON — no operator env var needed."""
     monkeypatch.delenv("FEATURE_FLAG_WATER_TEMP_RISE_6127", raising=False)
+    assert rise_water_temp.feature_enabled() is True
+
+
+@pytest.mark.parametrize("value", ["false", "0", "no", "off", ""])
+def test_rise_flag_explicit_falsy_disables(monkeypatch, value: str) -> None:
+    """An explicit falsy env var still turns the fetcher off (no HTTP, empty)."""
+    monkeypatch.setenv("FEATURE_FLAG_WATER_TEMP_RISE_6127", value)
+    assert rise_water_temp.feature_enabled() is False
     out = rise_water_temp.fetch_rise_water_temp()
     assert out["feature_enabled"] is False
     assert out["water_temp_f"] is None

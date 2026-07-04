@@ -122,7 +122,10 @@
   <section class="psec">
     <div>
       <h2>About</h2>
-      <p class="pabout">{% if _about %}{{ _about }}{% else %}This listing is auto-built from trusted public data. Spot an error? Suggest an edit below.{% endif %}</p>
+      {#- No own description → lead About with the short factual line (name ·
+         category · address/area), never the auto-built disclaimer. The disclaimer
+         moves to a small .pautonote footnote by the suggest-an-edit control below. (v4.6) -#}
+      <p class="pabout">{% if _about %}{{ _about }}{% else %}{{ _name }}{% if vm.category_label %} · {{ vm.category_label }}{% endif %}{% if vm.address %} · {{ vm.address }}{% elif vm.service_area %} · Serving {{ vm.service_area | join(', ') }}{% endif %}{% endif %}</p>
       {% if vm.service_chips %}<div class="amen">{% for chip in vm.service_chips %}<span class="tg">{{ chip }}</span>{% endfor %}</div>{% endif %}
 
       {% if vm.google_review_snippets %}
@@ -218,6 +221,7 @@
   <p class="psuggest"><a href="/contribute?kind=provider&amp;name={{ vm.provider_name|urlencode }}{% if vm.website_url %}&amp;url={{ vm.website_url|urlencode }}{% endif %}">See something out of date? Suggest an edit.</a>
     <span aria-hidden="true">·</span>
     <a href="/feedback?type=wrong_info&amp;target_type=provider&amp;ref={{ vm.provider_name|urlencode }}&amp;name={{ vm.provider_name|urlencode }}">Report wrong or missing info.</a></p>
+  {%- if not _about %}<p class="pautonote">This listing is auto-built from trusted public data — suggest an edit above to correct it.</p>{% endif %}
 </div>
 
 {% if vm.call_phone or vm.directions_url %}
