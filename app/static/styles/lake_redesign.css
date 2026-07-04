@@ -188,7 +188,31 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .calplacesbar{display:flex;margin:2px 16px 10px}
 
 .main{padding:8px 16px 0}
-.rail{display:none}
+/* v4.4: the rail now carries the directory launcher + news card, so it flows
+   below the sections on mobile (the news card is hidden — the ticker covers it). */
+.rail{display:flex;flex-direction:column;gap:14px;margin-top:14px}
+.newscard{display:none}
+/* v4.4 rail cards — Find-any-business launcher + local-news card (DESIGN_SPEC §4). */
+.railcard{background:var(--surface);border:1px solid var(--hair);border-radius:var(--rad);box-shadow:var(--sh-sm);overflow:hidden}
+.rc-hd{padding:14px 16px 4px}
+.rc-hd .rt{font-family:var(--disp);font-weight:500;font-size:16.5px;letter-spacing:-.01em}
+.rc-hd .rs{font-size:11.5px;color:var(--ink3);margin-top:3px;line-height:1.4}
+.minisearch{display:flex;align-items:center;gap:8px;margin:11px 16px 0;background:var(--paper2);border:1px solid var(--hair);border-radius:10px;padding:0 11px;height:40px;transition:.2s}
+.minisearch:focus-within{background:#fff;border-color:var(--teal-line);box-shadow:0 0 0 3px rgba(12,90,96,.07)}
+.minisearch .mag{color:var(--ink3);display:inline-flex}
+.minisearch input{flex:1;border:0;outline:0;background:transparent;font-family:var(--ui);font-size:12.5px;color:var(--ink);min-width:0}
+.dirgrid{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--hair2);margin-top:12px;border-top:1px solid var(--hair2)}
+.dirit{display:flex;align-items:center;gap:8px;padding:10px 11px;background:var(--surface);text-decoration:none;transition:background .15s;min-width:0}
+.dirit:hover{background:var(--paper2)}
+.dirit .ic{color:var(--teal);flex:0 0 auto}
+.dirit .dl{font-size:11.5px;font-weight:600;color:var(--ink2);min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.dirit .dc{margin-left:auto;font-size:10px;font-weight:700;color:var(--ink3)}
+.rc-ft{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12px;font-weight:600;color:var(--teal);padding:11px;border-top:1px solid var(--hair2);text-decoration:none}
+.rc-ft:hover{background:var(--teal-soft)}
+.newsit{display:flex;flex-direction:column;gap:3px;padding:11px 16px;border-top:1px solid var(--hair2);text-decoration:none;transition:background .15s}
+.newsit:hover{background:var(--paper2)}
+.newsit .nh{font-family:var(--disp);font-weight:500;font-size:14px;letter-spacing:-.01em;color:var(--ink);line-height:1.3}
+.newsit .nm{font-size:11px;color:var(--ink3)}
 
 .sections{display:flex;flex-direction:column;gap:11px}
 .sec{background:var(--surface);border:1px solid var(--hair);border-radius:var(--rad);box-shadow:var(--sh-sm);overflow:hidden;transition:box-shadow .28s,border-color .28s}
@@ -358,8 +382,10 @@ body.scrolled .head-stack{box-shadow:0 6px 18px -10px rgba(19,32,29,.28)}
   .only-d,.sc-only-d{display:flex}
   .only-m,.sc-only-m{display:none}
   .main{display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start;padding:8px 24px 0}
-  .rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:150px}
-  .feature-slot.infeed{display:none}            /* in-feed ads are mobile-only; desktop uses the rail */
+  .rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:150px;margin-top:0}
+  /* v4.4: desktop shows the rail news card and hides the mobile ticker. */
+  .newsbar{display:none}
+  .newscard{display:flex}
   .cell{min-height:104px}
   .cell .chips{display:flex}
   .cell .dots{display:none}

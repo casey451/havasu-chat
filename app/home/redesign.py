@@ -261,6 +261,54 @@ def gas_top5(db: Session, *, now: datetime | None = None) -> dict[str, Any]:
     }
 
 
+# ── directory launcher (v4.4 PR-5 rail card) ───────────────────────────────────
+# The 8 launcher categories (DESIGN_SPEC §4.1): department slug → short label
+# (exact — they truncate otherwise) + monoline icon. Counts come from the cached
+# /categories index payload (DATA_CONTRACTS §5), so the launcher can never disagree
+# with the directory's own numbers.
+_LAUNCHER_CATEGORIES: tuple[tuple[str, str, str], ...] = (
+    ("eat-and-drink", "Eat & Drink", "fork"),
+    ("home-and-property-services", "Home Services", "wrench"),
+    ("auto-rv-and-marine", "Auto & Boat", "car"),
+    ("health-and-medical", "Health", "health"),
+    ("shopping-and-retail", "Shopping", "bag"),
+    ("beauty-and-personal-care", "Salons", "scissors"),
+    ("on-the-water", "Lake & Boating", "anchor"),
+    ("lodging", "Lodging", "bed"),
+)
+
+
+def directory_launcher(db: Session) -> dict[str, Any]:
+    """The rail's Find-any-business launcher: the 8 category tiles with live counts
+    + a floor-rounded total, all from the cached /categories index (the same query
+    the directory pages use, DATA_CONTRACTS §5). A category with no row is omitted
+    (honest — never a fabricated count)."""
+    # Function-scope import avoids a module-load cycle (categories.router imports
+    # a wide slice of the app).
+    from app.categories.router import _get_index_payload
+
+    rows = _get_index_payload(db)
+    by_slug = {r.get("slug"): r for r in rows}
+    total = sum(int(r.get("count") or 0) for r in rows)
+    tiles: list[dict[str, Any]] = []
+    for slug, label, icon in _LAUNCHER_CATEGORIES:
+        row = by_slug.get(slug)
+        if row is None:
+            continue
+        tiles.append(
+            {
+                "label": label,
+                "url": f"/categories/{slug}",
+                "count": int(row.get("count") or 0),
+                "icon": icon,
+            }
+        )
+    # Floor-rounded hundreds, e.g. 2437 -> "2,400+"; None when the directory is
+    # empty so the template can omit the count clause.
+    total_label = f"{total // 100 * 100:,}+" if total >= 100 else None
+    return {"total": total_label, "total_raw": total, "tiles": tiles}
+
+
 # ── events feed (count overview + accordion buckets + blurbs + fitness subs) ────
 _EVENT_ID_RE = re.compile(r"^/events/([^/?#]+)")
 
