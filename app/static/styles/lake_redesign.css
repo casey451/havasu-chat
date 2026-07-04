@@ -1223,3 +1223,46 @@ body.map-page .rd-shell > main{padding:0}
 .grpx .category-editorial-footer{max-width:1280px;margin:40px auto 0;padding:22px 32px 0;border-top:1px solid var(--hair);font-size:13.5px;color:var(--ink2)}
 .grpx .category-editorial-footer a{color:var(--brass-ink);font-weight:600}
 @media(max-width:700px){.grpx .wrap{padding-left:20px;padding-right:20px}.grpx .cat-head .cathead{padding-top:28px;padding-bottom:22px}.grpx .hava-search-bar,.grpx .category-filters,.grpx .category-stream,.grpx .category-editorial-footer,.grpx .map-wrap{padding-left:20px;padding-right:20px}}
+
+/* ── "Add to Hava" contribution form (.contribx, v4.6): the /contribute form on
+   the v4 shell. Ported from the deleted standalone contribute.css, retokenized to
+   the v4 palette + scoped so its input/label/a rules never leak into the shell. ── */
+.contribx{max-width:720px;margin:0 auto;padding:0 16px 56px}
+.contribx .crumbs{margin:12px 0 4px}
+.contribx .head{text-align:center;padding:12px 0 24px}
+.contribx .head .eyebrow{font-size:11px;text-transform:uppercase;letter-spacing:.18em;color:var(--brass-ink);font-weight:700;margin:0 0 12px}
+.contribx .head h1{font-family:var(--disp);font-weight:500;font-size:clamp(30px,6vw,46px);line-height:1.05;letter-spacing:-.02em;margin:0 0 12px;color:var(--ink)}
+.contribx .head h1 em{font-style:normal;color:var(--teal)}
+.contribx .head .lede{font-size:16px;color:var(--ink2);margin:0 auto;max-width:520px;line-height:1.55}
+.contribx .banner{padding:14px 16px;border-radius:14px;margin-bottom:16px;font-size:14.5px;line-height:1.5;border:1px solid transparent}
+.contribx .banner.ok{background:rgba(44,117,81,.10);color:var(--good);border-color:rgba(44,117,81,.28)}
+.contribx .banner.err{background:rgba(180,69,47,.08);color:var(--bad);border-color:rgba(180,69,47,.26)}
+.contribx .err-list{margin:0;padding-left:18px}
+.contribx .err-list li{margin:4px 0}
+.contribx .form-card{background:var(--surface);border:1px solid var(--hair);border-radius:var(--rad);padding:24px 22px;box-shadow:var(--sh-sm)}
+.contribx .form-card label{display:block;font-weight:600;font-size:12px;color:var(--ink3);text-transform:uppercase;letter-spacing:.12em;margin:18px 0 6px}
+.contribx .form-card label:first-child{margin-top:0}
+.contribx .type-fieldset{border:0;margin:0;padding:0;min-width:0}
+.contribx .type-fieldset legend{display:block;width:100%;padding:0;font-weight:600;font-size:12px;color:var(--ink3);text-transform:uppercase;letter-spacing:.12em;margin:0 0 6px}
+.contribx .req{color:var(--bad);font-weight:600;margin-left:2px}
+.contribx .req[hidden]{display:none}
+.contribx .req-legend{margin:16px 0 0;font-size:12.5px;color:var(--ink3)}
+.contribx .field-note{margin:6px 0 0;font-size:12.5px;color:var(--ink3)}
+.contribx .review-note{margin:12px 0 0;font-size:13px;color:var(--ink3);text-align:center}
+.contribx .form-card input[type=text],.contribx .form-card input[type=url],.contribx .form-card input[type=email],.contribx .form-card input[type=date],.contribx .form-card input[type=time],.contribx .form-card textarea{width:100%;padding:12px 14px;border:1px solid var(--hair);border-radius:12px;font-size:15.5px;font-family:var(--ui);color:var(--ink);background:var(--surface);transition:border-color .18s,box-shadow .18s}
+.contribx .form-card input::placeholder,.contribx .form-card textarea::placeholder{color:var(--ink3)}
+.contribx .form-card input:focus,.contribx .form-card textarea:focus{outline:0;border-color:var(--teal);box-shadow:0 0 0 4px rgba(12,90,96,.10)}
+.contribx .form-card textarea{min-height:130px;resize:vertical;line-height:1.5}
+.contribx .row-radio{display:flex;flex-wrap:wrap;gap:8px;margin-top:4px}
+.contribx .row-radio label{font-weight:400;font-size:14px;text-transform:none;letter-spacing:0;color:var(--ink);margin:0;display:inline-flex;align-items:center;gap:8px;padding:9px 14px 9px 12px;border:1px solid var(--hair);border-radius:999px;cursor:pointer;transition:border-color .15s,background .15s}
+.contribx .row-radio label:hover{border-color:var(--teal-line);background:var(--paper2)}
+.contribx .row-radio input[type=radio]{appearance:none;-webkit-appearance:none;width:14px;height:14px;border:1px solid var(--hair);border-radius:50%;margin:0;flex-shrink:0;transition:border-color .15s}
+.contribx .row-radio input[type=radio]:checked{border-color:var(--teal);border-width:4px}
+.contribx .row-radio label:has(input:checked){border-color:var(--teal);background:var(--teal-soft);color:var(--teal-deep)}
+.contribx #event-fields{margin-top:6px;padding-top:18px;border-top:1px solid var(--hair2)}
+.contribx button.submit{margin-top:24px;width:100%;padding:14px 20px;font-size:15.5px;font-family:var(--ui);font-weight:600;letter-spacing:0;background:var(--teal);color:#fff;border:0;border-radius:999px;cursor:pointer;transition:background .18s,transform .12s}
+.contribx button.submit:hover{background:var(--teal-deep)}
+.contribx button.submit:active{transform:scale(.98)}
+.contribx .foot{margin-top:24px;font-size:14px;color:var(--ink3);text-align:center}
+.contribx .foot a{color:var(--brass-ink);font-weight:600}
+@media(min-width:720px){.contribx .form-card{padding:32px}.contribx .form-card label{margin:22px 0 8px}}

@@ -37,6 +37,9 @@ _DELETED = [
     _STYLES / "lake_map.css",
     _STYLES / "lake_group.css",
     _STYLES / "desert_portal.css",
+    # v4.6 follow-up: /contribute moved from a standalone inline page onto the v4
+    # shell, so its bespoke sheet is gone too.
+    _STYLES / "contribute.css",
 ]
 
 
@@ -65,13 +68,13 @@ def test_public_last_pages_wear_v4_shell() -> None:
     """The migrated public surfaces render on the standalone v4 shell (its own
     lake_redesign.css), never the old base_lake reskin (data-redesign flag)."""
     with TestClient(app) as client:
-        for path in ("/today", "/feedback", "/portal/claim", "/search", "/map"):
+        for path in ("/today", "/feedback", "/portal/claim", "/search", "/map", "/contribute"):
             html = client.get(path, follow_redirects=True).text
             assert "/static/styles/lake_redesign.css" in html, path
-            # None of the deleted-in-PR-2 bespoke sheets are linked anymore.
+            # None of the deleted bespoke sheets are linked anymore.
             for dead in ("lake_conditions.css", "lake_account.css", "lake_portal.css",
                          "lake_editorial.css", "lake_landing.css", "lake_search.css",
-                         "lake_map.css", "lake_group.css", "lake_error.css"):
+                         "lake_map.css", "lake_group.css", "lake_error.css", "contribute.css"):
                 assert dead not in html, f"{path} still links {dead}"
 
 
