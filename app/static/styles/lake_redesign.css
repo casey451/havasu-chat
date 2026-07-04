@@ -541,3 +541,144 @@ a.gas-card:hover{border-color:var(--teal-line);box-shadow:var(--sh-sm)}
 /* Out-of-town news region chip (2026-07-01 master audit §6.2): Parker / La Paz
    items ran as bare Havasu headlines — label them honestly. */
 .nr-region{display:inline-block;padding:1px 7px;margin-right:2px;border:1px solid var(--hair2);border-radius:999px;font-family:var(--ui);font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:uppercase;color:var(--ink3);vertical-align:2px}
+
+/* ============================================================
+   Directory pages (v4.5 PR-4): /categories index, department (leaf list),
+   faceted category, and the leaf listing (toolbar + biz cards + sponsor +
+   pager + FAQ + ask strip). Ported from lake_directory.css into the v4
+   language (base_redesign shell); old --brass-deep/--muted/--raised tokens
+   mapped to the v4 palette. Wrapper .dirx scopes page primitives so the
+   paragraph .dsub subtitle never collides with the home .sub pill.
+   ============================================================ */
+.dirx{padding:0 16px 48px}
+.dirx .pagehead{margin:16px 0 2px}
+.dirx .pagehead h1{font-family:var(--disp);font-weight:500;font-size:25px;letter-spacing:-.02em;margin:0;line-height:1.1}
+.dirx .dsub{font-size:14px;color:var(--ink3);margin:8px 0 0;max-width:64ch;line-height:1.5}
+.dirx .sec-head{margin:26px 0 10px}
+.dirx .sec-head h2{font-family:var(--disp);font-weight:500;font-size:19px;letter-spacing:-.01em;margin:0}
+
+/* index: keyword search field */
+.dirsearch{max-width:680px;margin:18px 0 4px;display:flex;align-items:center;gap:10px;background:var(--surface);border:1px solid var(--hair);border-radius:999px;padding:7px 8px 7px 18px;box-shadow:var(--sh-sm);min-height:52px}
+.dirsearch:focus-within{border-color:var(--teal);box-shadow:0 0 0 4px rgba(12,90,96,.14),var(--sh-sm)}
+.dirsearch .ds-ic{flex:none;color:var(--ink3)}
+.dirsearch input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;font-size:15px;color:var(--ink);padding:9px 0;min-height:40px}
+.dirsearch input::placeholder{color:var(--ink3)}
+.dirsearch .ds-go{flex:none;border:0;cursor:pointer;font:inherit;font-size:13.5px;font-weight:600;color:#fff;background:var(--teal);border-radius:999px;padding:9px 18px;min-height:40px}
+.dirsearch .ds-go:hover{background:var(--teal-deep)}
+.dirsearch .ds-go:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(12,90,96,.34)}
+
+/* index: department tile grid */
+.exgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:14px;margin-top:22px}
+.extile{display:block;background:var(--surface);border:1px solid var(--hair);border-radius:var(--rad);box-shadow:var(--sh-sm);padding:16px 18px;text-decoration:none;color:inherit;transition:box-shadow .2s,border-color .2s,transform .16s}
+.extile:hover{box-shadow:var(--sh);border-color:var(--teal-line);transform:translateY(-2px)}
+.extile:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(12,90,96,.34)}
+.extile h3{font-family:var(--disp);font-weight:500;font-size:17px;letter-spacing:-.01em;margin:0;color:var(--ink);display:flex;align-items:center;gap:8px}
+.extile h3 .c{font-family:var(--ui);font-weight:600;font-size:12px;color:var(--teal);background:var(--teal-soft);border:1px solid var(--teal-line);border-radius:999px;padding:1px 9px;font-variant-numeric:tabular-nums}
+.extile p{font-size:13px;color:var(--ink3);margin:6px 0 0;line-height:1.45}
+
+/* department: the leaf grid */
+.leafgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:12px;margin-top:18px}
+.leaftile{display:flex;align-items:center;justify-content:space-between;gap:10px;background:var(--surface);border:1px solid var(--hair);border-radius:14px;padding:14px 16px;box-shadow:var(--sh-sm);text-decoration:none;transition:transform .16s,box-shadow .2s,border-color .2s}
+.leaftile:hover{transform:translateY(-2px);box-shadow:var(--sh);border-color:var(--teal-line)}
+.leaftile:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(12,90,96,.34)}
+.leaftile .ln{font-family:var(--disp);font-weight:500;font-size:16px;color:var(--ink)}
+.leaftile .lc{font-size:12px;font-weight:600;color:var(--teal);background:var(--teal-soft);border:1px solid var(--teal-line);border-radius:999px;padding:2px 9px;flex:none;font-variant-numeric:tabular-nums}
+.also-sec{margin-top:28px}
+h2.also-sec{font-family:var(--disp);font-weight:500;font-size:19px;letter-spacing:-.01em;margin:26px 0 10px;color:var(--ink)}
+
+/* biz cards inside a listcard container */
+.dir-listings{margin:20px 0 26px}
+.dir-group{margin-top:20px}
+.listcard{background:var(--surface);border:1px solid var(--hair);border-radius:var(--rad);box-shadow:var(--sh-sm);overflow:hidden}
+.bizcard{display:flex;gap:13px;align-items:center;padding:14px 16px;border-top:1px solid var(--hair)}
+.listcard .bizcard:first-child{border-top:0}
+.listcard .grid-divider+.bizcard{border-top:0}
+.bizcard .bph{width:58px;height:58px;flex:none;border-radius:12px;background-size:cover;background-position:center;background-color:var(--paper2);border:1px solid var(--hair)}
+.bizcard .bb{flex:1;min-width:0}
+.bizcard .bn{font-family:var(--disp);font-weight:500;font-size:16px;letter-spacing:-.01em;color:var(--ink);line-height:1.25;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.bizcard .bn a{color:inherit;text-decoration:none}
+.bizcard .bn a:hover{color:var(--teal)}
+.bizcard .tg.spon{color:var(--brass);background:var(--brass-soft);border-color:var(--brass-line)}
+.bizcard .bmeta{font-size:12.5px;color:var(--ink3);margin-top:3px;line-height:1.4}
+.bizcard .bmeta .star{color:var(--brass);font-weight:600;display:inline-flex;align-items:center;gap:3px;vertical-align:-2px}
+.bizcard .bmeta .rc{color:var(--ink3)}
+.bizcard .bmeta .open{color:var(--teal);font-weight:600}
+.bizcard .bmeta .closed{color:var(--ink3);font-weight:600}
+.bizcard .ad-tagline{font-size:12.5px;color:var(--brass);margin-top:4px}
+.bizcard .bact{display:flex;gap:6px;flex:none}
+.listcard .grid-divider{padding:10px 16px;border-top:1px solid var(--hair);font-size:11px;font-weight:600;letter-spacing:.05em;text-transform:uppercase;color:var(--ink3)}
+.listcard .grid-divider:first-child{border-top:0}
+
+/* filter/sort + facet toolbar (dir_toolbar macro) */
+.dirx .toolbar{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin:16px 0 4px}
+.dirx .toolbar .tlab{font-size:10.5px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--ink3);margin-right:2px}
+.dirx .toolbar .chip{display:inline-flex;align-items:center;font-size:13px;font-weight:500;color:var(--ink2);background:var(--surface);border:1px solid var(--hair);border-radius:999px;padding:7px 14px;text-decoration:none;transition:.16s;cursor:pointer}
+.dirx .toolbar .chip:hover{border-color:var(--teal-line);color:var(--ink)}
+.dirx .toolbar .chip.on{color:#fff;background:var(--teal);border-color:var(--teal)}
+.dirx .toolbar .shown{margin-left:auto;font-size:12.5px;color:var(--ink3)}
+
+/* category sponsor / claim (one labeled slot) */
+.cat-sponsor{margin-top:16px}
+.cat-sponsor .adbar{display:flex;align-items:center;gap:14px;background:linear-gradient(180deg,#fffdf7,var(--brass-soft));border:1px solid var(--brass-line);border-radius:var(--rad);padding:14px 16px;text-decoration:none;color:inherit;box-shadow:var(--sh-sm)}
+.cat-sponsor .adbar:hover{box-shadow:var(--sh)}
+.cat-sponsor .adbar:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(154,118,37,.3)}
+.cat-sponsor .mono{flex:none;width:40px;height:40px;border-radius:10px;display:flex;align-items:center;justify-content:center;font-family:var(--disp);font-weight:600;font-size:20px;color:var(--brass);background:#fff;border:1px solid var(--brass-line)}
+.cat-sponsor .ab{flex:1;min-width:0}
+.cat-sponsor .stag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--brass);background:#fff;border:1px solid var(--brass-line);border-radius:6px;padding:2px 8px;margin-bottom:4px}
+.cat-sponsor .an{font-family:var(--disp);font-weight:500;font-size:16px;letter-spacing:-.01em;color:var(--ink)}
+.cat-sponsor .am{font-size:12.5px;color:var(--ink3);margin-top:2px}
+.cat-sponsor .ar{flex:none}
+
+/* empty / filter / summary lines */
+.cat-empty{margin:20px 0;font-size:14px;color:var(--ink3)}
+.cat-empty a{color:var(--teal);font-weight:600}
+.dir-suggest{text-align:center;margin:26px 0 4px;font-size:13px}
+.dir-suggest a{color:var(--teal);font-weight:600;text-decoration:none}
+.dir-suggest a:hover{text-decoration:underline}
+
+/* category-claim aside (department page) */
+.cat-claim{margin:28px 0 8px;display:flex;align-items:center;gap:16px;flex-wrap:wrap;background:linear-gradient(180deg,#fffdf7,var(--brass-soft));border:1px solid var(--brass-line);border-radius:var(--rad);padding:18px 20px;box-shadow:var(--sh-sm);position:relative;overflow:hidden}
+.cat-claim::before{content:"";position:absolute;left:0;top:0;bottom:0;width:3px;background:linear-gradient(var(--brass-br),var(--brass))}
+.cat-claim .cc-body{flex:1;min-width:0}
+.cat-claim .stag{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--brass);background:#fff;border:1px solid var(--brass-line);border-radius:6px;padding:2px 8px;margin-bottom:6px}
+.cat-claim h2{font-family:var(--disp);font-weight:500;font-size:19px;letter-spacing:-.02em;margin:0}
+.cat-claim p{font-size:13.5px;color:var(--ink3);margin:4px 0 0}
+
+/* brass call-to-action button */
+.btn-brass{display:inline-flex;align-items:center;font-size:13px;font-weight:600;color:#fff;background:var(--brass);border:1px solid var(--brass);border-radius:999px;padding:9px 18px;text-decoration:none;cursor:pointer;transition:.2s;flex:none}
+.btn-brass:hover{background:#856322;border-color:#856322}
+.btn-brass:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(154,118,37,.34)}
+
+/* pagination */
+.pager{display:flex;align-items:center;justify-content:center;gap:14px;margin:24px 0 4px}
+.pager .cur{font-size:13px;color:var(--ink3);font-variant-numeric:tabular-nums}
+
+/* FAQ */
+.trade-faq{margin:34px 0 0}
+.faq-item{background:var(--surface);border:1px solid var(--hair);border-radius:14px;box-shadow:var(--sh-sm);margin-bottom:10px;overflow:hidden}
+.faq-item>summary{display:flex;align-items:center;gap:10px;padding:14px 18px;cursor:pointer;list-style:none}
+.faq-item>summary::-webkit-details-marker{display:none}
+.faq-item>summary:hover{background:var(--paper2)}
+.faq-item>summary h3{font-family:var(--disp);font-weight:500;font-size:16px;color:var(--ink);margin:0}
+.faq-item>p{padding:0 18px 16px;font-size:14px;color:var(--ink2);line-height:1.6;margin:0}
+
+/* ask strip (dark teal CTA) */
+.askstrip{margin:40px 0 8px;background:linear-gradient(165deg,var(--teal),var(--teal-deep));border-radius:var(--rad);padding:26px 24px;color:#eef3f7;display:flex;align-items:center;gap:18px;flex-wrap:wrap}
+.askstrip h2{font-family:var(--disp);font-weight:500;font-size:22px;color:#fff;margin:0}
+.askstrip h2 em{font-style:normal;color:var(--brass-br)}
+.askstrip form{margin-left:auto;display:flex;gap:8px;align-items:center;background:var(--surface);border-radius:999px;padding:5px 5px 5px 16px;min-width:min(360px,100%)}
+.askstrip input{border:0;background:none;outline:0;font-family:var(--ui);font-size:14px;flex:1;min-width:0;min-height:38px;color:var(--ink)}
+.askstrip input::placeholder{color:var(--ink3)}
+.askstrip button{border:0;border-radius:999px;background:var(--brass);color:#fff;font-family:var(--ui);font-weight:600;font-size:14px;padding:0 18px;height:40px;cursor:pointer}
+.askstrip button:hover{background:#856322}
+.askstrip button:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(255,255,255,.5)}
+
+@media(max-width:720px){
+  .leafgrid{grid-template-columns:1fr 1fr}
+  .askstrip form{margin-left:0;width:100%}
+}
+@media(max-width:560px){
+  .bizcard{flex-wrap:wrap}
+  .bizcard .bact{width:100%;margin-left:71px}
+}
+@media(max-width:430px){.leafgrid{grid-template-columns:1fr}.bizcard .bact{margin-left:0}}
