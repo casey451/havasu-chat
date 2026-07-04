@@ -89,7 +89,7 @@
           </a>
           {% endfor %}
         </div>
-        <a class="gpall" href="/gas">{% if gas.station_count %}All {{ gas.station_count }} stations · {% endif %}updated {{ gas.staleness_label }} {{ icon('arrow', 13) }}</a>
+        <a class="gpall" href="/gas">{% if gas.station_count %}All {{ gas.station_count }} stations · {% endif %}{{ gas.staleness_label }} {{ icon('arrow', 13) }}</a>
       </div>
     </div>
     {% if gas.by_grade %}
