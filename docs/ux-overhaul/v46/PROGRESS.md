@@ -31,7 +31,26 @@ v44/DESIGN_SPEC (§0 guardrails) + v44/BUILD_PLAN decision 15, then continue fro
 | 0 polish     | feat/v46-00-polish     | ✅ merged | pytest 12535✅ ruff✅ mypy✅ live-QA✅ | merge e462715a | water flag default-ON; provider About factual line + .pautonote footnote; /movies .tpill anchors (text-decoration:none) |
 | 1 last-pages | feat/v46-01-last-pages  | ✅ merged | pytest 12537✅ ruff✅ mypy✅ live-QA✅ | merge 2e0ad068 | ALL 27 live base_lake pages → v4 shell; base_plain.html created; only lake_styleguide left (→PR-2 delete) |
 | 2 one-shell  | feat/v46-02-one-shell   | ✅ merged | pytest 12536✅ ruff✅ mypy✅ live-QA✅ | merge 0ac36537 | deleted base_lake+styleguide+lake_components+lake_preview + 13 orphaned CSS; admin middleware simplified; guard tests |
-| final        | v46-integration → main  | 🔨 opening PR | all 3 merged; push + PR + CI + grant-merge + smoke | — | grant merge + smoke |
+| final        | v46-integration → main  | ✅ DEPLOYED | PR #705 all gates✅ (ruff/pytest 12536/mypy/CodeRabbit + Playwright & axe/pa11y advisories) | squash ff69b089 | grant-merged; post-deploy smoke PASS |
+
+## v4.6 — COMPLETE (deployed to askhava.com @ ff69b089, 2026-07-04)
+All 3 item PRs (PR-0 polish · PR-1 last-pages · PR-2 one-shell) + the a11y-CI follow-up merged;
+PR #705 squash-merged to main under the kickoff grant with ALL gates green (ruff / pytest 12536 /
+mypy / CodeRabbit + Playwright & axe/pa11y+Lighthouse advisories). **Post-deploy smoke PASS** (live
+against askhava.com):
+- /home /gas /calendar /events-ui /categories /movies /today /account /feedback /contribute → all
+  200, v4 shell (lake_redesign.css), ZERO base_lake/lake.css/site_chrome refs, ZERO emoji.
+- 404 route → status 404 + styled base_plain error page (.errx + Today link).
+- Phoenix date (Sat Jul 04) present on /home.
+- Provider About (PR-0.2) verified on a live no-description provider (/provider/denny-s-restaurant):
+  About leads with the factual line "Denny's Restaurant · Restaurants · 1620 McCulloch Blvd N…"
+  (NOT the auto-built disclaimer) + the .pautonote footnote; a with-description control (Angelina's)
+  leads with its own copy.
+
+There is now ONE shell. base_lake.html + site_chrome.css + the whole lake.css lineage are gone.
+**CASEY:** the water tile (PR-0.1) now defaults ON in code — it repopulates on the next conditions
+cron tick. If it's still blank ~24h after this deploy, FEATURE_FLAG_WATER_TEMP_RISE_6127 is
+explicitly set to a falsy value in Railway; that one check is yours.
 
 ## PR-0 implementation (done, gating)
 Three polish fixes from the 2026-07-04 live QA sweep:
