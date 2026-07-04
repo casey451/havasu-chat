@@ -35,7 +35,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | 4 conditions     | feat/v44-04-conditions       | ✅ merged | pytest 12489✅ ruff✅ mypy✅ live✅ | merge 2a54d850 | water+sunset, retire clouds |
 | 5 ads-rail       | feat/v44-05-ads-rail         | ✅ merged | pytest 12494✅ ruff✅ mypy✅ smoke✅ | merge 15d2a77f | one paid unit + working rail |
 | 6 gas-ui         | feat/v44-06-gas-ui           | ✅ merged | pytest 12499✅ ruff✅ mypy✅ smoke✅ | merge fa4c76aa | grade switch + /gas page |
-| 7 schedule       | feat/v44-07-schedule-niceties| 🔨 gating | niceties 5✅ affected 23✅ ruff✅ mypy✅ render-smoke✅; full suite next | — | previews/tpills/pills/dots |
+| 7 schedule       | feat/v44-07-schedule-niceties| ✅ merged | pytest 12504✅ ruff✅ mypy✅ smoke✅ | merge 2f31a7f4 | previews/tpills/pills/dots |
 | 8 shell          | feat/v44-08-shell            | ⏳ | — | — | 6-link shell + footer/email |
 | 9 dead-code      | feat/v44-09-dead-code        | ⏳ | — | — | sweep old UX |
 | final            | v44-integration → main       | ⏳ | — | — | grant merge + smoke |
@@ -220,7 +220,13 @@ marquee keyline §2, add `search`/`arrow` icons if missing.
   >7d hide, cheapest/grades, key normalization); 3 fixture dates in
   `test_gas_prices_page.py`.
 
-## NEXT ACTION (current)
+## NEXT ACTION (now)
+PR-7 ✅ merged (2f31a7f4). START PR-8 (shell) on `feat/v44-08-shell` — see "PR-8 scouting".
+Split site_header `_nav` into full (drawer) + `_nav_primary` (6 desktop links); footer
+`.biz` brass + verify single-source + de-noindex /sponsor; grep test zero havasuchat.com.
+Riskiest visible change — verify header renders on home + a base_lake page. Gate → merge → PR-9.
+
+## (was) NEXT ACTION
 PR-6 ✅ merged (fa4c76aa). START PR-7 (schedule-niceties) on `feat/v44-07-schedule-niceties`
 — see "PR-7 scouting". Order: (1) date-strip dots via day_counts in week_strip, (2) movies
 title-first + tpills, (3) Kids/Seniors places pills + kid/people icons, (4) closed-section
