@@ -225,6 +225,7 @@
       <form class="minisearch" role="search" action="/categories" method="get">
         <span class="mag">{{ icon('search', 14) }}</span>
         <input type="search" name="q" placeholder="Plumber, tacos, boat detail…" aria-label="Search the directory">
+        <button type="submit" class="visually-hidden">Search</button>
       </form>
       <div class="dirgrid">
         {% for t in directory.tiles %}
