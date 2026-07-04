@@ -36,7 +36,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | 5 ads-rail       | feat/v44-05-ads-rail         | ✅ merged | pytest 12494✅ ruff✅ mypy✅ smoke✅ | merge 15d2a77f | one paid unit + working rail |
 | 6 gas-ui         | feat/v44-06-gas-ui           | ✅ merged | pytest 12499✅ ruff✅ mypy✅ smoke✅ | merge fa4c76aa | grade switch + /gas page |
 | 7 schedule       | feat/v44-07-schedule-niceties| ✅ merged | pytest 12504✅ ruff✅ mypy✅ smoke✅ | merge 2f31a7f4 | previews/tpills/pills/dots |
-| 8 shell          | feat/v44-08-shell            | ⏳ | — | — | 6-link shell + footer/email |
+| 8 shell          | feat/v44-08-shell            | 🔨 gating | shell 5✅ nav/seo 79✅ ruff✅ smoke✅; full suite next | — | 6-link shell + footer/email |
 | 9 dead-code      | feat/v44-09-dead-code        | ⏳ | — | — | sweep old UX |
 | final            | v44-integration → main       | ⏳ | — | — | grant merge + smoke |
 
@@ -104,6 +104,39 @@ Temp·Water·Wind·UV·Sunset·Gas; template: add `water` class + render new til
 `.cond .c.water` tint (DESIGN_SPEC §1); add `wave`+`sunset` monoline icons to
 `redesign_icons.html` (§8); honest-omit water when absent; update visual refs. Clouds
 plumbing residue swept in PR-9.
+
+**PR-9 recon (done) — the backstop sweep; grep-prove each before delete:**
+- HOME_REDESIGN flag + ?home_redesign= + pre-redesign home template: ALREADY REMOVED
+  (2026-07-02 collapse; only historical COMMENTS remain in router.py/calendar_route/
+  calendar_view). Nothing to delete; grep test must target active usage, not comments.
+- `ad_placeholder`/`sponsor_slot` macros (home_redesign.html): ZERO call sites (PR-5) →
+  DELETE both macros. `.feature-slot` CSS (lake_redesign.css, + site_chrome?) → orphaned,
+  DELETE. (feature-marquee STAYS — still the one ad unit.)
+- `cloud` icon (redesign_icons.html:21): orphaned after PR-4 clouds retirement → DELETE.
+  KEEP `sky_condition` in api_payload (test_sky_condition still asserts it — it feeds /today/
+  JSON, only the home TILE was retired).
+- `.im-*` gradient classes + `.ev .ph` thumbnail CSS + CAT_THUMB map: verify unrendered
+  (the v4 rows use plain time column now) then DELETE. CAUTION: `.ph` is ALSO used live by
+  lake_biz_card/lake_components — only remove `.ev .ph` / `.im-*`, not the shared `.ph`.
+- Old /gas template: NOT dead (PR-6 kept /gas on base_lake) — do NOT delete.
+- CONFIRMED deletions: `.im-*` CSS (lake_redesign.css 285-292) + `CAT_THUMB` dict +
+  `out["thumb"]` (redesign.py:87,409) — the gradient thumbnail is gone from the template
+  (home_redesign.html:51 is now just a comment); verify NO template renders `row.thumb`
+  before deleting. `.feature-slot` CSS only in lake_redesign.css (~127-137). `cloud` icon
+  redesign_icons.html:21. Also delete the now-obsolete `.feature-slot.infeed` display rule +
+  the dead `.feature-slot.infeed` JS branch in lake_redesign.js (l.48-49, PR-5 left it).
+- Grep tests to add: zero `havasuchat.com` in templates (already true); no ACTIVE
+  home_redesign flag usage.
+
+**PR-8 implementation (done, gating):** site_header split `_nav_full` (drawer, 12 dests)
++ `_nav_primary` (desktop 6: Today·Events·Lake·Eat&Drink·Explore·For Business). Footer
+`.biz` brass on For Business + Advertise (CSS added to lake_redesign.css AND site_chrome.css);
+footer already single-sourced (base_lake + base_redesign both include site_footer.html); trust
+line verbatim. `/sponsor` de-noindexed (removed the robots meta). Email already `hello@askhava.com`
+everywhere; ZERO `havasuchat.com` in templates (the only repo hit is a legit dead-link blocklist
+in description_clean.py). Updated pre-existing tests that encoded the OLD behavior: rewrote
+`test_nav_parity_2026_06_23` (parity → primary/complete split) and `test_lake_seo` (/sponsor now
+indexable + dropped from sitemap-exclusion list). NEW `test_shell_v44.py`.
 
 **PR-8 scouting (done) — riskiest, LAST:**
 - `_partials/site_header.html` (shared by base_lake + base_redesign) has ONE `_nav` list
