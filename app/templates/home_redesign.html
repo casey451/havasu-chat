@@ -2,6 +2,9 @@
 {#- Home redesign (v4 reskin) — flag-gated (home_redesign). Same live serve_home
    data, re-templated to the v4 layout. See app/home/redesign.py. -#}
 {% from "components/redesign_icons.html" import icon, cicon %}
+{# v4.5 PR-1: the feed row/tree/section macros moved to a shared partial so
+   /events-ui renders the SAME tree (parity Rule 0) without forking them. #}
+{% from "components/feed_macros.html" import ev_row, sub_tree, sec_preview, tags, section %}
 
 {% block title %}Ask Hava · The local directory for Lake Havasu City{% endblock %}
 {% block meta_description %}What's happening today in Lake Havasu City — events, the lake, live conditions, and the local directory.{% endblock %}
@@ -37,56 +40,6 @@
 } | tojson }}</script>
 {% endif %}
 {% endblock %}
-
-{#- SEO guard: skip internal taxonomy tokens (namespaced ``KEY:value`` tags like
-   activity:/facet:/venue-kind:/audience:). The colon is the same internal-tag
-   discriminator app/events/tag_display.py uses. Event rows are already filtered
-   upstream in redesign._enrich; this keeps any other caller (e.g. movies) clean. -#}
-{%- macro tags(tlist) -%}
-{%- for t in tlist if ':' not in t -%}{%- set l = t|lower -%}<span class="tg{% if 'free' in l %} free{% elif l == 'water' %} water{% endif %}">{{ t }}</span>{%- endfor -%}
-{%- endmacro -%}
-
-{%- macro ev_row(row) -%}
-<a class="ev" href="{{ row.url or '#' }}">
-  {# Plain time column — the old gradient-thumbnail square with the time overlaid
-     on it was unreadable (Casey 2026-06-29). Blank when the time is unknown, so
-     titles still line up. #}
-  <span class="evt">{% if row.time_label and 'TBD' not in row.time_label %}{{ row.time_label }}{% endif %}</span>
-  <span class="b">
-    <span class="et">{{ row.title }}</span>
-    {% if row.venue %}<span class="em">{{ row.venue }}</span>{% endif %}
-    {% if row.blurb %}<span class="eb">{{ row.blurb }}</span>{% endif %}
-    {% if row.tags %}<span class="tags">{{ tags(row.tags) }}</span>{% endif %}
-  </span>
-  <span class="det" aria-hidden="true">{{ icon('arrow', 15) }}</span>
-</a>
-{%- endmacro -%}
-
-{# Recursive subcategory node — the SAME nested tree /events-ui renders (parity
-   Rule 0). A node has rows and optional nested `children` (the youth/facet third
-   level). Collapsed by default; youth children get the kid accent. #}
-{%- macro sub_tree(node, cls='subg') -%}
-<details class="{{ cls }}{% if node.youth %} youth{% endif %}"{% if node.open %} open{% endif %}>
-  <summary class="subhd"><span class="subl">{{ node.label }}</span><span class="subc num">{{ node.count }}</span><span class="cv">{{ icon('chev', 12) }}</span></summary>
-  <div class="subbody">
-    {% for row in node.rows %}{{ ev_row(row) }}{% endfor %}
-    {% for child in node.children %}{{ sub_tree(child, 'l3') }}{% endfor %}
-  </div>
-</details>
-{%- endmacro -%}
-
-{#- v4.4 PR-9: the ad_placeholder / sponsor_slot macros were removed with the rail
-   ad units (PR-5). The marquee (above) is the only ad-shaped unit on home. -#}
-
-{#- v4.4 §6.2: closed-section preview line, built from the section's own first rows. -#}
-{%- macro sec_preview(s) -%}
-  {%- set bits = [] -%}
-  {%- for row in s.preview_rows[:3] -%}
-    {%- set _ = bits.append(row.title ~ (' ' ~ row.time_short if row.time_short else '')) -%}
-  {%- endfor -%}
-  {%- if s.count > 3 -%}{%- set _ = bits.append((s.count - 3) ~ ' more') -%}{%- endif -%}
-  {{ bits | join(' · ') }}
-{%- endmacro -%}
 
 {% block main %}
 
@@ -185,33 +138,7 @@
     {% if not feed.sections %}
     <div class="sec open"><div class="sechd"><span class="sl serif">Nothing posted for this day yet</span></div></div>
     {% endif %}
-    {% for s in feed.sections %}
-    <details class="sec{% if s.key == 'events' %} lead{% endif %} rise" style="animation-delay:{{ 120 + loop.index0 * 40 }}ms" data-k="{{ s.key }}" id="sec-{{ s.key }}"{% if s.open %} open{% endif %}>
-      <summary class="sechd">
-        <span class="si">{{ cicon(s.key, 18) }}</span>
-        <span class="sl">{{ s.label }}</span>
-        <span class="sc num">{{ s.count }}</span>
-        {% if s.preview_rows %}<span class="sp">{{ sec_preview(s) }}</span>{% endif %}
-        <span class="cv">{{ icon('chev', 14) }}</span>
-      </summary>
-      <div class="secbody"><div class="host">
-        {% if s.is_movies %}
-          {# v4.4 §6.1: title-first — no dead time column; showtimes are .tpill chips. #}
-          {% for m in s.rows %}
-          <a class="ev movie" href="{{ m.url or '/movies' }}">
-            <span class="b"><span class="et">{{ m.title }}</span>{% if m.theater %}<span class="em">{{ m.theater }}</span>{% endif %}{% if m.times %}<span class="times">{% for t in m.times %}<span class="tpill">{{ t }}</span>{% endfor %}</span>{% endif %}</span>
-            <span class="det" aria-hidden="true">{{ icon('arrow', 15) }}</span>
-          </a>
-          {% endfor %}
-          <a class="showall" href="/movies">All showtimes {{ icon('arrow', 15) }}</a>
-        {% elif s.subgroups %}
-          {% for sub in s.subgroups %}{{ sub_tree(sub) }}{% endfor %}
-        {% else %}
-          {% for row in s.rows %}{{ ev_row(row) }}{% endfor %}
-        {% endif %}
-      </div></div>
-    </details>
-    {% endfor %}
+    {% for s in feed.sections %}{{ section(s, loop.index0) }}{% endfor %}
   </div>
 
   {# v4.4 rail: a working directory launcher + local-news card. No ad units here —

@@ -103,9 +103,9 @@ def test_today_view_groups_by_category_events_first(
         monkeypatch.setattr("app.home.router.now_lake_havasu", lambda: _MONDAY)
         with TestClient(app) as client:
             body = client.get("/events-ui").text
-        i_events = body.index('data-group="events"')
-        i_music = body.index('data-group="music"')
-        i_water = body.index('data-group="water"')
+        i_events = body.index('data-k="events"')
+        i_music = body.index('data-k="music"')
+        i_water = body.index('data-k="water"')
         # UNIFY (Rule 0b 2026-06-26): one calendar shows the FULL tree — the
         # events / music / on-the-water happenings render in owner-approved order,
         # and the recurring Lap Swim class now renders inline too (the old
@@ -114,7 +114,7 @@ def test_today_view_groups_by_category_events_first(
         assert i_events < i_music < i_water
         # Auto-expand (Casey 2026-06-26): a group holds a real EVENT → opens.
         for key in ("events", "music", "water"):
-            assert f'data-group="{key}" open' in body
+            assert f'data-k="{key}" open' in body
         events_block = body[i_events:i_music]
         assert festival in events_block and stroll in events_block
         assert band in body[i_music:i_water]
@@ -124,8 +124,8 @@ def test_today_view_groups_by_category_events_first(
         # Fitness & Sports group, which is COLLAPSED standing content (no real
         # happening in it → no `open`).
         assert swim in body
-        assert 'data-group="classes"' in body
-        assert 'data-group="classes" open' not in body
+        assert 'data-k="classes"' in body
+        assert 'data-k="classes" open' not in body
     finally:
         _cleanup(eids)
 
@@ -154,15 +154,15 @@ def test_classes_appear_collapsed_on_unified_calendar() -> None:
     try:
         with TestClient(app) as client:
             body = client.get(f"/events-ui?date={day.isoformat()}").text
-        i_events = body.index('data-group="events"')
+        i_events = body.index('data-k="events"')
         assert gala in body[i_events:]
         # The class rows are now ON the unified Calendar, under a collapsed
         # Fitness & Sports group (standing content never auto-opens).
         assert spin in body and yoga in body
-        assert 'data-group="classes"' in body
-        assert 'data-group="classes" open' not in body
+        assert 'data-k="classes"' in body
+        assert 'data-k="classes" open' not in body
         # The happening's group leads and is open.
-        assert 'data-group="events" open' in body
+        assert 'data-k="events" open' in body
     finally:
         _cleanup(eids)
 
@@ -271,14 +271,14 @@ def test_week_view_rollup_counts_and_headline(monkeypatch: pytest.MonkeyPatch) -
         _cleanup(eids)
 
 
-def test_week_view_subtitle_is_viewport_aware() -> None:
-    """F8: the week view ships both subtitle variants — the desktop 7-day list
-    copy and the mobile swipe-carousel copy — so the CSS shows whichever matches
-    what's on screen (the audit saw a 5-week carousel under a 'seven days' line)."""
+def test_week_view_renders_day_list() -> None:
+    """v4.5 PR-1: the week view is the v4 seven-day list — each day is an .ev row
+    linking to that day's full lineup, under the 'This week' heading."""
     with TestClient(app) as client:
         body = client.get("/events-ui?view=week").text
-    assert '<span class="ev-sub-d">The next seven days around the lake' in body
-    assert '<span class="ev-sub-m">Swipe between weeks' in body
+    assert "This week" in body
+    assert "wklist" in body
+    assert re.search(r'href="/events-ui\?date=\d{4}-\d{2}-\d{2}"', body)
 
 
 def test_week_rollup_counts_match_day_groups(monkeypatch: pytest.MonkeyPatch) -> None:
@@ -340,6 +340,20 @@ def test_fitness_group_label_is_sports():
     assert labels["classes"] == "Fitness & Sports"
 
 
+def test_events_ui_wears_v4_shell_and_has_no_emoji() -> None:
+    """v4.5 PR-1: /events-ui is in the v4 language — the cond-tile strip + the v4
+    stylesheet, and the For-kids narrow is a monoline places pill, not the emoji."""
+    with TestClient(app) as client:
+        body = client.get("/events-ui").text
+    assert "/static/styles/lake_redesign.css" in body
+    assert 'class="cond"' in body  # the v4 conditions strip
+    assert 'class="cpill places' in body and "For Kids" in body
+    # Zero emoji codepoints on the page.
+    assert not any(
+        0x1F000 <= ord(ch) <= 0x1FAFF or 0x2600 <= ord(ch) <= 0x27BF for ch in body
+    )
+
+
 # --- (d) Month grid: weekday alignment (B-02) + one-off-only counts ----------
 
 
@@ -352,7 +366,7 @@ def test_month_grid_first_of_month_in_correct_weekday_column() -> None:
     assert "July 2099" in body
     # Day 1 renders with this cell label regardless of whether it carries events
     # (an empty in-month day is a bare cell; a populated one is a "cell has" link).
-    head = body[: body.index('<span class="dn">1</span>')]
+    head = body[: body.index('<span class="dnum">1</span>')]
     # Out-of-month lead cells are the aria-hidden blanks; exactly three precede
     # a Wednesday-first month on a Sunday-anchored grid.
     assert head.count("cell empty") == 3
@@ -377,8 +391,8 @@ def test_month_grid_counts_oneoffs_only_with_class_badge() -> None:
         cell = body[cell_start : body.index("</a>", cell_start)]
         # One-off count stays 1 — the recurring row lands in the class badge,
         # never the event count (no titles in cells: it's a date picker).
-        assert 'cell-count" aria-hidden="true">1<' in cell
-        assert "cell-cls" in cell
+        assert ">1 event<" in cell
+        assert 'class="more cls"' in cell
         assert f"ZZ Lone Gala {suffix}" not in body
     finally:
         _cleanup(eids)
@@ -399,11 +413,11 @@ def test_date_view_renders_accordion_with_day_nav() -> None:
         with TestClient(app) as client:
             body = client.get(f"/events-ui?date={day.isoformat()}").text
         assert "Saturday, July 25" in body  # the single-day H1
-        assert 'data-group="events"' in body and title in body
-        assert 'class="ev-daynav"' in body
+        assert 'data-k="events"' in body and title in body
+        assert 'class="evnav"' in body
         assert "/events-ui?date=2099-07-24" in body  # prev day
         assert "/events-ui?date=2099-07-26" in body  # next day
-        assert '<a href="/events-ui" class="">Today</a>' in body  # back to today
+        assert '<a class="today" href="/events-ui">Today</a>' in body  # back to today
     finally:
         _cleanup(eids)
 
@@ -428,7 +442,7 @@ def test_time_tbd_rows_render_blank_and_sort_last() -> None:
             body = client.get(f"/events-ui?date={day.isoformat()}").text
         # Scope to the Events group block so stray venue-schedule rows
         # elsewhere on the page can't skew the assertions.
-        i_events = body.index('data-group="events"')
+        i_events = body.index('data-k="events"')
         block = body[i_events : body.index("</details>", i_events)]
         # Time-unknown rows show NO time, not a "Time TBD" badge (Casey 2026-06-29)
         # and never a fabricated 12 AM.

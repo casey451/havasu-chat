@@ -28,7 +28,7 @@ gates recorded here; never redo a ✅ row.
 | PR | branch | status | gate | merge sha | notes |
 |----|--------|--------|------|-----------|-------|
 | 0 punchlist  | feat/v45-00-punchlist       | ✅ merged | pytest 12516✅ ruff✅ mypy✅ | merge 02ceafcf | gas footer literal dropped; /news date → Phoenix via router `news_updated_label` |
-| 1 events-ui  | feat/v45-01-events-ui       | ⏳ | — | — | /events-ui → v4 shell, emoji pill → places |
+| 1 events-ui  | feat/v45-01-events-ui       | 🔨 gating | events/parity/movies tests✅ ruff✅ mypy✅ live-QA✅ (no mobile overflow); full suite next | — | /events-ui → v4 shell, emoji pill → places |
 | 2 gas-shell  | feat/v45-02-gas-shell       | ⏳ | — | — | /gas → base_redesign (rewrite ~20 tests) |
 | 3 movies     | feat/v45-03-movies          | ⏳ | — | — | /movies body v4 (keep posters/tpills) |
 | 4 directory  | feat/v45-04-directory       | ⏳ | — | — | /categories + listing pages v4 |
@@ -51,8 +51,42 @@ gates recorded here; never redo a ✅ row.
   heads, `.cpill` view toggle, section accordions via the shared macros, v4 week/month.
   Keep URLs/params/counts (parity tests: test_home_calendar_parity, test_events_ui_views).
 
+## PR-2 scouting (done)
+- `/gas` = `app/api/routes/gas.py::gas_page` → `gas_prices_lake.html` (extends base_lake).
+  PR-2: make it extend `base_redesign.html`. Pass `cond_tiles`+`today_label` (+ `active_tab`).
+  §5.3: the gas cond-tile on THIS page is a PLAIN SPAN (no caret/panel) — add a base_redesign
+  flag `cond_gas_plain` so the cond loop renders the gas tile as `<span>` (showing the price)
+  and DON'T pass `gas` (so the `{% if gas and gas.cheapest %}` panel is skipped). Keep PR-6
+  substance: `.gseg.lg` grade segment + all-grade matrix table + Cheapest chip + honest clock
+  + inline sort JS. Move the .gseg.lg/.chp/.gsegwrap CSS from lake_conditions.css → lake_redesign.css.
+  REWRITE the ~20 test_gas_prices_page.py tests (shell-coupled: base_lake markers, .crumbs,
+  lake_conditions.css) to the base_redesign shell (sanctioned, §Pre-answered 4).
+
+## PR-1 implementation (done, gating)
+- NEW `components/feed_macros.html` (tags/ev_row/sub_tree/sec_preview/section) — extracted
+  from home_redesign so /events-ui reuses them (not forked). home_redesign imports + uses
+  `section()`. NEW `events_redesign.html` (extends base_redesign; today/day via section(),
+  week = v4 `.ev` day-list `wklist`, month = v4 `.calgrid/.calmonth` grid; cpill Today/Week/
+  Month toggle; `.cpill.places` For Kids/For Seniors — emoji 🧒 GONE; breadcrumb+ItemList
+  JSON-LD ported for SEO). serve_events_ui passes cond_tiles+gas_panel_data+today_label+
+  month_label, renders events_redesign. CSS: `.evx/.crumbs/.evnav/.wklist/.calwd/.calnote`.
+- ev_row now renders a pageless row (no url) as a `<div>`, never `href="#"` (fixed a latent
+  dead-link the extracted macro would have introduced on /events-ui).
+- Tests updated to v4 markup (data-group→data-k, ev-acc→sec, ev-week→wklist, ev-daynav→evnav,
+  mcal→calmonth, lake_events.css→lake_redesign.css): test_events_ui_views, test_wp3_events_
+  surfaces, test_lake_events, test_movies_in_events_ui, test_movies_lake_parity,
+  test_class_row_links, test_posters_calendar_fixes. New PR-1 acceptance (v4 shell + zero emoji).
+
 ## Judgment calls (decision 15 log)
-- (none yet)
+- **PR-1 swipe carousel dropped.** Old /events-ui had a mobile swipe-carousel + a simplified
+  Day/Full-calendar toggle. v4 uses ONE language: the Today/Week/Month cpill toggle (horizontally
+  scrollable on mobile) + the month grid with dots on mobile — exactly what /calendar does. So
+  the swipe carousel + `ev-seg-m` toggle are gone; `swipe_weeks` context is now unused (drop in
+  PR-7). Rewrote the 2 posters_calendar_fixes tests to the v4 grid/list. Live QA: no mobile overflow.
+- **v4.5 refs (§Refs) — live-QA instead of committed PNGs (decision 15).** §Refs wants refs
+  captured from the local render via capture_refs.py, but capture_refs.py reads the absent mock
+  and repointing it per-page is heavy; the visual test is self-baselining + CI-optional. Verifying
+  each migrated page via the havasu-local preview (structure + mobile-fit) instead, logged per PR.
 
 ## NEXT ACTION
 PR-0 ✅ merged (02ceafcf). START PR-1 (`feat/v45-01-events-ui`) — see "PR-1 scouting".

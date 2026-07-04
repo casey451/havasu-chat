@@ -27,11 +27,11 @@ def test_lake_events_renders_all_views() -> None:
                  "/events-ui?theme=lake&view=month"):
         b = _get(path)
         assert 'data-theme="lake"' in b
-        assert "/static/styles/lake_events.css" in b
+        assert "/static/styles/lake_redesign.css" in b
         assert b.count("<h1") == 1
         assert 'aria-label="Breadcrumb"' in b
         assert 'aria-label="Calendar view"' in b
-    assert 'class="mcal"' in _get("/events-ui?theme=lake&view=month")
+    assert 'class="calmonth"' in _get("/events-ui?theme=lake&view=month")
 
 
 def test_lake_events_breadcrumb_jsonld_valid() -> None:
@@ -76,7 +76,7 @@ def _sample_groups() -> list[dict]:
 def test_lake_events_day_bindings() -> None:
     with patch("app.home.events_views.day_groups", return_value=_sample_groups()):
         b = TestClient(app).get("/events-ui?theme=lake").text
-    assert 'class="ev-acc"' in b
+    assert 'class="sec' in b
     assert "Around town" in b and "Sunset Paddle" in b
     assert "Fitness &amp; classes" in b and "Sunrise Flow" in b  # subgroup row
     # P1: the inconsistent "recurring" row banner is removed across all views.
