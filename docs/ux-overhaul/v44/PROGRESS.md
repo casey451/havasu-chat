@@ -33,7 +33,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | 2 date-keys      | feat/v44-02-date-keys        | ✅ merged | pytest 12482✅ ruff✅ | commit 20001edb → merge 41d4614b | rollover regression + no-cache pin (tests only) |
 | 3 count-parity   | feat/v44-03-count-parity     | ✅ merged | pytest 12485✅ ruff✅ mypy✅ | commit → merge 172d6d07 | day_counts one base (summary headers); cells keep audit display |
 | 4 conditions     | feat/v44-04-conditions       | ✅ merged | pytest 12489✅ ruff✅ mypy✅ live✅ | merge 2a54d850 | water+sunset, retire clouds |
-| 5 ads-rail       | feat/v44-05-ads-rail         | ⏳ | — | — | one paid unit + working rail |
+| 5 ads-rail       | feat/v44-05-ads-rail         | 🔨 gating | rail 5✅ ruff✅ mypy✅; render smoke: 1 marquee/0 slots/8 tiles/newscard; full suite next | — | one paid unit + working rail |
 | 6 gas-ui         | feat/v44-06-gas-ui           | ⏳ | — | — | grade switch + /gas page |
 | 7 schedule       | feat/v44-07-schedule-niceties| ⏳ | — | — | previews/tpills/pills/dots |
 | 8 shell          | feat/v44-08-shell            | ⏳ | — | — | 6-link shell + footer/email |
@@ -104,6 +104,32 @@ Temp·Water·Wind·UV·Sunset·Gas; template: add `water` class + render new til
 `.cond .c.water` tint (DESIGN_SPEC §1); add `wave`+`sunset` monoline icons to
 `redesign_icons.html` (§8); honest-omit water when absent; update visual refs. Clouds
 plumbing residue swept in PR-9.
+
+**PR-6 scouting (done) — LARGEST remaining PR (depends PR-1 ✅):**
+- Gas panel toggle JS: `app/static/js/lake_redesign.js` l.23-30 (simple open toggle) —
+  extend for grade switching (delegated, aria-pressed, aria-live, ~2KB).
+- Panel markup: `base_redesign.html` gaspanel (l.70-83), renders `gas.cheapest` (regular).
+- `/gas` page: `gas_prices_lake.html` extends `base_lake.html` (OLD shell) — §5.3 wants the
+  v4 shell (`base_redesign.html`). Significant rebuild: `.gseg.lg` segment, sorted table,
+  brass `Cheapest` tag row 1, stations w/o grade drop off, footnote.
+- Data: `gas_top5` returns regular-only. Need per-grade cheapest. Plan: extend the board
+  usage — expose `grades_available` + per-grade top-5 (or embed each station's 4 grade
+  prices as data for client re-sort). Board already has `cheapest(grade)` + `grades_available`.
+- Progressive enhancement: server renders Regular; JS re-sorts. If `len(grades_available)==1`
+  → render NO segment anywhere (BUILD_PLAN dec.3). Tile echo while panel open (label gains
+  " · Diesel", value swaps; revert on close, stateless).
+- Tests: per-grade sort + drop-off; tile echo string; a11y (aria-pressed, aria-live).
+  New gas visual refs can't be mock-regenerated (note it).
+
+**PR-5 implementation (done, gating):** NEW `redesign.directory_launcher(db)` (8-cat
+map → cached `_get_index_payload` counts, total floor-rounded "2,400+"); route passes
+`directory`; template rail rebuilt (launcher card + news card, in-feed + rail ad_placeholders
++ promoted sponsor_slot removed; ad_placeholder/sponsor_slot macros left defined but
+uncalled → PR-9 sweeps); 8 dept icons added to redesign_icons.html; CSS §4 railcard/
+dirgrid/newsit + responsive (mobile: rail below sections, newscard hidden, ticker shown;
+desktop: ticker hidden, newscard shown). Tests: `test_ads_rail_v44.py` (1 marquee/0 slots,
+launcher mapping+counts, honest omission). Render smoke vs prod DB: 8 tiles + newscard.
+Note: launcher is DB-count-dependent (empty in the test DB → mapping tested via mocked index).
 
 **PR-5 scouting (done):** `home_redesign.html` — macros `ad_placeholder(infeed)`
 (l.78), `sponsor_slot(s)` (l.86), `feature-marquee sold` (l.103) / unsold (l.113);

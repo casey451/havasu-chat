@@ -209,16 +209,40 @@
         {% endif %}
       </div></div>
     </details>
-    {# In-feed buyable ad after every 2nd section (mobile only; desktop uses the rail). #}
-    {% if loop.index % 2 == 0 and not loop.last %}{{ ad_placeholder(infeed=True) }}{% endif %}
     {% endfor %}
   </div>
 
-  {# Desktop right rail: promoted sponsor (sold) + buyable placeholders. #}
-  <aside class="rail" aria-label="Sponsored">
-    {% if promoted %}{{ sponsor_slot(promoted) }}{% endif %}
-    {{ ad_placeholder() }}
-    {{ ad_placeholder() }}
+  {# v4.4 rail: a working directory launcher + local-news card. No ad units here —
+     the marquee is the one paid slot on the page (§3/§4). #}
+  <aside class="rail" aria-label="Local directory and news">
+    <div class="railcard">
+      <div class="rc-hd">
+        <div class="rt serif">Find any business</div>
+        {% if directory.total %}<div class="rs">{{ directory.total }} real local listings · open-now first</div>{% endif %}
+      </div>
+      <form class="minisearch" role="search" action="/categories" method="get">
+        <span class="mag">{{ icon('search', 14) }}</span>
+        <input type="search" name="q" placeholder="Plumber, tacos, boat detail…" aria-label="Search the directory">
+      </form>
+      <div class="dirgrid">
+        {% for t in directory.tiles %}
+        <a class="dirit" href="{{ t.url }}"><span class="ic">{{ icon(t.icon, 15) }}</span><span class="dl">{{ t.label }}</span><span class="dc num">{{ t.count }}</span></a>
+        {% endfor %}
+      </div>
+      <a class="rc-ft" href="/categories">All 16 categories {{ icon('arrow', 14) }}</a>
+    </div>
+    {% if news and news.items %}
+    <div class="railcard newscard">
+      <div class="rc-hd"><div class="rt serif">Local news</div></div>
+      {% for it in news.items[:3] %}
+      <a class="newsit" href="{{ it.url }}" target="_blank" rel="noopener nofollow">
+        <span class="nh">{% if it.region_label %}<span class="nr-region">{{ it.region_label }}</span> {% endif %}{{ it.title }}</span>
+        <span class="nm">{{ it.source_label }}{% if it.published_label %} · {{ it.published_label }}{% endif %}</span>
+      </a>
+      {% endfor %}
+      <a class="rc-ft" href="/news">All news {{ icon('arrow', 14) }}</a>
+    </div>
+    {% endif %}
   </aside>
 </div>
 

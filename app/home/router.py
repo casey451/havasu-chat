@@ -217,8 +217,11 @@ def serve_home(
             # (directory_tiles / explore_tiles were dropped 2026-07-02: no v4
             # template renders them — they were pre-v4 context computed per
             # request, incl. DB queries, for nothing.)
-            # Local news ticker headlines (honest-omit when the pull is empty).
+            # Local news — one pull feeds both the mobile ticker and the desktop
+            # rail news card (honest-omit when the pull is empty).
             "news": news_store.ticker_view(db),
+            # v4.4 PR-5 rail: Find-any-business launcher (live directory counts).
+            "directory": redesign.directory_launcher(db),
             "active_tab": "today",
         },
     )
