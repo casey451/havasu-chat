@@ -28,7 +28,7 @@ gates recorded here; never redo a ✅ row.
 | PR | branch | status | gate | merge sha | notes |
 |----|--------|--------|------|-----------|-------|
 | 0 punchlist  | feat/v45-00-punchlist       | ✅ merged | pytest 12516✅ ruff✅ mypy✅ | merge 02ceafcf | gas footer literal dropped; /news date → Phoenix via router `news_updated_label` |
-| 1 events-ui  | feat/v45-01-events-ui       | 🔨 gating | events/parity/movies tests✅ ruff✅ mypy✅ live-QA✅ (no mobile overflow); full suite next | — | /events-ui → v4 shell, emoji pill → places |
+| 1 events-ui  | feat/v45-01-events-ui       | ✅ merged | pytest 12515✅ ruff✅ mypy✅ live-QA✅ | merge 978cf71e | /events-ui → v4 shell, emoji pill → places |
 | 2 gas-shell  | feat/v45-02-gas-shell       | ⏳ | — | — | /gas → base_redesign (rewrite ~20 tests) |
 | 3 movies     | feat/v45-03-movies          | ⏳ | — | — | /movies body v4 (keep posters/tpills) |
 | 4 directory  | feat/v45-04-directory       | ⏳ | — | — | /categories + listing pages v4 |
@@ -89,6 +89,12 @@ gates recorded here; never redo a ✅ row.
   each migrated page via the havasu-local preview (structure + mobile-fit) instead, logged per PR.
 
 ## NEXT ACTION
+PR-1 ✅ merged (978cf71e). START PR-2 (`feat/v45-02-gas-shell`) — see "PR-2 scouting":
+gas_prices_lake.html extends base_redesign; pass cond_tiles+today_label+cond_gas_plain (gas
+tile = plain span, no panel); keep PR-6 grade segment/matrix/Cheapest chip/JS; move .gseg.lg/
+.chp CSS to lake_redesign.css; rewrite the ~20 test_gas_prices_page tests to the v4 shell. Gate → merge → PR-3.
+
+## (done) NEXT ACTION
 PR-0 ✅ merged (02ceafcf). START PR-1 (`feat/v45-01-events-ui`) — see "PR-1 scouting".
 Extract home's feed macros to `components/feed_macros.html`; new `events_redesign.html`
 extends base_redesign; serve_events_ui passes cond_tiles+gas_panel_data+active_tab; swap
