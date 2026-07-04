@@ -91,6 +91,16 @@
 </a>
 {%- endmacro -%}
 
+{#- v4.4 §6.2: closed-section preview line, built from the section's own first rows. -#}
+{%- macro sec_preview(s) -%}
+  {%- set bits = [] -%}
+  {%- for row in s.preview_rows[:3] -%}
+    {%- set _ = bits.append(row.title ~ (' ' ~ row.time_short if row.time_short else '')) -%}
+  {%- endfor -%}
+  {%- if s.count > 3 -%}{%- set _ = bits.append((s.count - 3) ~ ' more') -%}{%- endif -%}
+  {{ bits | join(' · ') }}
+{%- endmacro -%}
+
 {% block main %}
 
 {# ── Local news ticker — cycles recent headlines, links out, honest-omit when
@@ -143,10 +153,11 @@
   <div class="days">
     {% for day in week.days %}
     {% set is_sel = day.iso == selected_iso %}
-    <a class="dcard{% if is_sel %} on{% endif %}{% if day.is_today %} td{% endif %}" href="/home?date={{ day.iso }}#today"{% if is_sel %} aria-current="date"{% endif %}
-       aria-label="{{ day.happenings or 0 }} event{{ '' if day.happenings == 1 else 's' }} on {{ day.dow }} {{ day.iso.split('-')[2]|int }}{% if day.is_today %} (today){% endif %}">
+    <a class="dcard{% if is_sel %} on{% endif %}{% if day.is_today %} td{% endif %}{% if day.is_weekend %} wknd{% endif %}" href="/home?date={{ day.iso }}#today"{% if is_sel %} aria-current="date"{% endif %}
+       aria-label="{{ day.happenings or 0 }} event{{ '' if day.happenings == 1 else 's' }} on {{ day.dow }} {{ day.iso.split('-')[2]|int }}{% if day.is_today %} (today){% endif %}{% if day.act.spark %} — {{ day.act.title }}{% elif day.act.dots >= 2 %} — busy day{% elif day.act.dots == 1 %} — quiet day{% endif %}">
       <span class="dw">{% if day.is_today %}Today{% else %}{{ day.dow }}{% endif %}</span>
       <span class="dn num">{{ day.iso.split('-')[2]|int }}</span>
+      <span class="act" aria-hidden="true">{% if day.act.spark %}<span class="ic" title="{{ day.act.title }}">{{ icon('spark', 10) }}</span>{% else %}{% for _n in range(day.act.dots) %}<i></i>{% endfor %}{% endif %}</span>
     </a>
     {% endfor %}
   </div>
@@ -176,6 +187,9 @@
   {% for s in feed.sections %}
   <a class="cpill" data-k="{{ s.key }}" href="{{ '/movies' if s.is_movies else '/events-ui?view=' ~ s.key }}">{{ cicon(s.key, 15) }}<span class="cl">{{ s.label }}</span><span class="cb num">{{ s.count }}</span></a>
   {% endfor %}
+  {# v4.4 §6.3: audience shortcuts — brass places pills, no count (they're hubs, not a day count). #}
+  <a class="cpill places" href="/family">{{ icon('kid', 15) }}<span class="cl">For Kids</span></a>
+  <a class="cpill places" href="/seniors">{{ icon('people', 15) }}<span class="cl">For Seniors</span></a>
 </div>
 
 {# ── Sections (accordion; only Events open) + ad placements ───────────── #}
@@ -190,14 +204,15 @@
         <span class="si">{{ cicon(s.key, 18) }}</span>
         <span class="sl">{{ s.label }}</span>
         <span class="sc num">{{ s.count }}</span>
+        {% if s.preview_rows %}<span class="sp">{{ sec_preview(s) }}</span>{% endif %}
         <span class="cv">{{ icon('chev', 14) }}</span>
       </summary>
       <div class="secbody"><div class="host">
         {% if s.is_movies %}
+          {# v4.4 §6.1: title-first — no dead time column; showtimes are .tpill chips. #}
           {% for m in s.rows %}
-          <a class="ev" href="{{ m.url or '/movies' }}">
-            <span class="evt">{% if m.time_label and 'TBD' not in m.time_label %}{{ m.time_label }}{% endif %}</span>
-            <span class="b"><span class="et">{{ m.title }}</span>{% if m.theater %}<span class="em">{{ m.theater }}{% if m.times %} · {{ m.times|join(', ') }}{% endif %}</span>{% endif %}</span>
+          <a class="ev movie" href="{{ m.url or '/movies' }}">
+            <span class="b"><span class="et">{{ m.title }}</span>{% if m.theater %}<span class="em">{{ m.theater }}</span>{% endif %}{% if m.times %}<span class="times">{% for t in m.times %}<span class="tpill">{{ t }}</span>{% endfor %}</span>{% endif %}</span>
             <span class="det" aria-hidden="true">{{ icon('arrow', 15) }}</span>
           </a>
           {% endfor %}

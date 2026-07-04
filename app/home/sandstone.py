@@ -31,6 +31,7 @@ from app.events.recurrence import expand_event, occurrences_in_window
 from app.events.series import schedule_label as _schedule_label
 from app.events.time_labels import format_short_time, short_time_label, time_sort_key
 from app.events.title_clean import clean_event_title
+from app.home.activity import strip_activity
 from app.home.event_buckets import (
     GROUP_DEFS,
     TIER_AQUATIC,
@@ -569,6 +570,10 @@ def week_strip(
                 "summary": " · ".join(summary_bits),
                 "count": total,
                 "has": total > 0,
+                # v4.4 PR-7: date-strip activity marker (dots or headliner spark),
+                # from the day's own total (see app.home.activity for the perf note).
+                "act": strip_activity(total, d),
+                "is_weekend": d.weekday() >= 5,
             }
         )
     return {

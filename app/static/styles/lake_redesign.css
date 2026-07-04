@@ -157,6 +157,12 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .dcard .dn{font-family:var(--disp);font-weight:500;font-size:19px;letter-spacing:-.02em;line-height:1}
 .dcard.on{background:linear-gradient(165deg,var(--teal),var(--teal-deep));border-color:transparent;box-shadow:0 8px 20px rgba(8,63,68,.26)}
 .dcard.on .dw{color:#bfe0e1}.dcard.on .dn{color:#fff}
+/* v4.4 PR-7: date-strip activity dots + headliner spark (DESIGN_SPEC §6.4). */
+.dcard .act{display:flex;gap:3px;align-items:center;height:6px;margin-top:1px}
+.dcard .act i{width:4px;height:4px;border-radius:50%;background:var(--teal-br);opacity:.5;display:block}
+.dcard .act .ic{color:var(--brass-br)}
+.dcard.on .act i{background:#cfe7e8;opacity:.8}
+.dcard.wknd:not(.on){background:linear-gradient(180deg,#fbfaf6,var(--surface))}
 
 .calbar{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:22px 16px 2px}
 .calbar h3,.calbar h1{font-family:var(--disp);font-weight:500;font-size:22px;letter-spacing:-.02em;margin:0}
@@ -224,8 +230,10 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .sechd .sl{font-family:var(--disp);font-weight:500;font-size:16.5px;letter-spacing:-.01em}
 .sechd .sc{font-size:11px;font-weight:600;color:var(--teal-deep);background:var(--teal-soft);border-radius:999px;padding:3px 9px}  /* --teal-deep on --teal-soft ≥4.5:1 (was --teal 3.58:1) */
 .sec.lead .sechd .sc{color:#5a4510;background:var(--brass-soft)}  /* dark brass on --brass-soft ≥4.5:1 (was --brass 3.58:1) */
-.sechd .sp{font-size:12px;color:var(--ink3);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:38%}
+.sechd .sp{font-size:12px;color:var(--ink3);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44%}
 .sec[open] .sechd .sp{display:none}
+/* v4.4 §6.2: the closed-section preview is a desktop nicety — hide it on mobile. */
+@media(max-width:979px){.sechd .sp{display:none}}
 .sechd .cv{margin-left:10px;color:var(--ink3);transition:transform .3s cubic-bezier(.4,0,.2,1);flex:0 0 auto}
 .sec[open] .sechd .cv{transform:rotate(180deg)}
 .secbody>.host{padding:0 16px 14px}
@@ -270,7 +278,8 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .showall{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--teal);background:var(--teal-soft);border:1px solid var(--teal-line);border-radius:11px;padding:11px;margin-top:12px;cursor:pointer;text-decoration:none}
 .showall:hover{background:var(--teal);color:#fff}
 .times{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.tpill{font-size:11px;font-weight:600;color:var(--ink2);background:var(--paper2);border:1px solid var(--hair2);border-radius:6px;padding:3px 8px}
+.tpill{font-size:11px;font-weight:600;color:var(--ink2);background:var(--paper2);border:1px solid var(--hair2);border-radius:6px;padding:3px 8px;font-variant-numeric:tabular-nums}
+.ev:hover .tpill{border-color:var(--teal-line)}
 
 .im{background-color:#dfe7e8}
 .im-sunset{background:linear-gradient(180deg,#274a6e,#b9743f 64%,#0c474d),radial-gradient(40% 38% at 66% 34%,#ffdf9e,transparent 60%)}

@@ -437,6 +437,27 @@ def _feed_enrich(node: dict[str, Any], blurbs: dict[str, str], cat: str) -> None
         _feed_enrich(child, blurbs, cat)
 
 
+def _section_preview_rows(section: dict[str, Any]) -> list[dict[str, str]]:
+    """Up to 3 {title, time_short} from a section's OWN first rows, for the closed-
+    section preview line (v4.4 §6.2). Built server-side from real rows — never
+    hardcoded copy. A "Time TBD" placeholder becomes a blank time."""
+    if section.get("is_movies"):
+        rows = list(section.get("rows") or [])
+    else:
+        rows = []
+        _feed_walk(section, rows)
+    out: list[dict[str, str]] = []
+    for r in rows:
+        title = (r.get("title") or "").strip()
+        if not title:
+            continue
+        tl = (r.get("time_label") or "").strip()
+        out.append({"title": title, "time_short": "" if "TBD" in tl.upper() else tl})
+        if len(out) == 3:
+            break
+    return out
+
+
 def feed_view_model(
     db: Session, *, day: date, now: datetime | None = None, family: bool = False
 ) -> dict[str, Any]:
@@ -465,6 +486,9 @@ def feed_view_model(
         # so dropping the split `subgroups` renders just the learn list flat.
         if s.get("key") == "learn":
             s["subgroups"] = []
+        # v4.4 §6.2: a server-built preview of this section's first rows for the
+        # collapsed-section teaser line (CSS hides it when the section is open).
+        s["preview_rows"] = _section_preview_rows(s)
 
     # The headline count comes from the single day-count service (v4.4 PR-3), the
     # same base the calendar agenda header uses — so they can never disagree.
