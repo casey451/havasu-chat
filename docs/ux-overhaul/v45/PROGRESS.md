@@ -27,7 +27,7 @@ gates recorded here; never redo a ✅ row.
 ## Work log (one line per item)
 | PR | branch | status | gate | merge sha | notes |
 |----|--------|--------|------|-----------|-------|
-| 0 punchlist  | feat/v45-00-punchlist       | 🔨 gating | 2✅ ruff✅ mypy✅; full suite next | — | gas footer literal dropped; /news date → Phoenix via router `news_updated_label` |
+| 0 punchlist  | feat/v45-00-punchlist       | ✅ merged | pytest 12516✅ ruff✅ mypy✅ | merge 02ceafcf | gas footer literal dropped; /news date → Phoenix via router `news_updated_label` |
 | 1 events-ui  | feat/v45-01-events-ui       | ⏳ | — | — | /events-ui → v4 shell, emoji pill → places |
 | 2 gas-shell  | feat/v45-02-gas-shell       | ⏳ | — | — | /gas → base_redesign (rewrite ~20 tests) |
 | 3 movies     | feat/v45-03-movies          | ⏳ | — | — | /movies body v4 (keep posters/tpills) |
@@ -55,6 +55,13 @@ gates recorded here; never redo a ✅ row.
 - (none yet)
 
 ## NEXT ACTION
+PR-0 ✅ merged (02ceafcf). START PR-1 (`feat/v45-01-events-ui`) — see "PR-1 scouting".
+Extract home's feed macros to `components/feed_macros.html`; new `events_redesign.html`
+extends base_redesign; serve_events_ui passes cond_tiles+gas_panel_data+active_tab; swap
+emoji For-kids pill → `.cpill.places`+kid icon; keep counts/URLs (parity tests). Capture
+local refs. Gate → merge → PR-2.
+
+## (done) NEXT ACTION
 Baseline gate on `50d3ae90` (pytest+ruff+mypy). Then PR-0 (`feat/v45-00-punchlist`):
 (1) gas panel footer in `base_redesign.html` prepends literal "updated" before
 `gas.staleness_label` (which already starts "Updated") → "updated Updated today…";
