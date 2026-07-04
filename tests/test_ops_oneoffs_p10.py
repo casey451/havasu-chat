@@ -59,8 +59,10 @@ def test_gas_card_brand_never_contradicts_name():
 
 
 def test_contribute_uses_em_dash():
-    src = (_ROOT / "app" / "api" / "routes" / "contribute.py").read_text(
+    # v4.6: the /contribute copy moved from the inline Python page into the Jinja
+    # template (contribute_redesign.html) when it migrated onto the v4 shell.
+    tpl = (_ROOT / "app" / "templates" / "contribute_redesign.html").read_text(
         encoding="utf-8"
     )
-    assert "submission -- never" not in src
-    assert "submission — never" in src
+    assert "submission -- never" not in tpl
+    assert "submission — never" in tpl

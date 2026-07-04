@@ -103,7 +103,10 @@ def test_legal_and_contribute_titles_end_in_ask_hava() -> None:
 
 
 def test_contribute_wordmark_is_ask_hava() -> None:
+    # v4.6: /contribute now rides the shared v4 shell (base_redesign) — the shared
+    # masthead is the brand, and the form links back to home. No bare "Hava" wordmark.
     html = TestClient(app).get("/contribute").text
-    assert "<span>Ask Hava</span>" in html
-    assert "Back to Ask Hava" in html
+    assert "/static/styles/lake_redesign.css" in html  # the one v4 shell
+    assert 'href="/home"' in html  # brand + "Back to Hava" both link home
+    assert "Back to Hava" in html
     assert "<span>Hava</span>" not in html  # the bare wordmark is gone

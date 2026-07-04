@@ -31,7 +31,35 @@ v44/DESIGN_SPEC (§0 guardrails) + v44/BUILD_PLAN decision 15, then continue fro
 | 0 polish     | feat/v46-00-polish     | ✅ merged | pytest 12535✅ ruff✅ mypy✅ live-QA✅ | merge e462715a | water flag default-ON; provider About factual line + .pautonote footnote; /movies .tpill anchors (text-decoration:none) |
 | 1 last-pages | feat/v46-01-last-pages  | ✅ merged | pytest 12537✅ ruff✅ mypy✅ live-QA✅ | merge 2e0ad068 | ALL 27 live base_lake pages → v4 shell; base_plain.html created; only lake_styleguide left (→PR-2 delete) |
 | 2 one-shell  | feat/v46-02-one-shell   | ✅ merged | pytest 12536✅ ruff✅ mypy✅ live-QA✅ | merge 0ac36537 | deleted base_lake+styleguide+lake_components+lake_preview + 13 orphaned CSS; admin middleware simplified; guard tests |
-| final        | v46-integration → main  | 🔨 opening PR | all 3 merged; push + PR + CI + grant-merge + smoke | — | grant merge + smoke |
+| final        | v46-integration → main  | ✅ DEPLOYED | PR #705 all gates✅ | squash ff69b089 | grant-merged; post-deploy smoke PASS |
+| 3 contribute | feat/v46-03-contribute  | 🔨 building | pytest✅ ruff✅ mypy✅ live-QA✅ | — | /contribute (last standalone surface) → v4 shell; contribute.css deleted |
+
+## v4.6 — DEPLOYED (askhava.com @ ff69b089, 2026-07-04); PR-3 contribute follow-up in flight
+PR #705 (PR-0+PR-1+PR-2) squash-merged to main under the grant, all gates green, post-deploy smoke
+PASS (10 pages 200/v4-shell/zero-emoji, 404 styled, Phoenix date, provider About on a live no-desc
+provider). CI GOTCHA fixed en route: deleting the /lake-styleguide route left it in `.pa11yci.json`
++ `lighthouserc.json` → a 404 URL crashed the whole pa11y/LHCI run (ERRORED_DOCUMENT_REQUEST);
+removed it from both (6e1fb182). When you delete a ROUTE, also grep those two CI configs.
+
+## PR-3 implementation (contribute → v4 shell, gating)
+BUILD_PLAN PR-1 named /contribute a utility page for the v4 shell, but it was the ONE surface I
+deferred in the main run (decision-15) because it's not a base_lake template — it was a standalone
+inline-HTML page built in Python (`_render_contribute_page`) with its own `contribute.css` + Google
+Fonts + a bespoke topbar. "do whatever is left" → finished it:
+- NEW `contribute_redesign.html` extends base_redesign (the one shell): six-link masthead + footer,
+  self-hosted fonts (dropped the runtime Google Fonts link — LCP/privacy win). EVERY field id/name
+  (`entity_type`/`submission_name`/`submission_url`/`category_hint`/`description`/`event_*`/
+  `submitter_email`), the `/contribute` action, and the entity-type toggle JS preserved verbatim;
+  Jinja autoescaping replaces the old manual `html.escape`.
+- Route: `_render_contribute_page` now renders the template (added `request` param + threaded it
+  through all 10 call sites; added `request` to `get_contribute`); removed the dead `_esc` + `import
+  html`.
+- CSS: ported the form styling into `lake_redesign.css` under `.contribx` (retokenized to v4;
+  scoped so its input/label/a rules can't leak into the shell); deleted `contribute.css`.
+- Tests: all 25 test_contribute_public + wordmark tests pass (the wordmark test repointed from the
+  deleted standalone topbar to the shared shell). Guard test extended (contribute.css deleted;
+  /contribute on the v4 shell). Live-QA: form renders on the shell, prefill works, toggle JS works,
+  submit button teal.
 
 ## PR-0 implementation (done, gating)
 Three polish fixes from the 2026-07-04 live QA sweep:
