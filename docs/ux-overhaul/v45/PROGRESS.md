@@ -29,7 +29,7 @@ gates recorded here; never redo a ✅ row.
 |----|--------|--------|------|-----------|-------|
 | 0 punchlist  | feat/v45-00-punchlist       | ✅ merged | pytest 12516✅ ruff✅ mypy✅ | merge 02ceafcf | gas footer literal dropped; /news date → Phoenix via router `news_updated_label` |
 | 1 events-ui  | feat/v45-01-events-ui       | ✅ merged | pytest 12515✅ ruff✅ mypy✅ live-QA✅ | merge 978cf71e | /events-ui → v4 shell, emoji pill → places |
-| 2 gas-shell  | feat/v45-02-gas-shell       | ⏳ | — | — | /gas → base_redesign (rewrite ~20 tests) |
+| 2 gas-shell  | feat/v45-02-gas-shell       | 🔨 gating | gas tests✅ ruff✅ mypy✅ live-QA✅ (no overflow, table scrolls in-wrap); full suite next | — | /gas → base_redesign |
 | 3 movies     | feat/v45-03-movies          | ⏳ | — | — | /movies body v4 (keep posters/tpills) |
 | 4 directory  | feat/v45-04-directory       | ⏳ | — | — | /categories + listing pages v4 |
 | 5 remaining  | feat/v45-05-remaining-pages | ⏳ | — | — | family/seniors/provider/legal + provider fixes |
@@ -50,6 +50,29 @@ gates recorded here; never redo a ✅ row.
   serve_events_ui must ALSO pass cond_tiles+gas_panel_data like home/calendar do), serif
   heads, `.cpill` view toggle, section accordions via the shared macros, v4 week/month.
   Keep URLs/params/counts (parity tests: test_home_calendar_parity, test_events_ui_views).
+
+## PR-3 scouting (done)
+- `/movies` = `app/movies/router.py` → `movies_lake.html` (11 lines: extends base_lake, loads
+  desert_movies.css, `{% block content %}` includes `movies_body.html`). The real markup +
+  poster/showtime/rating structure is in `movies_body.html` (mv-* classes, desert_movies.css).
+  PR-3: NEW `movies_redesign.html` extends base_redesign (block main), v4 body (serif Fraunces
+  heads, v4 day cards, KEEP real posters + time-pill buttons, rating badges PG-13 → `.tg` chips);
+  route renders it. Add v4 movie CSS to lake_redesign.css. Read movies_body.html first for the
+  poster/rating/showtime data shape. Update movies tests that assert mv-* / base_lake markers.
+
+## PR-2 implementation (done, gating)
+- gas_prices_lake.html now extends base_redesign (block main, `.gaswrap`, serif heads, v4 crumbs);
+  removed lake_conditions.css link. base_redesign gains `cond_gas_plain` → the /gas gas cond-tile
+  renders as a plain span (no #gasTile button/#gasPanel). gas.py `_shell_context` now returns
+  cond_tiles+today_label+cond_gas_plain+active_tab (no `gas`, so no panel). Kept all PR-6 substance
+  (grade segment, all-grade matrix table, Cheapest chip, honest clock, sort JS). Ported the gas-body
+  CSS to lake_redesign.css (v4 tokens: brass-deep→brass, ink-2→ink2, muted→ink3, etc.), scoped under
+  `.gaswrap`; `.gseg.lg` already existed; added `.chp`. lake_conditions.css stays for /today (untouched).
+- Only 4 shell-coupled tests needed rewriting (not ~20 — the rest are substance): test_gas_prices_page
+  (2: v4 css + plain gas tile), test_lake_conditions (1: lake_redesign.css). Substance tests
+  (city avg, cheapest, table, sort, honest clock, no-station>7d) all still green.
+- Live QA (havasu-local, seeded gas): full body renders (avg $3.55, 3 cards, Cheapest chip, 4-grade
+  segment, 3 rows); no mobile overflow; the wide table scrolls inside .gas-table-wrap.
 
 ## PR-2 scouting (done)
 - `/gas` = `app/api/routes/gas.py::gas_page` → `gas_prices_lake.html` (extends base_lake).

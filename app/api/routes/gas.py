@@ -88,15 +88,19 @@ def _format_fetched_at_time(fetched_at: datetime) -> str:
 
 
 def _shell_context(db: Session) -> dict[str, Any]:
-    """Header nav + conditions ribbon context, so /gas wears the full Sandstone
-    shell (the ribbon partial in sandstone_base renders only when
-    ``utility_chips`` is supplied). Built from the canonical home builders;
-    imported lazily to avoid a module-load cycle with app.home.router.
+    """v4 shell context (v4.5 PR-2): the cond-tile strip for base_redesign. On /gas
+    the gas cond-tile is a plain span (``cond_gas_plain`` — no caret/panel, you're
+    already on the gas page). Imported lazily to avoid a module-load cycle.
     """
-    from app.home.router import _utility_chips
+    from app.core.timezone import now_lake_havasu
+    from app.home import redesign
 
+    now = now_lake_havasu()
     return {
-        "utility_chips": _utility_chips(db),
+        "cond_tiles": redesign.conditions_tiles(db, now=now),
+        "today_label": now.strftime("%A, %B ") + str(now.day),
+        "cond_gas_plain": True,
+        "active_tab": "gas",
     }
 
 
