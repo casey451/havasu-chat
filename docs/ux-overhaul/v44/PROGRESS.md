@@ -34,7 +34,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | 3 count-parity   | feat/v44-03-count-parity     | ✅ merged | pytest 12485✅ ruff✅ mypy✅ | commit → merge 172d6d07 | day_counts one base (summary headers); cells keep audit display |
 | 4 conditions     | feat/v44-04-conditions       | ✅ merged | pytest 12489✅ ruff✅ mypy✅ live✅ | merge 2a54d850 | water+sunset, retire clouds |
 | 5 ads-rail       | feat/v44-05-ads-rail         | ✅ merged | pytest 12494✅ ruff✅ mypy✅ smoke✅ | merge 15d2a77f | one paid unit + working rail |
-| 6 gas-ui         | feat/v44-06-gas-ui           | 🔨 gating | grade-switch 5✅ affected 30✅ ruff✅ mypy✅ render-smoke✅; full suite next | — | grade switch + /gas page |
+| 6 gas-ui         | feat/v44-06-gas-ui           | ✅ merged | pytest 12499✅ ruff✅ mypy✅ smoke✅ | merge fa4c76aa | grade switch + /gas page |
 | 7 schedule       | feat/v44-07-schedule-niceties| ⏳ | — | — | previews/tpills/pills/dots |
 | 8 shell          | feat/v44-08-shell            | ⏳ | — | — | 6-link shell + footer/email |
 | 9 dead-code      | feat/v44-09-dead-code        | ⏳ | — | — | sweep old UX |
@@ -193,7 +193,13 @@ marquee keyline §2, add `search`/`arrow` icons if missing.
   >7d hide, cheapest/grades, key normalization); 3 fixture dates in
   `test_gas_prices_page.py`.
 
-## NEXT ACTION (latest)
+## NEXT ACTION (current)
+PR-6 ✅ merged (fa4c76aa). START PR-7 (schedule-niceties) on `feat/v44-07-schedule-niceties`
+— see "PR-7 scouting". Order: (1) date-strip dots via day_counts in week_strip, (2) movies
+title-first + tpills, (3) Kids/Seniors places pills + kid/people icons, (4) closed-section
+.sp previews (fiddliest — sections may need preview_rows). Gate → merge → PR-8.
+
+## (prev) NEXT ACTION
 PR-4 ✅ merged (2a54d850). START PR-5 (ads-rail) on `feat/v44-05-ads-rail` — see
 "PR-5 scouting" below. Delete the 2 rail + 1 in-feed `ad_placeholder()` and the
 rail's promoted `sponsor_slot`; build the Find-any-business launcher (directory
