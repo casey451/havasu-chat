@@ -5,8 +5,9 @@ name: redesign-a11y
 # STATUS: ADVISORY. This Node/headless-Chrome job is intentionally NOT yet a
 # required status check on `main` (the repo is otherwise Python-only, and a
 # flaky required check would stall auto-merge). The RELIABLE gates that DO gate
-# auto-merge live in the pytest job: tests/test_lake_a11y via test_ada_compliance
-# (structural WCAG 2.1 AA over /lake-styleguide) + tests/test_lake_seo. Promote
+# auto-merge live in the pytest job: test_ada_compliance (structural WCAG 2.1 AA
+# over the live v4 routes + the palette contrast contract) + tests/test_lake_seo.
+# Promote
 # this workflow to a required check once it has a stable green track record;
 # the final flip (Phase 8) must block on it. See askhava-redesign/BUILDOUT-PLAN.md §2.3.
 
@@ -15,12 +16,7 @@ on:
   pull_request:
     branches: [main, redesign/lake-ink-brass]
     paths:
-      - "app/templates/base_lake.html"
-      - "app/templates/components/lake_components.html"
-      - "app/templates/lake_styleguide.html"
-      - "app/templates/home_lake.html"
-      - "app/templates/events_lake.html"
-      - "app/templates/calendar_lake.html"
+      - "app/templates/base_plain.html"
       - "app/templates/base_redesign.html"
       - "app/templates/home_redesign.html"
       - "app/templates/calendar_redesign.html"
