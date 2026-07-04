@@ -433,6 +433,35 @@ a.gas-card:hover{border-color:var(--teal-line);box-shadow:var(--sh-sm)}
 .gas-empty p{font-size:14px;color:var(--ink2);margin-top:8px;max-width:46ch;margin-inline:auto}
 @media(max-width:860px){.gas-cheap{grid-template-columns:1fr 1fr}}
 @media(max-width:560px){.gas-cheap{grid-template-columns:1fr}}
+/* v4.5 PR-3: /movies in the v4 language. */
+.mvx{padding:0 16px 12px}
+.mvx .pagehead{margin:16px 0 2px}
+.mvx .pagehead h1{font-family:var(--disp);font-weight:500;font-size:24px;letter-spacing:-.02em;margin:0}
+.mvx .sub{font-size:13px;color:var(--ink3);margin:6px 0 0}
+.mvx .sec-head{margin:24px 0 10px}
+.mvx .sec-head h2{font-family:var(--disp);font-weight:500;font-size:19px;letter-spacing:-.01em;margin:0}
+.mvdates{display:flex;gap:8px;overflow-x:auto;padding:12px 0 2px}
+.mvdate{flex:0 0 auto;display:flex;flex-direction:column;align-items:center;gap:2px;min-width:52px;padding:8px 10px;border:1px solid var(--hair);border-radius:12px;background:var(--surface);text-decoration:none;color:inherit;transition:.18s}
+.mvdate:hover{border-color:var(--teal-line);box-shadow:var(--sh-sm)}
+.mvdate .dw{font-size:9.5px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--ink3)}
+.mvdate .dn{font-family:var(--disp);font-weight:500;font-size:18px;color:var(--ink)}
+.mvdate.on{background:linear-gradient(165deg,var(--teal),var(--teal-deep));border-color:transparent}
+.mvdate.on .dw{color:#bfe0e1}.mvdate.on .dn{color:#fff}
+.mvkids{display:flex;align-items:center;gap:10px;margin-top:14px;padding:12px 14px;background:var(--brass-soft);border:1px solid var(--brass-line);border-radius:12px;font-size:13px;color:var(--ink2)}
+.mvkids .ic{color:var(--brass);flex:0 0 auto}
+.mvgrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px}
+.mvfilm{min-width:0}
+.mvposter{position:relative;aspect-ratio:2/3;border-radius:12px;overflow:hidden;background:var(--paper2);border:1px solid var(--hair);display:flex;align-items:center;justify-content:center}
+.mvposter-fallback{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;padding:10px;text-align:center;font-family:var(--disp);font-weight:500;font-size:13px;color:var(--ink3)}
+.mvposter-img{position:relative;width:100%;height:100%;object-fit:cover}
+.mvposter .mvrate{position:absolute;top:6px;left:6px;background:rgba(255,255,255,.92)}
+.mvtitle{font-size:14.5px;letter-spacing:-.01em;margin:8px 0 2px;line-height:1.2}
+.mvmeta{font-size:11.5px;color:var(--ink3);margin:0 0 6px}
+.mvtimes{margin-top:4px}
+.tpill--nolink{opacity:.6}
+.mvempty{font-size:14px;color:var(--ink2);margin-top:18px}
+.mvempty a{color:var(--teal);font-weight:600;text-decoration:none;display:inline-flex;align-items:center;gap:4px}
+@media(max-width:560px){.mvgrid{grid-template-columns:repeat(2,1fr)}}
 .cond .lab .gl{color:var(--brass);font-weight:700}
 .cond .caret{transition:transform .25s}
 .cond .c.gas[aria-expanded="true"] .caret{transform:rotate(180deg)}

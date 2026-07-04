@@ -88,10 +88,13 @@ def serve_movies(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
     is_today = selected == today
     # THEME flag (Lake Ink & Brass): the lake skin renders the SAME context
     # through base_lake; default stays desert until/unless the flip.
-    movies_template = "movies_lake.html"
+    # v4.5 PR-3: /movies wears the v4 shell (base_redesign) — the cond-tile strip +
+    # gas panel like every discovery page (v45 §Pre-answered 1).
+    from app.home import redesign
+
     return templates.TemplateResponse(
         request=request,
-        name=movies_template,
+        name="movies_redesign.html",
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
@@ -100,6 +103,8 @@ def serve_movies(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
             "date_chips": _date_chips(today, selected),
             "theaters": showtimes_for_day(db, day=selected, now=now),
             "free_kids": has_free_kids(db, day=selected),
+            "cond_tiles": redesign.conditions_tiles(db, now=now),
+            "gas": redesign.gas_panel_data(db, now=now),
             "active_tab": "movies",
         },
     )

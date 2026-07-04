@@ -1,0 +1,61 @@
+{% extends "base_redesign.html" %}
+{#- /movies in the v4 language (v4.5 PR-3). Same serve_movies context; v4 shell +
+   cond strip, serif heads, a v4 date picker, real posters kept, showtimes as
+   .tpill buttons, ratings as .tg chips. No drawn scene graphic (§0 guardrail 3). -#}
+{% from "components/redesign_icons.html" import icon %}
+{% block title %}Movies in Lake Havasu — Ask Hava{% endblock %}
+{% block meta_description %}Movie showtimes at Lake Havasu City theaters — what's playing today and this week, updated daily.{% endblock %}
+
+{% block main %}
+<div class="mvx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Movies</span></nav>
+  <div class="pagehead">
+    <h1 class="serif">Movies around the lake</h1>
+    <p class="sub">Showtimes for <strong>{{ day_label }}</strong> at Lake Havasu City theaters. Tap a time to book.</p>
+  </div>
+
+  {% if date_chips %}
+  <div class="mvdates" role="group" aria-label="Choose a date">
+    {% for c in date_chips %}
+    <a class="mvdate{% if c.on %} on{% endif %}" href="/movies?date={{ c.iso }}"{% if c.on %} aria-current="date"{% endif %}>
+      <span class="dw">{{ c.dow }}</span><span class="dn num">{{ c.day }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if free_kids %}
+  <div class="mvkids"><span class="ic">{{ icon('kid', 16) }}</span><span><b>Free Summer Kids Movies</b> — weekday mornings at Star Cinemas, 9:30 AM, free admission with giveaways.</span></div>
+  {% endif %}
+
+  {% if theaters %}
+  {% for th in theaters %}
+  <section class="mvth" aria-label="{{ th.name }}">
+    <div class="sec-head"><h2 class="serif">{{ th.name }}</h2></div>
+    <div class="mvgrid">
+      {% for film in th.films %}
+      <article class="mvfilm">
+        <div class="mvposter">
+          <span class="mvposter-fallback">{{ film.title }}</span>
+          {% if film.poster %}
+          <img class="mvposter-img" loading="{{ 'eager' if loop.index <= 4 else 'lazy' }}" src="{{ film.poster }}" alt="{{ film.title }} poster" onerror="this.remove()">
+          {% endif %}
+          {% if film.rating %}<span class="tg mvrate">{{ film.rating }}</span>{% endif %}
+        </div>
+        <h3 class="mvtitle serif">{{ film.title }}</h3>
+        {% if film.meta %}<p class="mvmeta">{{ film.meta }}</p>{% endif %}
+        <div class="times mvtimes">
+          {% for s in film.showtimes %}
+          {% if s.url %}<a class="tpill" href="{{ s.url }}">{{ s.label }}</a>{% else %}<span class="tpill tpill--nolink">{{ s.label }}</span>{% endif %}
+          {% endfor %}
+        </div>
+      </article>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+  {% else %}
+  <p class="mvempty">No showtimes posted for {{ day_label }}{% if is_today %} yet{% endif %} — try another day above, or <a href="/events-ui">see what else is on {{ icon('arrow', 14) }}</a></p>
+  {% endif %}
+</div>
+{% endblock %}
