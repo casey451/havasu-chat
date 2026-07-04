@@ -6,9 +6,8 @@
              composer-photo, composer-photo-btn
      hooks:  .chip[data-q]  (empty-state suggestion chips)
    Body keeps `ll-page ll-chat` because chat_cards.css (B-01 SVG/img clamps,
-   feedback controls, composer clearance) scopes everything under
-   body.ll-chat. desert_chat.css loads AFTER chat_cards.css so the clamps win
-   where they overlap. -#}
+   feedback controls, composer clearance) scopes everything under body.ll-chat.
+   The v4 chat skin (shell, empty state, composer) lives in lake_redesign.css. -#}
 {% set active_tab = "ask" %}
 
 {% block title %}{% if initial_query %}{{ initial_query }} — Ask Hava{% else %}Chat — Ask Hava{% endif %}{% endblock %}
