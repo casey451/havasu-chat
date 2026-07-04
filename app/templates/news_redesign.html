@@ -13,7 +13,7 @@
     <a href="/home" style="color:var(--teal);text-decoration:none">Ask Hava</a> › <span aria-current="page">News</span>
   </nav>
   <h1 class="serif">Havasu headlines</h1>
-  <p class="newssub">The latest from Lake Havasu City's news outlets — local stories plus the national wire they run. Each links out to the original source.{% if news.updated_at %} <span class="nu">Updated {{ news.updated_at.strftime('%b ') }}{{ news.updated_at.day }}.</span>{% endif %}</p>
+  <p class="newssub">The latest from Lake Havasu City's news outlets — local stories plus the national wire they run. Each links out to the original source.{% if news_updated_label %} <span class="nu">Updated {{ news_updated_label }}.</span>{% endif %}</p>
 </div>
 
 {% if news.items %}
