@@ -20,14 +20,83 @@
   }
   window.addEventListener("scroll", onScroll, { passive: true });
 
-  /* ---- gas top-5 expander --------------------------------------------- */
+  /* ---- gas top-5 expander + grade switch (v4.4 PR-6) ------------------- */
   var gasTile = document.getElementById("gasTile");
   var gasPanel = document.getElementById("gasPanel");
   if (gasTile && gasPanel) {
+    var gasList = document.getElementById("gasList");
+    var gasSeg = document.getElementById("gasSeg");
+    var gval = gasTile.querySelector(".gval");
+    var gl = gasTile.querySelector(".gl");
+    var regVal = gval ? gval.textContent : "";
+    var byGrade = {},
+      echo = {};
+    function readJson(id) {
+      var el = document.getElementById(id);
+      try {
+        return el ? JSON.parse(el.textContent || "{}") : {};
+      } catch (e) {
+        return {};
+      }
+    }
+    byGrade = readJson("gasByGrade");
+    echo = readJson("gasEcho");
+
+    function esc(s) {
+      var d = document.createElement("div");
+      d.textContent = s == null ? "" : s;
+      return d.innerHTML;
+    }
+    function renderGrade(grade) {
+      var rows = byGrade[grade] || [];
+      if (gasList) {
+        gasList.innerHTML = rows
+          .map(function (r) {
+            return (
+              '<a class="gasrow" href="' + esc(r.directions_url) +
+              '" target="_blank" rel="noopener nofollow">' +
+              '<span class="gr num">' + esc(r.price) + "</span>" +
+              '<span style="min-width:0"><span class="gn">' + esc(r.name) + "</span>" +
+              (r.cross_street ? '<span class="gs"> · ' + esc(r.cross_street) + "</span>" : "") +
+              "</span>" +
+              '<span class="gd">Directions ›</span></a>'
+            );
+          })
+          .join("");
+      }
+      var e = echo[grade];
+      if (gval && e && e.value) gval.textContent = e.value;
+      if (gl) gl.textContent = e && e.suffix ? " · " + e.suffix : "";
+    }
+    function selectButton(grade) {
+      if (!gasSeg) return;
+      var btns = gasSeg.querySelectorAll("button");
+      for (var i = 0; i < btns.length; i++) {
+        var on = btns[i].getAttribute("data-grade") === grade;
+        btns[i].classList.toggle("on", on);
+        btns[i].setAttribute("aria-pressed", on ? "true" : "false");
+      }
+    }
     gasTile.addEventListener("click", function () {
       var open = gasPanel.classList.toggle("open");
       gasTile.setAttribute("aria-expanded", open ? "true" : "false");
+      if (!open) {
+        // Stateless: revert to Regular (list + tile echo) when the panel closes.
+        selectButton("reg");
+        renderGrade("reg");
+        if (gval) gval.textContent = regVal;
+        if (gl) gl.textContent = "";
+      }
     });
+    if (gasSeg) {
+      gasSeg.addEventListener("click", function (e) {
+        var btn = e.target.closest("button[data-grade]");
+        if (!btn) return;
+        var grade = btn.getAttribute("data-grade");
+        selectButton(grade);
+        renderGrade(grade);
+      });
+    }
   }
 
   /* Sections are native <details> — open/close + keyboard work with no JS. */
