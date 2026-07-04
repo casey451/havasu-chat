@@ -45,9 +45,10 @@ LAKE_PAGES = [
     ("/contact?theme=lake", True),
     ("/privacy?theme=lake", True),
     ("/terms?theme=lake", True),
-    # noindex surfaces (auth / teaser / discovery / internal)
+    # /sponsor is a real advertiser landing — indexable since v4.4 §7 (noindex dropped).
+    ("/sponsor?theme=lake", True),
+    # noindex surfaces (auth / discovery / internal)
     ("/login?theme=lake", False),
-    ("/sponsor?theme=lake", False),
     ("/calendar?q=live%20music%20this%20weekend", False),
     ("/lake-styleguide", False),
 ]
@@ -155,7 +156,8 @@ def test_sitemap_lists_public_pages_not_noindex_ones() -> None:
     for path in ("/home", "/today", "/gas", "/map", "/events-ui", "/categories",
                  "/portal", "/portal/claim", "/about", "/help", "/contact"):
         assert f"{base}{path}</loc>" in xml, f"sitemap missing public page {path}"
-    for path in ("/login", "/sponsor", "/calendar", "/account", "/lake-styleguide"):
+    # (/sponsor is indexable since v4.4 §7 but not sitemapped — neither asserted here.)
+    for path in ("/login", "/calendar", "/account", "/lake-styleguide"):
         assert f"{base}{path}</loc>" not in xml, f"sitemap must not list noindex {path}"
 
 

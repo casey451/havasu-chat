@@ -298,6 +298,7 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 /* a11y (F17): footer links were ~15px tall; give each a >=24px tap target. */
 .foot .fl a{display:inline-flex;align-items:center;min-height:24px;padding:2px 0;color:#cdd6d1;text-decoration:none;cursor:pointer}
 .foot .fl a:hover{color:#fff}
+.foot .fl a.biz{color:var(--brass-br);font-weight:600}
 .foot .rule{height:1px;background:linear-gradient(90deg,var(--brass-br),transparent);margin:14px 0}
 .foot .ftrust{font-size:11.5px;color:#9fb0a9;margin-bottom:6px}
 .foot .ftrust a{color:#cdd6d1;text-decoration:none}

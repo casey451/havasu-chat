@@ -46,14 +46,16 @@ def test_kids_intent_still_recognized() -> None:
     assert parse_calendar_query("what is there for kids this weekend")["aud"] == "kids"
 
 
-# ── 4 / P1: seniors front door on both nav surfaces ─────────────────────────────
+# ── 4 / P1: seniors + kids front doors stay reachable in the drawer ─────────────
+# v4.4 §7 slimmed the DESKTOP bar to six primary links; For Seniors / For Kids move
+# to the complete mobile drawer (plus the home places pills), so they stay reachable
+# without cluttering the desktop bar.
 
-def test_for_seniors_front_door_on_both_nav_surfaces() -> None:
+def test_for_seniors_and_kids_front_doors_in_drawer() -> None:
     html = TestClient(app).get("/home?theme=lake").text
-    for cls in ("navlinks", "navdrawer-menu"):
-        block = _nav_block(html, cls)
-        assert "/seniors" in block, f"For Seniors (/seniors) missing from .{cls}"
-        assert "/family" in block, f"For Kids (/family) missing from .{cls}"
+    drawer = _nav_block(html, "navdrawer-menu")
+    assert "/seniors" in drawer, "For Seniors (/seniors) missing from the drawer"
+    assert "/family" in drawer, "For Kids (/family) missing from the drawer"
 
 
 # ── 4 / P2: real listings on category landings (open-now first) ─────────────────

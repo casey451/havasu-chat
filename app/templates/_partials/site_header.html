@@ -8,8 +8,11 @@
    tiles on home, the condensed strip on content pages). -#}
 {% from "_partials/lake_logo.svg.html" import logo_nav %}
 {% from "components/redesign_icons.html" import icon %}
-{%- set _nav = [
-  ('/home', 'Home', ['home', 'today']),
+{#- v4.4 §7: the mobile drawer keeps the FULL destination list (nothing becomes
+   unreachable); the desktop bar shows only the six primary links. For Business is
+   appended (brass) after each list. -#}
+{%- set _nav_full = [
+  ('/home', 'Today', ['home', 'today']),
   ('/events-ui', 'Events', ['events']),
   ('/calendar', 'Calendar', ['calendar']),
   ('/news', 'News', ['news']),
@@ -17,9 +20,17 @@
   ('/family', 'For Kids', ['family']),
   ('/seniors', 'For Seniors', ['seniors']),
   ('/lake', 'Lake', ['lake']),
+  ('/categories/eat-and-drink', 'Eat & Drink', ['eat']),
   ('/gas', 'Gas', ['gas']),
   ('/categories#search', 'Explore', ['explore']),
   ('/ask', 'Ask', ['ask', 'chat']),
+] -%}
+{%- set _nav_primary = [
+  ('/home', 'Today', ['home', 'today']),
+  ('/events-ui', 'Events', ['events']),
+  ('/lake', 'Lake', ['lake']),
+  ('/categories/eat-and-drink', 'Eat & Drink', ['eat']),
+  ('/categories#search', 'Explore', ['explore']),
 ] -%}
 <header class="head-stack">
   <div class="util">
@@ -33,7 +44,7 @@
       <details class="navdrawer sc-only-m">
         <summary aria-label="Open menu">{{ icon('menu', 18) }}</summary>
         <div class="navdrawer-menu">
-          {% for href, label, keys in _nav %}<a href="{{ href }}"{% if active_tab in keys %} class="active" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+          {% for href, label, keys in _nav_full %}<a href="{{ href }}"{% if active_tab in keys %} class="active" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
           <a class="biz{% if active_tab == 'portal' %} active{% endif %}" href="/portal">For Business</a>
           <a class="{% if active_tab == 'account' %}active{% endif %}" href="/account">Account</a>
           <a href="/login">Sign in</a>
@@ -41,7 +52,7 @@
       </details>
       <a class="brand" href="/home" aria-label="Ask Hava — home">{{ logo_nav(26, cls="rdlogo") }}<span class="wm">Ask <span class="b">Hava</span></span></a>
       <span class="navlinks sc-only-d">
-        {% for href, label, keys in _nav %}<a href="{{ href }}"{% if active_tab in keys %} class="active" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+        {% for href, label, keys in _nav_primary %}<a href="{{ href }}"{% if active_tab in keys %} class="active" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
         <a class="biz{% if active_tab == 'portal' %} active{% endif %}" href="/portal">For Business</a>
       </span>
       <span class="nav-sp"></span>
