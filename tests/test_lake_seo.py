@@ -50,7 +50,6 @@ LAKE_PAGES = [
     # noindex surfaces (auth / discovery / internal)
     ("/login?theme=lake", False),
     ("/calendar?q=live%20music%20this%20weekend", False),
-    ("/lake-styleguide", False),
 ]
 
 
@@ -157,14 +156,14 @@ def test_sitemap_lists_public_pages_not_noindex_ones() -> None:
                  "/portal", "/portal/claim", "/about", "/help", "/contact"):
         assert f"{base}{path}</loc>" in xml, f"sitemap missing public page {path}"
     # (/sponsor is indexable since v4.4 §7 but not sitemapped — neither asserted here.)
-    for path in ("/login", "/calendar", "/account", "/lake-styleguide"):
+    for path in ("/login", "/calendar", "/account"):
         assert f"{base}{path}</loc>" not in xml, f"sitemap must not list noindex {path}"
 
 
 def test_lake_css_self_hosts_fonts_no_google() -> None:
-    """lake.css declares @font-face for the self-hosted woff2 and never calls
-    Google Fonts at runtime (LCP + privacy)."""
-    css = (_STATIC_ROOT / "styles" / "lake.css").read_text(encoding="utf-8")
+    """lake_redesign.css (the one shell as of v4.6 PR-2) declares @font-face for
+    the self-hosted woff2 and never calls Google Fonts at runtime (LCP + privacy)."""
+    css = (_STATIC_ROOT / "styles" / "lake_redesign.css").read_text(encoding="utf-8")
     assert "@font-face" in css
     assert "fonts/inter-latin-wght-normal.woff2" in css
     assert "fonts/fraunces-latin-wght-normal.woff2" in css

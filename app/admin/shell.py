@@ -13,12 +13,12 @@ page-specific rules (pills, buttons, forms, window pickers) are passed via
 ``css``. ``extra_head`` carries per-page ``<head>`` additions (e.g. the jobs
 auto-refresh meta).
 
-NB: the Lake Ink & Brass skin (``lake_admin.css`` + ``noindex`` +
-``data-redesign``) is still injected by ``AdminLakeSkinMiddleware`` in
-``app/main.py`` — it is the single injection point shared by all three admin
-rendering families (these inline pages, the Jinja ``.d-admin`` templates that
-extend ``base_lake.html``, and the CSS-var ``admin_portal``). Folding it in here
-would only cover the inline family, so the middleware stays.
+NB: the admin skin (``lake_admin.css`` + ``noindex``) is still injected by
+``AdminLakeSkinMiddleware`` in ``app/main.py`` — it is the single injection point
+shared by all three admin rendering families (these inline pages, the Jinja
+``.d-admin`` templates that extend ``base_plain.html`` since v4.6 PR-2, and the
+CSS-var ``admin_portal``). Folding it in here would only cover the inline family,
+so the middleware stays.
 """
 
 from __future__ import annotations

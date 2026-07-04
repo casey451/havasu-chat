@@ -86,7 +86,6 @@ from app.events.permalink import router as events_permalink_router
 from app.feedback.routes import router as feedback_router
 from app.home.calendar_route import router as calendar_page_router
 from app.home.chat_route import router as new_chat_ui_router
-from app.home.lake_preview import router as lake_preview_router
 from app.home.router import router as home_router
 from app.home.static_pages import router as static_pages_router
 
@@ -381,24 +380,24 @@ app.add_middleware(SessionMiddleware)
 
 
 class AdminLakeSkinMiddleware(BaseHTTPMiddleware):
-    """Reskin the admin/portal pages to Lake Ink & Brass. The admin surface is
-    three rendering families (inline-HTML _nav_shell pages, the Jinja .d-admin
-    templates, and the CSS-var-driven admin_portal) — each builds its own
-    <head>+<style>, so this is the single uniform injection point: for an
-    /admin HTML response, append the lake_admin.css link (which overrides those
-    styles) + the v4 sitewide override + noindex before </head>.
+    """Skin the admin/portal pages. The admin surface is three rendering families
+    (inline-HTML _nav_shell pages, the Jinja .d-admin templates, and the CSS-var-
+    driven admin_portal) — each builds its own <head>+<style>, so this is the
+    single uniform injection point: for an /admin HTML response, append the
+    self-contained lake_admin.css link (which overrides those styles) + noindex
+    before </head>.
 
     This is the LAST body-rewriting middleware: it survives the 2026-07-02
     flag-collapse only because the admin shells are ~15 separate hand-built
-    <head>s; the planned admin-shell consolidation bakes these links into the
-    one shared shell and deletes this class. It also carries the v4 sitewide
-    skin for admin pages (lake_redesign_site.css + data-redesign) that the
-    deleted HomeRedesignSkinMiddleware used to inject everywhere.
+    <head>s; the planned admin-shell consolidation bakes this link into the one
+    shared shell and deletes this class. (v4.6 PR-2: the .d-admin Jinja templates
+    now extend base_plain.html, so the old base_lake reskin injection —
+    lake_redesign_site.css + data-redesign — was dropped; lake_admin.css is
+    self-contained with its own --la-* tokens.)
     """
 
     _INJECT = (
         '<link rel="stylesheet" href="/static/styles/lake_admin.css">'
-        '<link rel="stylesheet" href="/static/styles/lake_redesign_site.css">'
         '<meta name="robots" content="noindex">'
     )
 
@@ -413,11 +412,6 @@ class AdminLakeSkinMiddleware(BaseHTTPMiddleware):
         text = body.decode("utf-8", "replace")
         if "</head>" in text:
             text = text.replace("</head>", self._INJECT + "</head>", 1)
-        # lake_redesign_site.css scopes under html[data-redesign="1"]; the
-        # hand-built admin <html> tags don't carry it, so stamp it here (the
-        # deleted sitewide skin middleware used to).
-        if "data-redesign" not in text:
-            text = text.replace("<html", '<html data-redesign="1"', 1)
         data = text.encode("utf-8")
         keep = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
         return Response(
@@ -428,10 +422,10 @@ class AdminLakeSkinMiddleware(BaseHTTPMiddleware):
         )
 
 
-# HomeRedesignSkinMiddleware was deleted 2026-07-02 (audit flag-collapse): the
-# v4 reskin is permanently on, so the data-redesign stamp + the
-# lake_redesign_site.css link are baked into base_lake.html directly instead of
-# buffering and string-rewriting every HTML response body sitewide.
+# HomeRedesignSkinMiddleware was deleted 2026-07-02 (audit flag-collapse) and the
+# base_lake reskin path was deleted 2026-07-04 (v4.6 PR-2): every page is now on
+# the standalone v4 shell (base_redesign / base_plain → lake_redesign.css), so no
+# response-body reskinning remains except the admin lake_admin.css injection above.
 app.add_middleware(AdminLakeSkinMiddleware)
 
 
@@ -612,9 +606,6 @@ app.include_router(programs_router)
 # UI during dogfooding. Cuts over to / once we're confident.
 app.include_router(home_router)
 app.include_router(movies_router)
-# Lake Ink & Brass redesign (Phase 0): the noindex /lake-styleguide gallery —
-# the CI a11y/SEO sample target on the new base_lake layout.
-app.include_router(lake_preview_router)
 # Lake Ink & Brass redesign (Phase 2b): the /calendar discovery page — the
 # concierge intent-router's destination for discovery queries.
 app.include_router(calendar_page_router)
