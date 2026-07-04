@@ -275,8 +275,10 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .showall{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--teal);background:var(--teal-soft);border:1px solid var(--teal-line);border-radius:11px;padding:11px;margin-top:12px;cursor:pointer;text-decoration:none}
 .showall:hover{background:var(--teal);color:#fff}
 .times{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.tpill{font-size:11px;font-weight:600;color:var(--ink2);background:var(--paper2);border:1px solid var(--hair2);border-radius:6px;padding:3px 8px;font-variant-numeric:tabular-nums}
+.tpill{font-size:11px;font-weight:600;color:var(--ink2);background:var(--paper2);border:1px solid var(--hair2);border-radius:6px;padding:3px 8px;font-variant-numeric:tabular-nums;text-decoration:none;transition:.15s}
 .ev:hover .tpill{border-color:var(--teal-line)}
+/* On /movies each tpill is itself the booking anchor — pill chrome, never an underlined link (v4.6). */
+a.tpill:hover{border-color:var(--teal-line);color:var(--teal-deep);background:var(--surface)}
 
 .foot{margin-top:28px;background:var(--ink);color:#aebcb6;padding:28px 22px 24px}
 .foot .ft{font-family:var(--disp);font-weight:500;font-size:20px;color:#fff;letter-spacing:-.01em}
@@ -860,6 +862,8 @@ h2.also-sec{font-family:var(--disp);font-weight:500;font-size:19px;letter-spacin
 .catchip .n{font-size:12px;color:var(--ink3);margin-top:2px}
 .psuggest{text-align:center;margin:30px 0 4px;font-size:13px}
 .psuggest a{color:var(--teal);font-weight:600;text-decoration:none}
+/* Auto-built disclaimer as a small muted footnote by the suggest control (v4.6 PR-0.2). */
+.pautonote{text-align:center;margin:2px 0 4px;font-size:11px;color:var(--ink3)}
 /* venue events strip heading */
 .venue-events-region{margin-top:30px}
 .venue-events-region>h2{font-family:var(--disp);font-weight:500;font-size:20px;letter-spacing:-.01em;margin:0 0 12px}

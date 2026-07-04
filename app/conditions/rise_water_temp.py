@@ -9,8 +9,11 @@ temperature in °F at Parker Dam):
     (send ``Accept: application/json``)
 
 This mirrors app/conditions/usgs_water_temp.py: an alternate water-temp source
-behind its own feature flag (``FEATURE_FLAG_WATER_TEMP_RISE_6127``, default OFF).
-When OFF the fetcher returns an empty payload and makes NO HTTP request.
+behind its own feature flag (``FEATURE_FLAG_WATER_TEMP_RISE_6127``). As of v4.6
+the CODE DEFAULT is ON — this is the dependable main-lake gauge, so it fetches
+without operator action; setting the env var to a falsy value ("false"/"0")
+still disables it. When disabled the fetcher returns an empty payload and makes
+NO HTTP request; honest-omit hides the tile when there's no reading.
 
 LIVE since 2026-06-29: wired into the fetcher registry
 (app/conditions/fetcher.py) and PREFERRED by api_payload over the
@@ -39,7 +42,10 @@ _LIMITER = SourceLimiter("rise_water_temp", qps=0.5)
 
 
 def feature_enabled() -> bool:
-    return os.environ.get(FEATURE_FLAG_ENV_VAR, "false").lower() in {"true", "1", "yes", "on"}
+    # v4.6: default ON. RISE item 6127 is the reliable main-lake gauge (the Bill
+    # Williams USGS gage is sentinel-stuck), so it fetches without operator
+    # action. An explicit falsy env var still disables it.
+    return os.environ.get(FEATURE_FLAG_ENV_VAR, "true").lower() in {"true", "1", "yes", "on"}
 
 
 def _f_to_c(f: float | None) -> float | None:
