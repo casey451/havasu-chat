@@ -82,21 +82,8 @@ CAT_LABEL: dict[str, str] = {
     "civic": "City",
 }
 
-# Gradient thumbnail class per category (the v4 .im-* fallbacks until a real
-# photo exists). Honest fallback — never a fake photo.
-CAT_THUMB: dict[str, str] = {
-    "events": "im-sunset",
-    "things": "im-market",
-    "music": "im-sunset",
-    "water": "im-boat",
-    "family": "im-water",
-    "seniors": "im-court",
-    "fitness": "im-court",
-    "classes": "im-art",
-    "learn": "im-art",
-    "movies": "im-movie",
-    "civic": "im-civic",
-}
+# v4.4 PR-9: CAT_THUMB (the .im-* gradient thumbnail fallbacks) was removed with the
+# plain-time-column change — the feed rows never rendered `row.thumb`.
 
 
 def category_color(key: str) -> str:
@@ -406,7 +393,6 @@ def _enrich(row: dict[str, Any], blurbs: dict[str, str], cat: str) -> dict[str, 
     m = _EVENT_ID_RE.match(row.get("url") or "")
     out = dict(row)
     out["blurb"] = blurbs.get(m.group(1)) if m else None
-    out["thumb"] = CAT_THUMB.get(cat, "im-market")
     out["cat"] = cat
     # SEO: the v4 home row template renders ``row.tags`` verbatim, so the
     # internal ``KEY:value`` taxonomy tokens (``activity:billiards``,
@@ -429,7 +415,7 @@ def _feed_walk(node: dict[str, Any], acc: list[dict[str, Any]]) -> None:
 
 
 def _feed_enrich(node: dict[str, Any], blurbs: dict[str, str], cat: str) -> None:
-    """Enrich every row in a node tree in place (blurb + category thumb)."""
+    """Enrich every row in a node tree in place (a one-line blurb)."""
     node["rows"] = [_enrich(r, blurbs, cat) for r in (node.get("rows") or [])]
     for sub in node.get("subgroups") or []:
         _feed_enrich(sub, blurbs, cat)
@@ -466,7 +452,7 @@ def feed_view_model(
     rows. The structure comes straight from
     :func:`events_views.calendar_day_view_model`, so the home and the main
     calendar can't drift; the home only *enriches* each event row (a one-line
-    blurb + a category thumb) and styles it in the v4 idiom. No more chips."""
+    blurb) and styles it in the v4 idiom. No more chips."""
     vm = events_views.calendar_day_view_model(db, day=day, now=now, family=family)
     sections = vm["sections"]
 
