@@ -33,7 +33,7 @@ gate results recorded here; do not redo a row marked ✅ merged.
 | 2 date-keys      | feat/v44-02-date-keys        | ✅ merged | pytest 12482✅ ruff✅ | commit 20001edb → merge 41d4614b | rollover regression + no-cache pin (tests only) |
 | 3 count-parity   | feat/v44-03-count-parity     | ✅ merged | pytest 12485✅ ruff✅ mypy✅ | commit → merge 172d6d07 | day_counts one base (summary headers); cells keep audit display |
 | 4 conditions     | feat/v44-04-conditions       | ✅ merged | pytest 12489✅ ruff✅ mypy✅ live✅ | merge 2a54d850 | water+sunset, retire clouds |
-| 5 ads-rail       | feat/v44-05-ads-rail         | 🔨 gating | rail 5✅ ruff✅ mypy✅; render smoke: 1 marquee/0 slots/8 tiles/newscard; full suite next | — | one paid unit + working rail |
+| 5 ads-rail       | feat/v44-05-ads-rail         | ✅ merged | pytest 12494✅ ruff✅ mypy✅ smoke✅ | merge 15d2a77f | one paid unit + working rail |
 | 6 gas-ui         | feat/v44-06-gas-ui           | ⏳ | — | — | grade switch + /gas page |
 | 7 schedule       | feat/v44-07-schedule-niceties| ⏳ | — | — | previews/tpills/pills/dots |
 | 8 shell          | feat/v44-08-shell            | ⏳ | — | — | 6-link shell + footer/email |
