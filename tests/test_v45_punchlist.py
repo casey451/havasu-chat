@@ -55,3 +55,23 @@ def test_news_updated_date_is_phoenix_local() -> None:
             html = client.get("/news").text
     assert "Updated Jul 3." in html
     assert "Updated Jul 4." not in html
+
+
+def test_movies_page_wears_v4_shell() -> None:
+    """PR-3: /movies renders in the v4 language (base_redesign), not base_lake."""
+    with TestClient(app) as client:
+        html = client.get("/movies").text
+    # v4 shell stylesheet, no old desert/movies sheets.
+    assert "/static/styles/lake_redesign.css" in html
+    assert "desert_movies.css" not in html
+    assert "base_lake" not in html
+    # cond-tile strip is present on this discovery page.
+    assert 'class="cond"' in html
+    # serif page heading, single <h1>.
+    assert html.count("<h1") == 1
+    # zero emoji anywhere on the page (the forever guard).
+    assert not any(
+        0x1F000 <= ord(ch) <= 0x1FAFF or 0x2600 <= ord(ch) <= 0x27BF for ch in html
+    )
+    # the old drawn head-art scene is gone (§0 guardrail 3).
+    assert "head-art" not in html
