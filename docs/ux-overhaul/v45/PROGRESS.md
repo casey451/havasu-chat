@@ -31,7 +31,7 @@ gates recorded here; never redo a ✅ row.
 | 1 events-ui  | feat/v45-01-events-ui       | ✅ merged | pytest 12515✅ ruff✅ mypy✅ live-QA✅ | merge 978cf71e | /events-ui → v4 shell, emoji pill → places |
 | 2 gas-shell  | feat/v45-02-gas-shell       | ✅ merged | pytest 12515✅ ruff✅ mypy✅ live-QA✅ | merge 6e2e5f32 | /gas → base_redesign |
 | 3 movies     | feat/v45-03-movies          | ✅ merged | pytest 12516✅ ruff✅ mypy✅ live-QA✅ | merge 991876ea | /movies → v4 shell, posters/tpills kept, rating→.tg, no head-art |
-| 4 directory  | feat/v45-04-directory       | ⏳ | — | — | /categories + listing pages v4 |
+| 4 directory  | feat/v45-04-directory       | ✅ merged | pytest 12517✅ ruff✅ mypy✅ live-QA✅ | merge f2dab10d | /categories index+dept+trade+leaf+faceted → v4; card v4 + SVG star (no ★); cond+gas via _chrome_context |
 | 5 remaining  | feat/v45-05-remaining-pages | ⏳ | — | — | family/seniors/provider/legal + provider fixes |
 | 6 water-temp | feat/v45-06-water-temp      | ⏳ | — | — | dependable gauge + retry + WATER_TEMP_STALE |
 | 7 dead-shell | feat/v45-07-dead-shell      | ⏳ | — | — | delete base_lake + old ribbon/cards |
@@ -111,13 +111,34 @@ gates recorded here; never redo a ✅ row.
   and repointing it per-page is heavy; the visual test is self-baselining + CI-optional. Verifying
   each migrated page via the havasu-local preview (structure + mobile-fit) instead, logged per PR.
 
+## PR-4 implementation (done, merged f2dab10d)
+- 4 templates (categories_index_lake / category_department_lake / category_trade_lake /
+  category_sandstone_lake) now `extends base_redesign`, `{% block main %}`, `.dirx` wrapper,
+  drop lake_directory.css. Router: `_chrome_context(db, now)` gained cond_tiles+gas (both
+  `_safe`-guarded) → spread into all 5 render points incl. the index.
+- lake_biz_card.html → v4: serif name, `.tg` Sponsored chip, teal Open-now, `.btn-ghost`
+  View/Call, real photo OR **no image block** (old `ph--art` monogram dropped, §0 guardrail 3).
+- Rating star = new inline SVG `star` icon in redesign_icons.html (NOT `★` U+2605), so the
+  directory carries zero emoji codepoints. `.dirx .pagehead h1` / `h2.also-sec` give Fraunces
+  via CSS so page headings keep bare `<h1>`/`<h2 class="also-sec">` markers (SEO/test-stable).
+- Directory CSS ported into lake_redesign.css (v4 palette; --brass-deep→--brass, --muted→--ink3,
+  --raised→--surface, --sh-1→--sh-sm, etc.). Responsive: exgrid/leafgrid auto-fill, scrollable
+  toolbar/dates, bizcard wraps <560px.
+- GOTCHA logged: attribute-adjacency — a `class="x serif"` breaks `assert 'class="x"' in body`;
+  headings keep a single class and get Fraunces from scoped CSS. 7 leaf/trade/wp5 h1/also-sec/
+  cat-empty exact-match tests were fixed this way (not by loosening asserts).
+- The 404 page (hit when a leaf slug doesn't resolve in an empty DB) is still base_lake — it's a
+  utility/error template, out of PR-4 scope (belongs to PR-5/PR-7 sweep). Directory listing pages
+  themselves are v4 (verified via prod-DB TestClient render: dirx/listcard/extile/leaftile,
+  zero emoji, base_redesign shell on index+dept+trade+leaf).
+
 ## NEXT ACTION
-PR-3 ✅ merged (991876ea). START PR-4 (`feat/v45-04-directory`) — /categories index +
-category/listing pages → v4. Scout the directory routes/templates first (which router serves
-/categories + /category/<slug> + listing/leaf pages, which base they extend). v4: serif card
-heads, `.tg` chips, teal "Open now", `.btn-ghost` View/Call, KEEP star ratings + review counts,
-real photos or NO image block (no drawn/placeholder art), restyled breadcrumbs. cond strip +
-gas (discovery pages). Update shell-coupled directory tests to v4 markers. Gate → merge → PR-5.
+PR-4 ✅ merged (f2dab10d). START PR-5 (`feat/v45-05-remaining-pages`) — migrate the remaining
+interior pages to v4: /family /seniors /provider/<slug> + the utility/legal set (/about /help
+/contact /sponsor /portal /privacy /terms /login /ask). Discovery pages (family/seniors/provider)
+get the cond strip + gas; utility/legal get shell+footer only (v45 §Pre-answered). Provider
+pages: add a Website button when a URL is present, and use the provider's OWN description, not the
+auto-disclaimer. Scout which router+template serves each; update shell-coupled tests. Gate → merge → PR-6.
 
 ## (older) NEXT ACTION
 PR-1 ✅ merged (978cf71e). START PR-2 (`feat/v45-02-gas-shell`) — see "PR-2 scouting":
