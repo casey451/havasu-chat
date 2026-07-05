@@ -1,0 +1,126 @@
+entity_id,name,leaf_slug,proposed_website,url_type,confidence,action,note
+a4888011-6227-4d74-bea2-1c9e3800844b,Dave's Appliance Service,appliance-repair,https://davesappliancelhc.com/,website,high,apply,1751 Acoma Blvd W
+62572a88-ac12-4e08-bf4f-50edc3bf6b01,Dusty Rose Cleaning,cleaning,https://www.facebook.com/DustyRoseCleaning/,facebook,high,apply,
+b97bc327-200b-40dd-9a87-8c03b44ee957,Extreme Clean Exterior Services,cleaning,https://www.facebook.com/people/Extreme-Clean-Exterior-Services/61588106347500/,facebook,med,apply,extremecleanaz.com is a DIFFERENT (auto-detailing) biz — not used
+8dfd0a86-d29d-4588-bc25-9b45c018861b,luna's king Cleaning llc,cleaning,https://lunascleaningcorp.wixsite.com/site,website,med,apply,
+1ef67e63-f3fe-41f1-9765-a1e6fde1ee00,Pane in the Glass Window and Solar Panel Cleaning,cleaning,https://www.facebook.com/Paneintheglasshavasu/,facebook,high,apply,
+269dcbf7-b0db-4bbb-8c3c-ad02fe19d086,Personal Touch Carpet Cleaning,cleaning,https://www.facebook.com/personaltouchhavasu/,facebook,high,apply,
+bece5ab7-e6b7-4faa-b02b-d85fdb7df34d,Frontier Concrete Inc,concrete-and-masonry,https://frontierconcretelakehavasu.com/,website,high,apply,est 1965
+cfce732d-b124-4792-82ef-687620f528cd,Alamo Drywall Inc,drywall,https://www.facebook.com/p/Alamo-Drywall-INC-61552531782277/,facebook,high,apply,
+2cb73084-d35e-41e1-bb75-1ffbda7f70d2,Mike Ashford Plastering Drywall & Stucco Repair,drywall,https://www.facebook.com/people/Mike-Ashford-Plastering-Drywall-Stucco-Repair/100090055383327/,facebook,high,apply,
+661cdee3-7d66-446d-87f9-c47a5b2ee5bb,Aloha Electric,electrical,https://www.alohaelectric.us/,website,high,apply,
+41d3202b-a65a-4b85-bf3f-44868238bf0d,Plus Electric,electrical,https://pluselectricaz.com/,website,high,apply,Plus Electric Solar Solutions
+dcc00645-7873-42dc-ae4d-bb436ea2efe5,RLB Electric Inc,electrical,http://www.rlbelectricinc.net/,website,high,apply,
+33e4ba1b-2c5a-4962-bb53-fdfb0f0cf0ba,Just Garage Doors & More,garage-doors,https://justgaragedoorsaz.com/,website,high,apply,
+4e8ae129-59fc-4d02-bbab-64f9eb855182,Shaver's Garage Doors,garage-doors,https://www.shaversgaragedoors.com/,website,high,apply,since 1979
+7dc1e0b5-f84f-4bfd-80fc-453da7849c98,Superior Garage Doors LHC,garage-doors,https://www.superiorgaragedoorslhc.com/,website,high,apply,
+28ac598d-d169-443b-aac8-e1a275835b25,"1st Choice General Contractors, INC.",general-contractors,https://www.1stchoicegc.com/,website,high,apply,BBB A+
+040ad14b-a5d7-4bac-a8fe-529513e6e4c4,Desert Nightscapes LLC,general-contractors,http://desertnightscapes.com/,website,high,apply,landscape lighting (maybe better under landscaping)
+4b8801b4-e510-49c3-9d5c-815c11a4b5b9,Mohave Valley Design,general-contractors,http://www.mohavevalleydesign.com,website,high,apply,architectural/design
+e3b459d4-e357-41cb-ba6e-f9291d4371bf,Paramount Construction,general-contractors,https://paramountconstructionaz.com/,website,high,apply,
+48f4e5f5-c33c-4f4b-aa27-60a749fb7630,PATRIOT Property Care,general-contractors,https://www.facebook.com/patriotppc/,facebook,high,apply,
+22a81b3f-4096-446d-ae18-6da80027d51f,S-2 Contractors Inc,general-contractors,http://s2contractorsinc.com,website,high,apply,116 Lake Havasu Ave S
+6251da93-ea9e-47ed-a0d7-b12b91a05e66,Ted Cutting Edge Masonry Inc,general-contractors,https://www.facebook.com/p/Ted-Cutting-Edge-Masonry-Inc-100063588491270/,facebook,high,apply,
+1e784342-f82e-4475-809c-e6c6c77c8b9e,Handy Andy's,handyman,https://www.facebook.com/HandyAndyLHC/,facebook,high,apply,handyandys.org is a different biz
+aac392b1-567c-410d-ae49-c3970c00a706,Hav-A-Handyman,handyman,https://www.havahandyman.com/,website,high,apply,
+e82b12c5-c7b4-49eb-915c-522444cd05d5,Havasu Remodeling & Handyman,handyman,https://www.havasuremodelinghandyman.com/,website,high,apply,
+5032d003-db29-4357-b92d-3344dc804898,TCS Handyman,handyman,https://www.tcshandymanservicellc.com/,website,high,apply,
+f8aa68ca-1cd6-41e5-b66a-a3df789636ba,weir canyon handyman LLC,handyman,https://www.weircanyonhandyman.com/,website,high,apply,
+c2b79ab3-11ca-4776-8465-40dea7de031e,Sunshine Air Conditioning Inc.,hvac,https://www.facebook.com/sunshineair/,facebook,high,apply,2516 Cliffwood Dr
+f6b5f36c-e1a2-4892-8a38-19ecaae8bd2f,Chavez Hauling & Landscaping,landscaping-and-lawn,https://www.facebook.com/Chavezhaulingservices,facebook,high,apply,
+1d8bf64a-2fbc-4c87-b542-12c8cdfa80d8,Gama's Landscaping,landscaping-and-lawn,https://www.facebook.com/people/Gamas-Landscaping/100043489736764/,facebook,high,apply,
+65023e05-fa4a-4443-b0d5-e76482c1c29a,Greg's Trimmings Services,landscaping-and-lawn,https://www.facebook.com/p/Gregs-Trimmings-100063867680870/,facebook,high,apply,tree service
+911e6dfb-ed8f-4ef5-8b91-76329e6b6806,Hardy's Tree Service,landscaping-and-lawn,https://www.facebook.com/p/Hardys-Tree-Service-100027202737164/,facebook,high,apply,
+5f90a0aa-6111-46a1-988f-35c288a66223,Landscape Escape,landscaping-and-lawn,https://www.facebook.com/LandscapeEscapeHavasu/,facebook,high,apply,
+6e601867-8bb1-4438-8386-dd7d5fae6038,Susie's Yard Care,landscaping-and-lawn,http://www.susiesyardcare.com/,website,high,apply,
+862f3fd2-fc6c-45e9-bea5-9c44dbc0fe4d,Taylor & Son's Locksmiths,locksmiths,https://taylorandsonslocksmiths.com/,website,high,apply,
+b396c5c3-9f9d-4d1e-9c27-fd9016848866,"J D'Uva Services Plumbing, Inc.",plumbing,https://jduvaserviceplumbing.com/,website,high,apply,1752 W Acoma Blvd
+833d86fe-e93b-4a4c-b31d-15d18ca22d50,Mohave Leak Detection,plumbing,https://www.facebook.com/p/Mohave-Leak-Detection-100047643625023/,facebook,high,apply,
+ba4e0069-efd1-42a9-896a-d07fba0adca7,All American Pool and Spas,pools-and-spas,https://www.facebook.com/p/All-American-Pool-Spas-100090083648100/,facebook,high,apply,toppool.com is a different (CA) biz — not used
+4a9a8aa6-45d5-4205-9fba-74c5e8ad4c94,Aloha Pool Care LLC,pools-and-spas,https://www.alohapoolcare.com/,website,high,apply,since 2006
+99c8a102-680c-4f2d-afa3-3bf71ede1bb6,Havasu Pools & Repairs,pools-and-spas,https://www.facebook.com/havasupools/,facebook,high,apply,
+ded03f70-e13a-4e2a-b493-3bf9793822e4,Mighty Mobile Power Washing,pressure-washing-and-exterior-cleaning,https://powerwashinglakehavasucity.com,website,high,apply,
+6fe84f04-9458-4213-9fd0-4f324063ab65,DYNAMITE ROOFING LLC,roofing,https://www.facebook.com/p/Dynamite-Roofing-LLC-100063522314987/,facebook,high,apply,ROC 312909
+d9084dbf-3bdf-4bea-af3f-ae2fc96f0204,ELEMENT ROOFING,roofing,https://www.facebook.com/p/ELEMENT-ROOFING-100088703957460/,facebook,med,apply,
+8cedcf13-6eca-4c2c-baac-c4a761772538,Santa Fe Mini Storage,self-storage,https://haciendaministorage.com/,website,med,apply,operates as Hacienda & Santa Fe Storage
+6b1aa622-ccc0-44f3-b278-ba47974efb89,Arizona Awning & Shade LLC,shade-screens-and-patio-covers,http://www.arizonaawningandshade.com,website,high,apply,ROC CR3-313575
+b2429938-1496-4801-848c-aa7a4f8d51dd,Wilson's Welding & Wrought Iron,fencing,https://www.facebook.com/thorntonwelding/,facebook,low,review,BBB flags possibly out of business — verify
+4a19608d-52ff-4a75-8764-f2cfc7990702,Lhc Construction,general-contractors,https://www.facebook.com/lhccustompoolsandspas/,facebook,low,review,BBB flags possibly out of business — verify
+98235763-4c15-43ca-abb3-31816ed237b4,Trinity Tree Service,landscaping-and-lawn,https://ttslandscape1.wixsite.com/tts4u,website,low,review,reportedly renamed to 'TTS Landscape & Tree Management' — verify same entity
+e056b5bb-ac8e-4f8b-ac40-a0f1412e9f70,Jenny's house cleaning,cleaning,,none,low,flag-junk,no matching LHC business found
+0e0363f0-902d-428a-a2ec-1d4f8c59857e,Havasu Handyman Services,general-contractors,,none,low,flag-junk,generic name; no exact match
+49474165-329b-4700-8cdf-6b637a18340f,Reliable Handyman Services,general-contractors,,none,low,flag-junk,generic name; no exact match
+abea52e5-0b72-4c48-a24e-15efcad4ecbe,Air conditioning contractor,hvac,,none,high,flag-junk,placeholder/category name — remove
+31a89e52-b68f-414a-a712-f85ea364caaa,Arizona HVAC Service,hvac,,none,med,flag-junk,generic name; no exact match
+c8912be9-b735-485b-b18d-54738c3824a9,HVAC/DUCT Cleaning & More Services,hvac,,none,med,flag-junk,generic/garbled name
+35fe1d53-5b8d-4c0a-bdd9-d3a334474888,Lake Havasu City Heating & Air Conditioning,hvac,,none,med,flag-junk,generic geo+category name
+ee53823a-befd-4fb0-8dd7-04888d0be658,Landscape And Yard Restoration,landscaping-and-lawn,,none,high,flag-junk,category phrase not a real name — remove
+8b7c08fb-4c7f-4e4e-8930-65e1c469d500,Back Flow Preventer,plumbing,,none,high,flag-junk,plumbing category not a real name — remove
+08244d2e-c40f-48ec-ba9a-222659c3bbf6,Sure Guard Services,plumbing,,none,low,flag-junk,thin lead-gen template; generic name
+edb82f0f-e73a-4bc6-a5f3-a644f63cef42,Yard Maintenance AZ,general-contractors,,none,low,flag-review,possibly garbled of 'A-Z Yard Maintenance'
+1bc908c7-eb29-4381-99fc-0d38233ae2d4,Colorado River Building Ind,general-contractors,,none,low,flag-review,truncated/ambiguous name
+45b717d1-2832-4b6f-aac0-1d3906d5ee93,Discount Moving,movers,,none,low,flag-review,no exact-name match — possibly generic
+29cca5a8-680d-4f55-b52f-365a15ae6fd2,American Maintenance Pool Services,pools-and-spas,,none,med,flag-review,no exact match — possibly garbled
+dc633fbd-c39f-4d97-9a8a-892d7ac69bf0,Lake Havasu Pool Service,pools-and-spas,,none,low,flag-review,generic name
+8d13c390-69ea-48be-b218-7030aa538f0a,BlueSky Roofing,roofing,,none,low,flag-review,ambiguous — no confident LHC match
+630cbc1a-e604-4829-863b-0b050efcb898,Precision Roofing Services,roofing,,none,low,flag-review,generic; only aggregator/out-of-area numbers
+ea4ea78f-c980-4bea-981e-b05930955d43,ClearPath HVAC & Duct Cleaning Co.,hvac,,none,high,flag-ooa,clearpath site is Garden City NY — no LHC presence
+c460a4b6-375d-4c32-9d25-1e25ebdb0f51,Estrella Pool & Spa Repairs,pools-and-spas,,none,med,flag-ooa,Estrella pool cos are Phoenix-area — verify existence
+54462d6b-6b1a-4452-bcb8-02d7035bb7af,Phoenix BestPrice Solar,solar,,none,low,flag-ooa,name is Phoenix; no LHC/Mohave presence
+dd25d5fb-a8ae-4033-a84a-d5ddec0a87b5,Applied Electric LLC,electrical,,none,med,flag-closed,license shows inactive — verify still operating
+4a2af449-a472-4f2f-b340-4dd9feee5114,Penthouse Budget Storage,self-storage,,none,med,flag-closed,appears CLOSED (Mar 2026)
+24c2b7c1-bfaa-47ad-a6ff-9ab16361478d,Carl's Custom Woodworks,carpentry-and-cabinets,,none,med,none,real LHC biz; no own web (WA same-name site is different)
+6d6043f2-46dc-4667-acd4-db2b0a397cc3,Clean Queen Home Cleaning Services,cleaning,,none,med,none,no confirmed web
+1fc8c680-8058-4a29-9b51-557c83fff10b,Clean Team,cleaning,,none,med,none,generic; no web
+33902a8d-2b64-4d03-b039-7a090f5841b0,Dust Bunny Cleaning,cleaning,,none,med,none,no confident web (common name)
+ae085f54-2b59-4e4e-849c-917580dc56c1,Tasha cleaning handyman services,cleaning,,none,med,none,no web
+da693cd3-c651-47cf-921b-dfbbb253cbba,"AAA Electric, Inc",electrical,,none,med,none,no web
+39a8d762-ccdc-4ec7-8128-08004505d880,Bob's Electric Motors & Pump,electrical,,none,med,none,no web
+0abd2c4a-d4e7-4b6c-a5fa-edbf803e4ce7,Campbell Electric,electrical,,none,med,none,no web
+4562bc6d-23df-4641-a7fe-1a604b0cc2d3,Electric Co of Havasu,electrical,,none,med,none,thin footprint
+fb8013d9-b92a-4895-b2a1-7cf63d54cf9b,J R Wallace Electrical Services Inc,electrical,,none,med,none,no web
+c9f98a78-2329-4c39-87c9-93f65945a2a5,Kendo Electric,electrical,,none,med,none,no web
+de8a1fea-d850-440b-b1f7-30091be42682,Killen It Electric LLC,electrical,,none,med,none,no web
+76120f76-a3e6-455f-ad53-988368111f46,Lakeside Electric,electrical,,none,med,none,no web
+991e169d-04fb-4fce-b2ba-0cb0b6e39272,B W Smith Custom Homes,general-contractors,,none,med,none,no web
+e2f513b8-3d1a-48e2-b37f-67baa1c39421,Cummins Construction Co Inc,general-contractors,,none,med,none,no web
+96c5b9eb-1d81-4f92-b10d-b8c43bd6cf5c,Home Improvement Concepts,general-contractors,,none,med,none,no web
+d2b5f393-b284-497e-b4f2-a5fe247de72b,Lamont Construction & Development,general-contractors,,none,med,none,no web
+209b71f6-454b-4142-81e9-227d17ec55f3,River Construction Drywall Division,general-contractors,,none,med,none,no web
+72e65303-6cac-4d49-b74e-5326d0618f9c,Western Masonry,general-contractors,,none,med,none,no web
+124f4450-9ab8-4fdc-ad8d-e2eb0c278438,Bartlett's Handyman Services,handyman,,none,low,none,directory-only; FB match is an out-of-area different biz
+73f86594-fb2b-4570-bf1e-48dcfae6fab8,Big TS,landscaping-and-lawn,,none,med,none,Big T's tree service — no web
+1eef13a5-a4b6-4302-bae2-379793578632,Desert Ridge Landscaping-Maintenance,landscaping-and-lawn,,none,med,none,license expired 2021 — maybe inactive
+4cb4d4fa-912d-42d6-af4c-adbbfb79a5f5,Exotic Creations Landscaping & Maintenance,landscaping-and-lawn,,none,med,none,no web
+f92df7a2-376f-4c92-b7fc-4da832c2f6d3,P J's Landscaping Maintenance,landscaping-and-lawn,,none,med,none,no web
+612735be-9e2a-43b1-b230-a097d94517f4,Vibrant Landscaping LLC,landscaping-and-lawn,,none,med,none,no web
+6bb51603-bc6b-4cd5-a1db-a1a5d73b8894,Western Safe & Lock,locksmiths,,none,high,none,no web
+358d94ca-bdaa-4f4b-a951-decfa4508361,Federal Termite & Pest,pest-control,,none,high,none,no web
+dd29bb40-7de1-4aa7-8eef-857fc62cb628,PrimePest Solutions,pest-control,,none,med,none,no web (Phoenix FB is a different biz)
+8ff114b5-97ac-4626-936a-cbef17c5c6cd,ZeroZone Pest Control,pest-control,,none,med,none,no web
+ef580576-53eb-4e6a-9ec8-d98b1b552320,All Seasons Plumbing,plumbing,,none,low,none,ambiguous city match — left blank
+ad4c4f83-420c-4ee4-b147-2c95bc76a5c1,Better Plumbing By Farr,plumbing,,none,high,none,no plumbing site (sister pool co has one)
+228c88b6-ff5e-43a6-afc2-bd95667342cc,Cinnamon Plumbing,plumbing,,none,high,none,no web
+ed90d995-27c5-4637-8801-1a71864a09ca,Dennis's Quality Plumbing,plumbing,,none,high,none,no web
+5a3d1355-dbeb-4f7c-803f-65d510cd6e20,London Bridge Plumbing Inc,plumbing,,none,high,none,no web (since 1985)
+98239310-492a-4e52-9d77-cbdf349b9e44,munoz plumbing llc,plumbing,,none,high,none,no web
+4af58424-8a80-46d8-ba72-02aa09f97ceb,Shoreline Plumbing Sales Services,plumbing,,none,high,none,no web
+78387ab5-e17e-42ec-8ea9-069a67fbac6e,Skyline Plumbing Contractors,plumbing,,none,high,none,no web
+78fc1596-aba3-4df7-92d8-33b307efceae,Blue Persuasion Pools LLC,pools-and-spas,,none,med,none,no web
+9a0a21b3-3934-4c8d-8a4e-7d56143768ed,Blue Water Pool Services,pools-and-spas,,none,high,none,no web
+28860be8-c7f6-4d2b-8795-d5a47495e3f1,S & S Pool Care,pools-and-spas,,none,med,none,no web
+d250a7b2-651c-4623-98cc-fc91bdfbc596,EverPeak Contractors,roofing,,none,low,none,thin footprint
+9ceb99cf-9364-4f40-b48e-97227819d78d,Parker Roofing,roofing,,none,med,none,legit LHC (not Parker AZ) — no web
+10d349dc-34ab-4f11-9511-0372f06a82a6,Prolong Roofing,roofing,,none,med,none,no web (est 2010)
+a5dcccdf-ccb2-49c5-b070-a14f38a795f7,1595 Storage LLC,self-storage,,none,med,none,no web
+5b2f268c-92ad-4101-b8cb-95cb9d52d109,Advantage Boats & RV Storage,self-storage,,none,med,none,no web (advantageboats.com is a different biz)
+266cd1f1-18a9-463b-8bf0-39d43b59fc81,Empire Storage,self-storage,,none,med,none,no web
+99d0c8e2-e827-4ad9-ae17-2829f246338e,Havasu City Storage,self-storage,,none,low,none,generic/ambiguous
+a99607a7-2fd0-45e7-863a-c6d53c0225b5,HC Open Storage,self-storage,,none,low,none,name mismatch — no site
+8383af49-77cb-468a-b939-03cec56a975b,Mc Cheaper's,self-storage,,none,med,none,McCheaper's Storage — no web
+162d5460-0fa6-49db-8a63-cfad8ac6a77c,Premier Storage Condos Inc,self-storage,,none,med,none,no web
+0c4ccbd6-03e8-4731-af12-59ad892df6ae,Super Storage,self-storage,,none,low,none,no web
+b079aede-a6b7-417e-9bae-9992019f43bb,Waterfront Storage Condominium,self-storage,,none,med,none,no web
+f6b3a69b-d916-4902-a536-2ee57694ac4f,Sun Spot Solar,solar,,none,med,none,no web (havasusolar.com is a different biz)
+3ae9536c-8f85-41f3-aa12-a0bcccbdf7c2,Fonte Welding & Fabrication,welding-and-fabrication,,none,med,none,no web
+7823b485-dee8-4634-aa52-951697c79103,Pro Line Welding & Fabrication,welding-and-fabrication,,none,med,none,no web
