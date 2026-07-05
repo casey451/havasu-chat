@@ -221,4 +221,34 @@ def test_row_to_provider_kwargs_no_reviews_leaves_newest_none() -> None:
     kwargs = row_to_provider_kwargs(row, ref_now=ref)
     assert kwargs["newest_review_at"] is None
     # No timestamp → neutral recency, still a usable score.
+
+
+def test_row_to_provider_kwargs_sets_hours_structured_from_google_hours() -> None:
+    # A row with Google opening hours should populate BOTH google_hours (raw) and
+    # hours_structured (converted) so the structured column stays consistent.
+    row = {
+        "display_name": "Hours Cafe",
+        "place_id": "pid-hours",
+        "_first_seen_domain": "food_drink",
+        "regular_opening_hours": {
+            "periods": [
+                {"open": {"day": 1, "hour": 9, "minute": 0},
+                 "close": {"day": 1, "hour": 17, "minute": 0}},
+            ]
+        },
+    }
+    kwargs = row_to_provider_kwargs(row)
+    assert kwargs["google_hours"] == row["regular_opening_hours"]
+    assert kwargs["hours_structured"] == {"monday": [{"open": "09:00", "close": "17:00"}]}
+
+
+def test_row_to_provider_kwargs_no_hours_leaves_structured_none() -> None:
+    row = {
+        "display_name": "No Hours LLC",
+        "place_id": "pid-nohours",
+        "_first_seen_domain": "home_services",
+    }
+    kwargs = row_to_provider_kwargs(row)
+    assert kwargs["google_hours"] is None
+    assert kwargs["hours_structured"] is None
     assert 0.0 <= kwargs["liveness_score"] <= 1.0
