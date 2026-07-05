@@ -48,6 +48,7 @@ from app.contrib.google_places_scraper import (  # noqa: E402
 from app.contrib.google_types_mapping import (  # noqa: E402
     map_google_types_to_slug_and_place_type,
 )
+from app.contrib.hours_helper import places_hours_to_structured  # noqa: E402
 from app.contrib.ingest_reconciler import (  # noqa: E402
     log_ambiguous_reconcile,
     reconcile_hit,
@@ -212,6 +213,11 @@ def row_to_provider_kwargs(row: dict[str, Any], *, ref_now: datetime | None = No
         "google_photo_refs": row.get("photo_refs") or None,
         "google_photo_urls": _local_photo_urls(row.get("photo_urls")),
         "google_hours": row.get("regular_opening_hours") or None,
+        # Also populate the structured column so future loads keep the
+        # ``hours_structured`` / ``Hours`` table consistent with ``google_hours``
+        # (the dual-write materializes ``Hours`` rows from it). NULL when Google
+        # returned no parseable hours.
+        "hours_structured": places_hours_to_structured(row.get("regular_opening_hours") or {}) or None,
         "lat": row.get("lat"),
         "lng": row.get("lng"),
         "zip": row.get("zip"),

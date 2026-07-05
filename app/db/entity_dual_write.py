@@ -18,6 +18,7 @@ from uuid import uuid4
 from sqlalchemy import delete, or_, select
 from sqlalchemy.orm import Session
 
+from app.contrib.hours_helper import places_hours_to_structured
 from app.db.entity_backfill import _WEEKDAY_KEYS, _parse_hours_time
 from app.db.entity_types import (
     ENTITY_TYPE_COMMERCIAL,
@@ -151,7 +152,10 @@ def _attach_provider_extensions(db: Session, entity_id: str, provider: Provider)
         )
     )
 
-    hs = provider.hours_structured
+    # Prefer curated ``hours_structured``; else materialize from Google hours so
+    # the ``Hours`` table stays consistent with what ``google_hours`` renders
+    # (the bulk Places loader historically set only ``google_hours``).
+    hs = provider.hours_structured or places_hours_to_structured(provider.google_hours or {})
     if isinstance(hs, str):
         try:
             hs = json.loads(hs)
