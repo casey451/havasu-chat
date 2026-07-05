@@ -65,8 +65,11 @@ def test_music_group_splits_into_live_music_and_comedy(db: Session) -> None:
     _add(db, title="DJ Spinz Late Night", on=d, tags=["music"])  # residual
 
     groups = {g["key"]: g for g in events_views.day_groups(db, day=d, now=now_lake_havasu())}
-    assert "music" in groups, list(groups)
-    subs = {s["label"]: s["count"] for s in groups["music"].get("subgroups", [])}
+    # Session 2b (2026-07-05): Music & Nightlife folded into "Things to Do"
+    # (events) — no separate top-level "music" group; its Live Music / Comedy &
+    # Theater / More music subsections now live UNDER the events group.
+    assert "music" not in groups, list(groups)
+    subs = {s["label"]: s["count"] for s in groups["events"].get("subgroups", [])}
     assert subs.get("Live Music") == 1
     assert subs.get("Comedy & Theater") == 1
     assert subs.get("More music & nightlife") == 1

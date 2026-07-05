@@ -116,6 +116,9 @@ _CLASS_FALLBACK_LABEL = FALLBACK_LABEL
 # P2: the Music & nightlife group splits into Live Music / Comedy & Theater the
 # same way classes split — always (a 1-row threshold), empties omitted.
 _MUSIC_SUBGROUP_MIN = 1
+# Session 2b: the display label for the folded Lake & Boating subsection under
+# Things to Do — sourced from GROUP_DEFS so it never drifts from the bucket name.
+_LAKE_BOATING_LABEL = dict((k, lab) for k, lab, _i in GROUP_DEFS)["water"]
 # P1: every class day is now typed into subsections (no flat untyped wall), so a
 # single class still resolves to its activity subcategory. (Was 6 — small days
 # used to render flat, which left items in the generic "Fitness & classes" bucket
@@ -571,9 +574,22 @@ def day_groups(
         for key in list(rows_by_group):
             rows_by_group[key] = [r for r in rows_by_group[key] if _row_is_event(r)]
 
+    # Session 2b (Casey 2026-07-05): "Music & Nightlife" and "Lake & Boating" fold
+    # into "Things to Do" as SUBSECTIONS (Live Music / Comedy & Theater / More
+    # music & nightlife / Lake & Boating), not separate top-level sections — fewer
+    # headers, structure preserved one level down. Classification is UNCHANGED
+    # (rows still route to the music/water keys via group_for_tier); only this
+    # display step merges them under the events group. The directory's own "Lake &
+    # Boating" department is a different surface and is untouched.
+    _music_rows = sorted(rows_by_group["music"], key=lambda r: r["sort"])
+    _water_rows = sorted(rows_by_group["water"], key=lambda r: r["sort"])
+
     groups: list[dict[str, Any]] = []
     for key, label, icon in GROUP_DEFS:
-        rows = sorted(rows_by_group[key], key=lambda r: r["sort"])
+        if key in ("music", "water"):
+            continue  # folded into "events" below (Session 2b)
+        core = sorted(rows_by_group[key], key=lambda r: r["sort"])
+        rows = core + _music_rows + _water_rows if key == "events" else core
         if not rows:
             continue  # omitted entirely — never an empty labeled shell
         group: dict[str, Any] = {
@@ -582,16 +598,21 @@ def day_groups(
         if key == "events":
             # Things to Do splits by VENUE TYPE (Casey 2026-06-26): Around Town +
             # Games & Social + Billiards / Bowling / Trampoline / Arcade & Family
-            # Fun (each venue type holds its hours AND its events). Applied only
-            # when a non-residual subsection is present, so a bare market day stays
-            # a flat list.
-            subs = split_events_subgroups(rows)
-            if any(s["label"] != EVENTS_AROUND_LABEL for s in subs):
+            # Fun (each venue type holds its hours AND its events), THEN the folded
+            # Music & nightlife subsections (P2 Live Music / Comedy & Theater / More
+            # music) and a Lake & Boating subsection. Applied when any non-residual
+            # subsection exists, so a bare market day stays a flat list.
+            subs = split_events_subgroups(core)
+            if _music_rows:
+                subs = subs + _split_music_subgroups(_music_rows)
+            if _water_rows:
+                subs = subs + [{
+                    "label": _LAKE_BOATING_LABEL, "rows": _water_rows, "count": len(_water_rows)
+                }]
+            if _music_rows or _water_rows or any(
+                s["label"] != EVENTS_AROUND_LABEL for s in subs
+            ):
                 group["subgroups"] = subs
-        elif key == "music" and len(rows) >= _MUSIC_SUBGROUP_MIN:
-            # P2: typed Live Music / Comedy & Theater subsections under Music &
-            # nightlife (mirrors the class subgroups; empties omitted).
-            group["subgroups"] = _split_music_subgroups(rows)
         elif key == "classes" and len(rows) >= _CLASS_SUBGROUP_MIN:
             # P1: always type the Fitness & classes list into activity subsections
             # so no class sits in a generic untyped bucket.
