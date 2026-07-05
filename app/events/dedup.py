@@ -293,6 +293,22 @@ def _venue_is_named_place(venue: str | None) -> bool:
     return bool(v) and any(c.isalpha() for c in v) and not v[0].isdigit()
 
 
+def location_has_street_address(name: str | None) -> bool:
+    """The location string begins with a street number ("3100 Sweetwater Ave")."""
+    return bool(re.match(r"\s*\d+\s+\S", name or ""))
+
+
+def is_bare_venue(name: str | None) -> bool:
+    """A low-information venue: a single bare word like "Calvary" with no street
+    address — the organizer/campus name stood in for a real location. A multi-word
+    named place ("Go Lake Havasu Visitor Center") is NOT bare, so it is never
+    downgraded to a raw address."""
+    s = (name or "").strip()
+    if not s or location_has_street_address(s):
+        return False
+    return len(re.findall(r"[A-Za-z]+", s)) <= 1
+
+
 def _source_priority(source: str | None) -> int:
     """Min EVENT_SOURCE_PRIORITY across the comma-separated provenance string.
 
@@ -380,6 +396,18 @@ def _absorb_display_fields(survivor: Event, losers: list[Event]) -> None:
             if not _start_is_tbd_for_dedup(lo.start_time, lo.end_time):
                 set_committed_value(survivor, "start_time", lo.start_time)
                 set_committed_value(survivor, "end_time", lo.end_time)
+                break
+    # More-specific LOCATION: a bare one-word venue ("Calvary") absorbs a twin's
+    # street address ("3100 Sweetwater Ave"), which is more useful for directions.
+    # Guarded to a bare survivor so a real named venue ("Go Lake Havasu Visitor
+    # Center") is never downgraded to a raw address twin (§3.1).
+    if is_bare_venue(survivor.location_name):
+        for lo in losers:
+            if location_has_street_address(lo.location_name):
+                set_committed_value(survivor, "location_name", lo.location_name)
+                lo_norm = getattr(lo, "location_normalized", None)
+                if lo_norm:
+                    set_committed_value(survivor, "location_normalized", lo_norm)
                 break
     _absorb_longest_description(survivor, losers)
 

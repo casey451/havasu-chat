@@ -62,6 +62,19 @@ class PermalinkRouteTests(unittest.TestCase):
         self.assertIn("text/html", response.headers.get("content-type", ""))
         self.assertIn("Sunset Music Night", response.text)
 
+    def test_event_permalink_hides_backend_tags_section(self) -> None:
+        # §3.1: the backend bucket/section "Tags" block is no longer rendered on
+        # the detail page (mirrors Session 1 row-tag hiding). The event carries
+        # tags=["music","community"], which previously rendered a "Tags" section.
+        event_id = self._create_event(title="Tagged Community Night")
+        response = self.__class__.client.get(f"/events/{event_id}")
+        self.assertEqual(response.status_code, 200)
+        body = response.text
+        self.assertNotIn("<h2>Tags</h2>", body)
+        self.assertNotIn('class="tag-wrap"', body)
+        # ...but the page itself still renders.
+        self.assertIn("Tagged Community Night", body)
+
     def test_directions_link_present_for_real_venue(self) -> None:
         event_id = self._create_event(
             title="Beach Concert", location_name="London Bridge Beach"
