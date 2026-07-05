@@ -1,0 +1,50 @@
+entity_id,name,leaf_slug,proposed_website,url_type,confidence,action,note
+b1460a0b-50e5-4e67-9972-0c392a72e8f8,Cakelicious Creations,bakeries-and-desserts,https://www.facebook.com/cakeliciousaz/,facebook,med,apply,Havasu bakery 1044 Vista Dr; no own site
+52ef0a53-d7ee-4f3c-9cbc-2320e4ba0bff,Cool Treats,bakeries-and-desserts,https://www.facebook.com/people/Cool-Treats/61566527887208/,facebook,high,apply,91 London Bridge Rd
+334d2f0d-1243-4ff1-9aed-2c6307a66c03,Harvest Moon Bakery,bakeries-and-desserts,https://www.facebook.com/p/Harvest-Moon-Bakery-100064768056658/,facebook,high,apply,67 Mulberry Ave
+a094f4a4-182a-4732-bd6d-550b889eb674,Sweet Creations,bakeries-and-desserts,https://www.facebook.com/SweetCreationsByJulie/,facebook,high,apply,Sweet Creations by Julie (farmers market baker)
+a654c04a-cd6b-4bfc-a5bc-d6cf4d04807e,Sweet Treats & More,bakeries-and-desserts,https://www.instagram.com/sweettreatsmoree/,instagram,med,apply,newer (2025); generic name matched to Havasu
+6a8c43d2-9ca6-4b46-9cc9-4be93e1985fd,Yogurt Paradise,bakeries-and-desserts,https://www.facebook.com/YogurtParadiseLHC/,facebook,high,apply,191 Swanson Ave
+6fe7567a-f5c6-4459-a0aa-49eaa5d796c5,Grapes N Grains,bars-and-breweries,https://www.facebook.com/grapesngrains/,facebook,high,apply,wine bar 2187 McCulloch Blvd N
+b051d792-ed09-4f18-8484-255f5d8f8dcd,Island Mall & Brewery,bars-and-breweries,https://www.facebook.com/p/Island-Mall-And-Brewery-100064152277566/,facebook,med,apply,"1425 McCulloch; one listing says CLOSED but Yelp/chamber show active 2026 — verify"
+51f07cfa-96fc-4057-93e1-9f85e0fc6a07,McKee's,bars-and-breweries,https://www.facebook.com/McKees.Havasu/,facebook,high,apply,"McKee's Pub & Grill; POSSIBLE DUP of a 'McKee's Pub & Grill' orphan row — check"
+2299c6db-f9fa-490f-956b-10cca5987e9d,R.O. Bar,bars-and-breweries,https://www.redonionhavasu.com/,website,high,apply,R.O. Bar at The Red Onion; possible dup-adjacent to a Red Onion entry
+46e4e83c-962b-4d76-a2c5-02834f42e638,The Office,bars-and-breweries,https://officebarhavasu.com/,website,high,apply,The Office Cocktail Lounge 2180 Acoma Blvd W
+914905f5-2ac9-4afa-8850-3c0afc73cf5d,Hav A Craving,cafes-and-coffee,https://www.facebook.com/HavaCraving/,facebook,high,apply,boba/coffee/sweets 501 English Village
+935c42df-eb85-4535-990a-b13a91aa801f,Good Faith Enterprises,food-trucks-and-catering,https://goodfaithcatering.com/,website,med,apply,Good Faith Catering/Events (catering not storefront)
+724b8724-d8fd-46bd-86dd-e54e8db72fe2,Hava Bite,quick-bites-and-takeout,https://havabitesushi.com/,website,med,apply,Hava Bite Sushi; possible dup w/ 'Hava Bite Tap Room' — check
+4343364e-3b66-4fbf-8c42-5aceaf2a6383,Bigfoot fry co.,restaurants,https://bigfootfryco.com/,website,med,apply,brand site (national); Havasu loc 245 N Lake Havasu Ave
+45f984d8-9843-4bb1-aa1f-7d37be4b7c54,Desert Martini Too,restaurants,https://www.facebook.com/DesertMartinitoo/,facebook,high,apply,sister loc of Desert Martini; possible dup relationship
+a61faa72-55ec-451d-a9f4-f75720fdfb4f,Dos Amigos Tacos,restaurants,https://www.facebook.com/dosamigostacos/,facebook,high,apply,2231 McCulloch Blvd N
+abcc82d1-3d6f-49a8-8bd8-43516fe65bac,El Paraiso Mexican,restaurants,https://www.facebook.com/ElParaisoHavasu/,facebook,high,apply,El Paraiso Family Mexican 1530 Palo Verde Blvd S
+5644bd16-8a6b-40b2-b432-b0ada6866707,Islander Pizzeria,restaurants,https://islanderpizzeria.com/,website,high,apply,801 Beachcomber Blvd (also a browse-orphan repoint target)
+411c9c12-a951-4062-8c0f-d29befb28f9c,La Michoacana Frutsi,restaurants,https://www.facebook.com/p/La-Michoacana-Frutsi-100085299109638/,facebook,high,apply,Mexican ice cream/snacks
+8f83e353-9543-4a86-afe8-e6df96ad91b0,LACARCACHA,restaurants,https://www.facebook.com/LaCarcachaLakeHavasu/,facebook,high,apply,1670 McCulloch Blvd N
+246ff9ad-a0bc-462e-941e-87446b3c781b,Lina Little China,restaurants,https://www.linslittlechina.com/,website,high,apply,"NAME FIX: this is 'Lin's Little China' (1632 McCulloch) — fix the listing name too"
+dac2b817-85d3-4578-b26c-81332150ec07,Megan & Erik's Water and Ice,restaurants,https://www.facebook.com/megananderikswaterandice/,facebook,high,apply,water/ice/treats
+afbaa47a-ad7f-4c56-89ac-3e916dc37b87,Montana's,restaurants,https://www.facebook.com/p/Montana-Steak-House-LHC-100083264894620/,facebook,med,apply,= Montana Steak House 3301 Maricopa Ave
+6bb40526-fd72-4823-898b-89344076086d,Northside Grill,restaurants,https://www.instagram.com/thenorthsidegrill/,instagram,low,review,"POSSIBLY CLOSED — June 2026 'closing' post; verify before publishing"
+5fa4f6cf-d823-43b3-bd96-5bc33ec4fbaf,Oasis Eateries,restaurants,https://www.facebook.com/p/Oasis-Eateries-61572357991440/,facebook,high,apply,food truck court 201 Swanson Ave
+fa556df7-d3a7-4dc4-a03c-907ad5129e69,Pancho Villa's Taco Shop,restaurants,https://www.facebook.com/102113819428994,facebook,med,apply,717 N Lake Havasu Ave
+7e1a9c47-3f74-4c38-89a2-94207537c5d0,Piccadilly Circus Pizza,restaurants,https://www.instagram.com/piccadillycircuspizza/,instagram,low,review,"IG may be national brand not the LHC gas-station outlet — verify or leave blank"
+da646571-3d02-442c-90c5-7f92d933ba2e,Piccadilly’s and More!,restaurants,https://www.instagram.com/piccadillysandmore/,instagram,high,apply,distinct business from Piccadilly Circus Pizza
+fd5090bd-5bb5-4003-8915-d3bfde07a74e,Rotary Kitchen + Bar,restaurants,https://www.facebook.com/p/Rotary-Kitchen-Bar-100088185796315/,facebook,high,apply,3465 Maricopa Ave
+342cfbf0-22fc-4390-9aa8-94fbca106e20,Roxy’s Beach Bar & Cafe,restaurants,https://www.facebook.com/p/Roxys-Beach-Bar-Cafe-61578384179945/,facebook,high,apply,London Bridge Resort / English Village
+bc9a2737-e35a-4aad-b3ea-429511bc3325,Side Alley Cafe,restaurants,https://www.facebook.com/p/Side-Alley-Cafe-61559516996009/,facebook,high,apply,inside Havasu Lanes
+c9d484ee-c62e-46dd-8532-7e56f66411e6,Straight Outta Carolina BBQ,restaurants,https://www.facebook.com/Straightouttacarolinabbq/,facebook,high,apply,food truck
+12e03614-e364-43f9-8b62-5178f311e859,Stubbys Red Wagon BBQ,restaurants,https://www.facebook.com/p/Stubbys-Red-Wagon-BBQ-100094676832618/,facebook,high,apply,now brick-and-mortar 2038 McCulloch Blvd N
+da2ff634-0549-4ab3-beee-0d7494e4d483,Tasty Waves,restaurants,https://www.facebook.com/tastywaveshavasu/,facebook,high,apply,Big Fin's Tasty Waves 403 English Village
+7c35cf3b-f678-42e7-a330-b26729d41643,Batter Up Bakery,bakeries-and-desserts,https://www.facebook.com/batterup.cakes.az/,facebook,low,review,"AZ cake FB; not confirmed the Havasu one — verify or leave blank"
+7dc7cc8e-6817-45af-811d-2eafd81df20e,Berry Cherry Frozen Yogurt,bakeries-and-desserts,,none,low,review,"only an aggregator (golakehavasu) directory listing found — leaving blank per no-aggregator policy; real shop at 1641 McCulloch"
+bad321ae-3b5e-4627-bd92-cf22e2ae34b7,The Local Craving,bakeries-and-desserts,,none,low,review,"only aggregator directory listing — blank per policy; fro-yo/acai English Village"
+74c8ac5f-b235-4af9-a711-93e8126da369,Peggy's Sunrise Cafe,restaurants,,none,low,review,"real cafe (1584 Countryshire) but no own site or confirmed social found"
+c6b4a73f-570b-4db9-9063-da2955d47310,Cocoloco,restaurants,,none,med,review,"no confident Havasu match (eatcocoloco.com is Oregon) — verify or possibly junk"
+f2028947-05ce-4687-a096-a2a95fe080e1,Farmer's Tavern,bars-and-breweries,,none,med,flag-review,"could NOT find a Farmer's Tavern in Havasu — possibly mis-entered / closed; verify existence"
+64019c79-29d7-442a-8e2d-83af8549a36c,Farn stand goods,bakeries-and-desserts,,none,high,flag-junk,garbled/incomplete name — recommend remove or fix
+154a7afe-471a-4ce2-86af-d1f45f08ca88,Havasu,bakeries-and-desserts,,none,high,flag-junk,bare 'Havasu' is not a business — recommend remove
+b54af4bb-717c-48ce-b3c9-07bb16be3ac3,Tapusallc,restaurants,,none,high,flag-junk,garbled name (mangled LLC?) — recommend remove or fix
+6a6d9f23-14b7-41ad-9408-52bfe9e496ad,DELI LAUNDROMAT,restaurants,,none,high,flag-miscat,it's a laundromat (121 N Lake Havasu Ave) — remove from Eat & Drink
+3c0958d1-96c1-4500-9f95-73eb613cbb5a,The Spot,restaurants,https://thespotlhc.com/,website,high,flag-dup,"DUP of 'The Spot - Pizza, Arcade & More' (same addr/phone/site) — merge; website to survivor"
+cc706bc1-0e1c-46d8-be6e-6ececa1e80d8,The Spot - Pizza Arcade & More,restaurants,https://thespotlhc.com/,website,high,flag-dup,"DUP of 'The Spot' — merge into one; keep the fuller name as survivor"
+a176b6ff-e45f-46e4-b7d5-5337f59705c0,Wolfie's,restaurants,https://wolfiesaz.com/,website,high,flag-dup,DUP of 'Wolfie's Hawaiian inspired Bbq' (same food truck) — merge
+8143eb0e-64f1-4ccc-82e1-052405130c6d,Wolfie's Hawaiian inspired Bbq,restaurants,https://wolfiesaz.com/,website,high,flag-dup,DUP of 'Wolfie's' — merge into one
