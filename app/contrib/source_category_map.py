@@ -171,17 +171,22 @@ def map_business_leaf(
     if direct is None:
         return None
 
-    # A name signal may lift an on-the-water tag to a more specific water leaf,
-    # e.g. a "water tours" listing named "...Kayak Tours" -> kayak-and-paddle.
-    _WATER_LEAVES = {
+    # A name signal may lift a generic-context tag to a more specific leaf:
+    #   * water — a "water tours" listing named "...Kayak Tours" -> kayak-and-paddle;
+    #   * off-road — a CVB "off road"/"ohv" tag maps to the ``off-road-and-ohv``
+    #     *trails* leaf, but a UTV *rental* name lifts it to utv-and-offroad-rentals
+    #     (Session 6b). ``leaf_from_name`` only emits a land-rental leaf on strong
+    #     rental tokens, so a genuine trailhead (no rental language) stays put.
+    _LIFTABLE_LEAVES = {
         "boat-and-watercraft-rentals",
         "boat-tours-and-charters",
         "fishing-charters-and-guides",
         "kayak-and-paddle",
         "jet-ski-and-watersports",
         "marinas-and-launch-ramps",
+        "off-road-and-ohv",
     }
-    if name_leaf is not None and direct in _WATER_LEAVES:
+    if name_leaf is not None and direct in _LIFTABLE_LEAVES:
         return name_leaf
 
     return direct

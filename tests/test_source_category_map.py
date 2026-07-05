@@ -158,6 +158,24 @@ def test_water_tours_named_kayak_lifts_to_paddle() -> None:
     assert map_business_leaf("Water Tours", name="Havasu Kayak Tours") == "kayak-and-paddle"
 
 
+def test_off_road_tag_rental_name_lifts_to_utv_rentals() -> None:
+    # Session 6b: the CVB "off road"/"ohv" tag maps to the off-road-and-ohv
+    # *trails* leaf, but a UTV *rental* name lifts it to the rentals leaf.
+    assert map_business_leaf("Off Road", name="Desert Experience UTV Offroad Rentals") == "utv-and-offroad-rentals"
+    assert map_business_leaf("OHV", name="Havasu RZR Rentals") == "utv-and-offroad-rentals"
+
+
+def test_off_road_tag_trailhead_name_stays_trails() -> None:
+    # No rental language in the name -> no lift; a genuine trailhead stays put.
+    assert map_business_leaf("Off Road", name="SARA Park OHV Trailhead") == "off-road-and-ohv"
+
+
+def test_water_sports_tag_utv_rental_name_lifts_to_utv() -> None:
+    # "water sports" is an ambiguous tag: the name decides. A UTV-rental name
+    # wins over the jet-ski default.
+    assert map_business_leaf("Water Sports", name="Wet Monkey Powersport Rentals") == "utv-and-offroad-rentals"
+
+
 def test_shopping_name_routing() -> None:
     assert map_business_leaf("Shopping", name="Havasu Jewelry Co") == "jewelry"
     assert map_business_leaf("Shopping", name="Main Street Hardware") == "hardware-and-home-improvement"
