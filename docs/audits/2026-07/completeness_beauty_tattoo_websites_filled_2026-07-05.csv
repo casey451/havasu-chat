@@ -1,0 +1,87 @@
+entity_id,name,leaf_slug,proposed_website,url_type,confidence,action,note
+79d9db9f-8729-4fe5-871b-b195abd857c5,Bliss Beauty Lounge,day-spas-and-massage,https://www.facebook.com/Blissbeautyloungelhc/,facebook,high,apply,1939 N McCulloch Blvd
+e424556c-1992-4418-8130-a84846f2553f,Chasing Rays Body Spa,day-spas-and-massage,https://www.instagram.com/chasing_rays_bodyspa/,instagram,high,apply,in Eight Lotus Wellness
+ce7df45a-c7f9-4000-96d6-2c38bf6f9322,Divine Salon and Spa,day-spas-and-massage,https://www.facebook.com/divinesalon928/,facebook,high,apply,divineskincarehavasu.com is a separate biz — not used
+2292c6e1-fb64-4ff2-ac49-979f587941d4,Lash and Mane Beauty Lounge,day-spas-and-massage,https://www.instagram.com/lashmanebeauty/,instagram,high,apply,2125 McCulloch Blvd
+e22a184f-9f71-4bf2-b6ab-e256c3ddf273,Robsnrg bodyworks and massage,day-spas-and-massage,https://www.vagaro.com/robsnrgmassageandbodyworks,website,high,apply,own Vagaro booking site
+eb6e077f-cb41-4f5c-bb15-f9cfb494c09f,Serene wellness & Beauty spa,day-spas-and-massage,https://www.instagram.com/serenespa_lhc/,instagram,high,apply,1947 McCulloch Blvd N
+e4a7654b-7e74-4614-9b4e-41cad2c3c5c6,21 Glam Ave Beauty Lounge,hair-salons-and-barbers,https://www.facebook.com/21glamave/,facebook,high,apply,2121 Swanson Ave
+17b93105-11ee-4a9f-a3ae-52c4b61388fd,Beauty By Heidi Marie,hair-salons-and-barbers,https://www.facebook.com/beautybyheidimarie/,facebook,high,apply,3006 London Bridge Rd
+2411adc2-efd9-426f-b584-38f625aced4b,Env Salon,hair-salons-and-barbers,https://envhairsalon.com/,website,high,apply,own site (EnV Hair Salon)
+cf497440-a47d-4a62-9b89-6af47679d430,Ethereal Beauty Bar,hair-salons-and-barbers,https://www.instagram.com/ethereal_beauty_bar_lhc/,instagram,high,apply,60 Acoma S
+6e18c6ef-e50a-4211-bed4-88e24f741890,Frank Ineffable Barber,hair-salons-and-barbers,https://www.instagram.com/ineffable_barber_shop/,instagram,high,apply,1600 W Acoma Blvd
+8a094bbd-36cd-4910-b825-6b140548f65d,Grease and Glamour Garage,hair-salons-and-barbers,https://www.instagram.com/greaseandglamourgarage/,instagram,high,apply,37 Querio Dr
+ce2ebb54-948f-476e-8154-c87299d4a1e4,Hair Cartel,hair-salons-and-barbers,https://www.facebook.com/p/The-Hair-Cartel-100063520121557/,facebook,high,apply,
+46e8ddf5-e484-4c36-8880-567cd1d40c71,Hair Productions Inc,hair-salons-and-barbers,https://www.facebook.com/HairProductionsHavasu/,facebook,high,apply,
+65bf4402-b29f-4f4b-b04c-3e436218317c,Havasu Hair & Nail Cottage,hair-salons-and-barbers,https://www.instagram.com/havasuhairandnailcottage/,instagram,high,apply,
+d1329e86-1864-4e56-9561-c46e924fd487,Havasu Hair Salon,hair-salons-and-barbers,https://www.facebook.com/hairbylulu78/,facebook,med,apply,do NOT confuse with 'Havasu Hair Design' (havasuhairdesign.com)
+5739e759-d95e-4934-8d57-722fdfdbf861,Havasu's Cut Lounge Barber Shop,hair-salons-and-barbers,https://www.facebook.com/HavasusCutLounge,facebook,high,apply,
+1f98c161-859e-45c6-962b-dde550486b70,Jaded Beauty Salon Studio,hair-salons-and-barbers,https://www.facebook.com/p/Jaded-Beauty-100063713643412/,facebook,med,apply,
+536bbdd2-3d95-4660-8fd1-c368aad80219,Kimberly Michael Salon,hair-salons-and-barbers,https://www.instagram.com/kimberlymichaelsalon/,instagram,high,apply,
+7f7c00a8-471b-41c2-843a-9c647e837c59,La Luna Lounge,hair-salons-and-barbers,https://www.instagram.com/la_luna_lounge_/,instagram,high,apply,distinct from Luna's Massage
+6a214274-59d0-476f-8ad7-4173c41df258,Lavish & Glam Studio,hair-salons-and-barbers,https://lavishandglam.glossgenius.com/,website,high,apply,own GlossGenius site; distinct from Lavish Hair Studio
+28c4c16b-41a5-4fc6-bc02-0ca825a047c0,Lavish Hair Studio,hair-salons-and-barbers,https://www.vagaro.com/lavishhairstudio7,website,med,apply,own Vagaro booking; distinct from Lavish & Glam
+8901e2b8-9a7f-42c7-9bde-34012f3ddd38,LeFemme Lounge,hair-salons-and-barbers,https://www.instagram.com/lefemmelounge/,instagram,high,apply,lash/tan studio
+756d06bb-d6b5-40be-905e-74fbf74c424c,Light & Love,hair-salons-and-barbers,https://www.facebook.com/lightandlovelhc/,facebook,high,apply,esthetics studio 2121 Swanson Ave (confirmed real despite generic name)
+e1fd86fb-8391-4dbd-b619-ce173e467697,Marzae's Hair Co,hair-salons-and-barbers,https://www.facebook.com/MarzaesHairCompany/,facebook,high,apply,
+6f6b2fa4-04ca-4813-ab03-7d6c6e16f205,Poyo_the_barber,hair-salons-and-barbers,https://www.instagram.com/poyo_the_barber/,instagram,high,apply,individual barber
+6e9278cd-adf5-4054-a78f-2e4ef24da81d,Revival Hair Design,hair-salons-and-barbers,https://www.facebook.com/p/Revival-Hair-Design-100070137283871/,facebook,high,apply,NOT revival-hair.com (that's a Tucson salon) — 37 Querio Dr
+b4b92e96-3b58-4460-a050-dc8f2d818740,Salon 928,hair-salons-and-barbers,https://www.facebook.com/p/Salon-928-100054553625852/,facebook,high,apply,1685 Mesquite Ave
+260dbb39-05ea-4279-a458-9b60e39ecf1a,Serenity Beauty Lounge,hair-salons-and-barbers,https://www.facebook.com/p/Serenity-Beauty-Lounge-LHC-100064032750744/,facebook,high,apply,distinct from Serenity Salon Studios
+59e66c21-1dda-46ef-9eec-ffc6448d94df,Shear Magic Salon,hair-salons-and-barbers,https://www.facebook.com/salonshearmagicLHC/,facebook,high,apply,2035 Swanson Ave
+843784b5-df46-4753-acb4-35f3ea4adff1,Sheryl Lynn's Studio Salon,hair-salons-and-barbers,https://www.facebook.com/p/Sheryl-Lynns-Studio-Salon-100070377372596/,facebook,high,apply,2185 McCulloch Blvd N
+4ea7ec8d-0799-46d4-bd84-4b5c49efd1cd,Sigma Gentleman's Barbershop,hair-salons-and-barbers,https://www.vagaro.com/sigmabarber,website,high,apply,own Vagaro booking; 2163 Birch Square
+f834f078-341e-42f5-8394-76b722d237ed,Tease and Polish,hair-salons-and-barbers,https://www.facebook.com/p/Tease-Polish-Salon-100042886076649/,facebook,high,apply,
+197b9789-f78c-457a-a236-37eb08eff8d2,The Cove Salon,hair-salons-and-barbers,https://www.instagram.com/thecove.salon/,instagram,high,apply,296 London Bridge Rd
+dc8421ad-fd1f-47e3-92d8-f8131792b3ea,Velvet Rose Beauty LLC,hair-salons-and-barbers,https://velvetrosebeautyllc.square.site/,website,high,apply,own Square site
+cfe2c680-daa7-4900-bd86-a8b90d9fbc1a,Damn Near Perfect Laser and Skin Spa,med-spas-and-aesthetics,https://www.damnnearperfectlaser.com/,website,high,apply,276 S Lake Havasu Ave
+c03693c8-2961-46bc-a25c-a7106de7bcec,"HavaSpa IV & Boutique, LLC",med-spas-and-aesthetics,https://www.vagaro.com/havaspaivandboutiquellc,website,high,apply,own Vagaro booking
+85c57502-d91d-446d-b9f1-27fd28c422fc,Sculpted MD,med-spas-and-aesthetics,https://www.sculptedmd.com/arizona/havasu/,website,high,apply,chain Havasu location page; 60 Acoma Blvd S
+38af8290-8c28-4d07-8cc6-71d4a8af34c5,"Dolled Up Nails, LLC",nail-salons,https://www.facebook.com/DOLLED.UP.NAILS.BY.DEE/,facebook,med,apply,inside The Rusted Saguaro Salon
+7c9b5c56-d4c6-4dd1-8380-2d3ced87c567,Elite Nails,nail-salons,https://www.facebook.com/Tiffanyelitenailspa/,facebook,high,apply,Elite Nails and Spa; 1668 McCulloch Blvd N
+80a6380c-2293-4482-b3bc-6c8b3a6e5a77,GOOD JOB NAILS,nail-salons,https://www.instagram.com/goodjob_nail/,instagram,high,apply,2169 Swanson Ave
+c0cc4e9c-6454-4c89-9989-b9f52cad3e8f,Jazzed Nails,nail-salons,https://www.instagram.com/jazzed.nailz/,instagram,high,apply,solo tech inside Blush Studio (not taking new clients)
+78950a4f-57a2-40e7-aa9c-c10348b35cd5,Number One Nail Expert & More,nail-salons,https://www.facebook.com/NumberOneNailsLakeHavasu/,facebook,high,apply,canonical of the 3-way Number One dup (keep as survivor)
+2f0095ab-8ea1-4c96-b8db-9cfbdc93b014,"Regal Nails, Salon & Spa",nail-salons,https://www.facebook.com/p/Regal-Nails-Lake-Havasu-City-AZ-100063872261152/,facebook,high,apply,inside Walmart 5695 AZ-95
+8f5cb6e0-7411-4819-abe2-42e7690d981f,Studio 108,nail-salons,https://www.facebook.com/Studio108AZ/,facebook,high,apply,also Vagaro studio108nails
+cd15da14-4b02-49c7-96f8-8be1cccceb33,Tammy Nails,nail-salons,https://www.facebook.com/p/Tammy-Nails-Salon-Pro-Nails-100054597243585/,facebook,high,apply,
+3e8eaa3d-5b14-40b5-bb87-c3449df2b8af,Bare Body and Beauty Bar,tanning,https://www.facebook.com/p/Bare-Body-Beauty-Bar-61557989970922/,facebook,high,apply,
+a89f9fcb-b774-444e-8442-156e09f399e8,HavaZoo Tanning & Clothing Co.,tanning,https://havazooclothingco.com/,website,high,apply,own site
+6ff22dab-996b-4b8c-b30c-99d4a90029bd,Tanning at Tiffanys,tanning,https://www.instagram.com/spray_tans_by_tiffany/,instagram,med,apply,verify city (spray_tans_by_tiffany)
+50769114-f36b-4114-8f9f-72c0e553e692,Good Time Tattoo Lake Havasu,tattoo-and-piercing,https://www.instagram.com/goodtime.tattoo/,instagram,high,apply,related to London Bridge Tattoo (shared artist)
+9f0ae956-c3c9-4a55-809b-c1d223a17196,HiveMind Tattoo,tattoo-and-piercing,https://www.instagram.com/hivemind.tattoo,instagram,high,apply,
+d12edcb9-1b66-4ae7-ba21-a0173a31dce9,Inked & Skrewed,tattoo-and-piercing,https://www.instagram.com/inked_skrewed/,instagram,high,apply,
+6f9c25af-d2a2-4a84-b848-f3c5fee93815,Lake Havasu London Bridge Tattoo,tattoo-and-piercing,https://www.londonbridgetattoo.net/,website,high,apply,own site
+3460d107-8214-4ef9-82f6-d85c329c148a,Saints and Sinners Tattoo,tattoo-and-piercing,https://saintsandsinnerstattoo.online/,website,high,apply,own site; Havasu + Parker locations
+ef8f2638-fc19-48b3-9f6d-fc90227d46ca,Wild Goose Tattoo,tattoo-and-piercing,https://www.instagram.com/wildgoosetattoo/,instagram,high,apply,owner Bryan M
+1ecbc4d7-ce17-4ecc-a2d9-22cc7ae63c2c,"Complexions, Clinical Skin Care and Waxing Studio",day-spas-and-massage,https://www.facebook.com/people/Complexions/100063774541379/,facebook,low,review,Yelp lists CLOSED (Jan 2026) — verify before applying
+0041a98d-6a5c-4b84-887a-4c41f3823c62,Jacklyn's Nail Studio,nail-salons,https://www.facebook.com/p/Jacklyns-Salon-Specialists-100064877760429/,facebook,low,review,found only as 'Jacklyn's Salon Specialists' — likely same biz name-drift; verify
+528a207f-6b42-473a-be2e-4abaab8fa46e,Queen Aesthetic,med-spas-and-aesthetics,,none,low,flag-review,no LHC match (Queen Aesthetics results are Houston TX) — verify existence
+56ca3c0a-b771-4a3d-bb65-34db52d60672,Heart of Gold Fine Line Tattoo and Art Studio,tattoo-and-piercing,,none,low,flag-review,no confirmed Havasu presence (Heart of Gold results are Salt Lake City) — verify
+94ab0292-151b-44b9-88c6-395bf431c911,The Guided Hand Tattoo Studio,tattoo-and-piercing,,none,low,flag-review,only an unclaimed Yelp listing (closed hours) — possibly inactive; verify
+536fd881-a2c7-41a3-affb-713934aafde0,Beautiful,day-spas-and-massage,,none,low,flag-junk,garbled/generic name — no business found; recommend fix or remove
+3e1f62d1-621e-4ff6-bc6f-ee3230ac4521,TG Kutter,hair-salons-and-barbers,,none,low,flag-junk,no match under this name — possibly garbled; verify or remove
+a6b38893-359b-4c95-91fd-a8b239e2ed41,Number One Nails,nail-salons,,none,med,flag-dup,DUP of 'Number One Nail Expert & More' (78950a4f) — collapse
+acae4100-f4c0-4574-8d87-2302784c2baa,Number One Nails,nail-salons,,none,med,flag-dup,DUP of 'Number One Nail Expert & More' (78950a4f) — collapse
+bad7f1c8-542b-4bc1-95df-8ac576e48291,Havasu Therapeutic Center,day-spas-and-massage,,none,low,none,directory-only; no own web presence
+9140eaa2-5f85-4ad3-b232-7fe7dc1f909d,Beautinails Skincare & More,hair-salons-and-barbers,,none,low,none,directory-only; no own web presence
+7d40d077-35b8-462a-af21-47d2b455d7da,Boulevard Hair & Nail Salon,hair-salons-and-barbers,,none,low,none,directory-only; no own web presence
+451a8a29-dfef-40f4-815c-a719b32c000c,"Brannon Velau, Hair Artist",hair-salons-and-barbers,,none,low,none,individual stylist; no page found
+2f427073-cb3c-4d76-98ec-3ce4427472c3,CindyRella'z Hair Salon,hair-salons-and-barbers,,none,low,none,directory-only; no own web presence
+ebdcd3ff-b56f-4ee6-bd19-c23b1a7ea11c,Gina's Hair Society,hair-salons-and-barbers,,none,low,none,only a personal stylist IG; no salon page
+6b436d20-356e-489a-8ce6-6d6c451879bf,Gus's Hair Shop,hair-salons-and-barbers,,none,low,none,directory-only; no own web presence
+73ab16ba-daf3-4cc3-bb39-aa2db9e20f8c,Hair and Nails by Danica,hair-salons-and-barbers,,none,low,none,directory-only; no own web presence
+cd436ad4-c4e4-4cac-aa9b-9350e34dd551,Head 2 Toes,hair-salons-and-barbers,,none,low,none,no own web (headtoesalonandspa.com is a different biz)
+903d0ddc-5c2b-4fad-95c9-b45bff73cf1e,Janice's Beauty Salon,hair-salons-and-barbers,,none,low,none,only an unclaimed FB stub
+5db0b919-c5ab-4c7e-a2f5-bfa149c4793c,Jimmy's Barber Shop,hair-salons-and-barbers,,none,low,none,directory-only; no own web presence
+6c8e1f66-5da7-42a7-8376-9ca0aa1bec29,John's Barber Shop,hair-salons-and-barbers,,none,low,none,directory-only; no own web presence
+14f2b1e0-07aa-44eb-b526-6ae836f01bbd,Kerry Bond,hair-salons-and-barbers,,none,low,none,individual stylist; no confident match
+f20b981a-fa46-4b86-b391-397b72eb80bf,Ray's Flat Top Joint,hair-salons-and-barbers,,none,low,none,directory-only; no own web presence
+ab421a64-959f-4ed0-9572-f056bce56ab7,The Beauty Bungalow Hair & Nail Salon in Havasu,hair-salons-and-barbers,,none,low,none,Yelp-only (aggregator) — left blank per policy; 2069 McCulloch Blvd N
+64101e53-fa41-4544-9198-da42ee48df44,Almond nails,nail-salons,,none,low,none,Yelp-only (aggregator) — left blank per policy; 450 Lake Havasu Ave
+964d52c5-b09d-45e3-a749-2dc8d9f9b8a3,Debbie's #1 Nails,nail-salons,,none,low,none,Yelp-only (aggregator) — left blank per policy; 1644 McCulloch Blvd N
+3322fd93-5504-46cb-888f-04e1fcc6dd11,Nails By Jaylee,nail-salons,,none,low,none,Yelp-only (aggregator) — left blank; verify still active
+00be5e6c-7af8-4c84-9644-36ce89336870,Nails By Jen,nail-salons,,none,low,none,no confident match (a 'Nails By Jessica' exists) — verify
+38ba6e40-91ae-47bc-92dc-937caa51a93f,Ocean Nail & Waxing Salon,nail-salons,,none,low,none,directory-only; no own web presence
+62ccc480-b73d-4194-aa9a-f924d761f418,Glamazon Beauty,tanning,,none,low,none,Yelp-only; NOT the glamazonbeauty.com cosmetics brand (different entity)
+831f32b6-bed3-4607-963a-8e10db8fb52a,JordanElise Tanning,tanning,,none,low,none,mobile spray-tan; no confirmed own site/social
