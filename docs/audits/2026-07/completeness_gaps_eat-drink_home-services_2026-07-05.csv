@@ -1,0 +1,621 @@
+entity_id,name,dept_slug,leaf_slug,backing,has_website,has_hours,has_address,has_phone,current_website
+511cb5d8-6d2b-417a-ba6a-b5bb13428c43,Amore Pie & More,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://www.newamorepieandmore.com/
+c0f6631e-57d2-4410-b184-f25aa4a81a97,Baskin-Robbins,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://locations.baskinrobbins.com/az/lake-havasu-city/85-lake-havasu-ave-n?utm_source=google&utm_medium=organic&utm_campaign=Yext
+7c35cf3b-f678-42e7-a330-b26729d41643,Batter Up Bakery,eat-and-drink,bakeries-and-desserts,provider,0,0,1,1,
+7dc7cc8e-6817-45af-811d-2eafd81df20e,Berry Cherry Frozen Yogurt,eat-and-drink,bakeries-and-desserts,provider,0,0,1,1,
+b1460a0b-50e5-4e67-9972-0c392a72e8f8,Cakelicious Creations,eat-and-drink,bakeries-and-desserts,provider,0,0,1,0,
+5cda3872-4c65-4d51-95d0-c6d17d2b413f,Churned Creamery - Lake Havasu City,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://churned-creamery.com/
+52ef0a53-d7ee-4f3c-9cbc-2320e4ba0bff,Cool Treats,eat-and-drink,bakeries-and-desserts,provider,0,0,1,1,
+66c484cc-72be-4fbb-b242-02b1d5bf07e9,Donut Post,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://donutposthavasu.com/
+f8efa3b3-e96b-4854-a3d6-8ee8ce7d4c7f,Donut Post South,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://donutposthavasu.com/
+5acdcfde-f66a-4c8c-a0bb-a5eef9ed5d57,Dose of Sugar,eat-and-drink,bakeries-and-desserts,provider,1,0,1,0,https://doseofsugar.net/
+64019c79-29d7-442a-8e2d-83af8549a36c,Farn stand goods,eat-and-drink,bakeries-and-desserts,provider,0,0,1,0,
+3dd19127-a3ef-45a6-baff-7f113082e413,Frozen Spoon,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://www.frozenspoonyogurt.com/
+334d2f0d-1243-4ff1-9aed-2c6307a66c03,Harvest Moon Bakery,eat-and-drink,bakeries-and-desserts,provider,0,0,1,1,
+154a7afe-471a-4ce2-86af-d1f45f08ca88,Havasu,eat-and-drink,bakeries-and-desserts,place,0,0,1,0,
+3203755a-7110-4417-83f5-271ed4c49afe,Heather's Water & Ice,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://www.facebook.com/heatherswaternice
+f8b61223-6c92-49b4-9063-7b3a85a27084,Kreations by Kendra,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://facebook.com/kreationsbykendra
+6e4c008e-4a79-4a5a-925c-caa86fed2be8,LA MICHOACANA,eat-and-drink,bakeries-and-desserts,provider,1,0,1,0,https://www.facebook.com/profile.php?id=100085299109638&mibextid=LQQJ4d
+5aff1977-3c14-4aa1-b54a-e6459d14c4c6,Megan And Erik's Water and Ice and Ice Cream,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://www.facebook.com/megananderikswaterandice/?ref=py_c
+67f2be83-8159-4404-949c-e4d299ab2ef4,Megan and Erik's Water and Ice and Ice Cream Smith's,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://www.facebook.com/megananderikswaterandice
+e885c6d2-5efd-4b75-ae1b-07a32bb00c88,Ronica's Sweet Buns,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://ronicassweetbuns.com/
+89a1f5d0-c3ce-4235-bc63-e2c64c8c5ee3,Safeway Bakery,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://local.safeway.com/safeway/az/lake-havasu-city/1650-mcculloch-blvd-n/bakery.html
+956d6bf6-430d-4114-9afd-f90f976f3000,Scoops Homemade Ice Cream,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://www.scoopshomemade.com/
+77d742fe-a637-43c9-b442-3caec5dba9d8,Shugrue's Cornerside Bakery,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,http://shugrueslakehavasu.com/bakery
+3602fda3-6687-4e2f-af50-0d1c5a25149e,Smallcakes: Cupcakery & Creamery,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://www.smallcakescupcakery.com/
+a094f4a4-182a-4732-bd6d-550b889eb674,Sweet Creations,eat-and-drink,bakeries-and-desserts,provider,0,0,1,1,
+a654c04a-cd6b-4bfc-a5bc-d6cf4d04807e,Sweet Treats & More,eat-and-drink,bakeries-and-desserts,provider,0,0,1,1,
+bad321ae-3b5e-4627-bd92-cf22e2ae34b7,The Local Craving,eat-and-drink,bakeries-and-desserts,provider,0,0,1,1,
+91aa38f1-5058-41e6-a631-a82602cd66af,Walmart Bakery,eat-and-drink,bakeries-and-desserts,provider,1,0,1,1,https://www.walmart.com/store/1364-lake-havasu-city-az/bakery/
+6a8c43d2-9ca6-4b46-9cc9-4be93e1985fd,Yogurt Paradise,eat-and-drink,bakeries-and-desserts,provider,0,0,1,1,
+cded2f9d-fae6-4399-9066-f98f27a29387,Barley Brothers Brewery,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://barleybrothers.com/
+6b936ae1-236e-42d0-bd00-95e42caa02c5,Best Brews Taproom,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://m.facebook.com/bestbrewstaproom
+a4d6a947-e80a-45e9-81c8-3f3f2db5eaf1,BJ's | Cabana Bar & Karaoke,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://bjscabanabar.com/
+125da8ea-4140-469d-891c-dec7d0f28b61,Bogeys & Stogies,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://www.ironwolfgcc.com/bars-grills-restaurants-lake-havasu-az
+17aef7a5-6411-41a4-99eb-0220f3e777b5,College Street Brewhouse & Pub,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://www.collegestreetbrewhouseandpub.com/
+e4b3b542-df36-4f76-99ae-d0ecc3188b29,Copper Still Distillery,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://copperstilldistillery.com/
+0568edd7-bf0c-405a-8666-2f0bcb856895,Desert Martini,eat-and-drink,bars-and-breweries,provider,1,0,1,0,https://www.facebook.com/desertmartini
+f2028947-05ce-4687-a096-a2a95fe080e1,Farmer's Tavern,eat-and-drink,bars-and-breweries,provider,0,0,1,0,
+d4381683-2288-4b41-bf54-0f74f3208e1f,Flying X Saloon,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://flyingxsaloon.com/
+7642fa01-4c16-43e9-bfec-ab902a23de77,Gallagher's Dining & Pub,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://www.gallaghersllc.com/
+90f5ea55-cc7a-4098-b26a-fff683925e51,Ghost Mine Saloon,eat-and-drink,bars-and-breweries,provider,1,0,0,1,https://ghostminesaloon.com/
+9302dfce-77a4-41cc-b12c-ca381bcec26b,Glitch Barcadium,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://www.glitchbarcadium.com/
+6fe7567a-f5c6-4459-a0aa-49eaa5d796c5,Grapes N Grains,eat-and-drink,bars-and-breweries,provider,0,0,1,1,
+689c507f-ab91-44c2-83c3-415ed0009967,Hangar 24 Lake Havasu,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://hangar24brewing.com/taprooms/lake-havasu-city/
+02cb8254-6cea-4594-87fe-7887b8d5111a,Harleyz And Hot Rodz,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://harleyzandhotrodz.com/
+38e90e8d-b356-4afd-989f-474cf3889621,HEAT Bar,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://www.heathotel.com/bar/
+b051d792-ed09-4f18-8484-255f5d8f8dcd,Island Mall & Brewery,eat-and-drink,bars-and-breweries,provider,0,0,1,0,
+df10a91e-53e1-400f-b06c-db488071acf9,Kokomo Beach Club,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://www.kokomohavasu.com/
+c5d0022d-2d9e-4f90-ac16-26a0d5370697,Legendz Sports Bar & Grill,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://legendzbarandgrill.com/
+d742b028-064a-4e10-9185-0ea48a0e5442,Lighthouse Lounge,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://www.facebook.com/profile.php?id=61550826508124&mibextid=ZbWKwL
+538348aa-1e7a-4af0-adc6-636d19e29a33,Martini Bay,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://www.martinibay.com/
+51f07cfa-96fc-4057-93e1-9f85e0fc6a07,McKee's,eat-and-drink,bars-and-breweries,provider,0,0,1,0,
+62254956-b7d2-4359-89c3-5162a1e124ef,McKee's Pub & Grill,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://mckeespubgrill.shop/
+408014e1-ec78-479e-890d-3c82dfdbc872,Mudshark Brewery and Public House,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://www.mudsharkbrewery.com/
+b3ca423a-b6f0-41c7-b808-edf1e349676b,R Bar and Grill,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://m.facebook.com/rbarandgrilllakehavasu?tsid=0.06781653594225645&source=typeahead
+2299c6db-f9fa-490f-956b-10cca5987e9d,R.O. Bar,eat-and-drink,bars-and-breweries,provider,0,0,1,0,
+33b515c3-6965-4c35-a84b-10eccd27a42f,Tavern 95,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://tavern95lhc.com/
+46e4e83c-962b-4d76-a2c5-02834f42e638,The Office,eat-and-drink,bars-and-breweries,provider,0,0,1,0,
+83e3f94f-f6b5-4fd5-a090-5c8b662daa0c,The Office Cocktail Lounge & Grill,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://officebarhavasu.com/
+c1e83631-fe62-4b68-8656-a25e8ed734a7,Turtle Beach Bar,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://nauticalbeachfrontresort.com/food-drink/naked-turtle-beach-bar/
+e2510e0e-6f52-433b-af3a-8b321b873ffd,Waters Edge Winery Havasu,eat-and-drink,bars-and-breweries,provider,1,0,1,1,https://wew.wine/havasu/
+37a6663f-8bd4-4852-a7ab-ef4313b7c63c,Charged Up Nutrition Bar,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://chargedup.herbalife.com/
+1fbe31b2-3bfa-40b8-81e5-95367888ad92,Colombian Joe's Coffee,eat-and-drink,cafes-and-coffee,provider,1,0,1,0,https://colombianjoesbeveragebar.com/
+cfcfc8be-b25a-4439-b685-b0fa5465cce5,Dunkin',eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://locations.dunkindonuts.com/en/az/lake-havasu-city/14750-highway-95/358550?utm_source=google&utm_medium=local&utm_campaign=localmaps&utm_content=358550&y_source=1_MTQyMTczNzQtNzE1LWxvY2F0aW9uLndlYnNpdGU%3D
+db49a11b-204c-4289-b71d-61b27c6bfbf7,Dunkin',eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://locations.dunkindonuts.com/en/az/lake-havasu-city/85-lake-havasu-ave-n/356018?utm_source=google&utm_medium=local&utm_campaign=localmaps&utm_content=356018&y_source=1_MTIxMDk5OTktNzE1LWxvY2F0aW9uLndlYnNpdGU%3D
+4139f74b-b3d9-4a4e-8c78-e8a4c46e0fab,Dutch Bros Coffee,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://www.dutchbros.com/locations/az/lake-havasu-city/1621-mcculloch-blvd-n?y_source=1_OTI1OTU2MTQtNzE1LWxvY2F0aW9uLndlYnNpdGU%3D
+914905f5-2ac9-4afa-8850-3c0afc73cf5d,Hav A Craving,eat-and-drink,cafes-and-coffee,provider,0,0,1,1,
+15c73487-3905-4b1c-aa05-115d5abf804e,Keva Juice,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://kevajuice.com/
+b03f195c-2b63-4f7f-8d54-b50bb4a3beac,Loaded Gun Coffee,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://loadedguncoffee.com/
+d7a29c6e-6b86-4355-93d6-c6183b2ef888,Pick Ur Potion Coffee Co,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://pupcoffeeco.com/
+c1e4fb43-75f2-44e3-8ad9-72cfa57ef508,River Blend Coffee Company,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://riverblendcoffee.com/
+5fa2becd-ae6a-4a95-9b4f-8c494980e13a,Starbucks,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://www.starbucks.com/store-locator/store/1045239/terribles-lake-havasu-roadhous-14768-az-95-lake-havasu-city-az-86404-us
+02933988-487a-409f-ac03-3d6328ef4478,Starbucks Coffee Company,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://www.starbucks.com/store-locator/store/1006189
+687c4183-fd78-45ba-bd8b-1cb7d0d79498,Starbucks Coffee Company,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://www.starbucks.com/store-locator/store/14888/
+5c71b631-6d4d-4b48-bc1b-893e5da958b2,Starbucks Coffee Company,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://www.starbucks.com/store-locator/store/13077
+58e88f27-76ff-4045-bff7-ca45dbbea4f0,Starbucks Coffee Company,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://www.starbucks.com/store-locator/store/1018289/
+36aa9876-8cd7-4e63-b8cc-de8aaae28706,Starbucks Coffee Company,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://www.starbucks.com/store-locator/store/17244
+6f3247f3-a916-4075-a211-b917bf4ebd86,The Human Bean,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://thehumanbean.com/location/human-bean-633-lake-havasu-ave-lake-havasu-city-arizona/
+608e13c9-2c06-4f4b-b9f7-e9bf7dc8af86,The Human Bean,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://thehumanbean.com/location/human-bean-2035-palo-verde-blvd-n-lake-havasu-city-arizona/
+ea51aa64-25da-4beb-9a28-a761ed0b84aa,The Human Bean,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,https://thehumanbean.com/location/human-bean-1736-south-mcculloch-lake-havasu-city-arizona/
+578cf4ae-d9a6-44aa-a78c-d24dfe126916,The KAWS,eat-and-drink,cafes-and-coffee,provider,1,0,1,1,http://www.thekawslhc.com/
+1c7c0866-de6c-4c3a-87c6-3456b128c514,Wild Coffee - Main Street,eat-and-drink,cafes-and-coffee,provider,1,0,1,0,https://wildcoffeeaz.com/
+375ab45c-298b-4c59-bc1e-39e2fc191f3a,Wild Coffee - South Side,eat-and-drink,cafes-and-coffee,provider,1,0,1,0,https://www.wildcoffeeaz.com/
+ef667694-f3e1-4909-b261-4c11e16083bb,Carnivore Caravan,eat-and-drink,food-trucks-and-catering,provider,1,0,1,1,https://www.carnivorecaravan.com/
+935c42df-eb85-4535-990a-b13a91aa801f,Good Faith Enterprises,eat-and-drink,food-trucks-and-catering,provider,0,0,1,1,
+5caaec32-57ff-4d94-bebc-3c2480afac4b,Lobster 3 Ways Food Truck,eat-and-drink,food-trucks-and-catering,provider,1,0,1,1,http://www.lobster3ways.com/
+d0084645-eca2-4ea3-ad7f-fb04b435da3c,stevenSMOKED,eat-and-drink,food-trucks-and-catering,provider,1,0,1,1,https://stevensmoked.com/
+a81b367d-38e7-4297-93b9-5de38954fab7,True Eats,eat-and-drink,food-trucks-and-catering,provider,1,0,1,1,https://trueeatsfoods.com/
+22e33f8c-f684-44fc-9deb-24a74320d34d,Arby's,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://www.arbys.com/locations/us/az/lake-havasu-city/240-swanson-ave/store-1997?utm_source=google-my-business&utm_medium=organic&utm_campaign=website-link&y_source=1_MjAyMzUyNTk5Ny03MTUtbG9jYXRpb24ud2Vic2l0ZQ%3D%3D
+d39f0c10-42ca-418f-b027-387cbe19eb12,Born's Best Sandwiches,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://bornsbestsandwichesaz.com/
+3695b801-6f99-4205-8fde-0b3a37f76046,Carl's Jr.,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://locations.carlsjr.com/az/lake-havasu-city/275-n-lake-havasu-avenue
+59ea9fc9-ffb5-40a2-9bfe-4b2898e3d6e0,Carl's Jr.,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://locations.carlsjr.com/az/lake-havasu-city/14875-s-hwy-95
+6ae51d34-252f-4465-8a47-c65a63712ed9,Dairy Queen Grill & Chill,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://www.dairyqueen.com/en-us/locations/az/lake-havasu-city/3195-maricopa-ave/7441/?utm_source=organic&utm_campaign=yext%2F&y_source=1_ODk5NzMxMC03MTUtbG9jYXRpb24ud2Vic2l0ZQ%3D%3D
+a549d4b5-5da4-4272-99cb-ce3f9af6bed9,Del Taco,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://locations.deltaco.com/us/az/lake-havasu/81-london-bridge-rd?utm_source=G&utm_medium=local&utm_campaign=google-local
+c9250382-a416-4c0e-a8c3-90ff74a88a22,Domino's Pizza,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://www.dominos.com/en/?utm_source=google&utm_medium=loclist&utm_campaign=localmaps
+f7a8d1b2-89dd-4b8c-81cd-ed7f8e6f2178,Fat Sub,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://www.tripadvisor.com/Restaurant_Review-g31262-d5064704-Reviews-Fat_Sub-Lake_Havasu_City_Arizona.html
+724b8724-d8fd-46bd-86dd-e54e8db72fe2,Hava Bite,eat-and-drink,quick-bites-and-takeout,provider,0,0,1,1,
+e5605d08-fda5-460a-814e-7a0186cd93fc,Jack in the Box,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://locations.jackinthebox.com/us/az/lake-havasu-city/30-s-lake-havasu-ave?utm_source=google&utm_medium=local&utm_campaign=google-local
+de6f1fb9-2263-410e-aed3-99f438a09885,Jersey Mike's Subs,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://www.jerseymikes.com/9034/lake-havasu-city-az?utm_source=google&utm_medium=organic&utm_campaign=listings
+b2343788-d632-493e-8903-1053a965bd82,Jimmy John's,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://locations.jimmyjohns.com/az/lakehavasucity/sandwiches-2739.html?utm_source=google-my-business&utm_medium=organic&utm_campaign=website-link&y_source=1_MjAyNDA4MzM0My03MTUtbG9jYXRpb24ud2Vic2l0ZQ%3D%3D
+1a7a9113-6880-471c-a532-9584327746c6,McDonald's,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://www.mcdonalds.com/us/en-us/location/AZ/LAKE-HAVASU-CITY/100-SWANSON-AVE/5526.html?cid=RF:YXT:GMB::Clicks
+68521aeb-edfb-4327-9e8d-5ddb0ebdd750,Pizza Hut,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://locations.pizzahut.com/az/lake-havasu-city/2960-n-kiowa-blvd?utm_medium=organic&utm_source=local&utm_campaign=googlelistings&utm_content=website&utm_term=303030
+70ebb8f4-b94f-4c6d-9c39-324fb7e57667,Subway,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://restaurants.subway.com/united-states/az/lake-havasu-city/20-acoma-blvd?utm_source=yxt-goog&utm_medium=local&utm_term=acq&utm_content=60574&utm_campaign=evergreen-2020&y_source=1_MTQ4OTY4NDktNzE1LWxvY2F0aW9uLndlYnNpdGU%3D
+27740e21-bb64-4455-bcc2-042c2690aaaf,Subway,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://restaurants.subway.com/united-states/az/lake-havasu-city/1799-kiowa-avenue?utm_source=yxt-goog&utm_medium=local&utm_term=acq&utm_content=48638&utm_campaign=evergreen-2020&y_source=1_MTQ4OTY4MzktNzE1LWxvY2F0aW9uLndlYnNpdGU%3D
+37497a46-3b5a-42bf-9a72-510213769ab6,Subway,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://restaurants.subway.com/united-states/az/lake-havasu-city/3269-maricopa-ave?utm_source=yxt-goog&utm_medium=local&utm_term=acq&utm_content=30031&utm_campaign=evergreen-2020&y_source=1_MTQ5MTMxMDMtNzE1LWxvY2F0aW9uLndlYnNpdGU%3D
+6cee1c61-0821-4451-8430-4ff10f8df44f,Taco Bell,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://locations.tacobell.com/az/lake-havasu-city/44-n-lake-havasu-ave.html?utm_source=yext&utm_campaign=googlelistings&utm_medium=referral&utm_term=002798&utm_content=website&y_source=1_NjE0MzUxNS03MTUtbG9jYXRpb24ud2Vic2l0ZQ%3D%3D
+92528149-2ed6-41cf-83bb-be1aa2727854,The Burger Den,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://www.theburgerden.com/?utm_source=G&utm_medium=organic&utm_campaign=DAC
+08d6c8a0-8a33-44a8-9afb-1db39cab8739,Wendy's,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,https://locations.wendys.com/united-states/az/lake-havasu-city/14750-az-95?utm_source=Yext&utm_medium=Google_My_Business&utm_campaign=Local_Search
+ccc1633d-e286-4832-ac3b-2e9ce9dc547e,Wienerschnitzel,eat-and-drink,quick-bites-and-takeout,provider,1,0,1,1,http://www.wienerschnitzel.com/location/673-north-lake-havasu-south-palo-verde-lake-havasu-245-n-lake-havasu-lake-havasu-az-86403/?utm_source=google&utm_medium=profiles&utm_campaign=local_profiles
+4def68ab-955a-40cd-bb7f-aa07be809b21,Albertsons Deli,eat-and-drink,restaurants,provider,1,0,1,1,https://www.albertsons.com/
+1d917f5e-15e7-488e-9d3b-672e41322165,Amigos Birria Tacos,eat-and-drink,restaurants,provider,1,0,1,1,https://www.amigosbirriatacos.com/
+9949a58b-fc66-4f8d-bf66-bcb83aac5b91,Angelina's Italian Kitchen,eat-and-drink,restaurants,provider,1,0,1,1,https://www.angelinaskitchens.com/
+b01dfa3d-b849-4104-8b2a-577948c6d243,Arizona Rebel Republic Havasu,eat-and-drink,restaurants,provider,1,0,1,1,https://havasu.azrebelrepublic.com/
+49fd61ec-0db3-4c60-83e6-c232ac870b74,Azul Agave,eat-and-drink,restaurants,provider,1,0,1,1,https://azulagaveaz.com/
+5d12e0e4-ebf1-4807-a68b-cc6c07fa96ad,Babaloo Lounge,eat-and-drink,restaurants,provider,1,0,1,1,https://www.babaloolounge.com/
+f9d90bec-0e4c-4ad3-88d1-fb0faf536525,Bad Miguel's,eat-and-drink,restaurants,provider,1,0,1,1,https://www.restaurantji.com/az/lake-havasu-city/bad-miguels-mexican-restaurant-/
+19f0707b-e8f5-4c91-94c9-165321747d4f,Bad Miguel's Mexican Restaurant,eat-and-drink,restaurants,provider,1,0,1,1,https://www.facebook.com/pages/Bad-Miguels/166162600076069
+4343364e-3b66-4fbf-8c42-5aceaf2a6383,Bigfoot fry co.,eat-and-drink,restaurants,provider,0,0,1,0,
+3aee78aa-7792-446f-bdb6-14b7bc71e102,Black Bear Diner Lake Havasu,eat-and-drink,restaurants,provider,1,0,1,1,https://blackbeardiner.com/location/lake-havasu-city/
+1fa95612-1f7b-48c6-b5ee-5f445d67f1d0,Black Meadow Landing Diner,eat-and-drink,restaurants,provider,1,0,0,1,https://www.blackmeadowlanding.com/diner?utm_medium=referral&utm_source=go+lake+havasu&utm_campaign=go+lake+havasu+diner+listing_
+b79838b3-ebc8-4fc4-ad41-2aca6b81ec5c,BlondZee's Steak House,eat-and-drink,restaurants,provider,1,0,1,1,https://blondzees.com/arizonaLocation.html
+343c291f-2b78-4db2-aead-5fc2771d79b8,Boat House Grill,eat-and-drink,restaurants,provider,1,0,1,1,https://www.boathousegrillaz.com/dinner
+f1b1c787-d9a1-4276-ac9c-e8b5a7065a12,Bonfire BBQ & Catering,eat-and-drink,restaurants,provider,1,0,1,1,https://bonfirebbq.us/
+43f1b6cf-7a5f-4cd3-93bf-7fe0c8793152,Booby Falls Restaurant & Rodeo,eat-and-drink,restaurants,provider,1,0,1,1,https://www.facebook.com/profile.php?id=61585650462660
+ef104299-2ae0-4a4b-b3dc-ea502bfb8d12,Broken Yolk Cafe,eat-and-drink,restaurants,provider,1,0,1,1,https://www.thebrokenyolkcafe.com/
+d139bca9-9357-43de-970f-7ad815a754cc,Buffalo Wild Wings,eat-and-drink,restaurants,provider,1,0,1,1,https://www.buffalowildwings.com/locations/?utm_source=google%20my%20business&utm_medium=organic&utm_campaign=website%20link
+39253c6f-a24a-40f0-ad06-31dd77e0ba7a,Burgers by the Bridge,eat-and-drink,restaurants,provider,1,0,1,1,https://www.burgersbythebridge.com/
+ac1b7d76-2959-42fd-b61d-e6d595608b7f,Burrito Shak,eat-and-drink,restaurants,provider,1,0,1,1,https://www.burritoshak.com/
+fdf3da49-9767-49ad-a7d5-ff3015282806,ChaBones,eat-and-drink,restaurants,provider,1,0,1,1,http://www.chabones.com/
+f45688a9-116a-4ebb-bfee-4aa3b0bd4fdc,Chico's Tacos,eat-and-drink,restaurants,provider,1,0,1,1,http://www.chicostacoslhc.com/
+322b3264-a55c-4798-85a6-f8097a7155e7,Chili's Grill & Bar,eat-and-drink,restaurants,provider,1,0,1,1,https://www.chilis.com/locations/us/arizona/lake-havasu-city/lake-havasu?utm_source=google&utm_medium=local&utm_campaign=Chilis
+27bbc08a-d2b1-4940-b72f-15885f80569f,Chipotle Mexican Grill,eat-and-drink,restaurants,provider,1,0,1,1,https://locations.chipotle.com/az/lake-havasu-city/55-lake-havasu-ave-s?utm_source=google&utm_medium=yext&utm_campaign=yext_listings?restaurant=1897
+c6b4a73f-570b-4db9-9063-da2955d47310,Cocoloco,eat-and-drink,restaurants,provider,0,0,1,0,
+73940aba-0788-460a-8913-83590d902923,Culver’s,eat-and-drink,restaurants,provider,1,0,1,1,https://www.culvers.com/restaurants/lake-havasu-city-az-countryshire-ave/?utm_source=Google&utm_medium=Maps&utm_campaign=Google+Places
+b01db653-737b-4769-96f9-16f931c0aeef,Dairy Queen,eat-and-drink,restaurants,provider,1,0,1,1,http://www.dairyqueen.com
+6a6d9f23-14b7-41ad-9408-52bfe9e496ad,DELI LAUNDROMAT,eat-and-drink,restaurants,provider,0,0,1,0,
+41767efe-f44f-4926-8518-ec77f3459973,Denny's,eat-and-drink,restaurants,provider,1,0,1,1,http://www.dennys.com
+558af03d-0b76-4866-9eaf-92b01cdc6418,Denny's Restaurant,eat-and-drink,restaurants,provider,1,0,1,1,https://locations.dennys.com/AZ/LAKE-HAVASU-CITY/247085?utm_source=G&utm_medium=organic&utm_campaign=DAC
+45f984d8-9843-4bb1-aa1f-7d37be4b7c54,Desert Martini Too,eat-and-drink,restaurants,provider,0,0,1,1,
+2a121025-d5e5-4b1a-a378-8192e8a59c10,Dolce To-Go,eat-and-drink,restaurants,provider,1,0,1,1,https://dolcetogo.com/
+ef78efd8-fe42-4322-987d-9dffca248645,Domino's Pizza,eat-and-drink,restaurants,provider,1,0,1,1,https://www.dominos.com/en/?utm_source=google&utm_medium=loclist&utm_campaign=localmaps
+5c6cfb14-c84a-4d44-863d-172cb2dfc885,Dos Amigos Taco's,eat-and-drink,restaurants,provider,1,0,1,1,https://dosamigoslhc.com
+a61faa72-55ec-451d-a9f4-f75720fdfb4f,Dos Amigos Tacos,eat-and-drink,restaurants,provider,0,0,1,1,
+3c710353-3b36-4b3e-87d3-fd0214915548,Ed's Deli,eat-and-drink,restaurants,provider,1,0,1,1,https://edsdeliaz.com/
+b9fbcb42-477c-4cf3-a7b4-3efb85db1809,El Mariachi Mexican Restaurant,eat-and-drink,restaurants,provider,1,0,1,1,https://elmariachilhc.com/
+0f95a86e-d019-41b1-b425-3518214bd190,El Padrino Italian Bistro,eat-and-drink,restaurants,provider,1,0,1,1,https://elpadrinoaz.com/
+abcc82d1-3d6f-49a8-8bd8-43516fe65bac,El Paraiso Mexican,eat-and-drink,restaurants,provider,0,0,1,1,
+84895266-b797-4cf5-ac98-0c4312b4af87,El Pollo Loco,eat-and-drink,restaurants,provider,1,0,1,1,https://restaurants.elpolloloco.com/az/lake-havasu/282-north-lake-havasu-ave?utm_source=gmb&utm_medium=yext
+0bc2c9c0-cf38-4b25-bf4f-f9f092b39365,Filiberto's,eat-and-drink,restaurants,provider,1,0,1,1,https://filibertos.com/
+9e7f0eb6-e54c-4bfa-af6d-d8c81da90847,Filiberto's Mexican Food,eat-and-drink,restaurants,provider,1,0,1,1,https://filibertos.com
+17b327b1-2b03-41c7-8f22-b45a7dfca732,Flame Broiler,eat-and-drink,restaurants,provider,1,0,1,1,https://flamebroilerusa.com/locations/lake-havasu-city/
+cf5e2da4-3c63-4da2-9159-843408d683e0,Foundry,eat-and-drink,restaurants,provider,1,0,1,1,https://www.foundryhavasu.com/
+3d54253a-a250-4775-b6ea-4a9fd4a57b3d,Golden Phoenix | Chinese Restaurant,eat-and-drink,restaurants,provider,1,0,1,1,https://goldenphoenixlhc.com/
+6f62e2de-e31e-4ed9-90f1-baa468a8db30,Grill Max Havasu,eat-and-drink,restaurants,provider,1,0,1,1,https://www.grillmax.net/
+362cd851-30ee-442b-ac16-025b265f48fa,Habit Burger & Grill,eat-and-drink,restaurants,provider,1,0,1,1,https://www.habitburger.com/
+18bd5f6f-3d5c-475a-aa3c-5e2b005c3cc3,Hangar 24 Taproom & Restaurant,eat-and-drink,restaurants,provider,1,0,1,1,https://www.hangar24brewery.com
+9949d4a0-2116-4149-bdc8-ed24f1a824c4,Hava Bite Sushi,eat-and-drink,restaurants,provider,1,0,1,1,https://www.havabitesushi.com/
+6344141e-50fe-4b67-a89b-a569bfb85782,HEAT Bar @ The HEAT Hotel,eat-and-drink,restaurants,provider,1,0,1,1,https://www.heathotel.com
+aa42fd11-1d87-4b42-b769-184f72fe535c,Humberto's Taco Shop,eat-and-drink,restaurants,provider,1,0,1,1,https://humbertosmexfood.com
+ca623dec-876b-4ce5-b8aa-b38be1931008,Ichiban Sushi,eat-and-drink,restaurants,provider,1,0,1,1,https://ichibansushilhc.com/
+3204d3a8-8b68-49fe-8f25-982b74a9a9b2,IHOP,eat-and-drink,restaurants,provider,1,0,1,1,https://restaurants.ihop.com/en-us/az/lake-havasu-city/breakfast-101-paseo-del-sol-3033?utm_source=google&utm_medium=organic&utm_campaign=google_my_business&utm_term=3033&utm_content=website
+e6dffbce-7377-4628-ba15-9ac759881497,In-N-Out Burger,eat-and-drink,restaurants,provider,1,0,1,1,https://locations.in-n-out.com/143
+5644bd16-8a6b-40b2-b432-b0ada6866707,Islander Pizzeria,eat-and-drink,restaurants,place,0,0,1,1,
+0c4c2275-b085-4a57-874c-3fdbee9c4511,It's Just Wings,eat-and-drink,restaurants,provider,1,0,1,1,https://locations.itsjustwings.com/az/lake-havasu-city/lake-havasu-its-just-wings?utm_source=google&utm_medium=local&utm_campaign=IJW
+f3dacfd1-9c96-40b8-8fcc-9e6963a6c1e9,Javelina Cantina,eat-and-drink,restaurants,provider,1,0,1,1,https://javelinacantina.com/
+f0d0dc49-3713-4ce4-883f-32c50221cfd3,Jersey's American Grill,eat-and-drink,restaurants,provider,1,0,1,1,https://eatjerseys.com/
+fa621c58-b644-4443-926f-6a89dc09c8f8,"Juicy's, The Place With The Great Food",eat-and-drink,restaurants,provider,1,0,1,1,https://juicysgreatfood.com/
+d7cadc95-8949-430c-9e33-5f0fcf122f2b,Kegler's Pub at Havasu Lanes,eat-and-drink,restaurants,provider,1,0,1,1,https://havasulanesaz.com
+b4975b58-aaa0-4927-86ab-f0f238bab178,Ken's Pizza N Pasta,eat-and-drink,restaurants,provider,1,0,1,1,http://kenspizzanpasta.com/
+fa2e1808-bed6-4d54-b560-6271d5b15435,KFC,eat-and-drink,restaurants,provider,1,0,1,1,https://locations.kfc.com/az/lake-havasu-city/195-north-lake-havasu-avenue
+99fe3efc-220f-4aef-89ae-60d694a069a5,Kitchen 738,eat-and-drink,restaurants,provider,1,0,1,0,https://kitchen738.com/
+fcb4a959-eeb8-485d-8282-a7a5e1d2be30,"Kokomo - Beach, Surf & Party Bar",eat-and-drink,restaurants,provider,1,0,1,1,https://www.kokomohavasu.com
+2626cbc8-49e3-42ef-b5c4-d1d4aa7c826f,La Baja Havasu,eat-and-drink,restaurants,provider,1,0,1,1,https://labajahavasu.square.site/
+411c9c12-a951-4062-8c0f-d29befb28f9c,La Michoacana Frutsi,eat-and-drink,restaurants,provider,0,0,1,1,
+c4a1ce55-eb42-4876-a135-5e4d17457529,La Toxica Taco Shop,eat-and-drink,restaurants,provider,1,0,1,1,https://latoxicatacoshop.com/
+91b047f6-6504-4f8d-b46e-5bbeb6c3f358,La Vita Dolce | Italian Bistro and Lounge,eat-and-drink,restaurants,provider,1,0,1,1,https://www.lavitadolcelhc.com/
+8f83e353-9543-4a86-afe8-e6df96ad91b0,LACARCACHA,eat-and-drink,restaurants,provider,0,0,1,1,
+6939ac54-f2f5-4754-8bd2-418123af8c18,Lake View Grill,eat-and-drink,restaurants,provider,1,0,1,1,https://www.lakehavasugolfclub.com/lake-view-grill
+930bb7e1-f1ce-4f99-80fb-8b38cce04487,Lin's Little China,eat-and-drink,restaurants,provider,1,0,1,1,https://linslittlechina.com/
+246ff9ad-a0bc-462e-941e-87446b3c781b,Lina Little China,eat-and-drink,restaurants,provider,0,0,1,0,
+e720ba59-608c-4289-a73a-fee49d56d602,Little Caesars Pizza,eat-and-drink,restaurants,provider,1,0,1,1,https://littlecaesars.com/en-us/store/9032
+5d5b0163-965b-4ce9-848e-fc514d9fca16,Locos Bar and Cocina - Northside,eat-and-drink,restaurants,provider,1,0,1,1,https://locosbarandcocina.com/locos-bar-cocina-northside/
+e9c601a0-0dd5-4030-b43f-fdd87d21f42c,Locos Bar and Cocina - Swanson,eat-and-drink,restaurants,provider,1,0,1,1,https://locosbarandcocina.com/swanson/
+52fdfd8a-5270-43df-8fc6-6979e270391c,Los Chikis,eat-and-drink,restaurants,provider,1,0,1,1,https://loschikisbarandappetizers.com/
+3e0f9ce3-9269-4874-8a39-ca4b575e4d00,Majik Bistro & Milkshakes,eat-and-drink,restaurants,provider,1,0,1,1,https://www.majikbistro.com/
+6410f94b-1975-4ffe-844b-288c22bb9621,Makai Cafe,eat-and-drink,restaurants,provider,1,0,1,1,https://makaicafe.com/
+123d5d5e-807a-4769-9273-a7f3bc8503b7,Mario's Italian Restaurant,eat-and-drink,restaurants,provider,1,0,1,1,http://www.mariosinhavasu.com/
+61d3f794-ab35-4ee2-ad36-1631dec2aa3d,Marisa's Italian Deli,eat-and-drink,restaurants,provider,1,0,1,1,https://marisashavasu.com/?utm_source=google
+dac2b817-85d3-4578-b26c-81332150ec07,Megan & Erik's Water and Ice,eat-and-drink,restaurants,provider,0,0,1,1,
+1fa67447-f401-4159-a1ec-b8b1dddfc0fc,Monch,eat-and-drink,restaurants,provider,1,0,1,1,https://monchmobilekitchen.square.site/?fbclid=PAdGRleAMXVo1leHRuA2FlbQIxMQABp_76V4SH8FuFWrkRnl69vV8qjIdcUXzduVJ8R0fNBYQs2TAPFeFx1muL7jWd_aem_UYIYRhR0rckZQXhAN6uUYQ
+7638083c-b05e-4fc2-bc63-60d06a735bf4,Montana Steak House,eat-and-drink,restaurants,provider,1,0,1,1,http://www.montanasteakhouselhc.com/
+afbaa47a-ad7f-4c56-89ac-3e916dc37b87,Montana's,eat-and-drink,restaurants,provider,0,0,1,1,
+a9cf13d3-797e-47c6-813e-88ac1807caf8,Mr. Lucky's Billiards & Pub,eat-and-drink,restaurants,provider,1,0,1,1,https://mrluckysbilliardsaz.com/
+2dc588bf-85f2-40c0-84bf-59826956e08e,Mudshark Pizza & Pasta,eat-and-drink,restaurants,provider,1,0,1,1,https://mudsharkpizza.com/
+a01abf5a-ab5f-49b7-9209-fd8e44b6aaab,Naked Turtle Beach Bar at The Nautical Beachfront Resort,eat-and-drink,restaurants,provider,1,0,1,1,http://www.nauticalbeachfrontresort.com
+ca517b98-107b-408a-900d-81d685d70f1c,Niko's Grill and Pub,eat-and-drink,restaurants,provider,1,0,1,1,https://www.nikosgrillandpubhavasu.com
+6bb40526-fd72-4823-898b-89344076086d,Northside Grill,eat-and-drink,restaurants,provider,0,0,1,1,
+d92cc772-6f18-4e67-b563-736926214f30,Oasis at The Views Restaurant,eat-and-drink,restaurants,provider,1,0,1,1,https://theviewsatlakehavasu.com/
+5fa4f6cf-d823-43b3-bd96-5bc33ec4fbaf,Oasis Eateries,eat-and-drink,restaurants,provider,0,0,1,1,
+83a83529-f0d7-443a-b2ee-49c466293d76,OXIDO,eat-and-drink,restaurants,provider,1,0,1,1,https://www.oxido.xyz/
+623d9399-a2ad-4b7c-acd1-0f2f02329927,"Paleo to Go, Inc",eat-and-drink,restaurants,provider,1,0,1,1,https://paleotogoinc.com/
+fa556df7-d3a7-4dc4-a03c-907ad5129e69,Pancho Villa's Taco Shop,eat-and-drink,restaurants,provider,0,0,1,1,
+c5f40ce9-3c22-493c-a75d-389e6f33f877,Panda Express,eat-and-drink,restaurants,provider,1,0,1,1,https://www.pandaexpress.com/locations/az/lake-havasu-city/1769?utm_source=google_gbp&utm_medium=organic&utm_campaign=websitelink
+6e3aa8b7-c387-4212-a9ae-ba2e058dd1f3,Papa Bear's Restaurant,eat-and-drink,restaurants,provider,1,0,1,1,http://loc8nearme.com/arizona/lake-havasu-city/papa-bears/3366952/
+1c59fa6f-56c5-46f9-a44f-37257769d1fb,Papa Johns Pizza,eat-and-drink,restaurants,provider,1,0,1,1,https://locations.papajohns.com/united-states/az/86403/lake-havasu-city/1630-mcculloch-blvd-n?utm_source=gmb&utm_medium=organic&y_source=1_MTA2OTM1MjgtNzE1LWxvY2F0aW9uLndlYnNpdGU%3D
+4c1d0c16-b1e7-4568-917c-743abed986dc,Papa Leone's Pizza,eat-and-drink,restaurants,provider,1,0,1,1,https://papaleonespizza.com/
+74c8ac5f-b235-4af9-a711-93e8126da369,Peggy's Sunrise Cafe,eat-and-drink,restaurants,provider,0,0,1,1,
+7e1a9c47-3f74-4c38-89a2-94207537c5d0,Piccadilly Circus Pizza,eat-and-drink,restaurants,provider,0,0,1,1,
+da646571-3d02-442c-90c5-7f92d933ba2e,Piccadilly’s and More!,eat-and-drink,restaurants,provider,0,0,1,1,
+3a490cfb-c5fb-48b2-889d-bc804088dc72,Pit Stop Deli,eat-and-drink,restaurants,provider,1,0,1,1,http://londonbridgechevron.com/pit-stop-deli/
+e1113df3-3cee-4c26-9ee8-bc3d7a02c766,Place To Be,eat-and-drink,restaurants,provider,1,0,1,1,http://www.placetobelhc.com/
+d943656a-51dd-4d9e-8819-8c31bfd71d2b,PZA PIZZERIA,eat-and-drink,restaurants,provider,1,0,1,1,http://www.pzapizzeria.com/
+27caba33-1d23-4891-9b40-4390487e4d23,Red Baron Wings and Pizza,eat-and-drink,restaurants,provider,1,0,1,1,https://redbaronwingspizza.com/
+6e98c4e6-0a99-4300-9c44-4b3198b00384,Red Robin Gourmet Burgers and Brews,eat-and-drink,restaurants,provider,1,0,1,1,https://www.redrobin.com/locations/az/lakehavasu/lake-havasu-city-309
+be394aa3-2c27-4dec-aab6-7efe45f6cd3f,Reflections,eat-and-drink,restaurants,provider,1,0,1,1,https://www.ironwolfgcc.com/fine-dining-lake-havasu-az
+8b756173-02b8-4752-bbc5-de6192725f42,Reflections Steakhouse at Iron Wolf Golf and Country Club,eat-and-drink,restaurants,provider,1,0,1,1,https://www.ironwolfgcc.com/fine-dining-lake-havasu-az
+bb4025bc-6e0d-4f0a-8d6b-7e1b9e2405d8,Riliberto's Fresh Mexican Food,eat-and-drink,restaurants,provider,1,0,1,1,https://www.rilibertos.com/
+1ce37e73-f742-4576-b1bb-8a78822a001a,River Blend Coffee Co.,eat-and-drink,restaurants,provider,1,0,1,1,https://www.riverblendcoffee.com/?fbclid=IwY2xjawM1dQdleHRuA2FlbQIxMABicmlkETEzb3dRYzI4YmhhSGVET1laAR4C5xcR1ljcAC0HDZ81KzvHvjhIdSfc0i_yMwoOANslf8J26P5OGs9LH7V1Fg_aem_DaxeFx9FRZ2-zEi5kxx-QA
+1e5e8596-f7bd-42ed-bce3-83305240fb2f,Rolling Smoke BBQ Hava Bite Taproom,eat-and-drink,restaurants,provider,1,0,1,1,https://rollingsmokebbqcompany.com/
+05bf0754-819d-4884-8a6d-e6d8c4297550,Rosati's Pizza,eat-and-drink,restaurants,provider,1,0,1,1,https://rosatishavasu.com/
+ceeb08a1-6e64-4202-8164-9d2c0933367d,Rosati's Pizza & Pasta,eat-and-drink,restaurants,provider,1,0,1,1,https://www.rosatispizza.com/
+fd5090bd-5bb5-4003-8915-d3bfde07a74e,Rotary Kitchen + Bar,eat-and-drink,restaurants,provider,0,0,1,1,
+342cfbf0-22fc-4390-9aa8-94fbca106e20,Roxy’s Beach Bar & Cafe,eat-and-drink,restaurants,provider,0,0,1,1,
+4e177c20-9508-40d4-848c-51ad4f727eff,Rusty's Restaurant,eat-and-drink,restaurants,provider,1,0,1,1,http://rustysmenu.com/
+749f1ada-de2f-4207-b1f8-89919ad3d97f,Sake Sushi & Grill,eat-and-drink,restaurants,provider,1,0,1,1,https://sakesushilakehavasu.menu11.com/
+2c92f3b3-7374-4c3b-a6f3-7ad1e4f37c2e,Sam's Place,eat-and-drink,restaurants,provider,1,0,1,1,https://www.samsplacehavasu.com/
+8a2f6c13-c646-4ef2-9342-80fbd8c506f4,Sho-Gun Japanese Cuisine,eat-and-drink,restaurants,provider,1,0,1,1,https://lakehavasushogun.com/
+305a16bc-22c1-4d92-b109-bde4f86dc38c,Shugrue's Bridgeview Room,eat-and-drink,restaurants,provider,1,0,0,1,https://www.shugrueslakehavasu.com/
+8205858d-ddf4-4bb2-b03d-053be80db0e9,Shugrue's Restaurant & Bar,eat-and-drink,restaurants,provider,1,0,1,1,https://shugrueslakehavasu.com
+0ee43eb1-63e3-4903-9e21-2991d922f69f,Shugrue's Restaurant and Brewery Group,eat-and-drink,restaurants,provider,1,0,1,1,https://shugrueslakehavasu.com/
+13289ad3-c288-432a-8126-54f06c426a8f,Siddhartha’s Garden,eat-and-drink,restaurants,provider,1,0,1,1,https://www.siddharthasgarden.com/
+bc9a2737-e35a-4aad-b3ea-429511bc3325,Side Alley Cafe,eat-and-drink,restaurants,provider,0,0,1,1,
+54439dac-10df-4f0c-baca-d70c5612c0da,Sloane's,eat-and-drink,restaurants,provider,1,0,1,1,https://sloanesrestaurantaz.com/
+f6fc66e0-c006-4b22-978d-7a9df739d07d,Sloane's Craft Kitchen + Cocktails,eat-and-drink,restaurants,provider,1,0,1,1,http://www.sloanesrestaurantaz.com/
+e7fd193a-d047-4bb0-91f8-98445469e846,Sonora Tacos Y Mariscos,eat-and-drink,restaurants,provider,1,0,1,1,https://sonoratacosymariscos.com/
+c9d484ee-c62e-46dd-8532-7e56f66411e6,Straight Outta Carolina BBQ,eat-and-drink,restaurants,provider,0,0,1,1,
+12e03614-e364-43f9-8b62-5178f311e859,Stubbys Red Wagon BBQ,eat-and-drink,restaurants,provider,0,0,1,1,
+09e23ac1-493c-43a1-ad2c-35298c530159,Subway at Havasu North Shopping Center,eat-and-drink,restaurants,provider,1,0,1,1,https://www.subway.com
+88ae51b0-26d6-4eaf-b11a-751172472fbf,Subway at Smith's Shopping Center,eat-and-drink,restaurants,provider,1,0,1,1,https://restaurants.subway.com/united-states/az/lake-havasu-city/20-acoma-blvd?utm_source=yxt-goog&utm_medium=local&utm_term=acq&utm_content=60574&utm_campaign=evergreen-2020
+eef191c9-5b9d-47f1-b56d-381bfa70e83e,Subway at Southside Basha's Plaza,eat-and-drink,restaurants,provider,1,0,1,1,https://www.subway.com
+b54af4bb-717c-48ce-b3c9-07bb16be3ac3,Tapusallc,eat-and-drink,restaurants,provider,0,0,1,1,
+da2ff634-0549-4ab3-beee-0d7494e4d483,Tasty Waves,eat-and-drink,restaurants,provider,0,0,1,0,
+04a2e781-e593-431d-9756-8d1d511edb3c,Thai Food Restaurant,eat-and-drink,restaurants,provider,1,0,1,1,https://www.thaifoodlakehavasu.com/
+bc0926d5-d2a0-4594-bbf6-81fd44a9c433,The Bagel Bin and More,eat-and-drink,restaurants,provider,1,0,1,1,https://thebagelbinandmore.com/
+d20848bf-3136-4f9a-a874-6710177b59b5,The Bunker Bar,eat-and-drink,restaurants,provider,1,0,1,0,https://www.bunkerbarlhc.com/
+4c009e26-711a-4ecf-b6cd-ebe4011594a3,The Chair,eat-and-drink,restaurants,provider,1,0,1,1,https://www.facebook.com/Blue-Chair-Havasu-1723083601132487
+ed0d4fd5-8028-41e7-9747-1091676dbfb3,The Foundry Plates & Spirits,eat-and-drink,restaurants,provider,1,0,1,1,https://www.yelp.com/biz/the-foundry-plates-and-spirits-lake-havasu-city
+4c3b9cf7-9b4e-49d8-b211-2e4cb202d165,The Human Bean - Palo Verde Blvd N,eat-and-drink,restaurants,provider,1,0,1,1,https://thehumanbean.com
+ab3ae466-3b55-4665-a46a-bbc1289a23a3,The Meltdown,eat-and-drink,restaurants,provider,1,0,1,1,https://themeltdown.com/?utm_source=G&utm_medium=organic&utm_campaign=DAC
+9435870b-27b7-414b-9150-08bd4bfc74c8,The Office Cocktail Lounge,eat-and-drink,restaurants,provider,1,0,1,1,https://officebarhavasu.com/
+aff3e31f-842e-4e91-9e62-7da470cf2c6e,The Pour House,eat-and-drink,restaurants,provider,1,0,1,1,https://pourhouselhc.com/
+27b500c6-a622-41a8-94e1-48357753df6a,The Red Onion,eat-and-drink,restaurants,provider,1,0,1,1,http://www.theredonionlhcaz.com/
+3c0958d1-96c1-4500-9f95-73eb613cbb5a,The Spot,eat-and-drink,restaurants,provider,0,0,1,1,
+cc706bc1-0e1c-46d8-be6e-6ececa1e80d8,"The Spot - Pizza, Arcade & More",eat-and-drink,restaurants,provider,0,0,1,1,
+2a7ebd10-68fe-4ac0-b561-f30a3bf801e1,The Springs Dining at Havasu Springs Resort,eat-and-drink,restaurants,provider,1,0,1,1,https://www.thespringsdining.com
+70b8928f-c71b-4e9c-94b1-0b5792bc562e,Tropical Smoothie Cafe,eat-and-drink,restaurants,provider,1,0,1,1,https://locations.tropicalsmoothiecafe.com/az/lake-havasu-city/1625-mesquite-avenue?y_source=1_OTIzMjM5MDQtNzE1LWxvY2F0aW9uLndlYnNpdGU%3D
+74ba05e1-4b6e-47a2-a9aa-eb8a84a06e8e,Turtle Grille,eat-and-drink,restaurants,provider,1,0,1,1,https://nauticalbeachfrontresort.com/the-turtle-grille/
+315172bd-293e-4d1e-9906-a74d832d2218,Turtle Grille at The Nautical Beachfront Resort,eat-and-drink,restaurants,provider,1,0,1,1,http://www.nauticalbeachfrontresort.com
+4da37016-f379-4320-b86c-6866d6989f7f,WET Pool Bar at The Nautical Beachfront Resort,eat-and-drink,restaurants,provider,1,0,1,1,http://www.nauticalbeachfrontresort.com/lake-havasu-dining/wet
+dd76ff1b-bfe6-4115-8a50-90f0ddc1c9c6,Wild Coffee,eat-and-drink,restaurants,provider,1,0,1,1,http://wildcoffeeaz.com
+a176b6ff-e45f-46e4-b7d5-5337f59705c0,Wolfie's,eat-and-drink,restaurants,provider,0,0,1,1,
+8143eb0e-64f1-4ccc-82e1-052405130c6d,Wolfie's Hawaiian inspired Bbq,eat-and-drink,restaurants,provider,0,0,1,0,
+754fcf5c-9d75-45fc-bacb-499f0885b1da,ZENSHI Handcrafted Sushi,eat-and-drink,restaurants,provider,1,0,1,1,https://www.zenshisushi.com/
+fdd77cea-757b-4778-976f-88d161dd61c8,Affordable Plumbing & Appliance Service LLC,home-and-property-services,appliance-repair,provider,1,0,0,1,https://www.havasuaffordableplumbing.com/appliance-repair
+a19a6c91-00b7-4c20-9c6a-7b40cfd33e78,Blair's Affordable Appliance Repair,home-and-property-services,appliance-repair,provider,1,0,0,0,http://blairsaffordableappliance.com/
+d8eb3b07-2c0c-464e-8711-740380d66436,D&L Handyman & Appliance,home-and-property-services,appliance-repair,provider,1,0,0,0,https://dlhandymanappliance.com/
+a4888011-6227-4d74-bea2-1c9e3800844b,Dave's Appliance Service,home-and-property-services,appliance-repair,provider,0,0,1,1,
+40a3d1ad-079c-4ef8-a317-ff754da553dc,Sam's Appliance Repair,home-and-property-services,appliance-repair,provider,1,0,0,1,https://www.samsappliancerepair.org/
+79eccf7f-bfea-47b3-aee7-1fea501b2406,Sears Appliance Repair,home-and-property-services,appliance-repair,provider,1,0,1,1,https://www.searshomeservices.com/locations/az/lake-havasu-city/sears-appliance-repair/1870-mcculloch-blvd?utm_source=GMBlisting&utm_medium=organic&utm_campaign=GMBinhomerepair&SID=1033927&phone=9282901223
+486d2e81-a12a-4e71-86b7-583d218d3c23,Accurate Measures,home-and-property-services,carpentry-and-cabinets,provider,1,0,0,0,https://accuratemeasureslhc.com/
+0f291b53-524c-49ab-97ff-9352dfeb0ac4,Bob's Cabinets & More,home-and-property-services,carpentry-and-cabinets,provider,1,0,0,0,https://www.bobscabinets.com/
+24c2b7c1-bfaa-47ad-a6ff-9ab16361478d,Carl's Custom Woodworks,home-and-property-services,carpentry-and-cabinets,provider,0,0,0,1,
+8809dee4-63c7-4266-9ccb-706b5eb0ca41,Hunters Custom Cabinetry,home-and-property-services,carpentry-and-cabinets,provider,1,0,0,0,https://www.hunterscustomcabinetry.com/
+c86c383d-2b21-4d19-9c49-667bafdb6d5c,Always Clean,home-and-property-services,cleaning,provider,1,0,1,1,https://www.aalwayscleanllc.com/
+2b31f52d-ca48-44d6-8744-6afea9bb44af,"Ana Helen's Commercial Cleaning Service, LLC",home-and-property-services,cleaning,provider,1,0,1,1,https://www.anahelenscleaning.com/
+caaa9357-479b-4956-a5c3-1637d0dd99be,AZ Vacation Rental Cleaning,home-and-property-services,cleaning,place,1,0,1,1,https://www.facebook.com/AZ-Vacation-Rental-Cleaning-2614354862141937/
+8a28ef9a-2f68-4644-b190-64084f0a140a,Breathe Clean Air Duct Cleaning & Energy,home-and-property-services,cleaning,provider,1,0,1,1,https://www.breathecleandesert.com/
+3f5afe39-80a4-45d8-89ae-30a47fb76718,Clean Kort Pools,home-and-property-services,cleaning,provider,1,0,1,1,https://cleankortpools.com/
+6d6043f2-46dc-4667-acd4-db2b0a397cc3,Clean Queen Home Cleaning Services,home-and-property-services,cleaning,provider,0,0,1,1,
+1fc8c680-8058-4a29-9b51-557c83fff10b,Clean Team,home-and-property-services,cleaning,provider,0,0,1,1,
+a57dc52d-3385-4b8f-8b94-16d4578344f3,COIT Cleaning and Restoration,home-and-property-services,cleaning,provider,1,0,1,1,https://www.coit.com/mohave-county?utm_campaign=gmb&utm_medium=organic&utm_source=local
+33902a8d-2b64-4d03-b039-7a090f5841b0,Dust Bunny Cleaning,home-and-property-services,cleaning,provider,0,0,1,1,
+62572a88-ac12-4e08-bf4f-50edc3bf6b01,Dusty Rose Cleaning,home-and-property-services,cleaning,provider,0,0,1,1,
+b97bc327-200b-40dd-9a87-8c03b44ee957,Extreme Clean Exterior Services,home-and-property-services,cleaning,provider,0,0,1,1,
+edb7ca04-a41d-4131-be6c-f7f4de8a3f7d,GET IT DONE! LHC Cleanup Services,home-and-property-services,cleaning,provider,1,0,1,1,https://lhccleanupservices.com/
+fb28ed15-0db5-4db0-80d0-055961e85a0a,Happy Home Cleaners,home-and-property-services,cleaning,provider,1,0,1,1,https://www.happyhomecleanersaz.com/
+e627e3d7-30ff-40f4-b06f-e34a835b7e85,Healthy Choice Chem-Dry,home-and-property-services,cleaning,provider,1,0,1,1,https://healthychoicecarpetcleaners.com/
+e056b5bb-ac8e-4f8b-ac40-a0f1412e9f70,Jenny’s house cleaning,home-and-property-services,cleaning,provider,0,0,1,1,
+d08cd149-e0aa-4fef-a419-de46e7916d91,LHC Cleanup Services (Get It Done),home-and-property-services,cleaning,place,1,0,0,0,https://lhccleanupservices.com/
+8dfd0a86-d29d-4588-bc25-9b45c018861b,luna's king Cleaning llc,home-and-property-services,cleaning,provider,0,0,1,1,
+cdb86f9e-d76e-4090-b605-a22aadf0786d,New Era Cleaning Service,home-and-property-services,cleaning,provider,1,0,1,1,https://neweracleaningservice.com/
+1ef67e63-f3fe-41f1-9765-a1e6fde1ee00,Pane in the Glass Window and Solar Panel Cleaning,home-and-property-services,cleaning,provider,0,0,1,1,
+269dcbf7-b0db-4bbb-8c3c-ad02fe19d086,Personal Touch Carpet Cleaning,home-and-property-services,cleaning,provider,0,0,1,1,
+d44b7842-c0f0-476f-989e-66e66deda9dc,Spruce Goose Cleaning,home-and-property-services,cleaning,provider,1,0,1,1,https://sprucegoosecleaning.com/
+cc4db522-4437-4642-b552-abcfb4bb87d9,Stanley Steemer,home-and-property-services,cleaning,provider,1,0,1,1,https://www.stanleysteemer.com/location-details/AZ/Lake-Havasu-City/43?utm_source=google&utm_medium=organic&utm_campaign=gmb_ws
+ae085f54-2b59-4e4e-849c-917580dc56c1,Tasha cleaning handyman services,home-and-property-services,cleaning,provider,0,0,1,1,
+8148b310-4306-4bc7-a84c-ad0bf4554d37,The Cleaning B's House Cleaners,home-and-property-services,cleaning,provider,1,0,1,1,https://www.thecleaningbsaz.com/
+338662d8-2beb-45c3-8ed1-1388faed1dcb,Triple C Carpet Cleaning Co.,home-and-property-services,cleaning,provider,1,0,1,1,https://triplecclean.com/
+bece5ab7-e6b7-4faa-b02b-d85fdb7df34d,Frontier Concrete Inc,home-and-property-services,concrete-and-masonry,provider,0,0,0,0,
+c3149226-591e-4ca9-8267-1c032acf591a,Kelm Concrete Inc,home-and-property-services,concrete-and-masonry,provider,1,0,1,1,https://www.kelmcon.com/
+f0b21ef1-ffdc-4a22-aeb2-228aa1ea8ecb,Masonry and More Concrete,home-and-property-services,concrete-and-masonry,provider,1,0,1,1,http://www.masonryandmoreconcrete.com/
+cfce732d-b124-4792-82ef-687620f528cd,Alamo Drywall Inc,home-and-property-services,drywall,provider,0,0,0,1,
+2cb73084-d35e-41e1-bb75-1ffbda7f70d2,Mike Ashford Plastering Drywall & Stucco Repair,home-and-property-services,drywall,provider,0,0,0,1,
+156498be-ee53-4427-ba25-772e6f0c461a,Ryan's Drywall Services & Finishes,home-and-property-services,drywall,provider,1,0,0,0,https://ryansdrywallservicesandfinishes.com/
+eb624dd3-e2a1-4c2d-8b84-d8da4833ab34,#1 Arizona Electric,home-and-property-services,electrical,provider,1,0,1,1,https://1arizonaelectricllc.com/
+da693cd3-c651-47cf-921b-dfbbb253cbba,"AAA Electric, Inc",home-and-property-services,electrical,provider,0,0,1,1,
+15f4151e-fddc-4b9c-a573-12bcb25f3b7b,Accelerated Electric,home-and-property-services,electrical,provider,1,0,1,1,https://acceleratedelectriclhc.com/
+90a79cf6-419b-4c8f-8d91-b93b6d35ba12,Ace Construction & Maintenance,home-and-property-services,electrical,provider,1,0,1,1,https://www.aceconstructionmaint.com/
+661cdee3-7d66-446d-87f9-c47a5b2ee5bb,Aloha Electric,home-and-property-services,electrical,provider,0,0,1,1,
+a4556339-f14e-4c1a-a984-9087d6057dd0,American Electric of AZ,home-and-property-services,electrical,provider,1,0,1,1,https://www.americanelectricaz.com/
+dd25d5fb-a8ae-4033-a84a-d5ddec0a87b5,Applied Electric LLC,home-and-property-services,electrical,provider,0,0,1,1,
+39a8d762-ccdc-4ec7-8128-08004505d880,Bob's Electric Motors & Pump,home-and-property-services,electrical,provider,0,0,1,1,
+0abd2c4a-d4e7-4b6c-a5fa-edbf803e4ce7,Campbell Electric,home-and-property-services,electrical,provider,0,0,1,1,
+4562bc6d-23df-4641-a7fe-1a604b0cc2d3,Electric Co of Havasu,home-and-property-services,electrical,provider,0,0,1,1,
+7520806f-3cf5-4cd0-ba16-276f5ab81922,Essco Wholesale Electric,home-and-property-services,electrical,provider,1,0,1,1,https://www.qedelectric.com/about/location/lakehavasucity
+39546bfd-758a-4fcf-b01e-47b4773d5e8f,Havasu Wiring LLC,home-and-property-services,electrical,provider,1,0,1,1,https://www.havasuwiring.com/
+3d0158e0-4ceb-4b28-88ac-6b9ba12a6abb,Iron Sight Electric,home-and-property-services,electrical,provider,1,0,1,1,https://ironsightelectric.com/
+fb8013d9-b92a-4895-b2a1-7cf63d54cf9b,J R Wallace Electrical Services Inc,home-and-property-services,electrical,provider,0,0,1,1,
+c9f98a78-2329-4c39-87c9-93f65945a2a5,Kendo Electric,home-and-property-services,electrical,provider,0,0,1,1,
+de8a1fea-d850-440b-b1f7-30091be42682,Killen It Electric LLC,home-and-property-services,electrical,provider,0,0,1,1,
+fb1cb2f8-347e-48ec-bb22-86f8cc1bf550,KS ELECTRIC,home-and-property-services,electrical,provider,1,0,1,1,https://www.kselectricaz.com/
+76120f76-a3e6-455f-ad53-988368111f46,Lakeside Electric,home-and-property-services,electrical,provider,0,0,1,1,
+2809ede1-f7ef-4f2f-a34a-a83de6bc3e56,London Bridge Electric,home-and-property-services,electrical,provider,1,0,1,1,https://www.londonbridgeelectric.com/
+0645daef-69b0-4130-afed-e89f6c7f06db,London Brige. Electric inc,home-and-property-services,electrical,provider,1,0,1,1,https://londonbridgeelectric.com/
+e97a7de5-08ae-44fa-9f1c-662b102d590f,Manco services,home-and-property-services,electrical,provider,1,0,1,1,https://www.facebook.com/share/1B1wCiXCNb/
+e1c8e2f4-5772-4a85-8b5c-7f5f9b3921e9,McAtlin Electrical Group,home-and-property-services,electrical,provider,1,0,1,1,https://www.mcatlin.com/
+a71e8e64-a57d-44b5-ae88-845426308f86,Milholland Electric AZ Inc,home-and-property-services,electrical,provider,1,0,1,1,http://www.milhollandelectric.com/
+13205a9d-a998-4938-93b8-1d610d939464,Mohave Electric,home-and-property-services,electrical,provider,1,0,1,1,https://mohaveelectricinc.com/
+f5d24955-73a3-4f15-985c-47cecf2709b7,Mohave Electric Cooperative,home-and-property-services,electrical,place,1,0,1,1,https://www.mohaveelectric.com
+fc57d7f8-b427-473f-8fa2-8e90dc4024f1,Morgan Electric,home-and-property-services,electrical,provider,1,0,1,1,https://www.morganelectricllc.net/
+41d3202b-a65a-4b85-bf3f-44868238bf0d,Plus Electric,home-and-property-services,electrical,provider,0,0,1,1,
+328e36e4-3264-46e4-81d4-02a06dcd8acc,River Sun Solutions,home-and-property-services,electrical,provider,1,0,1,1,https://www.riversunsolutions.com/
+dcc00645-7873-42dc-ae4d-bb436ea2efe5,RLB Electric Inc,home-and-property-services,electrical,provider,0,0,1,1,
+8eefa1cc-7dba-44b2-ae11-29fea5b9b7c7,Sam Nichols Electrical Inc,home-and-property-services,electrical,provider,1,0,1,1,https://samnicholselectrical.com/
+bb6be5aa-2a94-400a-b50e-5cd34061dd1d,Sensible Electrical Solutions,home-and-property-services,electrical,provider,1,0,1,1,http://sensibleelectricalsolutions.com/
+a49d0c83-c488-499c-b289-8ba3ada7f01f,Armor Fence & Masonry,home-and-property-services,fencing,provider,1,0,1,1,https://armorfenceandmasonry.com/
+14d0c4cd-7c9b-4a77-8b59-d8ec116d4c58,Quality Fence LLC,home-and-property-services,fencing,provider,1,0,0,1,https://qualityfenceofarizona.com/
+b2429938-1496-4801-848c-aa7a4f8d51dd,Wilson's Welding & Wrought Iron,home-and-property-services,fencing,provider,0,0,0,1,
+957d5886-4ff9-4f50-b484-e439ab63711f,Havasu Flooring & Remodeling,home-and-property-services,flooring,provider,1,0,0,0,https://www.havasuflooringremodeling.com/
+263dbfb4-3e33-4aee-8afc-398e98aa5017,Oasis Floors and Design Center,home-and-property-services,flooring,provider,1,0,1,1,https://www.oasisfloors.com/
+a522df02-31ce-4996-b2ab-62576a7b5c9a,Integrity Garage Door Repair LLC,home-and-property-services,garage-doors,place,1,0,0,1,https://integritygarageaz.com/
+33e4ba1b-2c5a-4962-bb53-fdfb0f0cf0ba,Just Garage Doors & More,home-and-property-services,garage-doors,provider,0,0,0,1,
+cdfcbc32-3eb9-4f25-b25e-991bceae7602,Mohave Garage Door,home-and-property-services,garage-doors,place,1,0,0,1,https://mohavegaragedoor.com/
+4e8ae129-59fc-4d02-bbab-64f9eb855182,Shaver's Garage Doors,home-and-property-services,garage-doors,place,0,0,1,1,
+7dc1e0b5-f84f-4bfd-80fc-453da7849c98,Superior Garage Doors LHC,home-and-property-services,garage-doors,provider,0,0,0,1,
+28ac598d-d169-443b-aac8-e1a275835b25,"1st Choice General Contractors, INC.",home-and-property-services,general-contractors,provider,0,0,1,1,
+1096a977-1d63-4c11-9fca-91867a7fdf13,A & E Flooring and Construction LLC,home-and-property-services,general-contractors,provider,1,0,1,1,https://aelhc.com/?utm_source=google&utm_medium=organic&utm_campaign=gbp
+2497eea3-8d06-40fc-b319-c0068aa00837,ABCO Builders Inc.,home-and-property-services,general-contractors,provider,1,0,1,1,http://www.abcobuildersinc.com/
+0c6040e4-a7f3-43f7-8b9a-dbd723b987c9,Advanced Construction Co Inc,home-and-property-services,general-contractors,provider,1,0,1,1,https://www.advancedaz.com/
+1f1c721f-e582-472d-82e4-8a50fd0b1f8a,Aune Brother's Construction LLC,home-and-property-services,general-contractors,provider,1,0,1,1,https://www.auneconstruction.com/
+991e169d-04fb-4fce-b2ba-0cb0b6e39272,B W Smith Custom Homes,home-and-property-services,general-contractors,provider,0,0,1,1,
+625e452b-9f4c-4f30-ae5d-7e1d91bcc794,Blue Sky Design and Build,home-and-property-services,general-contractors,provider,1,0,1,1,https://blueskydesignandbuild.com/
+e4640411-47ff-498e-8758-fd049e4f01c1,Built Well Construction / Sorbon Development,home-and-property-services,general-contractors,provider,1,0,1,1,https://builtwellaz.com/
+9702de52-6465-44d0-9b52-e82487dc9b28,Burns Builders,home-and-property-services,general-contractors,provider,1,0,1,1,https://havasuhomebuilder.com/
+40b4f7c6-fd81-4241-97ea-35b6fbf3dc4b,Callagy Construction,home-and-property-services,general-contractors,provider,1,0,1,1,https://www.callagyconstruction.com/
+08ff81a1-48ce-4c09-a4d3-401454478207,Catching Air LHC LLC,home-and-property-services,general-contractors,provider,1,0,1,1,https://www.catchingaircompany.com/
+1bc908c7-eb29-4381-99fc-0d38233ae2d4,Colorado River Building Ind,home-and-property-services,general-contractors,provider,0,0,1,1,
+b4e17acb-380b-41f5-bbd3-6e40dde396d5,Creations by JRM Studios,home-and-property-services,general-contractors,provider,1,0,1,1,https://linktr.ee/jrmcreations
+e2f513b8-3d1a-48e2-b37f-67baa1c39421,Cummins Construction Co Inc,home-and-property-services,general-contractors,provider,0,0,1,1,
+040ad14b-a5d7-4bac-a8fe-529513e6e4c4,Desert Nightscapes LLC,home-and-property-services,general-contractors,provider,0,0,1,1,
+eb536b98-4179-45de-8b97-1ac1cfb81074,Devett Development LLC,home-and-property-services,general-contractors,provider,1,0,1,1,https://devettdevelopment.com/
+e38cbda8-e89e-485d-9e16-2910b747c711,Diamond Housing,home-and-property-services,general-contractors,provider,1,0,1,1,https://diamondhousing.net/
+9f9b1dd2-8e6b-4e64-826e-7abe47bfd2d5,Edge General Contracting,home-and-property-services,general-contractors,provider,1,0,1,1,https://www.azegc.com/
+0e0363f0-902d-428a-a2ec-1d4f8c59857e,Havasu Handyman Services,home-and-property-services,general-contractors,provider,0,0,1,1,
+1451e379-0aac-44f4-9aaf-828b43089940,Heritage Masonry & Co,home-and-property-services,general-contractors,provider,1,0,1,1,https://heritagemasonryllc.com/
+96c5b9eb-1d81-4f92-b10d-b8c43bd6cf5c,Home Improvement Concepts,home-and-property-services,general-contractors,provider,0,0,1,1,
+7c000e2e-2190-42c5-a83c-8c8cfae3d43c,Homes by Wiesner,home-and-property-services,general-contractors,provider,1,0,1,1,https://www.homesbywiesner.com/
+ff1f98d8-9d42-4ac2-bf8a-d065e363898d,Janecek Homes,home-and-property-services,general-contractors,provider,1,0,1,1,https://janecekhomes.com/contact/
+3f59f10d-f59a-437a-93c3-c137be569e93,JB Odd Jobs & Repairs & restorations of Havasu,home-and-property-services,general-contractors,provider,1,0,1,1,https://www.jboddjobs.biz/
+ecf45019-0045-449d-945e-d9a5af4b0513,Kelco Homes,home-and-property-services,general-contractors,provider,1,0,1,1,https://kelcohomes.com/
+5081b78f-b547-4805-8595-84bfc8e5c1a0,Lake Havasu Concrete Contractors,home-and-property-services,general-contractors,provider,1,0,1,1,https://concretecontractorslakehavasu.com/
+21bfe39e-5ebc-4f72-b62b-90d23a9e05e0,Lambert Custom Builders LLC,home-and-property-services,general-contractors,provider,1,0,1,1,http://www.lambertcustombuilders.com/index.html
+d2b5f393-b284-497e-b4f2-a5fe247de72b,Lamont Construction & Development,home-and-property-services,general-contractors,provider,0,0,1,1,
+4a19608d-52ff-4a75-8764-f2cfc7990702,Lhc Construction,home-and-property-services,general-contractors,provider,0,0,1,1,
+fcfe123f-32b9-485c-b1c9-5067a466c839,Mick's Handyman,home-and-property-services,general-contractors,provider,1,0,1,1,https://mickshandyman.com/
+4b8801b4-e510-49c3-9d5c-815c11a4b5b9,Mohave Valley Design,home-and-property-services,general-contractors,provider,0,0,1,1,
+01385f57-e3bf-4cf7-aaae-521260fa4d16,Moran AZ Homes,home-and-property-services,general-contractors,provider,1,0,1,1,https://moranazhomes.com/
+76dceba1-0eb3-4ad3-a3ac-595e60785ff4,Nowak Homes LLC,home-and-property-services,general-contractors,provider,1,0,1,1,https://nowakhomesaz.com/
+c21876f3-568f-4d44-b712-c2eedd070004,"Palmieri Construction, Inc.",home-and-property-services,general-contractors,provider,1,0,1,1,https://www.palmiericonstructioninc.com/
+e3b459d4-e357-41cb-ba6e-f9291d4371bf,Paramount Construction,home-and-property-services,general-contractors,provider,0,0,1,1,
+48f4e5f5-c33c-4f4b-aa27-60a749fb7630,PATRIOT Property Care,home-and-property-services,general-contractors,provider,0,0,1,1,
+0ab1da5b-e5c4-4ca5-9c01-f35abd475393,Perfect Patch Drywall Repair,home-and-property-services,general-contractors,provider,1,0,1,1,https://perfectpatchaz.com/
+334d26e8-d4d8-454e-9ac7-a55bb3002a21,"Prielipp Construction, Inc.",home-and-property-services,general-contractors,provider,1,0,1,1,https://prielippconstruction.com/
+eb16f4c4-9ae9-4c0f-85b9-86c1f0f49469,Pro Line Construction Services,home-and-property-services,general-contractors,provider,1,0,1,1,https://www.lakehavasuhomebuilders.com/
+49474165-329b-4700-8cdf-6b637a18340f,Reliable Handyman Services,home-and-property-services,general-contractors,provider,0,0,1,1,
+209b71f6-454b-4142-81e9-227d17ec55f3,River Construction Drywall Division,home-and-property-services,general-contractors,provider,0,0,1,1,
+cb1e0819-9512-4c78-b7a6-9e6cd4562e57,River Ridge Builders,home-and-property-services,general-contractors,provider,1,0,1,1,https://riverridgebuilders928.com/
+2586c7a0-57db-4f21-b886-8714ea908078,Riviera Lake Havasu,home-and-property-services,general-contractors,provider,1,0,1,1,https://www.rivieralakehavasu.com/
+22a81b3f-4096-446d-ae18-6da80027d51f,S-2 Contractors Inc,home-and-property-services,general-contractors,provider,0,0,1,1,
+f5994aae-3869-45b5-90cc-c2628264f8d1,Sabre Building Corporation,home-and-property-services,general-contractors,provider,1,0,1,1,https://sabrebuilding.com/
+a7219d56-face-4dfc-ab47-1a32301acb9c,Seery Construction,home-and-property-services,general-contractors,provider,1,0,1,1,https://seeryconstructiontopock.com/
+1823c344-0c14-4825-b4fe-54689d15697b,Semper Air LLC,home-and-property-services,general-contractors,provider,1,0,1,1,https://semperairsolutions.com/
+2cde2c15-2c57-423a-a6e6-f738795e8d50,SERVPRO of Lake Havasu City/Bullhead City/Kingman,home-and-property-services,general-contractors,provider,1,0,1,1,https://www.servpro.com/locations/az/servpro-of-lake-havasu-city-bullhead-city-kingman?utm_medium=organic&utm_source=gbp
+c56142cb-82e9-4d8d-bf85-8e712ca4692e,Seville Builders Inc,home-and-property-services,general-contractors,provider,1,0,1,1,https://www.sevillebuilders.com/
+a85493ba-21fe-4f65-bb85-a1acad3b4a86,Taz Concrete,home-and-property-services,general-contractors,provider,1,0,1,1,https://tazconcrete.com/
+6251da93-ea9e-47ed-a0d7-b12b91a05e66,Ted Cutting Edge Masonry Inc,home-and-property-services,general-contractors,provider,0,0,1,1,
+e26b32de-e901-40c4-8bf4-656e506ece4d,The Cool Dude LLC,home-and-property-services,general-contractors,provider,1,0,1,1,https://thecooldudeair.com/
+fecd3cb0-1aa0-46f7-817f-730bccb7aa8d,Trico Engineering,home-and-property-services,general-contractors,provider,1,0,1,1,https://www.tricoengineeringllc.com/
+72e65303-6cac-4d49-b74e-5326d0618f9c,Western Masonry,home-and-property-services,general-contractors,provider,0,0,1,1,
+edb82f0f-e73a-4bc6-a5f3-a644f63cef42,Yard Maintenance AZ,home-and-property-services,general-contractors,provider,0,0,1,1,
+a7b47613-a774-4910-9e0b-bfacce8352f5,Quality Rain Gutters Inc,home-and-property-services,gutters,provider,1,0,0,0,https://qualityrainguttersinc.com/
+a00a16d0-2a37-47e5-8324-9ea596502b17,Scott Crane Roofing (Gutters),home-and-property-services,gutters,provider,1,0,0,0,https://www.scroofing.net/rain-gutter-installation/
+998c5240-7be4-4274-96f4-a41efd4af79d,Southwest Seamless Rain Gutters,home-and-property-services,gutters,provider,1,0,0,0,https://www.southwestseamlessraingutters.com/lake-havasu-city-az/
+d4c20d69-6c05-435c-9391-ae83f4902544,All In 1 Services,home-and-property-services,handyman,place,1,0,0,0,https://allin1serviceswc.com/pressure-washing
+124f4450-9ab8-4fdc-ad8d-e2eb0c278438,Bartlett's Handyman Services,home-and-property-services,handyman,provider,0,0,1,1,
+1e784342-f82e-4475-809c-e6c6c77c8b9e,Handy Andy's,home-and-property-services,handyman,provider,0,0,0,1,
+aac392b1-567c-410d-ae49-c3970c00a706,Hav-A-Handyman,home-and-property-services,handyman,provider,0,0,0,1,
+e82b12c5-c7b4-49eb-915c-522444cd05d5,Havasu Remodeling & Handyman,home-and-property-services,handyman,provider,0,0,0,1,
+5032d003-db29-4357-b92d-3344dc804898,TCS Handyman,home-and-property-services,handyman,provider,0,0,0,1,
+f8aa68ca-1cd6-41e5-b66a-a3df789636ba,weir canyon handyman LLC,home-and-property-services,handyman,provider,0,0,1,0,
+6070f38a-2c7e-472e-bc04-5f9d4371ec80,AAA Affordable Air Conditioning LLC,home-and-property-services,hvac,provider,1,0,1,1,https://www.affordableaclhc.com/
+f7f22aa4-609d-4a94-b062-20ff2181d554,"AARO Enterprises, HVAC Contractor",home-and-property-services,hvac,provider,1,0,1,1,https://aaroenterprises.com/
+f945d8e6-5afa-4f2c-a794-0be2d8ba4435,AC Pro,home-and-property-services,hvac,provider,1,0,1,1,https://store.acpro.com/location_details/lake-havasu
+abea52e5-0b72-4c48-a24e-15efcad4ecbe,Air conditioning contractor,home-and-property-services,hvac,provider,0,0,1,1,
+bfde3ec0-6ad5-4b99-8ad2-f3b46b296f90,Air Control Home Services,home-and-property-services,hvac,provider,1,0,1,1,https://www.aircontrolaz.com/
+902b6959-c045-4035-b3f1-c50544fde8ca,Airtech Air Conditioning and Heating,home-and-property-services,hvac,provider,1,0,1,1,https://airtechlhc.net/
+5fe7ae3e-7ca9-45b6-92e9-e8cedb92e4f5,All American Air,home-and-property-services,hvac,provider,1,0,1,1,https://allamericanairlhc.com/
+69e1f213-7d4a-47eb-9fd1-1590b7a04ddf,"Ambient Edge Air Conditioning, Heating & Refrigeration",home-and-property-services,hvac,provider,1,0,1,1,https://www.ambientedge.com/
+31a89e52-b68f-414a-a712-f85ea364caaa,Arizona HVAC Service,home-and-property-services,hvac,provider,0,0,1,1,
+d6405ef0-91fe-49ae-b280-b59acd63a6ab,C2 Heating & Air Conditioning,home-and-property-services,hvac,provider,1,0,1,1,https://c2hvacr.com/
+ea4ea78f-c980-4bea-981e-b05930955d43,ClearPath HVAC & Duct Cleaning Co.,home-and-property-services,hvac,provider,0,0,1,1,
+20c9b4af-4367-42ee-92ef-895bd34b9d49,Four Seazons Heating and Cooling,home-and-property-services,hvac,provider,1,0,1,1,https://www.fourseazons.net/
+106e939b-12ba-453f-9cec-1a2af862c7a0,HICK'S COOLING & HEATING,home-and-property-services,hvac,provider,1,0,1,1,https://hickscoolingandheating.com/
+5e492cc8-77c1-4f7e-84b7-1bbd5d8f2b03,Hot Solutions HVAC,home-and-property-services,hvac,provider,1,0,1,1,https://hotsolutionshvac.com/
+c8912be9-b735-485b-b18d-54738c3824a9,HVAC/DUCT Cleaning & More Services,home-and-property-services,hvac,provider,0,0,1,1,
+0b689047-af0d-482f-b03d-f7e157648d38,Kool­-Wave Air Conditioning & Heating,home-and-property-services,hvac,provider,1,0,1,1,https://www.koolwaveair.com/
+35fe1d53-5b8d-4c0a-bdd9-d3a334474888,Lake Havasu City Heating & Air Conditioning,home-and-property-services,hvac,provider,0,0,1,1,
+b8195790-5475-4e4a-9ba1-c392a692fe13,Mercury Air Conditioning & Heating,home-and-property-services,hvac,provider,1,0,1,1,http://mercuryac.net/
+86e2eab4-83e8-430d-912e-f5bc6273a3be,Mission Accomplished Heating and Cooling,home-and-property-services,hvac,provider,1,0,1,1,https://callmissionaccomplished.com/?utm_campaign=gmb
+e48647f8-afe0-432a-84c2-9c14055141f3,Quality Comfort Heating & Air,home-and-property-services,hvac,provider,1,0,1,1,https://qualitycomfortaz.com/
+0d33c5ab-3127-4729-a13d-718420d0b6a5,Samons Air Conditioning,home-and-property-services,hvac,provider,1,0,1,1,https://samonsac.com/
+e5847d6a-83dc-4aee-929b-68bdaf8ae415,Sears Heating and Air Conditioning,home-and-property-services,hvac,provider,1,0,1,1,https://www.searshomeservices.com/repair/hvac-repair-service?utm_campaign=GMBhomeimprovement&utm_medium=organic&utm_source=GMBlisting&SID=3537&phone=6028066968
+c2b79ab3-11ca-4776-8465-40dea7de031e,Sunshine Air Conditioning Inc.,home-and-property-services,hvac,provider,0,0,1,1,
+9fa12970-9b42-4fae-87a3-74b765eb9aac,SunShine HVAC cleaning,home-and-property-services,hvac,provider,1,0,1,1,https://www.steelehvacllc.com/contact
+1e3a5f36-b4b2-42dd-9c89-40ee1cf87196,The Weatherman A/C and Heating LLC,home-and-property-services,hvac,provider,1,0,1,1,https://theweathermanac.com/
+0554ecfd-1a9f-4afc-871d-749fa5613f0b,AAA Rousse Junk Removal,home-and-property-services,junk-removal-and-hauling,place,1,0,0,1,https://www.aaarousse.com/Junk_Removal_Lake_Havasu_City_Arizona.html
+2e2d2eaa-6a14-4654-bbef-7dae6ecdb976,Call Us Junk Hauling,home-and-property-services,junk-removal-and-hauling,place,1,0,1,1,https://www.callusjunkhauling.com/
+36e0d3cc-08fc-48a4-9146-2df409e75514,JD'S Junk Removal,home-and-property-services,junk-removal-and-hauling,place,1,0,0,1,https://www.facebook.com/jdsjunkremovalhavasu/
+d63fc3f8-4a10-486c-af39-f305669ba92e,Affordable Landscaping & Maintenance,home-and-property-services,landscaping-and-lawn,provider,1,0,1,1,https://www.affordablelandscapingandmaintenance.com/
+b7d4b9a9-065b-4c57-870c-16a3c51c8450,Alpha Pools & Landscape LLC,home-and-property-services,landscaping-and-lawn,provider,1,0,1,1,https://www.alphapoolslandscape.design/
+b77cfdef-1d8a-41de-8924-ea9751b204e4,Angel's Creative Landscaping LLC,home-and-property-services,landscaping-and-lawn,provider,1,0,1,1,http://www.lakehavasulandscaping.com/
+73f86594-fb2b-4570-bf1e-48dcfae6fab8,Big TS,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+da5526dd-f832-423b-b818-97922cd49888,Canyon Landscape,home-and-property-services,landscaping-and-lawn,provider,1,0,1,1,https://canyonlandscapelhc.com/
+f6b5f36c-e1a2-4892-8a38-19ecaae8bd2f,Chavez Hauling & Landscaping,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+1c5dc3d7-d01a-4976-accd-97dac3cfa29c,crystal green landscaping,home-and-property-services,landscaping-and-lawn,provider,1,0,1,1,https://www.crystalgreenlandscaping.com/
+1eef13a5-a4b6-4302-bae2-379793578632,Desert Ridge Landscaping-Maintenance,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+05a3319b-778b-4720-b268-318319298d38,Diablo Landscaping Incorporated,home-and-property-services,landscaping-and-lawn,provider,1,0,1,1,http://www.diablolandscaping.com/
+4cb4d4fa-912d-42d6-af4c-adbbfb79a5f5,Exotic Creations Landscaping & Maintenance,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+1d8bf64a-2fbc-4c87-b542-12c8cdfa80d8,Gama's Landscaping,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+f94653b7-499c-4bc8-87a8-3fbf29025391,Garitee Landscapes & Bobcat Service,home-and-property-services,landscaping-and-lawn,provider,1,0,1,1,https://havasulandscaper.com/
+65023e05-fa4a-4443-b0d5-e76482c1c29a,Greg's Trimmings Services,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+911e6dfb-ed8f-4ef5-8b91-76329e6b6806,Hardy's Tree Service,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+bcf39851-3569-4362-9adc-fb0d9dd290eb,Havasu Turf Pros,home-and-property-services,landscaping-and-lawn,provider,1,0,1,1,https://havasuturfpros.com/
+ee53823a-befd-4fb0-8dd7-04888d0be658,Landscape And Yard Restoration,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+5f90a0aa-6111-46a1-988f-35c288a66223,Landscape Escape,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+e776ebeb-dc9f-44f9-82fb-3837959fd705,Mountain Desert Landscaping,home-and-property-services,landscaping-and-lawn,provider,1,0,1,1,http://www.mountaindesertlandscaping.com/
+e155f2ea-eb66-4abf-a843-233fa6e81b33,Outdoor Elements,home-and-property-services,landscaping-and-lawn,place,1,0,0,0,https://outdoorelementsusa.com/lake-havasu-az-patio-cover-installation/
+f92df7a2-376f-4c92-b7fc-4da832c2f6d3,P J's Landscaping Maintenance,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+15650522-ce2d-4a31-b73b-f90a5ebfed2e,Precision Tree Service Lake Havasu City,home-and-property-services,landscaping-and-lawn,provider,1,0,1,1,https://lakehavasulandscapers.com/
+70a84b6c-167c-4243-97b9-418d8f849780,River Palm Landscaping,home-and-property-services,landscaping-and-lawn,provider,1,0,0,0,https://riverpalmlandscaping.com/
+6e601867-8bb1-4438-8386-dd7d5fae6038,Susie's Yard Care,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+8160142f-4947-4347-8463-862cd71f87e6,The Promised Land Landscaping Svc,home-and-property-services,landscaping-and-lawn,provider,1,0,1,1,https://thepromisedlandlandscape.com/
+98235763-4c15-43ca-abb3-31816ed237b4,Trinity Tree Service,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+612735be-9e2a-43b1-b230-a097d94517f4,Vibrant Landscaping LLC,home-and-property-services,landscaping-and-lawn,provider,0,0,1,1,
+938284a7-a0d9-4d5b-be14-3687b6a7d446,Havasu Lock & Key Service,home-and-property-services,locksmiths,provider,1,0,0,1,https://www.locksmithlakehavasucity.com/
+9c9b4962-d966-48b2-ad8c-dc07dc1d5293,KeyMe Locksmiths,home-and-property-services,locksmiths,provider,1,0,1,1,https://key.me/kiosks/arizona/lake-havasu-city/lake-havasu-city/key-copy-lake-havasu-city-arizona
+4ca28364-16e5-4645-9cb8-9c9a794dfed4,Lock & Key Rescue,home-and-property-services,locksmiths,provider,1,0,0,1,https://www.facebook.com/LockKeyRescueLakeHavasu/
+862f3fd2-fc6c-45e9-bea5-9c44dbc0fe4d,Taylor & Son's Locksmiths,home-and-property-services,locksmiths,provider,0,0,1,1,
+6bb51603-bc6b-4cd5-a1db-a1a5d73b8894,Western Safe & Lock,home-and-property-services,locksmiths,provider,0,0,1,1,
+1f74a04d-4a52-4a56-bac9-4baba8dfa2ef,American Pro Movers,home-and-property-services,movers,provider,1,0,1,1,https://american-pro-movers.com/
+45b717d1-2832-4b6f-aac0-1d3906d5ee93,Discount Moving,home-and-property-services,movers,provider,0,0,1,1,
+ed793aea-9baa-4910-b53a-68097ade56a4,Smooth Moving Service,home-and-property-services,movers,provider,1,0,1,0,https://smoothmovingservice.com/
+f2ed3097-faf8-4909-b27a-4563dc26200a,Ace Pest Control AZ,home-and-property-services,pest-control,provider,1,0,1,1,https://acepestcontrolaz.com/contact.html
+4a1e4cfa-a85f-4b84-9f38-995fa8d15409,Affordable Pest and Weed Control,home-and-property-services,pest-control,provider,1,0,1,1,https://www.affordablepestcontrolaz.com/
+18c9b196-0780-4ff9-baa3-df4b0f71bec8,All Green Pest Control,home-and-property-services,pest-control,provider,1,0,1,1,https://allgreenpestcontrolaz.com/
+55021400-2458-429b-bd52-bf8f96b332c8,Defender Pest Control,home-and-property-services,pest-control,provider,1,0,1,1,http://www.havasudefender.com/
+358d94ca-bdaa-4f4b-a951-decfa4508361,Federal Termite & Pest,home-and-property-services,pest-control,provider,0,0,1,1,
+72bc8a82-411a-4205-84a2-a6d170fcc8d8,George Pest Control,home-and-property-services,pest-control,provider,1,0,1,1,https://george-pestcontrol.com/
+95baaef7-7455-4e3a-9ef1-d22a3f9efe1b,Havasu Pest Control,home-and-property-services,pest-control,provider,1,0,1,1,https://www.havasupestcontrol.com/
+b281d2d4-b0b2-445f-9a76-4da146e24fef,HAWKEYE PEST & WEED CONTROL,home-and-property-services,pest-control,provider,1,0,1,1,https://www.hawkeyepestcontrol.com/
+7a1944da-9d8d-4bd1-970b-12e98758ecf0,Parker Pest Control,home-and-property-services,pest-control,provider,1,0,1,1,https://parkerpestlhc.com/
+dd29bb40-7de1-4aa7-8eef-857fc62cb628,PrimePest Solutions,home-and-property-services,pest-control,provider,0,0,1,1,
+03fac638-a12d-463e-b065-fa4034ddd614,Truly Nolen Pest & Termite Control,home-and-property-services,pest-control,provider,1,0,1,1,https://locations.trulynolen.com/az/lakehavasu/lake-havasu-048.html?utm_source=local&utm_medium=organic&utm_campaign=googlemybusiness
+8ff114b5-97ac-4626-936a-cbef17c5c6cd,ZeroZone Pest Control,home-and-property-services,pest-control,provider,0,0,1,1,
+ef580576-53eb-4e6a-9ec8-d98b1b552320,All Seasons Plumbing,home-and-property-services,plumbing,provider,0,0,1,1,
+c22b3af2-30fa-4179-b11b-aba70db25db9,Alpine Plumbing & Air,home-and-property-services,plumbing,provider,1,0,0,0,https://www.alpineplumbingandair.com/
+cfcfbbb1-b2c1-42b3-8b69-a2f78606a3dc,Arizona VIP Plumbing Sewer & Fire Protection,home-and-property-services,plumbing,provider,1,0,1,1,https://arizonavipplumbing.com/
+8b7c08fb-4c7f-4e4e-8930-65e1c469d500,Back Flow Preventer,home-and-property-services,plumbing,provider,0,0,1,1,
+ad4c4f83-420c-4ee4-b147-2c95bc76a5c1,Better Plumbing By Farr,home-and-property-services,plumbing,provider,0,0,1,1,
+228c88b6-ff5e-43a6-afc2-bd95667342cc,Cinnamon Plumbing,home-and-property-services,plumbing,provider,0,0,1,1,
+6492339c-b03f-48ac-9dca-23b41f8cc4fe,Craig Plumbing Inc.,home-and-property-services,plumbing,provider,1,0,1,1,https://www.craigplumbing.net/
+ed90d995-27c5-4637-8801-1a71864a09ca,Dennis's Quality Plumbing,home-and-property-services,plumbing,provider,0,0,1,1,
+b396c5c3-9f9d-4d1e-9c27-fd9016848866,"J D'Uva Services Plumbing, Inc.",home-and-property-services,plumbing,provider,0,0,1,1,
+a903d062-e376-4c5b-adb4-fc39fcb0c7e1,LeGrand Plumbing Services Inc.,home-and-property-services,plumbing,provider,1,0,1,1,https://www.legrandplumbingservices.com/
+5a3d1355-dbeb-4f7c-803f-65d510cd6e20,London Bridge Plumbing Inc,home-and-property-services,plumbing,provider,0,0,1,1,
+0187816d-1b5a-4c77-9550-c2cf717bd206,MJM Water Treatment And Plumbing LLC,home-and-property-services,plumbing,provider,1,0,1,1,https://www.mjmwater.com/
+833d86fe-e93b-4a4c-b31d-15d18ca22d50,Mohave Leak Detection,home-and-property-services,plumbing,provider,0,0,1,1,
+98239310-492a-4e52-9d77-cbdf349b9e44,munoz plumbing llc,home-and-property-services,plumbing,provider,0,0,1,1,
+a369dc1a-a798-4b16-aff0-fd8b6224d4c1,Northshore Plumbing,home-and-property-services,plumbing,provider,1,0,1,1,http://northshoreplumbinglhc.com/
+315af01d-de7a-4d29-b369-d74c7fe83b69,Priority One Plumbing,home-and-property-services,plumbing,provider,1,0,1,1,https://www.priorityoneplumbingaz.com/
+ad2e389f-a466-453e-ae15-0f178698f0ab,"Pruitt's Plumbing, LLC",home-and-property-services,plumbing,provider,1,0,1,1,https://pruittsplumbingllc.com/
+4af58424-8a80-46d8-ba72-02aa09f97ceb,Shoreline Plumbing Sales Services,home-and-property-services,plumbing,provider,0,0,1,1,
+78387ab5-e17e-42ec-8ea9-069a67fbac6e,Skyline Plumbing Contractors,home-and-property-services,plumbing,provider,0,0,1,1,
+5655ed4d-85d6-41e1-a141-ba21f308f629,Stefick Plumbing and Drain,home-and-property-services,plumbing,provider,1,0,1,1,https://stefickplumbing.com/?utm_source=omg-gbp&utm_medium=webclick
+08244d2e-c40f-48ec-ba9a-222659c3bbf6,Sure Guard Services,home-and-property-services,plumbing,provider,0,0,1,1,
+09485bdf-cf6a-4b04-b021-8c5dfdbc721f,Thompson Family Plumbing and Drain,home-and-property-services,plumbing,provider,1,0,1,1,https://www.thompsonfamilyplumbing.com/
+5bb691fd-5517-45ed-8b73-9bf80d61402f,"Van Rooy Plumbing, Inc",home-and-property-services,plumbing,provider,1,0,1,1,https://vanrooyplumbing.com/
+ba4e0069-efd1-42a9-896a-d07fba0adca7,All American Pool and Spas,home-and-property-services,pools-and-spas,provider,0,0,1,1,
+4a9a8aa6-45d5-4205-9fba-74c5e8ad4c94,Aloha Pool Care LLC,home-and-property-services,pools-and-spas,provider,0,0,1,1,
+29cca5a8-680d-4f55-b52f-365a15ae6fd2,American Maintenance Pool Services,home-and-property-services,pools-and-spas,provider,0,0,1,1,
+09039dc6-4396-459d-9893-711b53a0dcd4,Amici Pools,home-and-property-services,pools-and-spas,provider,1,0,1,1,https://amicipools.com/
+e2111f66-482f-4567-8c14-d18971a9fcca,Bliss Pool Care,home-and-property-services,pools-and-spas,provider,1,0,0,1,https://www.lakehavasupoolcare.com/
+78fc1596-aba3-4df7-92d8-33b307efceae,Blue Persuasion Pools LLC,home-and-property-services,pools-and-spas,provider,0,0,1,1,
+9a0a21b3-3934-4c8d-8a4e-7d56143768ed,Blue Water Pool Services,home-and-property-services,pools-and-spas,provider,0,0,1,1,
+c460a4b6-375d-4c32-9d25-1e25ebdb0f51,Estrella Pool & Spa Repairs,home-and-property-services,pools-and-spas,provider,0,0,1,1,
+546a1be1-313b-47bb-b0c9-b271ae1a202f,EverClear Pool Service,home-and-property-services,pools-and-spas,provider,1,0,1,1,https://www.myeverclearpool.com/
+74098f1f-7443-4f75-a5f1-61156cb8d121,"HAVALYFE POOL SERVICE, LLC.",home-and-property-services,pools-and-spas,provider,1,0,1,1,https://www.havalyfepoolservice.com/
+99c8a102-680c-4f2d-afa3-3bf71ede1bb6,Havasu Pools & Repairs,home-and-property-services,pools-and-spas,provider,0,0,1,1,
+52a8a50b-36f8-442b-85a3-c2f739aa4236,KRT Pool Care,home-and-property-services,pools-and-spas,provider,1,0,0,0,https://www.havasupoolservice.com/
+dc633fbd-c39f-4d97-9a8a-892d7ac69bf0,Lake Havasu Pool Service,home-and-property-services,pools-and-spas,provider,0,0,1,1,
+7d091965-6c17-40a6-a525-3c9d8735af3d,Leslie's Pool Supplies,home-and-property-services,pools-and-spas,provider,1,0,1,1,https://lesliespool.com/
+a03bd635-b60a-4ac4-87f0-aa4faba71c8d,Liquid Assets,home-and-property-services,pools-and-spas,provider,1,0,1,1,https://liquidassetspoolservice.com/
+bb83f0bf-7773-4f32-b103-217515605709,"Mohave Mist & Spa - Hot Tubs, Outdoor Kitchens, Misting Systems Lake Havasu City",home-and-property-services,pools-and-spas,provider,1,0,1,1,https://www.mohavemist.com/
+fb7c3e1b-7b93-4881-b592-fc806370e0af,Neat Pool & Supply LLC,home-and-property-services,pools-and-spas,provider,1,0,1,1,https://neatpool.com/
+c45cddbb-e94f-400c-8639-d34e1eaa5be8,Reinhard Pool & Spa,home-and-property-services,pools-and-spas,provider,1,0,0,0,https://reinhardpool.com/
+28860be8-c7f6-4d2b-8795-d5a47495e3f1,S & S Pool Care,home-and-property-services,pools-and-spas,provider,0,0,1,1,
+e9db7728-bdaa-4d40-8a0c-ec83e814db7a,Havasu Pressure Washing,home-and-property-services,pressure-washing-and-exterior-cleaning,place,1,0,0,0,https://havasupressurewashing.com/
+42b71af5-c84e-4346-b110-4a6281b78f4f,Havasu Soft Wash,home-and-property-services,pressure-washing-and-exterior-cleaning,provider,1,0,0,1,https://havasusoftwash.com/
+ded03f70-e13a-4e2a-b493-3bf9793822e4,Mighty Mobile Power Washing,home-and-property-services,pressure-washing-and-exterior-cleaning,place,0,0,1,1,
+67262f63-2874-44d7-bb31-491ebddce3b0,American Standard Roofing,home-and-property-services,roofing,provider,1,0,1,1,https://americanstandard928.com/
+10b9e78c-17bc-4c14-a221-98c12f789064,Bill Chambers Roofing,home-and-property-services,roofing,provider,1,0,1,1,https://bcraz.com/
+8d13c390-69ea-48be-b218-7030aa538f0a,BlueSky Roofing,home-and-property-services,roofing,provider,0,0,1,1,
+46c1ea6b-1376-47be-9bba-e6d7cd1631f7,Bridge City Roofing,home-and-property-services,roofing,provider,1,0,1,1,https://bridgecityroofing.com/
+73f1a7b3-620f-4d85-aadb-b37a423d4dd2,Desert Tech Roofing,home-and-property-services,roofing,provider,1,0,1,1,https://www.deserttechroofing.com/
+6fe84f04-9458-4213-9fd0-4f324063ab65,DYNAMITE ROOFING LLC,home-and-property-services,roofing,provider,0,0,1,1,
+d9084dbf-3bdf-4bea-af3f-ae2fc96f0204,ELEMENT ROOFING,home-and-property-services,roofing,provider,0,0,1,1,
+d250a7b2-651c-4623-98cc-fc91bdfbc596,EverPeak Contractors,home-and-property-services,roofing,provider,0,0,1,1,
+52df94fc-1604-400f-9f57-32ffff68e771,Freedom Roofing & Repair,home-and-property-services,roofing,provider,1,0,1,1,https://freedomroofingandrepair.com/
+bc36327c-a006-476f-8c51-4003b2f4d5c4,Mohave Roofing,home-and-property-services,roofing,provider,1,0,1,1,https://mohaveroofingcompany.com/
+2ecb21a6-58fe-435b-b452-357848291932,Mohave Roofing,home-and-property-services,roofing,provider,1,0,1,1,https://mohaveroofingcompany.com/
+ca84a023-0895-4c9b-8b7b-08452874c3d1,Paramount Roofing,home-and-property-services,roofing,provider,1,0,1,1,https://paramountroofs.com/lake-havasu-city-az/
+9ceb99cf-9364-4f40-b48e-97227819d78d,Parker Roofing,home-and-property-services,roofing,provider,0,0,1,0,
+630cbc1a-e604-4829-863b-0b050efcb898,Precision Roofing Services,home-and-property-services,roofing,provider,0,0,1,1,
+6e0df43f-1ee8-4488-a4e4-048c31672357,Prime Roofing Lake Havasu City,home-and-property-services,roofing,provider,1,0,1,1,https://primeroofinglakehavasucity.com/
+10d349dc-34ab-4f11-9511-0372f06a82a6,Prolong Roofing,home-and-property-services,roofing,provider,0,0,1,1,
+1008b848-3853-4bd5-bb45-d2ad34dd713c,SJ Roofing,home-and-property-services,roofing,provider,1,0,1,1,http://www.sjroofingaz.com/
+b4aa5964-6a88-4f88-acb4-e0188d0ba393,United Roofing & Restoration,home-and-property-services,roofing,provider,1,0,1,1,https://www.unitedroofingarizona.com/
+6b7af0f8-7e99-43b5-953c-3675df0620eb,Minute Key,home-and-property-services,security-and-alarms,provider,1,0,1,1,https://www.minutekey.com/key-services/arizona/lk-havasu-cty/locksmith-key-copy-duplication-4000-highway-95n/32274/
+a5dcccdf-ccb2-49c5-b070-a14f38a795f7,1595 Storage LLC,home-and-property-services,self-storage,provider,0,0,1,1,
+00e75234-65ac-4aa9-bc1c-f24225faef1e,Absolute Boat & RV Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://absoluteboatandrvstorage.com/contact-us/
+5b2f268c-92ad-4101-b8cb-95cb9d52d109,Advantage Boats & RV Storage,home-and-property-services,self-storage,provider,0,0,1,1,
+b598a50e-815f-425d-8c94-f7799b06755c,Alley Way Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://alleywaystorage.com/
+12ee2383-8175-4dee-a382-71303f8b0326,Big Easy Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.bigeasystorage.com/locations/lake-havasu-city-az-86404/?utm_source=google&utm_medium=organic&utm_campaign=gbp
+1b051a3a-e88c-4300-a3eb-4c5802872452,Boat Storage of Lake Havasu,home-and-property-services,self-storage,provider,1,0,1,1,https://www.boatstorageoflakehavasu.com/
+6d969590-e346-41d0-b523-e5ad1915a4b6,Campbell Brothers Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.storagelakehavasu.com/
+b4034404-431b-4a29-aa14-98f57065cc1b,Campbell Cove Complex,home-and-property-services,self-storage,provider,1,0,1,1,https://www.campbellcovecomplex.com/
+270e5225-c902-46d4-82b8-b3db0d355d3f,Countryshire Boat & RV Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://countryshirestorage.com/
+22567f5d-6d9e-4a21-8850-45ab57d47ee4,Dave's Boat & RV Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://davesboatandrvstorage.com/
+14bb5f34-0102-4a0e-98d3-798dc17e720a,Depot Storage Boat and RV,home-and-property-services,self-storage,provider,1,0,1,1,https://www.depotstorageaz.com/
+bdb0165f-5e51-49b0-af2c-3fd2cab0d295,Desert Harbor Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.desertharborstorage.com/
+e9d6d179-7bd0-447b-9eb6-53f38b339c52,Downtown Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://downtownstoragelhc.com/
+266cd1f1-18a9-463b-8bf0-39d43b59fc81,Empire Storage,home-and-property-services,self-storage,provider,0,0,1,1,
+7ad9aa51-cddf-4c80-950b-5160bcf152ea,Essential Storage Acoma,home-and-property-services,self-storage,provider,1,0,1,1,https://essential-storage.com/
+fe817154-b413-4840-8667-ea9484c69847,Hacienda Mini Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://haciendaministorage.com/
+b93e2946-8287-4807-a6f3-ed4029fcc282,Hav-A-Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://havastorage.com/
+ec7db8b1-11c3-4bac-b1dd-ff00a8b44eb4,Havasu Boat & RV Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://havasuboatrvstorage.com/
+fa548f70-088e-491e-a3cd-03d4864a80cd,Havasu Boat & Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://havasuboatrvstorage.com/
+2a7254a3-d5e5-4372-b3c6-e1234fcf7424,Havasu Boat Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.havasuboatstorageaz.com/
+99d0c8e2-e827-4ad9-ae17-2829f246338e,Havasu City Storage,home-and-property-services,self-storage,provider,0,0,1,1,
+a59ad143-6231-4a8a-b9e2-3c74bb84945a,Havasu Superior Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.havasusuperiorstorage.com/
+a99607a7-2fd0-45e7-863a-c6d53c0225b5,HC Open Storage,home-and-property-services,self-storage,provider,0,0,1,1,
+01afefa7-e2ec-4d48-8aab-80a53f88d270,High Octane Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.highoctanestorage.com/
+8a62d9a2-61fa-4b10-8a58-8e638fbec540,Island Storage & Marine,home-and-property-services,self-storage,provider,1,0,1,1,http://islandstorage.net/
+77a50133-0285-4be8-a2cc-3caacbb39708,J Bird Outdoor Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.jbirdstorage.com/
+a9dc8c01-f4a9-4066-9b33-f8acc2d96cb1,Kiowa Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://kiowastoragelhc.com/
+969fb5d1-8eab-41cb-8333-814685852caf,Lake Front Storage & Business Center,home-and-property-services,self-storage,provider,1,0,1,1,https://lakefrontstoragecenter.com/
+38a4dce1-c96b-45a6-a2a0-f7f5db79bf2b,"Lake Havasu RV, Boat & Self Storage",home-and-property-services,self-storage,provider,1,0,1,1,https://www.lakehavasustorage.com/
+c011a292-61e1-47f8-948c-e179c1ef882a,Lake Havasu VIP Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.lakehavasuvipstorage.com/
+033ff14d-c7b6-4e79-b706-5cb94ba9dc81,Lakeside Boat & RV Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://mjplakeside.com/
+1a2c8e5b-a2af-4adf-b705-995a41392923,London Bridge Road Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.havasustorage.com/
+57fce038-9555-4d1f-b584-a02d3c89f253,London Bridge Storage Solutions,home-and-property-services,self-storage,provider,1,0,1,1,https://www.storage-solutions.org/storage/arizona/storage-units-lake-havasu/london-bridge-storage-solutions/?utm_source=google&utm_medium=local&utm_campaign=localmaps
+988f1aef-e32d-4fa5-98b8-4f1aa3e9fa11,LuxeLocker Premium Storage - Corporate Office,home-and-property-services,self-storage,provider,1,0,1,1,https://luxelocker.com/
+8836f40c-5954-4b09-8f18-de5266edacb4,"LuxeLocker Premium Storage - Lake Havasu City, AZ",home-and-property-services,self-storage,provider,1,0,1,1,https://www.luxelocker.com/locations/Lake%20Havasu%20City
+e6e09e81-638b-4290-9f30-5c3af04cff67,M & M Storage Solutions,home-and-property-services,self-storage,provider,1,0,1,1,https://www.storage-solutions.org/storage/arizona/storage-units-lake-havasu/3360-Sweetwater-159?utm_source=google&utm_medium=local&utm_content=159&utm_campaign=localmaps
+8383af49-77cb-468a-b939-03cec56a975b,Mc Cheaper's,home-and-property-services,self-storage,provider,0,0,1,1,
+9fb222bf-bdcd-4b7d-856b-3112d8c59ac3,Mc Culloch Mini Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://mccullochministorage.com/
+b9e24fef-0ed9-4c1e-9913-f14df13c5d60,Paradyme Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://paradymecompanies.com/paradyme-storage-havasu/
+4a2af449-a472-4f2f-b340-4dd9feee5114,Penthouse Budget Storage,home-and-property-services,self-storage,provider,0,0,1,0,
+162d5460-0fa6-49db-8a63-cfad8ac6a77c,Premier Storage Condos Inc,home-and-property-services,self-storage,provider,0,0,1,1,
+750594c9-872b-4465-893d-d15076929408,Prestige Boat and RV Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://prestigeboatandrvstorage.net/
+990be41a-f44a-4407-9008-f01e55235365,Riviera View Boat & RV Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.rivieraviewstorage.com/
+8cedcf13-6eca-4c2c-baac-c4a761772538,Santa Fe Mini Storage,home-and-property-services,self-storage,provider,0,0,1,1,
+929a743e-a1ca-4254-b78e-da068790fd25,ShopWildThings,home-and-property-services,self-storage,provider,1,0,1,1,https://www.shopwildthings.com/
+8186d6fd-b020-4778-af07-6958ab6edca8,Showplace Storage,home-and-property-services,self-storage,provider,1,0,1,0,https://www.showplacestorage.com/
+01b600ad-cbbb-4158-9b81-bdddcd49fd74,South End Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.southendstorage.com/
+1d9e7c54-e18b-4f66-aa2b-4a0d49932484,StorWise - Windsor Beach,home-and-property-services,self-storage,provider,1,0,1,1,https://www.storwise.com/self-storage-lake-havasu-city-az-f7721
+e2737079-ae4f-4008-a949-6e75ada55838,Sun N Sand Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.desertresortproperties.com
+0c4ccbd6-03e8-4731-af12-59ad892df6ae,Super Storage,home-and-property-services,self-storage,provider,0,0,1,0,
+b8de76fa-9f11-4576-8a30-7f58fe129126,THK Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.thkstorage.com/pages/contact
+eab0a999-2295-4125-b444-8b562772d2f5,ToyBox Storage,home-and-property-services,self-storage,provider,1,0,1,1,https://www.toyboxstorages.com/
+6f6f438e-cd96-4f1c-8156-3f15e32c8754,U-Haul Moving & Storage,home-and-property-services,self-storage,provider,1,0,0,0,https://www.uhaul.com/Storage/Lake-Havasu-City-AZ/Results/
+b079aede-a6b7-417e-9bae-9992019f43bb,Waterfront Storage Condominium,home-and-property-services,self-storage,provider,0,0,1,1,
+ef0a432e-a06c-49a1-ad67-1d464de29f4e,Apollo PowerScreens,home-and-property-services,shade-screens-and-patio-covers,place,1,0,0,0,https://apolloscreen.com/havasu/powerscreen/
+6b1aa622-ccc0-44f3-b278-ba47974efb89,Arizona Awning & Shade LLC,home-and-property-services,shade-screens-and-patio-covers,place,0,0,0,0,
+439cac23-d6ef-452e-8a06-59c153361ed7,Screenworks,home-and-property-services,shade-screens-and-patio-covers,place,1,0,0,0,https://screenworksaz.com/
+064c6042-70f0-4f84-94f1-7bc5b27c18bb,Get Free Solar Estimate,home-and-property-services,solar,provider,1,0,1,1,https://www.ownwatts.com/contact/
+10a4055a-0693-43e5-aad0-83c200c43bae,Havasu Solar,home-and-property-services,solar,provider,1,0,1,1,https://www.havasusolar.com/
+a377845f-9adf-46a4-86d0-ec2ea9e7706d,KimCo Solar Sales,home-and-property-services,solar,provider,1,0,1,1,https://dashboard.reachsolar.com/video/homeowner/KimCoSolar
+06df024d-8442-47c6-879a-69301f5c7ed0,Mohave Solar,home-and-property-services,solar,provider,1,0,1,1,https://mohavesolar.com/
+54462d6b-6b1a-4452-bcb8-02d7035bb7af,Phoenix BestPrice Solar,home-and-property-services,solar,provider,0,0,1,1,
+c167a141-f449-4f89-b9cd-f7cbc6e1e680,Solar by Esmay,home-and-property-services,solar,provider,1,0,1,1,https://solarbyesmay.com/
+0ca31f59-016b-4ca7-b615-350b770db943,Streamline Solar,home-and-property-services,solar,provider,1,0,1,1,https://www.streamlinesolar.com/
+f6b3a69b-d916-4902-a536-2ee57694ac4f,Sun Spot Solar,home-and-property-services,solar,provider,0,0,1,1,
+3ae9536c-8f85-41f3-aa12-a0bcccbdf7c2,Fonte Welding & Fabrication,home-and-property-services,welding-and-fabrication,provider,0,0,0,1,
+c605a8ed-0baf-43f5-b25e-f96cf53a71ca,Mainline Welding,home-and-property-services,welding-and-fabrication,provider,1,0,0,0,https://mainlinewelding.com/
+3fa23ae1-3c75-4b7b-bb7e-f8966767db69,Mansell Welding Inc,home-and-property-services,welding-and-fabrication,provider,1,0,0,0,https://www.mansellwelding.com/
+7823b485-dee8-4634-aa52-951697c79103,Pro Line Welding & Fabrication,home-and-property-services,welding-and-fabrication,provider,0,0,0,1,
+c0c54cc4-3f6d-4584-9029-60df1310b702,All American Door Inc,home-and-property-services,windows-and-doors,provider,1,0,0,1,https://allamericandoorinc.com/lake-havasu-windows/
+eb9e62fe-6a79-47a8-b750-cb3f8d9c1d5e,JB Windows & Glass,home-and-property-services,windows-and-doors,provider,1,0,0,0,https://jbwindows.net/
+0828ef26-6dd1-4daa-9f32-77c299ec7084,Lakeside Door and Window LLC,home-and-property-services,windows-and-doors,provider,1,0,0,0,http://www.lakesidedoor.com/
+388ea4c1-c732-4a1a-adca-65318c784a44,River Valley Window & Door LLC,home-and-property-services,windows-and-doors,provider,1,0,0,0,https://rvwco.com/services/
