@@ -103,31 +103,28 @@ def test_today_view_groups_by_category_events_first(
         monkeypatch.setattr("app.home.router.now_lake_havasu", lambda: _MONDAY)
         with TestClient(app) as client:
             body = client.get("/events-ui").text
+        # Session 2b (Casey 2026-07-05): "Music & Nightlife" and "Lake & Boating"
+        # folded into "Things to Do" (events) as SUBSECTIONS — no separate
+        # top-level music/water sections. Their happenings render under the events
+        # group, in the Live Music / Lake & Boating subsections.
+        assert 'data-k="events"' in body
+        assert 'data-k="music"' not in body
+        assert 'data-k="water"' not in body
         i_events = body.index('data-k="events"')
-        i_music = body.index('data-k="music"')
-        i_water = body.index('data-k="water"')
-        # UNIFY (Rule 0b 2026-06-26): one calendar shows the FULL tree — the
-        # events / music / on-the-water happenings render in owner-approved order,
-        # and the recurring Lap Swim class now renders inline too (the old
-        # ?view=places tab is retired). Cleanliness comes from collapse, not a
-        # second surface.
-        assert i_events < i_music < i_water
+        i_classes = body.index('data-k="classes"')
         # Session 1 declutter (Casey 2026-07-04): the day loads FULLY COLLAPSED —
-        # no top-level section auto-opens, even one holding a real event. The rows
-        # still render inside their (closed) <details>, so the order and membership
-        # checks below are unaffected; only the `open` attribute is gone.
-        for key in ("events", "music", "water"):
-            assert f'data-k="{key}" open' not in body
-        events_block = body[i_events:i_music]
-        assert festival in events_block and stroll in events_block
-        assert band in body[i_music:i_water]
-        # Sunset Paddle is genuinely on the lake → On-the-water group.
-        assert paddle in body[i_water:]
-        # Lap Swim is a recurring pool class → now ON the unified Calendar, in the
-        # Fitness & Sports group, which is COLLAPSED standing content (no real
-        # happening in it → no `open`).
+        # no top-level section auto-opens; only the `open` attr is gone.
+        assert 'data-k="events" open' not in body
+        # All the one-offs — the plain events AND the folded music (band) / on-water
+        # (paddle) happenings — live in the events / Things-to-Do group now.
+        events_block = body[i_events:i_classes]
+        for happening in (festival, stroll, band, paddle):
+            assert happening in events_block
+        # The folded subsection labels render under Things to Do.
+        assert "Live Music" in events_block
+        assert "Lake &amp; Boating" in events_block or "Lake & Boating" in events_block
+        # Lap Swim is a recurring pool class → Fitness & Sports group, COLLAPSED.
         assert swim in body
-        assert 'data-k="classes"' in body
         assert 'data-k="classes" open' not in body
     finally:
         _cleanup(eids)
