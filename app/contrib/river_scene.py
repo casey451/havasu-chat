@@ -50,6 +50,9 @@ RIVER_SCENE_DETAIL_LABELS: frozenset[str] = frozenset(
         "Organizer",
         "Start Date",
         "Time",
+        "Times",
+        "Start Time",
+        "Event Time",
         "Venue",
         "Website",
     }
@@ -174,14 +177,51 @@ def _parse_us_date(cell_text: str) -> date | None:
     return None
 
 
-def _parse_time_cell(cell_text: str) -> time_type | None:
-    s = (cell_text or "").strip()
+# Range separators a "Time" cell may use between start and end
+# ("8:00 AM - 12:00 PM", "8 AM to 12 PM", "9am–5pm"). Longest/word forms first so
+# "through"/"until" aren't split mid-word by the single-dash alternative.
+_TIME_RANGE_SEP = re.compile(r"\s*(?:through|thru|until|till|to|–|—|-)\s*", re.IGNORECASE)
+
+
+def _parse_one_time(text: str) -> time_type | None:
+    """Parse a single clock time ("8:00 AM", "9am", "5:30 PM"), else ``None`` —
+    never a fabricated placeholder."""
+    s = (text or "").strip()
     if not s:
         return None
     try:
         return dateutil_parser.parse(f"Jan 1, 2000 {s}").time()
     except (ValueError, TypeError, OverflowError):
         return None
+
+
+def _parse_time_range(cell_text: str) -> tuple[time_type | None, time_type | None]:
+    """``(start, end)`` from a Time cell.
+
+    Handles a single time ("8:00 AM" -> ``(08:00, None)``) and a start–end range
+    ("8:00 AM - 12:00 PM" -> ``(08:00, 12:00)``) so a published range no longer
+    drops to a timeless event. Never fabricates: an unparseable cell (e.g. "TBD",
+    "noon") yields ``(None, None)`` and the caller leaves the time unset."""
+    s = (cell_text or "").strip()
+    if not s:
+        return (None, None)
+    # Whole-string first: covers plain single times ("5:30 PM", "8:00am") without
+    # a spurious dash split.
+    whole = _parse_one_time(s)
+    if whole is not None:
+        return (whole, None)
+    parts = [p for p in _TIME_RANGE_SEP.split(s) if p.strip()]
+    if len(parts) == 2:
+        start = _parse_one_time(parts[0])
+        if start is not None:
+            return (start, _parse_one_time(parts[1]))
+    return (None, None)
+
+
+def _parse_time_cell(cell_text: str) -> time_type | None:
+    """Start time from a Time cell — the first time of a range — or ``None`` when
+    unparseable (never a fabricated noon)."""
+    return _parse_time_range(cell_text)[0]
 
 
 def _strip_html_to_text(html: str) -> str:
@@ -284,6 +324,26 @@ def _table_label_map(table: Tag) -> dict[str, str]:
         else:
             out[lab] = value_cell.get_text(" ", strip=True)
     return out
+
+
+# Label variants a River Scene event table may use for the time row, so a page
+# that says "Times", "Time:", "Start Time" or "Event Time" isn't read as timeless.
+_TIME_LABEL_ALIASES: tuple[str, ...] = ("time", "times", "start time", "event time")
+
+
+def _time_label_value(labels: dict[str, str]) -> str | None:
+    """The time-cell text under any accepted time label, or ``None``.
+
+    Matches case-insensitively and ignores a trailing colon ("Time:" == "Time"),
+    so an odd but valid label doesn't silently drop the published time."""
+    normalized = {
+        (k or "").strip().rstrip(":").lower(): v for k, v in labels.items()
+    }
+    for alias in _TIME_LABEL_ALIASES:
+        val = normalized.get(alias)
+        if val and val.strip():
+            return val
+    return None
 
 
 def _description_above_table(soup: BeautifulSoup, table: Tag) -> str:
@@ -399,13 +459,15 @@ def fetch_and_parse_event(
     if end_d < start_d:
         end_d = start_d
 
-    time_raw = labels.get("Time")
+    time_raw = _time_label_value(labels)
     # When the source page has no Time row, leave the start time unset rather
     # than fabricating a noon placeholder. The events time-label contract
     # (app/events/time_labels.py) renders a NULL start as "Time TBD" and sorts
-    # it after timed events — never as a fake "12 PM" start.
-    st = _parse_time_cell(time_raw or "") if time_raw else None
-    et = st
+    # it after timed events — never as a fake "12 PM" start. A published START–END
+    # range keeps both ends; a single time keeps just the start (end mirrors it,
+    # collapsing to one clean line downstream).
+    st, et_range = _parse_time_range(time_raw or "") if time_raw else (None, None)
+    et = et_range if et_range is not None else st
 
     org = (labels.get("Organizer") or "").strip() or None
     venue_txt = _clean_venue_text(labels.get("Venue") or "")
