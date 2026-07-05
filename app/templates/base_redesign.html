@@ -61,6 +61,15 @@
         <span class="lab">{{ icon(t.icon, 12) }}{{ t.label }}<span class="gl"></span></span>
         <span class="val"><span class="gval">{{ t.value }}</span><span class="caret">{{ icon('chev', 11) }}</span></span>
       </button>
+      {% elif t.source_url %}
+      {# v4.7 conditions provenance (Casey 2026-07-05): the tile links out to where
+         its number comes from (temp/wind → NWS KHII, water → USBR RISE Parker Dam,
+         UV → EPA). Whole tile is the target; the dotted-underline label + pointer
+         signal it's tappable without turning it into an obvious button. #}
+      <a class="c src{% if t.is_water %} water{% endif %}" href="{{ t.source_url }}" target="_blank" rel="noopener nofollow"{% if t.is_stale %} title="Updated a while ago · tap for the source"{% else %} title="Tap for the source"{% endif %}>
+        <span class="lab">{{ icon(t.icon, 12) }}{{ t.label }}</span>
+        <span class="val">{% if t.color %}<span style="color:{{ t.color }}">{{ t.value }}</span>{% else %}{{ t.value }}{% endif %}{% if t.unit %}<u>{{ t.unit }}</u>{% endif %}</span>
+      </a>
       {% else %}
       <span class="c{% if t.is_water %} water{% endif %}"{% if t.is_stale %} title="Updated a while ago"{% endif %}>
         <span class="lab">{{ icon(t.icon, 12) }}{{ t.label }}</span>

@@ -91,6 +91,13 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .cond .c{padding:10px 6px;border-right:1px solid var(--hair2);min-width:0;display:flex;flex-direction:column;align-items:center;gap:3px;text-align:center;background:none;border-top:0;border-left:0;border-bottom:0;width:100%;font-family:var(--ui);cursor:default}
 .cond .c:last-child{border-right:0}
 .cond button.c{cursor:pointer}
+/* v4.7 conditions provenance (Casey 2026-07-05): a tile that links to its source
+   reads as tappable — pointer + a dotted-underline label + a soft hover tint —
+   without becoming a big obvious button. Whole tile is the target; opens in a new
+   tab. Sunset (computed) and the gas expander are unaffected. */
+.cond a.c{cursor:pointer;text-decoration:none;color:inherit}
+.cond a.c .lab{border-bottom:1px dotted currentColor;padding-bottom:1px}
+.cond a.c:hover{background:var(--paper2)}
 .cond .c.gas{background:linear-gradient(180deg,rgba(244,236,218,.55),transparent);cursor:pointer}
 .cond .lab{font-size:9.5px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3);display:flex;align-items:center;gap:4px}
 .cond .c.gas .lab{color:var(--brass)} .cond .lab .ic{color:var(--ink3)} .cond .c.gas .lab .ic{color:var(--brass)}

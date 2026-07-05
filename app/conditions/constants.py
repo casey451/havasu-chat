@@ -99,3 +99,14 @@ LHC_LON = -114.3225
 # Primary Lake Havasu City ZIP — used by the keyless EPA Envirofacts UV-index
 # fallback (app/conditions/epa_uv.py) when OPENUV_API_KEY is unset.
 LHC_ZIP = "86403"
+
+# ── Human-facing "where this number comes from" source pages (v4.7 conditions
+# provenance, Casey 2026-07-05). Rendered as the click-through on each conditions
+# tile so every value is traceable. Temp + Wind share the NWS KHII observation
+# page; Water is the USBR RISE Parker Dam item (6127) — a different source from
+# temp/wind, by design; UV links to the EPA UV-index page. Sunset is computed
+# astronomically (app/conditions/sun.py) so it has no external source page and
+# stays unlinked (an honest omission rather than a fabricated link).
+SOURCE_PAGE_NWS_KHII = "https://forecast.weather.gov/data/obhistory/KHII.html"
+SOURCE_PAGE_RISE_WATER_TEMP = "https://data.usbr.gov/rise/#/items/6127"
+SOURCE_PAGE_UV = "https://www.epa.gov/sunsafety/uv-index-1"
