@@ -1,0 +1,159 @@
+====================================================================================
+BROWSE-ORPHANS APPLY — Session 6a Phase 2 — DRY RUN (no writes)
+====================================================================================
+DB target: …@crossover.proxy.rlwy.net:41265/railway
+decisions: 132  (filled rows joined to original)
+
+  note: id recovered by name: BlueWater Resort & Casino -> e1b9475e-06f1-4096-8fdc-c6569c850042
+
+PER-ACTION COUNTS:
+  REPOINT (bucket A):        84
+  DEACTIVATE (bucket B + A straggler): 16
+  COLLAPSE (bucket C):       16
+  SKIPPED / unresolved:      16
+
+--- REPOINT → proposed leaf (84) ---
+    5 Dollar Holler                              (none) -> shuttles-and-transportation [insert]
+    A & E Auto Glass                             (none) -> auto-glass [insert]
+    AAA Rousse Junk Removal                      (none) -> junk-removal-and-hauling [insert]  [target currently below gate]
+    Accounting Angels                            (none) -> accountants-and-tax [promote]
+    Advanced Animal Care                         (none) -> veterinarians [insert]
+    Advantage Windshield & Glass                 (none) -> auto-glass [insert]
+    All In 1 Services                            (none) -> handyman [insert]
+    Alpine Plumbing & Air                        (none) -> plumbing [insert]
+    Apollo PowerScreens                          (none) -> shade-screens-and-patio-covers [insert]  [target currently below gate]
+    Arizona Awning & Shade LLC                   (none) -> shade-screens-and-patio-covers [insert]  [target currently below gate]
+    Arizona Coast Ear Nose & Throat (Audiology)  (none) -> hearing-and-audiology [insert]
+    Arizona Living Rentals & Property Management (none) -> property-management [insert]
+    Arizona MVD - Lake Havasu City               (none) -> government-and-mvd [insert]
+    AZ Toy Brokers - Lake Havasu                 (none) -> golf-carts [insert]
+    Back Nine Golf                               outdoors-parks-trails -> golf-courses [repoint]
+    Barnacle Bills Boat Repairs                  (none) -> boat-repair-and-service [insert]
+    Bri & Co. Hair Studio                        (none) -> hair-salons-and-barbers [insert]
+    Bridgewater Links                            outdoors-parks-trails -> golf-courses [repoint]
+    California Dermatology Institute             (none) -> dermatology-and-skin [promote]
+    Call Us Junk Hauling                         (none) -> junk-removal-and-hauling [insert]  [target currently below gate]
+    Complete Acctg and Tax                       (none) -> accountants-and-tax [promote]
+    Copper Canyon Realty                         (none) -> real-estate [promote]
+    Full Arch Dental Implant Center              (none) -> dentists-and-orthodontists [promote]
+    Glass Doctor of Lake Havasu City             (none) -> auto-glass [insert]
+    Great Clips (Bashas)                         (none) -> hair-salons-and-barbers [insert]
+    Great Clips (Shops at Lake Havasu)           (none) -> hair-salons-and-barbers [insert]
+    Hangar 24 Lake Havasu                        (none) -> bars-and-breweries [promote]
+    Haulinit Trailers                            (none) -> trailer-sales-and-repair [insert]
+    Havasu Bait & Tackle                         (none) -> sporting-goods [insert]
+    Havasu Furniture & Bedding                   (none) -> furniture-and-mattress [insert]
+    Havasu Hair Design                           (none) -> hair-salons-and-barbers [insert]
+    Havasu Pressure Washing                      (none) -> pressure-washing-and-exterior-cleaning [insert]
+    Havasu Regional Urgent Care                  (none) -> urgent-care-and-er [insert]
+    Havasu Watercraft Connections                (none) -> boat-sales [insert]
+    HomeRiver Group Lake Havasu                  (none) -> property-management [insert]
+    Hy-Tech Watercraft Repair                    (none) -> boat-repair-and-service [insert]
+    Iced Out PPF                                 (none) -> window-tint-and-wraps [insert]  [target currently below gate]
+    IMPACT Wraps (Design by Impact)              (none) -> window-tint-and-wraps [insert]  [target currently below gate]
+    In the Pocket Billiard                       things-to-do-and-attractions -> family-fun-and-arcades [repoint]
+    Indian Bend Park                             (none) -> parks-and-playgrounds [insert]
+    Infinity bookkeeping                         (none) -> accountants-and-tax [promote]
+    Iron Wolf Top Tracer Range                   outdoors-parks-trails -> golf-courses [repoint]
+    Island Ball Fields                           (none) -> parks-and-playgrounds [insert]
+    Islander Pizzeria                            eat-drink -> restaurants [repoint]
+    JD'S Junk Removal                            (none) -> junk-removal-and-hauling [insert]  [target currently below gate]
+    Jim's House of Glass                         (none) -> auto-glass [insert]
+    K Jacob Accounting & Taxes                   (none) -> accountants-and-tax [promote]
+    Kathy Chalmers Taxes & Accounting PLLC       (none) -> accountants-and-tax [promote]
+    Lady Lee's Billiards Hall                    things-to-do-and-attractions -> family-fun-and-arcades [repoint]
+    Lake Havasu Community Performing Arts Center (none) -> theaters-and-cinema [insert]
+    Lake Havasu Golf Club - East Course          (none) -> golf-courses [promote]
+    Lake Havasu Golf Club - West Course          (none) -> golf-courses [promote]
+    Lange Veterinary Center                      (none) -> veterinarians [insert]
+    Legendz Sports Bar & Grill                   (none) -> bars-and-breweries [promote]
+    LHC Cleanup Services (Get It Done)           (none) -> cleaning [insert]
+    Liberty Props & Welding LLC                  (none) -> boat-repair-and-service [insert]
+    Mark's Marine Service LLC                    (none) -> boat-repair-and-service [promote]
+    Martini Bay                                  (none) -> bars-and-breweries [promote]
+    McKee's Pub & Grill                          (none) -> bars-and-breweries [promote]
+    Metro Tax & Financial Services Inc           (none) -> accountants-and-tax [promote]
+    Mighty Mobile Power Washing                  (none) -> pressure-washing-and-exterior-cleaning [insert]
+    Mike Delaney Pickleball Complex at Dick Samp classes-sports-recreation -> parks-and-playgrounds [repoint]
+    Mohave Garage Door                           (none) -> garage-doors [insert]
+    Nick Young Outdoors                          on-the-water -> fishing-charters-and-guides [repoint]
+    NSC Certified Public Accountants LLC         (none) -> accountants-and-tax [promote]
+    Outdoor Elements                             (none) -> landscaping-and-lawn [insert]
+    River Palm Landscaping                       (none) -> landscaping-and-lawn [insert]
+    Robyn Parrott Park                           (none) -> parks-and-playgrounds [insert]
+    Safelite AutoGlass                           (none) -> auto-glass [insert]
+    SafePro Auto Glass                           (none) -> auto-glass [insert]
+    Sandbar Watersports                          (none) -> jet-ski-and-watersports [insert]
+    Screenworks                                  (none) -> shade-screens-and-patio-covers [insert]  [target currently below gate]
+    Shade Broz Tinting                           (none) -> window-tint-and-wraps [insert]  [target currently below gate]
+    Skin and Cancer Institute                    (none) -> dermatology-and-skin [insert]
+    Tavern 95                                    (none) -> bars-and-breweries [promote]
+    The Foundry Plates & Spirits                 (none) -> restaurants [insert]
+    Turtle Grille                                (none) -> restaurants [insert]
+    U-Haul Moving & Storage                      (none) -> self-storage [insert]
+    Unique Trailers                              (none) -> trailer-sales-and-repair [insert]
+    UNlimited RE Property Management             (none) -> property-management [insert]
+    Walmart Auto Care Center                     (none) -> auto-repair [insert]
+    Walmart Supercenter (grocery)                (none) -> grocery-and-markets [insert]
+    Win Win Bingo Casino                         (none) -> casinos-and-gaming [promote]
+    Windsor Inn Lake Havasu City                 (none) -> hotels-and-motels [insert]
+
+--- DEACTIVATE (Entity.is_active=False + cascade providers) (16) ---
+    Adventure Vacation Rentals                   deactivate + cascade 1 provider(s)
+    BlueWater Resort & Casino                    deactivate + cascade 1 provider(s)
+    Cerbat Cliffs Golf Course                    deactivate + cascade 1 provider(s)
+    Chaparral Golf Course                        deactivate + cascade 1 provider(s)
+    Desert Diamond Distillery Factory Tour       deactivate + cascade 1 provider(s)
+    El Rio Golf Club                             deactivate + cascade 1 provider(s)
+    Emerald Canyon Golf Course                   deactivate + cascade 1 provider(s)
+    Hualapai Mountains                           deactivate + cascade 1 provider(s)
+    Huukan Golf Club                             deactivate + cascade 1 provider(s)
+    Laughlin Ranch Golf Club                     deactivate + cascade 1 provider(s)
+    Los Lagos Golf Club                          deactivate + cascade 1 provider(s)
+    Mojave Resort Golf Club                      deactivate + cascade 1 provider(s)
+    Parker Garage Doors & More                   deactivate + cascade 1 provider(s)
+    River's Edge Golf Course                     deactivate + cascade 1 provider(s)
+    Route 66 Museum | Powerhouse Visitor Center  deactivate + cascade 1 provider(s)
+    Stetson Winery & Event Center                deactivate + cascade 1 provider(s)
+
+--- COLLAPSE into canonical twin (merge_providers) (16) ---
+    Affordable Plumbing and Appliance Service    into 'Affordable Plumbing & Appliance Service LLC'  gap_fill=['description']  repoint={'contributions.created_provider_id': 1}
+    Captain Bob's Boat Adventures                into 'Captain Bob's Boat Adventures'  gap_fill=-  repoint=-
+    Clean Concepts                               into 'Clean Concepts Inc.'  gap_fill=-  repoint=-
+    Cypress Park                                 into 'Cypress Park'  gap_fill=-  repoint={'contributions.created_provider_id': 1}
+    Gibbs Propeller Service                      into 'Gibbs Propeller Services'  gap_fill=['website', 'description']  repoint={'contributions.created_provider_id': 1}
+    Golf n' Brews                                into 'Golf N’ Brews'  gap_fill=-  repoint=-
+    Havasu Hearing Aids                          into 'Havasu Hearing Aids, LLC'  gap_fill=-  repoint=-
+    Havasu Island Golf Course                    into 'Havasu Island Golf Course'  gap_fill=-  repoint=-
+    Iron Wolf Golf & Country Club                into 'Iron Wolf Golf & Country Club'  gap_fill=-  repoint=-
+    Lake Havasu Golf Club                        into 'Lake Havasu Golf Club'  gap_fill=['description']  repoint=-
+    Lake Havasu Property Management, LLC         into 'Lake Havasu Property Management'  gap_fill=-  repoint=-
+    Mr. Lucky's Billiards & Pub                  into 'Mr. Lucky's Billiards & Pub'  gap_fill=-  repoint=-
+    Niko's Grill & Pub                           into 'Niko's Grill and Pub'  gap_fill=['google_place_id', 'google_primary_category', 'google_categories', 'google_rating', 'google_review_count', 'google_review_snippets', 'google_photo_refs', 'google_photo_urls', 'google_hours']  repoint=-
+    Optima Medical (Central Lake Havasu)         into 'Optima Medical - Central Lake Havasu City'  gap_fill=['description']  repoint={'contributions.created_provider_id': 1}
+    SummeRay Wine Bar & Local Eatery             into 'SummeRay Wine Bar & Local Eatery'  gap_fill=-  repoint=-
+    Total Marine Pros and Powersports            into 'Total Marine Pros and Powersports'  gap_fill=['description']  repoint={'contributions.created_provider_id': 1}
+
+--- SKIPPED / UNRESOLVED (16) ---
+  [7] empty proposed_leaf
+        CELIE.CO
+        Desert Hawks RC Club
+        Go Lake Havasu (CVB)
+        Memory Magic
+        Tech One Racing
+        The 928 Group
+        Lake Havasu City BMX
+  [7] bucket B flag=review (not 'deactivate')
+        Bill Williams River National Wildlife Refuge
+        Desert Bar
+        Grand Canyon Caverns
+        Grand Canyon West
+        Keepers of the Wild
+        Oatman
+        Topock 66 Restaurant
+  [1] flag=review
+        Lady Lee's
+  [1] bucket C flag=review (not 'collapse')
+        Lake Havasu Water Park
+
+DRY RUN — nothing written. After approval, re-run with --apply --undo-csv <path>.

@@ -1,0 +1,133 @@
+entity_id,provider_name,bucket,cause,proposed_leaf,confidence,note
+93eaa280-0ed1-4ee8-8bc8-d3cc5ea2034d,5 Dollar Holler,A,a,shuttles-and-transportation,high,web: $5 zone shuttle/taxi service
+526ef6f6-fe89-4d40-bb20-1c40025b77c2,A & E Auto Glass,A,a,auto-glass,high,name_rule (already proposed)
+0554ecfd-1a9f-4afc-871d-749fa5613f0b,AAA Rousse Junk Removal,A,a,junk-removal-and-hauling,high,name_rule (already proposed)
+e4b85b2f-2024-4fff-9e67-5b0f1b6f6d77,Accounting Angels,A,a,accountants-and-tax,high,name
+5ab7d105-2d8c-4e50-af3b-49466214d7c7,Advanced Animal Care,A,a,veterinarians,high,name (animal care = vet)
+841508dc-e059-411a-b1bd-745eec75d11c,Advantage Windshield & Glass,A,a,auto-glass,high,name_rule (already proposed)
+d4c20d69-6c05-435c-9391-ae83f4902544,All In 1 Services,A,a,handyman,med,generic services name; could be general-contractors
+c22b3af2-30fa-4179-b11b-aba70db25db9,Alpine Plumbing & Air,A,a,plumbing,high,name (plumbing lead; also HVAC)
+ef0a432e-a06c-49a1-ad67-1d464de29f4e,Apollo PowerScreens,A,a,shade-screens-and-patio-covers,high,web: motorized retractable patio screens
+6b1aa622-ccc0-44f3-b278-ba47974efb89,Arizona Awning & Shade LLC,A,a,shade-screens-and-patio-covers,high,name_rule (already proposed)
+9fea5d48-ca34-4a48-8a1b-b6507877df11,Arizona Coast Ear Nose & Throat (Audiology),A,a,hearing-and-audiology,high,name_rule (already proposed)
+191939b9-4281-44d8-9cc7-051d1cf38db7,Arizona Living Rentals & Property Management,A,a,property-management,high,name_rule (already proposed)
+c87460c3-da16-4e44-a1b1-c6d4e7146d5e,Arizona MVD - Lake Havasu City,A,a,government-and-mvd,high,name
+04ae46cd-38fa-421f-a99c-8fabbe0bb68a,AZ Toy Brokers - Lake Havasu,A,a,golf-carts,high,web: golf-cart dealer
+1010ae16-3be5-4f73-b6ac-4646a0d56fbe,Barnacle Bills Boat Repairs,A,a,boat-repair-and-service,high,name
+77856e81-7424-4776-ab6f-258fe729f27f,Bri & Co. Hair Studio,A,a,hair-salons-and-barbers,high,name
+20e03483-473c-40e2-ab51-9b37afc7dfcb,California Dermatology Institute,A,a,dermatology-and-skin,high,CORRECTION: CC auto-proposed primary-care from google type=doctor; name says Dermatology
+2e2d2eaa-6a14-4654-bbef-7dae6ecdb976,Call Us Junk Hauling,A,a,junk-removal-and-hauling,high,name_rule (already proposed)
+1a5a5779-52c6-4270-ab4f-061223ebbd6f,CELIE.CO,A,a,,review,"opaque; google type=manufacturer, dept auto-rv-fuel — needs local ID"
+44c91ccf-454e-4386-b2fd-2c309a98f884,Complete Acctg and Tax,A,a,accountants-and-tax,high,name
+19d09ecb-d537-4d4b-b8ed-433a53496eb5,Copper Canyon Realty,A,a,real-estate,high,name
+f6f83eac-f400-4575-b2f1-4231574efe56,Desert Hawks RC Club,A,a,,review,RC (radio-control) hobby club — no clean leaf (hobby-and-craft? nonprofit?); your call
+9e1e25a6-2c61-470e-a485-5853c69d3bfc,Full Arch Dental Implant Center,A,a,dentists-and-orthodontists,high,name
+22cb223f-02e7-495c-aca9-9bfbd554ad5e,Glass Doctor of Lake Havasu City,A,a,auto-glass,med,dept auto-rv-fuel; Glass Doctor also does home glass
+ea57eb64-1757-4efc-9610-8919531c1026,Go Lake Havasu (CVB),A,a,,review,the CVB/aggregator itself — consider DEACTIVATE (not a normal listing)
+010f532a-460a-43eb-82c0-232aa3f26666,Great Clips (Bashas),A,a,hair-salons-and-barbers,high,name
+ca3975af-50f3-49ab-b1e8-630c5c8a4870,Great Clips (Shops at Lake Havasu),A,a,hair-salons-and-barbers,high,name
+689c507f-ab91-44c2-83c3-415ed0009967,Hangar 24 Lake Havasu,A,a,bars-and-breweries,high,brewery (google type bar_and_grill)
+3bdad0a2-7d6d-40b2-88f0-fdb7b7f05870,Haulinit Trailers,A,a,trailer-sales-and-repair,high,name
+87f7d4e6-f334-455b-93ab-31a4f7d859d8,Havasu Bait & Tackle,A,a,sporting-goods,med,no bait/tackle leaf; sporting-goods is closest
+07041953-e8ed-43e0-91dc-66d5d30a0553,Havasu Furniture & Bedding,A,a,furniture-and-mattress,high,name
+6eea6b5e-8026-466f-aca4-5f97a8a3f26f,Havasu Hair Design,A,a,hair-salons-and-barbers,high,name
+e9db7728-bdaa-4d40-8a0c-ec83e814db7a,Havasu Pressure Washing,A,a,pressure-washing-and-exterior-cleaning,high,name_rule (already proposed)
+c3379642-ac61-41ae-b182-d6f38f2e41b3,Havasu Regional Urgent Care,A,a,urgent-care-and-er,high,name
+c7747b81-5797-4888-bb8b-cadccc8193b2,Havasu Watercraft Connections,A,a,boat-sales,med,watercraft sales/broker; could be rentals — confirm
+d3c6e4f5-d398-443c-9f33-2a288956fa0a,HomeRiver Group Lake Havasu,A,a,property-management,high,national property-management firm
+549cc35b-404c-4133-8f16-794f9d41b248,Hy-Tech Watercraft Repair,A,a,boat-repair-and-service,high,name
+a96f1a03-0e13-4968-b02d-9e9508f2e682,Iced Out PPF,A,a,window-tint-and-wraps,high,PPF = paint protection film
+4103ef33-95e3-49a4-93bf-1e34141237ed,IMPACT Wraps (Design by Impact),A,a,window-tint-and-wraps,high,name_rule (already proposed)
+c1f3a688-22ae-4547-9a36-f5e60443c419,Indian Bend Park,A,a,parks-and-playgrounds,high,park (place-type — confirm keep as listing)
+6771f5f8-8746-4bbd-be87-9821fe7014c2,Infinity bookkeeping,A,a,accountants-and-tax,high,name
+9e32b615-9e9c-470e-8e3a-a7fbc8943eee,Island Ball Fields,A,a,parks-and-playgrounds,med,sports fields/park facility
+36e0d3cc-08fc-48a4-9146-2df409e75514,JD'S Junk Removal,A,a,junk-removal-and-hauling,high,name_rule (already proposed)
+70e5ecd8-67a3-4be6-96b8-4d260fe2a2d4,Jim's House of Glass,A,a,auto-glass,med,dept auto-rv-fuel; could be home glass
+96018ac2-622d-4c44-8254-cc3832d70041,K Jacob Accounting & Taxes,A,a,accountants-and-tax,high,name
+e367efe0-62bd-4e53-bfb5-fc9b51bd2c60,Kathy Chalmers Taxes & Accounting PLLC,A,a,accountants-and-tax,high,name
+bbf2420b-267e-45e6-b5c0-bf61884322b6,Lake Havasu Community Performing Arts Center & Little Theater,A,a,theaters-and-cinema,high,community theater/performing arts (or event-venues)
+171d3038-5e00-445d-86a7-c630d5b5c4d4,Lake Havasu Golf Club - East Course,A,a,golf-courses,high,name
+f17ce08c-5d49-4d04-8c5d-1cf05922659f,Lake Havasu Golf Club - West Course,A,a,golf-courses,high,name
+e44e631a-7630-4efe-825e-14de22853d4d,Lange Veterinary Center,A,a,veterinarians,high,name
+c5d0022d-2d9e-4f90-ac16-26a0d5370697,Legendz Sports Bar & Grill,A,a,bars-and-breweries,high,sports bar (google bar_and_grill)
+d08cd149-e0aa-4fef-a419-de46e7916d91,LHC Cleanup Services (Get It Done),A,a,cleaning,med,could be junk-removal; confirm
+dc07b788-a36c-45d3-8ecd-a7dd3c2504f9,Liberty Props & Welding LLC,A,a,boat-repair-and-service,med,'Props' likely marine propellers + welding; confirm
+23742b60-f6f3-4d30-bab2-b25d87076442,Mark's Marine Service LLC,A,a,boat-repair-and-service,high,name
+538348aa-1e7a-4af0-adc6-636d19e29a33,Martini Bay,A,a,bars-and-breweries,high,bar at London Bridge Resort
+62254956-b7d2-4359-89c3-5162a1e124ef,McKee's Pub & Grill,A,a,bars-and-breweries,high,pub (google bar_and_grill)
+eebbdcff-bdf5-4a8a-8497-0e6c6c002814,Memory Magic,A,a,,review,inconclusive (memory-care? photo/entertainment?) — needs local ID
+da0ea854-66d1-43d7-a638-14d64cb33c00,Metro Tax & Financial Services Inc,A,a,accountants-and-tax,high,tax/financial (or financial-advisors)
+ded03f70-e13a-4e2a-b493-3bf9793822e4,Mighty Mobile Power Washing,A,a,pressure-washing-and-exterior-cleaning,high,name_rule (already proposed)
+cdfcbc32-3eb9-4f25-b25e-991bceae7602,Mohave Garage Door,A,a,garage-doors,high,name_rule (already proposed)
+1d917dad-a66b-4829-987d-b6d5c4126480,NSC Certified Public Accountants LLC,A,a,accountants-and-tax,high,name
+e155f2ea-eb66-4abf-a843-233fa6e81b33,Outdoor Elements,A,a,landscaping-and-lawn,med,outdoor living/landscaping; confirm
+70a84b6c-167c-4243-97b9-418d8f849780,River Palm Landscaping,A,a,landscaping-and-lawn,high,name
+93e16ea6-f803-4474-bad7-604396e94b1a,Robyn Parrott Park,A,a,parks-and-playgrounds,high,park (place-type — confirm keep)
+088db841-315e-4ff8-9c0c-a828e483c73e,Safelite AutoGlass,A,a,auto-glass,high,name_rule (already proposed)
+631c88bc-339c-4348-8367-86a08ce6340f,SafePro Auto Glass,A,a,auto-glass,high,name_rule (already proposed)
+8d42f8ca-4bef-4432-9d7f-96cb2f7d4bca,Sandbar Watersports,A,a,jet-ski-and-watersports,med,watersports rentals; confirm vs boat rentals
+439cac23-d6ef-452e-8a06-59c153361ed7,Screenworks,A,a,shade-screens-and-patio-covers,med,dept home-property (screens); could be screen-printing — confirm
+290986a1-246b-464f-b04a-14342b5d80ba,Shade Broz Tinting,A,a,window-tint-and-wraps,high,name_rule (already proposed)
+f1f60c84-60d9-484a-a805-7cca20319323,Skin and Cancer Institute,A,a,dermatology-and-skin,high,name
+33b515c3-6965-4c35-a84b-10eccd27a42f,Tavern 95,A,a,bars-and-breweries,high,tavern (google bar_and_grill)
+0c70f6e6-ce08-4473-b9ed-8b17d301cc71,Tech One Racing,A,a,,review,marine/auto racing-performance? dept on-the-water — confirm (boat-repair vs powersports)
+b76c5148-4914-414c-b9a9-6b958f628e2d,The 928 Group,A,a,,review,inconclusive (real-estate? marketing?) — needs local ID
+ed0d4fd5-8028-41e7-9747-1091676dbfb3,The Foundry Plates & Spirits,A,a,restaurants,high,gastropub/restaurant
+74ba05e1-4b6e-47a2-a9aa-eb8a84a06e8e,Turtle Grille,A,a,restaurants,high,restaurant at Nautical Beachfront Resort
+6f6f438e-cd96-4f1c-8156-3f15e32c8754,U-Haul Moving & Storage,A,a,self-storage,med,truck rental + self-storage; could be movers
+250cc8f0-dfb2-4591-8c14-c1ee118f54bd,Unique Trailers,A,a,trailer-sales-and-repair,high,name
+601440b3-cf1b-4cd1-8894-d012437bc9b2,UNlimited RE Property Management,A,a,property-management,high,name_rule (already proposed)
+499750aa-348e-4706-8c1a-86c704a4a7a4,Walmart Auto Care Center,A,a,auto-repair,high,auto care center (tires/oil)
+de5c5a5b-b48a-4bc6-a448-1bde78776188,Walmart Supercenter (grocery),A,a,grocery-and-markets,high,name
+933ce742-4ffc-459b-b692-393a5ba88d07,Win Win Bingo Casino,A,a,casinos-and-gaming,high,name
+40380464-4572-4a34-bd70-c9efda2e54bf,Windsor Inn Lake Havasu City,A,a,hotels-and-motels,high,inn (lodging)
+e60103cb-9d4f-4f34-9531-47a31797ea3a,Adventure Vacation Rentals,A,b,,review,"DEACTIVATE not repoint — this is a vacation rental that slipped Session 5 (primary pointed at dept, not the VR leaf)"
+21c6f9cf-4463-4aab-a78c-98f891586366,Back Nine Golf,A,b,golf-courses,high,repoint dept->leaf
+6c0039d3-23a3-4406-b160-bcc430c2b232,Bridgewater Links,A,b,golf-courses,high,repoint dept->leaf
+52101464-e306-44c4-a849-83f4b1d82c71,In the Pocket Billiard,A,b,family-fun-and-arcades,med,billiards hall (no billiards leaf)
+7646c641-0bde-4974-a662-e160b06e8332,Iron Wolf Top Tracer Range,A,b,golf-courses,high,TopTracer golf range
+5644bd16-8a6b-40b2-b432-b0ada6866707,Islander Pizzeria,A,b,restaurants,high,repoint dept->leaf
+d57e9351-bde8-4215-a424-6684270bab01,Lady Lee's,A,b,bars-and-breweries,review,"possible DUP of 'Lady Lee's Billiards Hall' (row below) — confirm before repoint"
+b59f57c0-af37-479c-9a9f-7e176666d70a,Lady Lee's Billiards Hall,A,b,family-fun-and-arcades,med,billiards hall
+86a19ca5-3186-4625-bf2b-7d4192fed068,Lake Havasu City BMX,A,b,,review,BMX racing track — no clean leaf (parks? sports facility); your call
+e31e66d4-dea3-4247-8150-6c33631b59eb,Mike Delaney Pickleball Complex at Dick Samp Park,A,b,parks-and-playgrounds,med,pickleball courts at a park
+4973e593-a631-4f81-ab42-8d43a6566f7c,Nick Young Outdoors,A,b,fishing-charters-and-guides,high,web: guided fishing charters
+4a66e7d8-7edd-4f3a-a262-0317d2ae6ce5,Parker Garage Doors & More,B,a,,deactivate,out-of-area (Parker)
+1cca9abb-4eba-4ee1-bb43-ccdad1403e67,Bill Williams River National Wildlife Refuge,B,d,,review,"OOA by is_local, but a day-trip attraction near Havasu — confirm deactivate vs keep"
+e1b9475e-06f1-4096-8fdc-c6529c850042,BlueWater Resort & Casino,B,d,,deactivate,out-of-area (Parker)
+0450c3d8-af2a-4877-905b-9d25edb143f7,Cerbat Cliffs Golf Course,B,d,,deactivate,out-of-area (Kingman)
+dc675624-ccab-4a7e-8a62-10634aa940a3,Chaparral Golf Course,B,d,,deactivate,out-of-area (Kingman)
+e5564cda-0022-4c57-b370-dbc46966e4c6,Desert Bar,B,d,,review,"OOA but a famous day-trip spot near Parker — confirm deactivate vs keep"
+fc367380-e688-439b-84e4-e2e28945b5c8,Desert Diamond Distillery Factory Tour,B,d,,deactivate,out-of-area (Kingman)
+b244e77f-6e5a-4f59-ac66-44d1b8e1c5e3,El Rio Golf Club,B,d,,deactivate,out-of-area (Parker/Mohave Valley)
+d2d2bf8e-cc62-498f-865b-b8c5fa391d55,Emerald Canyon Golf Course,B,d,,deactivate,out-of-area (Parker)
+01230c71-ed02-430f-b5d3-5942836f6bff,Grand Canyon Caverns,B,d,,review,"far OOA; day-trip attraction — confirm deactivate vs keep"
+8c769188-1d26-4769-bc4d-1b85b25b08e4,Grand Canyon West,B,d,,review,"far OOA; day-trip attraction — confirm deactivate vs keep"
+e0eb1ad8-cac0-49e9-96af-d284c213f900,Hualapai Mountains,B,d,,deactivate,out-of-area (Kingman)
+47a01ab7-d655-4197-8ce9-7588d3572b87,Huukan Golf Club,B,d,,deactivate,out-of-area (Mohave Valley)
+8e65f8c7-d54e-4788-a5c8-a3f20d8999b1,Keepers of the Wild,B,d,,review,"OOA (Valentine/Kingman); wildlife-park day trip — confirm"
+55884dc4-b76f-4bdf-8044-5e36785b72ff,Laughlin Ranch Golf Club,B,d,,deactivate,out-of-area (Bullhead/Laughlin)
+ba6451d6-870d-4629-b68d-6f0a3e13a4bc,Los Lagos Golf Club,B,d,,deactivate,out-of-area (Bullhead)
+7589f46b-bb29-4be6-895b-c5dd20192dbb,Mojave Resort Golf Club,B,d,,deactivate,out-of-area (Laughlin/Bullhead)
+f8bff155-4777-4890-9b75-0ed2d0012333,Oatman,B,d,,review,"OOA ghost-town day trip — confirm deactivate vs keep"
+e2f58802-c4bf-4150-895a-7b00ab0e4f0a,River's Edge Golf Course,B,d,,deactivate,out-of-area (Needles CA)
+82fcc6c9-9edd-4140-ad96-97ec46558042,Route 66 Museum | Powerhouse Visitor Center,B,d,,deactivate,out-of-area (Kingman)
+86689542-cea3-4d35-b9f1-cf88023ad98c,Stetson Winery & Event Center,B,d,,deactivate,out-of-area (Kingman)
+6ede1d77-59f5-4ad1-8114-b9b92e3f2756,Topock 66 Restaurant,B,d,,review,"Topock is borderline (just NW of Havasu) — confirm deactivate vs keep"
+3ea84bcc-8ee2-494a-8dd7-4aaf8cd5140a,Affordable Plumbing and Appliance Service,C,a,,collapse,collapse into 'Affordable Plumbing & Appliance Service LLC'
+dfe07697-e4e0-41dc-ab68-b3d6369789ee,Captain Bob's Boat Adventures,C,a,,collapse,collapse into 'Captain Bob's Boat Adventures' (canonical twin)
+124071a9-8fc0-48c2-8c2e-71a47987b7bf,Clean Concepts,C,a,,collapse,collapse into 'Clean Concepts Inc.'
+affd55bb-aa2c-4fe3-8625-f3afe8db582c,Cypress Park,C,a,,collapse,collapse into 'Cypress Park' (canonical twin)
+c0d20309-1831-4e3e-ac0a-a996798e04d3,Gibbs Propeller Service,C,a,,collapse,collapse into 'Gibbs Propeller Services'
+57cf4500-2752-4128-bf2b-a918fca0669f,Havasu Hearing Aids,C,a,,collapse,"collapse into 'Havasu Hearing Aids, LLC'"
+ebb66e47-67d1-4e80-af65-415f18972227,"Lake Havasu Property Management, LLC",C,a,,collapse,collapse into 'Lake Havasu Property Management'
+673b79c8-4467-42bd-bd2d-2d6ac3b8c3c7,Niko's Grill & Pub,C,a,,collapse,collapse into 'Niko's Grill and Pub'
+4d7713f1-d48f-49c8-983a-ff1eec5c4a75,Optima Medical (Central Lake Havasu),C,a,,collapse,collapse into 'Optima Medical - Central Lake Havasu City'
+4685ceb5-c8ac-4810-ba0c-6cb009d33030,Total Marine Pros and Powersports,C,a,,collapse,collapse into 'Total Marine Pros and Powersports' (canonical twin)
+21af462d-cbff-4c38-a7e2-fa0293e924d0,Golf n' Brews,C,b,,collapse,collapse into 'Golf N Brews'
+db0189de-7fca-4943-9326-e33635ed04ef,Havasu Island Golf Course,C,b,,collapse,collapse into 'Havasu Island Golf Course' (canonical twin)
+20afefe8-b2da-4f05-a1a9-85f2c6089ea8,Iron Wolf Golf & Country Club,C,b,,collapse,collapse into 'Iron Wolf Golf & Country Club' (canonical twin)
+882fd003-9e7e-43df-bb4a-330b53131ef8,Lake Havasu Golf Club,C,b,,collapse,collapse into 'Lake Havasu Golf Club' (canonical twin)
+bc7f2cc4-5952-48ec-a1fc-60d6a142cb41,Lake Havasu Water Park,C,b,,review,"twin_of says 'Lake Havasu State Park' — that looks WRONG (water park != state park); confirm before collapse"
+e2eef582-bd17-4096-993b-d18056d6b2f0,Mr. Lucky's Billiards & Pub,C,b,,collapse,collapse into 'Mr. Lucky's Billiards & Pub' (canonical twin)
+351f8a5c-93c0-4bcc-9a9b-903cff14251c,SummeRay Wine Bar & Local Eatery,C,b,,collapse,collapse into 'SummeRay Wine Bar & Local Eatery' (canonical twin)
