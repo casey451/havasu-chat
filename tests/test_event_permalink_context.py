@@ -203,13 +203,19 @@ def test_event_link_html_shows_domain_not_raw_url():
     assert ">https://www.riverscenemagazine.com/events/movies</a>" not in out
 
 
-def test_event_link_html_renders_source_byline_when_distinct():
+def test_event_link_html_suppresses_source_byline_when_organizer_url_distinct():
+    # §3A (2026-07-04): a real organizer event_url on a different domain than the
+    # aggregator source_url is the primary link; the "Source: <aggregator>" byline
+    # is noise, so it is dropped (this case previously rendered the byline).
     out = _event_link_html(
         "https://starcinemashavasu.com/", "https://www.riverscenemagazine.com/events/x"
     )
-    assert 'class="ev-source"' in out
-    assert "Source:" in out
-    assert ">riverscenemagazine.com</a>" in out
+    assert 'class="ev-source"' not in out
+    assert "Source:" not in out
+    # the organizer link is still the primary "Event Link", aggregator dropped.
+    assert "Event Link:" in out
+    assert ">starcinemashavasu.com</a>" in out
+    assert "riverscenemagazine.com" not in out
 
 
 def test_event_link_html_no_byline_when_source_same_site():

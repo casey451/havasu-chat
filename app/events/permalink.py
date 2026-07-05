@@ -151,12 +151,20 @@ def _link_label(url: str | None) -> str:
 def _event_link_html(event_url: str | None, source_url: str | None) -> str:
     """The 'Event Link' block for the detail page.
 
-    Shows a friendly domain label rather than the raw URL string, and — when we
-    hold a distinct ``source_url`` (where the listing was found) — a quiet
-    provenance byline. Falls back to ``source_url`` as the primary link when no
-    ``event_url`` is stored, so a source-only event still links somewhere.
-    ``safe_href`` strips dangerous schemes (the URLs are scraped/unvalidated and
-    this is a public page; audit M2).
+    Shows a friendly domain label rather than the raw URL string. Falls back to
+    ``source_url`` as the primary link when no ``event_url`` is stored, so a
+    source-only event still links somewhere. ``safe_href`` strips dangerous
+    schemes (the URLs are scraped/unvalidated and this is a public page; audit
+    M2).
+
+    Provenance byline (§3A, 2026-07-04): a quiet "Source: <aggregator>" line is
+    shown ONLY when the aggregator is all we have. When ``event_url`` is a real
+    organizer URL on a different domain than ``source_url`` (e.g. the Farmers
+    Market's own site found via River Scene), that organizer link is the primary
+    and the aggregator label is noise, so it is SUPPRESSED. When the only link is
+    the aggregator (no ``event_url``, or ``event_url`` on the same domain as the
+    source), the aggregator is already the primary "Event Link" — the byline
+    would just duplicate it, so it stays hidden there too.
     """
     primary = (event_url or source_url or "").strip()
     if not primary:
@@ -168,7 +176,16 @@ def _event_link_html(event_url: str | None, source_url: str | None) -> str:
         f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer">{label}</a></p>'
     )
     src = (source_url or "").strip()
-    if src and _link_domain(src) and _link_domain(src) != _link_domain(primary):
+    ev = (event_url or "").strip()
+    # A distinct organizer URL = a non-empty event_url on a different domain than
+    # the source. When present it IS the primary link above, so drop the byline.
+    has_organizer_url = bool(ev) and bool(_link_domain(ev)) and _link_domain(ev) != _link_domain(src)
+    if (
+        src
+        and _link_domain(src)
+        and _link_domain(src) != _link_domain(primary)
+        and not has_organizer_url
+    ):
         src_safe = html.escape(safe_href(src))
         src_label = html.escape(_link_domain(src))
         out += (
