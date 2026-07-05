@@ -128,6 +128,7 @@ def _compute_merge_fields(
     incoming_desc = (payload.description or "").strip()
     incoming_url = (payload.event_url or "").strip()
     incoming_src_url = _payload_source_url(payload)
+    incoming_img = (payload.image_url or "").strip()
 
     if new_pri < existing_pri:
         # Incoming is the higher-trust source: it wins on display fields.
@@ -143,12 +144,24 @@ def _compute_merge_fields(
             merge["event_url"] = incoming_url
 
     # Gap-fill (regardless of direction): never overwrite existing data.
-    if incoming_desc and not (existing.description or "").strip():
+    # Richest-description mirror of the render-time absorb (§3B): prefer the
+    # longer text so a twin with the fuller blurb upgrades the row — but never
+    # replace an authoritative (source-priority-0) row's own curated description.
+    existing_desc = (existing.description or "").strip()
+    existing_authoritative = _min_priority_for_source_string(existing.source) == 0
+    if (
+        incoming_desc
+        and len(incoming_desc) > len(existing_desc)
+        and not (existing_authoritative and existing_desc)
+    ):
         merge.setdefault("description", incoming_desc)
     if incoming_url and not (existing.event_url or "").strip():
         merge.setdefault("event_url", incoming_url)
     if incoming_src_url and not existing.source_url:
         merge["source_url"] = incoming_src_url
+    # Flyer gap-fill (§3B ingest mirror): fill a missing image, never overwrite.
+    if incoming_img and not (getattr(existing, "image_url", None) or "").strip():
+        merge["image_url"] = incoming_img
     if payload.end_time is not None and existing.end_time is None:
         merge["end_time"] = payload.end_time
     if (

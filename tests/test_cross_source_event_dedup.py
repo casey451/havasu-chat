@@ -17,7 +17,7 @@ from __future__ import annotations
 import uuid
 from datetime import date, time
 
-from sqlalchemy import delete
+from sqlalchemy import delete, select
 
 from app.db.database import SessionLocal
 from app.db.models import Entity, Event
@@ -163,6 +163,114 @@ def test_authoritative_source_beats_longer_aggregator_blurb() -> None:
     )
     kept = dedup_cross_source_event_rows([aggregator, admin])
     assert kept == [admin]  # admin (source 0) beats go_lake_havasu (source 1)
+    # §3B: the survivor ABSORBS twins' fields, but a curated/authoritative row
+    # must NOT have its own description replaced by a longer aggregator blurb.
+    assert kept[0].description == "Free swim, noon-4."
+
+
+# --- Item §3B: survivor absorbs the dropped twin's best display fields --------
+
+
+def test_survivor_absorbs_dropped_twin_flyer() -> None:
+    """The higher-priority row wins the sort but has no flyer; it absorbs the
+    dropped twin's poster image so the one rendered row still shows it."""
+    survivor = _ev("Beach Concert", start=time(19, 0), venue="The Nautical",
+                   source="go_lake_havasu", ev_id="surv")  # src 1, no image
+    loser = _ev("Beach Concert", start=time(19, 0), venue="The Nautical",
+                source="river_scene_import", ev_id="lose")  # src 4, has flyer
+    loser.image_url = "https://cdn.example/flyer.jpg"
+    kept = dedup_cross_source_event_rows([survivor, loser])
+    assert kept == [survivor]
+    assert kept[0].image_url == "https://cdn.example/flyer.jpg"  # absorbed
+
+
+def test_calvary_relaxed_venue_guard_collapses_and_absorbs_richest_desc() -> None:
+    """The Calvary miss: two feeds describe one 6 PM event under subset titles at
+    unrelated venue strings (street address vs short name) — different sources,
+    both specific venues, EXACT same start. The relaxed guard (drops _venue_match
+    when subset-title + exact-time + diff-source) collapses them to one, and the
+    survivor absorbs the richer (longer) description."""
+    long_desc = (
+        "Calvary Baptist Church Sweetwater Campus invites the whole community to a "
+        "free 4th of July Family Water Night with inflatable slides, games, food, "
+        "and fireworks viewing from the lawn. Bring a towel and a chair."
+    )
+    rs = _ev(
+        "Calvary Baptist Church (Sweetwater Campus) 4th of July Family Water Night",
+        start=time(18, 0), venue="3100 Sweetwater Ave LHC",  # address = specific, digit-led
+        desc=long_desc, source="river_scene_import", ev_id="rs",
+    )
+    gl = _ev(
+        "Family Water Night at Calvary",
+        start=time(18, 0), end=time(20, 0), venue="Calvary",  # short name = named place
+        desc="Family Water Night.", source="go_lake_havasu", ev_id="gl",
+    )
+    kept = dedup_cross_source_event_rows([rs, gl])
+    assert len(kept) == 1
+    survivor = kept[0]
+    assert survivor.id == "gl"  # named venue + higher source priority
+    assert survivor.description == long_desc  # absorbed the richer text
+
+
+def test_relaxed_guard_still_requires_subset_titles() -> None:
+    """The relaxation is gated on the title-subset signal: two DIFFERENT events at
+    different specific venues that merely share an exact start time (no title
+    subset) are never merged."""
+    a = _ev("Sunrise Yoga", start=time(6, 0), venue="Rotary Park",
+            source="admin", ev_id="a")
+    b = _ev("Chamber Breakfast", start=time(6, 0), venue="The Nautical",
+            source="go_lake_havasu", ev_id="b")
+    kept = dedup_cross_source_event_rows([a, b])
+    assert len(kept) == 2
+
+
+def test_absorb_is_read_only_and_never_persists() -> None:
+    """CRITICAL (read-only contract): the render-time absorb sets display fields
+    via set_committed_value, so even a COMMIT on the session must not write the
+    grafted flyer back to the survivor's DB row."""
+    suffix = uuid.uuid4().hex[:6]
+    title = f"ZZ Absorb Safety {suffix}"
+    day = date(2099, 10, 10)
+    eids: list[str] = []
+    with SessionLocal() as db:
+        surv = Event(
+            title=title, normalized_title=title.lower(), date=day,
+            start_time=time(19, 0), end_time=None, location_name="The Nautical",
+            location_normalized="the nautical", description="short",
+            event_url="https://example.com/e", tags=[], status="live",
+            source="go_lake_havasu", verified=True,
+        )
+        lose = Event(
+            title=title, normalized_title=title.lower(), date=day,
+            start_time=time(19, 0), end_time=None, location_name="The Nautical",
+            location_normalized="the nautical", description="short",
+            event_url="https://example.com/e", tags=[], status="live",
+            source="river_scene_import", image_url="https://cdn.example/flyer.jpg",
+            verified=True,
+        )
+        db.add(surv)
+        db.add(lose)
+        db.flush()
+        surv_id = surv.id
+        eids += [surv.entity_id, lose.entity_id]
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            rows = list(
+                db.scalars(select(Event).where(Event.entity_id.in_(eids))).all()
+            )
+            kept = dedup_cross_source_event_rows(rows)
+            # In memory the survivor shows the absorbed flyer...
+            assert len(kept) == 1
+            assert kept[0].image_url == "https://cdn.example/flyer.jpg"
+            db.commit()  # would persist any dirty attribute
+        # ...but the survivor's DB row was never written.
+        with SessionLocal() as db:
+            fresh = db.get(Event, surv_id)
+            assert fresh is not None
+            assert fresh.image_url is None
+    finally:
+        _cleanup(eids)
 
 
 def test_occurrence_pairs_keep_input_order_and_distinct_titles() -> None:

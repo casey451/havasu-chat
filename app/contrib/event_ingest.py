@@ -78,6 +78,7 @@ _MERGEABLE_EVENT_FIELDS = frozenset(
         "location_normalized",
         "event_url",
         "source_url",
+        "image_url",
         "end_time",
         "end_date",
     }

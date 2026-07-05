@@ -13,6 +13,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from rapidfuzz import fuzz, process
 from sqlalchemy import false, or_, select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.db.models import Entity, Event, Provider
 from app.events.dedup_match import (
@@ -306,38 +307,109 @@ def _source_priority(source: str | None) -> int:
     return min(EVENT_SOURCE_PRIORITY.get(p, 99) for p in parts)
 
 
-def _survivor_rank(event: Event) -> tuple[bool, bool, int, int, str]:
-    """Sort key for picking ONE survivor in a duplicate cluster (lowest wins):
-    real start time > named venue > source priority > longer description > id.
+def _has_flyer(event: Event) -> bool:
+    """The row carries a flyer/poster image URL."""
+    return bool((getattr(event, "image_url", None) or "").strip())
 
-    Source priority outranks description length so an authoritative row (e.g.
-    a curated ``admin`` entry) wins over a longer aggregator blurb, even when
-    the aggregator carries the richer text. See ``EVENT_SOURCE_PRIORITY``.
+
+def _survivor_rank(event: Event) -> tuple[bool, bool, int, bool, int, str]:
+    """Sort key for picking ONE survivor in a duplicate cluster (lowest wins):
+    real start time > named venue > source priority > has flyer > longer
+    description > id.
+
+    Source priority outranks the flyer/description tiebreaks so an authoritative
+    row (e.g. a curated ``admin`` entry) wins over a longer aggregator blurb,
+    even when the aggregator carries the richer text. Among rows of equal source
+    priority a flyer-bearing twin wins so the poster survives; the survivor also
+    ABSORBS a dropped twin's flyer/richer text/real time (see
+    ``_absorb_display_fields``), so the tiebreak only decides which row's *other*
+    fields (venue, url) anchor the merged display. See ``EVENT_SOURCE_PRIORITY``.
     """
     return (
         _start_is_tbd_for_dedup(event.start_time, event.end_time),
         not _venue_is_named_place(event.location_name),
         _source_priority(event.source),
+        not _has_flyer(event),
         -len((event.description or "").strip()),
         str(event.id),
     )
 
 
-def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
-    """Positions (into the caller's occurrence list) that survive one group.
+def _absorb_longest_description(survivor: Event, losers: list[Event]) -> None:
+    """Graft the longest description among the cluster onto the survivor — unless
+    the survivor is an authoritative (operator / source-priority-0) row that
+    already carries its own curated text, which must never be replaced by a
+    longer aggregator blurb (the swim-card rule)."""
+    current = (survivor.description or "").strip()
+    authoritative = bool(getattr(survivor, "operator_override", False)) or _source_priority(
+        survivor.source
+    ) == 0
+    if authoritative and current:
+        return
+    best = survivor.description or ""
+    best_len = len(current)
+    for lo in losers:
+        d = lo.description or ""
+        if len(d.strip()) > best_len:
+            best, best_len = d, len(d.strip())
+    if best != (survivor.description or ""):
+        set_committed_value(survivor, "description", best)
+
+
+def _absorb_display_fields(survivor: Event, losers: list[Event]) -> None:
+    """Make the render survivor ABSORB the best display fields from its dropped
+    twin(s): a flyer image, the longest description, and a real start time over a
+    TBD/fabricated one — so the single rendered row carries them even when they
+    lived on a twin that lost the survivor sort (§3B).
+
+    Uses :func:`sqlalchemy.orm.attributes.set_committed_value`, which sets the
+    value as if freshly loaded from the DB (no dirty flag), so this stays purely
+    read-only: the render paths that call the dedup never write these grafts back
+    to the database (autoflush won't emit an UPDATE for a committed value)."""
+    # Flyer: gap-fill only (a survivor that already has an image keeps its own).
+    if not _has_flyer(survivor):
+        for lo in losers:
+            if _has_flyer(lo):
+                set_committed_value(survivor, "image_url", lo.image_url)
+                break
+    # Real start time over a TBD/fake one: only when the survivor itself is TBD
+    # (the sort already prefers a real-timed survivor, so this is a safety net for
+    # clusters where the survivor was chosen on another axis).
+    if _start_is_tbd_for_dedup(survivor.start_time, survivor.end_time):
+        for lo in losers:
+            if not _start_is_tbd_for_dedup(lo.start_time, lo.end_time):
+                set_committed_value(survivor, "start_time", lo.start_time)
+                set_committed_value(survivor, "end_time", lo.end_time)
+                break
+    _absorb_longest_description(survivor, losers)
+
+
+def _cluster_survivor_and_losers(
+    cluster: list[tuple[int, Event]],
+) -> tuple[int, list[int]]:
+    """(survivor position, [loser positions]) for one already-formed cluster."""
+    survivor = min(cluster, key=lambda m: _survivor_rank(m[1]))[0]
+    losers = [idx for idx, _ev in cluster if idx != survivor]
+    return survivor, losers
+
+
+def _group_clusters(members: list[tuple[int, Event]]) -> list[tuple[int, list[int]]]:
+    """One group's clusters as (survivor position, [loser positions]) pairs.
 
     Timed (non-TBD) members are clustered by start-time proximity: starts within
     :data:`_SEPARATE_SESSION_GAP_MINUTES` of the previous one chain into the same
     cluster; a bigger gap means a genuinely separate session, so each cluster
     keeps its own survivor (the matinee/evening guard). Time-TBD members are
     duplicates of a timed sibling when one exists (the fake-noon twin loses);
-    with no timed sibling they all collapse onto a single TBD survivor.
+    with no timed sibling they all collapse onto a single TBD survivor. The
+    caller drops the losers and grafts their best fields onto the survivor.
     """
     timed = [
         m for m in members if not _start_is_tbd_for_dedup(m[1].start_time, m[1].end_time)
     ]
     if not timed:
-        return {min(members, key=lambda m: _survivor_rank(m[1]))[0]}
+        # All TBD → one survivor absorbs the whole group.
+        return [_cluster_survivor_and_losers(members)]
     timed.sort(key=lambda m: start_minutes(m[1].start_time))
     clusters: list[list[tuple[int, Event]]] = [[timed[0]]]
     for member in timed[1:]:
@@ -346,7 +418,19 @@ def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
             clusters[-1].append(member)
         else:
             clusters.append([member])
-    return {min(cluster, key=lambda m: _survivor_rank(m[1]))[0] for cluster in clusters}
+    # TBD members are twins of the nearest timed cluster's survivor when one
+    # exists — fold them into the first cluster so their fields can be absorbed
+    # (and they drop) rather than surviving as a separate timeless row.
+    tbd = [m for m in members if _start_is_tbd_for_dedup(m[1].start_time, m[1].end_time)]
+    clusters[0].extend(tbd)
+    return [_cluster_survivor_and_losers(c) for c in clusters]
+
+
+def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
+    """Positions that survive one group (survivors only). Thin wrapper over
+    :func:`_group_clusters` for callers/tests that need just the survivor set, not
+    the survivor→losers mapping used by the field-absorb."""
+    return {survivor for survivor, _losers in _group_clusters(members)}
 
 
 # --------------------------------------------------------------------------- #
@@ -453,6 +537,36 @@ def _different_source(a: Event, b: Event) -> bool:
     return bool(sa) and bool(sb) and sa != sb
 
 
+def _exact_same_start(a: Event, b: Event) -> bool:
+    """Both rows carry a real start time and it is the SAME clock time."""
+    return a.start_time is not None and b.start_time is not None and a.start_time == b.start_time
+
+
+def _cross_source_same_session(a: Event, b: Event) -> bool:
+    """Two rows are the SAME real cross-source session under different titles.
+
+    The strict shape (all four guards): different sources, both a specific venue
+    that token-match, one title's significant words subset the other's, and their
+    time windows overlap.
+
+    Calvary relaxation (§3B, 2026-07-04): the strict venue *name* match is too
+    strict when two feeds describe one event with unrelated venue strings — the
+    river_scene "Calvary Baptist Church (Sweetwater Campus)" at the street address
+    vs the go_lake "Family Water Night at Calvary" at "Calvary". So we ALSO merge
+    when the titles subset-match AND both start at the EXACT same clock time AND
+    the sources differ, dropping only the ``_venue_match`` requirement. Both venues
+    must still be specific (the bare-city fallback never anchors a merge), and the
+    exact-time + subset-title agreement keeps this tight against the over-merge the
+    venue guard was added to prevent."""
+    if not (_different_source(a, b) and _is_specific_venue(a) and _is_specific_venue(b)):
+        return False
+    if not _titles_share_activity(a, b):
+        return False
+    strict = _venue_match(a, b) and _times_overlap_for_merge(a, b)
+    relaxed = _exact_same_start(a, b)
+    return strict or relaxed
+
+
 def _uf_find(parent: dict[int, int], x: int) -> int:
     while parent[x] != x:
         parent[x] = parent[parent[x]]
@@ -460,18 +574,22 @@ def _uf_find(parent: dict[int, int], x: int) -> int:
     return x
 
 
-def _cross_source_session_drops(
+def _cross_source_session_clusters(
     occurrences: Sequence[tuple[Event, date]], already_dropped: set[int]
-) -> set[int]:
-    """Positions to drop in the cross-source same-session second pass (union-find
-    over each date's surviving rows; an edge = same venue + overlap + diff source)."""
+) -> list[tuple[int, list[int]]]:
+    """Cross-source same-session second pass as (survivor, [loser]) clusters.
+
+    Union-find over each date's still-surviving rows; an edge is drawn by
+    :func:`_cross_source_same_session`. Each multi-row component yields one
+    survivor and its losers so the caller can drop the losers and absorb their
+    best display fields onto the survivor."""
     by_date: dict[date, list[tuple[int, Event]]] = {}
     for idx, (ev, occ_date) in enumerate(occurrences):
         if idx in already_dropped:
             continue
         by_date.setdefault(occ_date, []).append((idx, ev))
 
-    drops: set[int] = set()
+    clusters: list[tuple[int, list[int]]] = []
     for members in by_date.values():
         if len(members) < 2:
             continue
@@ -480,14 +598,7 @@ def _cross_source_session_drops(
             ia, ea = members[i]
             for j in range(i + 1, len(members)):
                 ib, eb = members[j]
-                if (
-                    _different_source(ea, eb)
-                    and _is_specific_venue(ea)
-                    and _is_specific_venue(eb)
-                    and _venue_match(ea, eb)
-                    and _titles_share_activity(ea, eb)
-                    and _times_overlap_for_merge(ea, eb)
-                ):
+                if _cross_source_same_session(ea, eb):
                     parent[_uf_find(parent, ia)] = _uf_find(parent, ib)
         comps: dict[int, list[tuple[int, Event]]] = {}
         for idx, ev in members:
@@ -495,9 +606,8 @@ def _cross_source_session_drops(
         for comp in comps.values():
             if len(comp) < 2:
                 continue
-            survivor = min(comp, key=lambda m: _survivor_rank(m[1]))[0]
-            drops.update(idx for idx, _ev in comp if idx != survivor)
-    return drops
+            clusters.append(_cluster_survivor_and_losers(comp))
+    return clusters
 
 
 def dedup_cross_source_occurrences(
@@ -521,12 +631,25 @@ def dedup_cross_source_occurrences(
             groups.setdefault((key, occ_date), []).append((idx, ev))
 
     dropped: set[int] = set()
+
+    def _collapse(survivor: int, losers: list[int]) -> None:
+        # Drop the losers and graft their best display fields onto the survivor
+        # so the one rendered row carries the flyer / richest text / real time.
+        if not losers:
+            return
+        dropped.update(losers)
+        _absorb_display_fields(occurrences[survivor][0], [occurrences[i][0] for i in losers])
+
+    # Pass 1: same (normalized title, date) groups. Grafts first so a pass-1
+    # survivor that pass 2 then merges carries its absorbed fields forward.
     for members in groups.values():
         if len(members) < 2:
             continue
-        survivors = _group_survivor_positions(members)
-        dropped.update(idx for idx, _ev in members if idx not in survivors)
-    dropped.update(_cross_source_session_drops(occurrences, dropped))
+        for survivor, losers in _group_clusters(members):
+            _collapse(survivor, losers)
+    # Pass 2: cross-source same-session twins under different titles.
+    for survivor, losers in _cross_source_session_clusters(occurrences, dropped):
+        _collapse(survivor, losers)
     return [pair for idx, pair in enumerate(occurrences) if idx not in dropped]
 
 
