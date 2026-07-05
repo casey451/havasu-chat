@@ -45,6 +45,8 @@ from app.db.contribution_store import normalize_submission_url
 from app.events.dedup import (
     DEDUP_TITLE_FUZZY_THRESHOLD,
     find_duplicate,
+    is_bare_venue,
+    location_has_street_address,
     resolve_venue_entity_id,
 )
 from app.events.scrapers.base import EventPayload, normalize_event_title
@@ -129,6 +131,7 @@ def _compute_merge_fields(
     incoming_url = (payload.event_url or "").strip()
     incoming_src_url = _payload_source_url(payload)
     incoming_img = (payload.image_url or "").strip()
+    incoming_venue = (payload.venue_name or "").strip()
 
     if new_pri < existing_pri:
         # Incoming is the higher-trust source: it wins on display fields.
@@ -162,6 +165,16 @@ def _compute_merge_fields(
     # Flyer gap-fill (§3B ingest mirror): fill a missing image, never overwrite.
     if incoming_img and not (getattr(existing, "image_url", None) or "").strip():
         merge["image_url"] = incoming_img
+    # More-specific LOCATION mirror (§3.1): a bare one-word existing venue
+    # ("Calvary") is upgraded to an incoming street address ("3100 Sweetwater
+    # Ave"); a real multi-word named venue is never downgraded to a raw address.
+    if (
+        incoming_venue
+        and is_bare_venue(existing.location_name)
+        and location_has_street_address(incoming_venue)
+    ):
+        merge.setdefault("location_name", incoming_venue)
+        merge.setdefault("location_normalized", incoming_venue.lower())
     if payload.end_time is not None and existing.end_time is None:
         merge["end_time"] = payload.end_time
     if (

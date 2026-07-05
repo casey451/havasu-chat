@@ -210,6 +210,22 @@ def test_calvary_relaxed_venue_guard_collapses_and_absorbs_richest_desc() -> Non
     survivor = kept[0]
     assert survivor.id == "gl"  # named venue + higher source priority
     assert survivor.description == long_desc  # absorbed the richer text
+    # §3.1: the bare "Calvary" survivor also absorbs the twin's street address.
+    assert survivor.location_name == "3100 Sweetwater Ave LHC"
+
+
+def test_named_venue_survivor_not_downgraded_to_address() -> None:
+    """§3.1 guard: a real multi-word named venue is NEVER replaced by a twin's raw
+    street address — only a bare one-word venue ("Calvary") is upgraded."""
+    named = _ev("Lake Havasu Farmers Market", start=time(8, 0), end=time(12, 0),
+                venue="Go Lake Havasu Visitor Center", source="go_lake_havasu", ev_id="named")
+    addressed = _ev("Lake Havasu Farmers Market", start=time(8, 0),
+                    venue="2144 McCulloch Blvd N Lake Havasu City, AZ 86403",
+                    source="river_scene_import", ev_id="addr")
+    kept = dedup_cross_source_event_rows([named, addressed])
+    assert len(kept) == 1
+    assert kept[0].id == "named"
+    assert kept[0].location_name == "Go Lake Havasu Visitor Center"  # not downgraded
 
 
 def test_relaxed_guard_still_requires_subset_titles() -> None:

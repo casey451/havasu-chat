@@ -192,6 +192,33 @@ def test_authoritative_existing_description_not_replaced_by_longer(db) -> None:
     assert "description" not in r.merge_fields
 
 
+def test_merge_upgrades_bare_venue_to_street_address(db) -> None:
+    # §3.1 ingest mirror: an existing bare one-word venue ("Calvary") is upgraded
+    # to an incoming street address, matching the render-time location absorb.
+    d = date(2031, 12, 12)
+    _event(db, title="Family Water Night", on_date=d, start=time(18, 0),
+           source="go_lake_havasu", location_name="Calvary")
+    p = _payload(name="Family Water Night", start_date=d, start_time=time(18, 0),
+                 venue_name="3100 Sweetwater Ave LHC", source="river_scene")
+    r = reconcile_event(db, p)
+    assert r.action == "duplicate"
+    assert r.merge_fields is not None
+    assert r.merge_fields["location_name"] == "3100 Sweetwater Ave LHC"
+
+
+def test_merge_does_not_downgrade_named_venue_to_address(db) -> None:
+    # §3.1 guard: a real multi-word named venue is never replaced by a raw address.
+    d = date(2031, 12, 13)
+    _event(db, title="Lake Havasu Farmers Market", on_date=d, start=time(8, 0),
+           source="go_lake_havasu", location_name="Go Lake Havasu Visitor Center")
+    p = _payload(name="Lake Havasu Farmers Market", start_date=d, start_time=time(8, 0),
+                 venue_name="2144 McCulloch Blvd N", source="river_scene")
+    r = reconcile_event(db, p)
+    assert r.action == "duplicate"
+    assert r.merge_fields is not None
+    assert "location_name" not in r.merge_fields
+
+
 def test_same_date_same_venue_loose_title_is_ambiguous(db) -> None:
     d = date(2031, 7, 7)
     existing = _event(

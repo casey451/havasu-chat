@@ -55,7 +55,12 @@
 
     {{ contact_html | safe }}
     {{ event_link_html | safe }}
-    {{ tags_html | safe }}
+    {#- Session 3.1 (2026-07-05): the backend bucket/section tags ("events",
+       "church events") are no longer rendered on the detail page — they mirror
+       Session 1's row-tag hiding and read as internal metadata to visitors. The
+       tags_html builder + public_event_tags() are kept intact for a future
+       curated badge; the Free/cost badge above (evd-tags) is unaffected. Restore
+       by re-adding the tags_html output line here. -#}
 
     <p class="evd-back"><a href="/events-ui">← Back to all events</a>
       <span aria-hidden="true">·</span>
