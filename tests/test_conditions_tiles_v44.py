@@ -70,3 +70,25 @@ def test_sunset_omitted_when_absent_no_placeholder() -> None:
     tiles = _tiles(p, _GAS_EMPTY)
     assert all(t["key"] != "sunset" for t in tiles)
     assert all(t["value"] not in ("", "N/A", "—") for t in tiles)
+
+
+def test_conditions_provenance_source_urls() -> None:
+    # v4.7: every measured tile links to where its number comes from — temp + wind
+    # to the NWS KHII observation page, water to the USBR RISE Parker Dam item, UV
+    # to the EPA page. Sunset (astronomically computed) has NO source page, so it
+    # stays unlinked — an honest omission, not a fabricated link.
+    from app.conditions.constants import (
+        SOURCE_PAGE_NWS_KHII,
+        SOURCE_PAGE_RISE_WATER_TEMP,
+        SOURCE_PAGE_UV,
+    )
+
+    by_key = {t["key"]: t for t in _tiles(_full_payload(), _GAS_EMPTY)}
+    assert by_key["temp"]["source_url"] == SOURCE_PAGE_NWS_KHII
+    assert by_key["wind"]["source_url"] == SOURCE_PAGE_NWS_KHII
+    assert by_key["water_temp"]["source_url"] == SOURCE_PAGE_RISE_WATER_TEMP
+    assert by_key["uv"]["source_url"] == SOURCE_PAGE_UV
+    # Water is a genuinely different source from temp/wind (RISE, not NWS).
+    assert by_key["water_temp"]["source_url"] != by_key["temp"]["source_url"]
+    # Sunset is computed → no external source page → unlinked.
+    assert "source_url" not in by_key["sunset"]

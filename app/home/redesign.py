@@ -21,7 +21,12 @@ from sqlalchemy.orm import Session
 
 from app.conditions.api_payload import build_conditions_api_payload
 from app.conditions.cache import read_source
-from app.conditions.constants import SOURCE_GAS
+from app.conditions.constants import (
+    SOURCE_GAS,
+    SOURCE_PAGE_NWS_KHII,
+    SOURCE_PAGE_RISE_WATER_TEMP,
+    SOURCE_PAGE_UV,
+)
 from app.db.models import Event
 from app.events.tag_display import public_event_tags
 from app.gas.service import board_from_cache
@@ -122,6 +127,7 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
         tiles.append(
             {
                 "key": "temp",
+                "source_url": SOURCE_PAGE_NWS_KHII,
                 "icon": "thermo",
                 "label": "Temp",
                 "value": f"{round(temp)}°",
@@ -139,6 +145,7 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
         tiles.append(
             {
                 "key": "water_temp",
+                "source_url": SOURCE_PAGE_RISE_WATER_TEMP,
                 "icon": "wave",
                 "label": "Water",
                 "value": f"{round(water_temp)}°",
@@ -155,6 +162,7 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
         tiles.append(
             {
                 "key": "wind",
+                "source_url": SOURCE_PAGE_NWS_KHII,
                 "icon": "wind",
                 "label": "Wind",
                 "value": f"{round(wind)}",
@@ -170,6 +178,7 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
         tiles.append(
             {
                 "key": "uv",
+                "source_url": SOURCE_PAGE_UV,
                 "icon": "sun",
                 "label": "UV",
                 "value": f"{round(uv)}",

@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import date, time
+from datetime import date, time, timedelta
 from pathlib import Path
 from unittest.mock import patch
 
@@ -448,7 +448,10 @@ def test_duplicate_check_handles_legacy_null_source_url() -> None:
 
 
 def test_pull_seed_overlap_flag() -> None:
-    d = date(2026, 7, 4)
+    # A FUTURE date relative to real today — the river_scene pull skips events
+    # dated before today, so a hardcoded date rots the moment it goes past (this
+    # was date(2026, 7, 4), which started failing on 2026-07-05).
+    d = date.today() + timedelta(days=7)
     with SessionLocal() as db:
         db.add(
             Event.from_create(
