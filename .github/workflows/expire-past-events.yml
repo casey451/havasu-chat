@@ -1,0 +1,55 @@
+name: expire-past-events
+
+# Sweeps live events past their end date to status="expired" once a day, so the
+# calendar can't silently fill with stale past-dated rows.
+#
+# Why this exists (Session 3 / 3D Op 5): scripts/expire_past_events.py existed but
+# NOTHING ran it — the Procfile has only `web` and there is no in-app scheduler —
+# so the ~50%-past-dated backlog just accumulated. This puts the sweep on autopilot,
+# mirroring the river-scene-events / parks-rec cron pattern.
+#
+# Behavior: expire_past_events sets status="expired" on one-off events whose date
+# is older than today-7d, and on recurring series whose RRULE UNTIL has passed;
+# a recurring series with a live future occurrence is spared. Idempotent — a row
+# already expired is skipped, so a double-run (e.g. the month-boundary overlap) is
+# harmless. The FIRST run clears the existing backlog (~106 rows as of 2026-07-04),
+# then the daily cron keeps it clean.
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT branch.
+# This file must be merged to main before the cron takes effect — merging IS the
+# go-live gate. Until then, use the "Run workflow" button (workflow_dispatch) to
+# trigger it once (e.g. to clear the backlog after reviewing the --dry-run count).
+#
+# OPTION A (this file) = GitHub Actions cron off main. To run it on the VPS crawler
+# box instead (Option B), drop this file and add a system crontab entry calling
+# `python -m scripts.expire_past_events` with DATABASE_URL set.
+
+on:
+  schedule:
+    # Daily at 09:30 UTC = 2:30 AM Arizona (MST/UTC-7, no DST) — a quiet slot that
+    # runs before the every-other-day scraper fleet (13:xx UTC) tops the calendar
+    # back up with fresh events.
+    - cron: "30 9 * * *"
+  workflow_dispatch: {}
+
+jobs:
+  expire-past-events:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Expire past-dated events
+        env:
+          # Same Railway Postgres secret the other event crons use. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m scripts.expire_past_events --verbose
