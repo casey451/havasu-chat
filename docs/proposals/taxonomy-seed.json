@@ -789,6 +789,12 @@
     "gate_ok": true,
     "new": false
    },
+   "mortgage-lenders": {
+    "name": "Mortgage Lenders",
+    "count": 15,
+    "gate_ok": true,
+    "new": true
+   },
    "real-estate": {
     "name": "Real Estate",
     "count": 67,

@@ -340,18 +340,18 @@ _QUERY_TO_LEAF: dict[str, str] = {
     # 2026-06-11: existing leaves with no entry.
     # Detailing — the gerund ("detailing") AND the agent noun ("detailers")
     # are both high-traffic navigational asks; English inflection can't bridge
-    # them, so both forms are listed explicitly. Boat/marine-qualified terms
-    # route to the marine leaf; bare/auto/car terms route to the auto leaf.
-    "detailing": "auto-detailing",
-    "detailers": "auto-detailing",
-    "detailer": "auto-detailing",
-    "auto detailing": "auto-detailing",
-    "auto detailers": "auto-detailing",
-    "auto detailer": "auto-detailing",
-    "car detailing": "auto-detailing",
-    "car detailers": "auto-detailing",
-    "mobile detailing": "auto-detailing",
-    "mobile detailers": "auto-detailing",
+    # them, so both forms are listed explicitly. T3.4 (2026-07-06): the two
+    # detailing leaves merged, so all detailing terms route to auto-marine-detailing.
+    "detailing": "auto-marine-detailing",
+    "detailers": "auto-marine-detailing",
+    "detailer": "auto-marine-detailing",
+    "auto detailing": "auto-marine-detailing",
+    "auto detailers": "auto-marine-detailing",
+    "auto detailer": "auto-marine-detailing",
+    "car detailing": "auto-marine-detailing",
+    "car detailers": "auto-marine-detailing",
+    "mobile detailing": "auto-marine-detailing",
+    "mobile detailers": "auto-marine-detailing",
     "boat detailing": "auto-marine-detailing",
     "boat detailers": "auto-marine-detailing",
     "boat detailer": "auto-marine-detailing",
@@ -441,6 +441,15 @@ _QUERY_TO_LEAF: dict[str, str] = {
     # Professional & Financial
     "financial advisors": "financial-advisors",
     "financial advisor": "financial-advisors",
+    "mortgage": "mortgage-lenders",
+    "mortgage lender": "mortgage-lenders",
+    "mortgage lenders": "mortgage-lenders",
+    "mortgage broker": "mortgage-lenders",
+    "mortgage brokers": "mortgage-lenders",
+    "loan officer": "mortgage-lenders",
+    "home loan": "mortgage-lenders",
+    "refinance": "mortgage-lenders",
+    "reverse mortgage": "mortgage-lenders",
     "real estate": "real-estate",
     "realtors": "real-estate",
     "real estate agents": "real-estate",
@@ -593,6 +602,8 @@ _QUERY_TO_LEAF_EXPANSION_2026_06_20: dict[str, tuple[str, ...]] = {
         "laser tag", "mini golf"),
     "financial-advisors": ("financial planner", "financial planners", "investment advisor",
         "retirement planning", "wealth management"),
+    "mortgage-lenders": ("mortgage broker", "mortgage brokers", "mortgage lender",
+        "loan officer", "home loan", "refinance", "reverse mortgage"),
     "fishing-charters-and-guides": ("fishing charter", "fishing guide", "fishing guides",
         "fishing tours", "fishing trips", "guided fishing"),
     "florists": ("floral", "florist", "flower shop", "flowers"),
