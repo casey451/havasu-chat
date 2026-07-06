@@ -14,12 +14,13 @@ rows whose CURRENT primary leaf is ``car-wash`` so this never touches a correct 
 
 from __future__ import annotations
 
-_DETAILING_LEAF = "auto-detailing"
+# T3.4 (2026-07-06): the two detailing leaves merged into ``auto-marine-detailing``.
+_DETAILING_LEAF = "auto-marine-detailing"
 
 
 def classify_car_wash_misfiled_leaf(name: str | None) -> str | None:
-    """Return ``"auto-detailing"`` for a detailing/ceramic-coating shop currently
-    shelved under ``car-wash``, else ``None`` (leave a real car wash untouched)."""
+    """Return ``"auto-marine-detailing"`` for a detailing/ceramic-coating shop
+    currently shelved under ``car-wash``, else ``None`` (leave a real car wash)."""
     n = (name or "").lower()
     if "detail" in n or "ceramic coat" in n:
         return _DETAILING_LEAF

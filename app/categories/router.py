@@ -158,6 +158,9 @@ _RETIRED_LEAF_PARENTS: frozenset[str] = frozenset(
 # path under whatever department segment the request used.
 LEAF_SLUG_ALIASES: dict[str, str] = {
     "caf-s-and-coffee": "cafes-and-coffee",
+    # T3.4 (2026-07-06): the two detailing leaves merged into the broader
+    # ``auto-marine-detailing``; the retired ``auto-detailing`` slug 301s here.
+    "auto-detailing": "auto-marine-detailing",
 }
 
 

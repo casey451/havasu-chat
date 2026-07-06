@@ -12,7 +12,7 @@ def test_detailers_route_to_auto_detailing() -> None:
         "Detail Specialties & Ceramic Coating",
         "Perfection 2 Detail & Ceramic Coating",
     ):
-        assert classify_car_wash_misfiled_leaf(name) == "auto-detailing", name
+        assert classify_car_wash_misfiled_leaf(name) == "auto-marine-detailing", name
 
 
 def test_real_car_wash_is_left_untouched() -> None:
