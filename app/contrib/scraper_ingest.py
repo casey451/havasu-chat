@@ -125,6 +125,31 @@ def decide_ingest(db: Session, payload: EntityPayload) -> IngestDecision:
             reconcile=ReconcileResult(action="skip", reason="placeholder_name"),
         )
     result = reconcile_hit(db, clean)
+    # Dedupe-on-ingest guard (T2.2): the reconciler resolves google_place_id / geo
+    # / name tiers, but a bare name match lands ``ambiguous`` (hidden for review)
+    # and a name the geo/name tiers miss lands ``insert`` (a second slug). When the
+    # SAME name also shares a street address or phone, it is a confident duplicate —
+    # upgrade it to ``update`` so the re-scrape merges onto the existing entity
+    # instead of hiding a review row or minting a clone. Unique-match only.
+    if result.action in ("insert", "ambiguous"):
+        from app.dedupe.ingest_guard import find_ingest_duplicate
+
+        dup_entity_id = find_ingest_duplicate(
+            db, name=clean.name, address=clean.address, phone=clean.phone
+        )
+        if dup_entity_id is not None:
+            return IngestDecision(
+                action="update",
+                existing_id=dup_entity_id,
+                should_hide=False,
+                reason="dedupe guard: name+address/phone match (T2.2)",
+                payload=clean,
+                reconcile=ReconcileResult(
+                    action="update",
+                    existing_id=dup_entity_id,
+                    reason="dedupe guard: name+address/phone match",
+                ),
+            )
     return IngestDecision(
         action=result.action,
         existing_id=result.existing_id,
