@@ -4,9 +4,11 @@ Mirrors :mod:`scripts.lakehavasu_pickleball_load`:
 
   * **Facilities** -> Providers via the shared dup-prevention funnel
     :func:`app.contrib.scraper_ingest.decide_ingest` (insert / merge / hold).
-    New rows carry the ``golf`` subcategory + ``outdoors-parks-trails`` Tier-1
-    category. Respects the in-town geo-fence (the module curates only in-area
-    venues; the out-of-area courses the repo prunes are never emitted).
+    New rows carry the ``golf`` subcategory + the served ``golf-courses`` leaf
+    (under ``things-to-do-and-attractions``) — see ``DEFAULT_CATEGORY_SLUG``.
+    Respects the in-town geo-fence (the module curates only in-area venues; the
+    out-of-area courses the repo prunes are never emitted) and the S4 liveness
+    guard (permanently-closed venues in ``CLOSED_VENUES`` are never emitted).
 
   * **Hours** -> all-day Events per venue on a rolling forward window, pruned as
     they age (``prune_golf_hours_events``), tagged ``activity:golf`` +
