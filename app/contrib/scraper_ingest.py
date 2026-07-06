@@ -33,7 +33,7 @@ from sqlalchemy.orm import Session
 
 from app.contrib.ingest_base import EntityPayload
 from app.contrib.ingest_reconciler import ReconcileResult, reconcile_hit
-from app.contrib.ingest_suppression import is_suppressed_business
+from app.contrib.ingest_suppression import is_placeholder_name, is_suppressed_business
 
 
 def _clean(value: str | None) -> str | None:
@@ -105,6 +105,18 @@ def decide_ingest(db: Session, payload: EntityPayload) -> IngestDecision:
             reason="suppressed: durable do-not-import blocklist (ingest_suppression)",
             payload=clean,
             reconcile=ReconcileResult(action="skip", reason="suppressed"),
+        )
+    # Placeholder-name guard: a bare geography / lead-gen funnel / CMS stub is not
+    # a real business — skip it (no insert, no reactivation) so a re-scrape can't
+    # keep minting junk rows (T1.3). Same skip contract as the blocklist above.
+    if is_placeholder_name(clean.name):
+        return IngestDecision(
+            action="skip",
+            existing_id=None,
+            should_hide=False,
+            reason="placeholder: non-business name (bare geography / lead-gen / CMS stub)",
+            payload=clean,
+            reconcile=ReconcileResult(action="skip", reason="placeholder_name"),
         )
     result = reconcile_hit(db, clean)
     return IngestDecision(
