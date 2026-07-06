@@ -31,6 +31,7 @@ from dataclasses import dataclass, replace
 
 from sqlalchemy.orm import Session
 
+from app.contrib.address_clean import strip_garbage_address
 from app.contrib.ingest_base import EntityPayload
 from app.contrib.ingest_reconciler import ReconcileResult, reconcile_hit
 from app.contrib.ingest_suppression import is_suppressed_business
@@ -52,6 +53,11 @@ def normalize_payload(payload: EntityPayload) -> EntityPayload:
     Stored values stay human-readable -- domain/phone canonicalization for
     MATCHING happens inside the reconciler's contact tier, not here, so we do not
     mangle what gets displayed.
+
+    The address also runs through :func:`strip_garbage_address` (S2): a plus-code /
+    PO box / leading placeholder / entity-suffix string is dropped to ``None`` so
+    ingest never stores a misleading pin. A real-but-partial address (bare city, or
+    a street with no house number) is preserved.
     """
     name = _clean(payload.name)
     if name:
@@ -59,7 +65,7 @@ def normalize_payload(payload: EntityPayload) -> EntityPayload:
     return replace(
         payload,
         name=name or "",
-        address=_clean(payload.address),
+        address=strip_garbage_address(payload.address),
         phone=_clean(payload.phone),
         website=_clean(payload.website),
         description=_clean(payload.description),
