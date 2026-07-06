@@ -48,12 +48,22 @@ USER_AGENT = "Hava/0.1 (+https://github.com/casey451/havasu-chat)"
 REQUEST_TIMEOUT = httpx.Timeout(45.0, connect=20.0)
 
 SOURCE_NAME = "lhc_golf"
-# Tier-1 catalog slug (resolved to Provider.category_id by the loader). Golf is a
-# subcategory of the outdoors directory department (see app/categories/subcategories.py).
-DEFAULT_CATEGORY_SLUG = "outdoors-parks-trails"
+# Catalog slug the loader resolves to Provider.category_id. This must be the
+# SERVED golf leaf (``golf-courses``, a level-1 leaf under
+# ``things-to-do-and-attractions``) — NOT the legacy ``outdoors-parks-trails``
+# department, which no longer owns golf and holds zero providers. Targeting the
+# department left every net-new curated venue off the public golf leaf (T1.2,
+# 2026-07-06); the live active venues only appear because their google_places
+# twins already carry ``golf-courses``.
+DEFAULT_CATEGORY_SLUG = "golf-courses"
 # Second-level Provider.subcategory (already exists in the directory taxonomy).
 SUBCATEGORY = "golf"
 LEGACY_CATEGORY = "golf"
+
+# Canonical public URL for the golf leaf — the fallback link on curated hours
+# rows/events when a venue has no website. The old ``/outdoors-parks-trails/golf``
+# path 404s (wrong department + wrong leaf slug); this is the served leaf.
+GOLF_LEAF_URL = "https://askhava.com/categories/things-to-do-and-attractions/golf-courses"
 
 # Hours are republished on a rolling forward window and pruned as they age
 # (mirrors pickleball open play).
@@ -68,6 +78,33 @@ OUT_OF_AREA_COURSES: tuple[str, ...] = (
     "El Rio Golf Club",                # Mohave Valley
     "Havasu Springs Resort Golf",      # ~toward Parker (Casey: out of geo-fence)
 )
+
+# S4 liveness guard: in-geo-fence venues that have PERMANENTLY CLOSED. A curated
+# venue set can silently keep listing a course that shut down years ago (a closed
+# business shown as "Open daily" is the worst directory failure). Mirroring
+# OUT_OF_AREA_COURSES, a name here is never emitted as a facility / hours row, and
+# the loader (scripts.lhc_golf_load) deactivates any live Provider matching it.
+# Match is name-normalized (case/space/punct fold) via ``is_closed_venue``.
+CLOSED_VENUES: tuple[str, ...] = (
+    # Closed 2018 (Island Golf Club at The Nautical); effluent-irrigation cost
+    # tripled and salinity killed the turf. Verified 2026-07-06.
+    "Havasu Island Golf Course",
+)
+
+
+def _normalize_venue_name(name: str) -> str:
+    """Fold a venue name for closed/duplicate matching: lowercase, collapse
+    whitespace, drop punctuation. ``"Havasu Island Golf Course"`` and
+    ``"havasu island golf course."`` compare equal."""
+    return re.sub(r"[^a-z0-9]+", " ", (name or "").lower()).strip()
+
+
+_CLOSED_VENUE_KEYS = frozenset(_normalize_venue_name(n) for n in CLOSED_VENUES)
+
+
+def is_closed_venue(name: str) -> bool:
+    """True when ``name`` is a permanently-closed curated venue (S4 guard)."""
+    return _normalize_venue_name(name) in _CLOSED_VENUE_KEYS
 
 
 @dataclass(frozen=True)
@@ -152,14 +189,8 @@ IN_TOWN_VENUES: tuple[GolfVenue, ...] = (
         blurb="9-hole executive course at the London Bridge Resort.",
         hours_label="Open daily",  # London Bridge Resort hours
     ),
-    GolfVenue(
-        name="Havasu Island Golf Course",
-        venue_kind="course",
-        address="1040 McCulloch Blvd N, Lake Havasu City, AZ 86403",
-        hours_text="9-hole public course (est. 1974); open daily.",
-        blurb="9-hole public golf course on the island.",
-        hours_label="Open daily",
-    ),
+    # Havasu Island Golf Course — PERMANENTLY CLOSED (2018); see CLOSED_VENUES.
+    # Removed from the emitted set 2026-07-06 (was surfacing as "Open daily").
     # Driving range — Toptracer (hours/rates published as image flyers → vision)
     GolfVenue(
         name="Iron Wolf Top Tracer Range",
@@ -271,6 +302,8 @@ def golf_hours_event_specs(
     today = today or date.today()
     specs: list[GolfEventSpec] = []
     for v in venues:
+        if is_closed_venue(v.name):
+            continue  # permanently-closed venue (S4) — never emit hours rows
         kind_label = _VENUE_KIND_LABEL.get(v.venue_kind, "Golf")
         title = f"{kind_label} — {v.name}"[:300]
         desc = _facility_description(v)
@@ -284,7 +317,7 @@ def golf_hours_event_specs(
                     date=d,
                     end_date=d,
                     location_name=v.name,
-                    event_url=v.website or "https://askhava.com/categories/outdoors-parks-trails/golf",
+                    event_url=v.website or GOLF_LEAF_URL,
                     source_anchor=f"golfhours|{v.name}|{d.isoformat()}",
                     tags=list(tags),
                     all_day=True,
@@ -334,8 +367,9 @@ def fetch_toptracer_open_days(*, client: httpx.Client | None = None) -> int | No
 
 
 def golf_facilities() -> list[GolfVenue]:
-    """The curated in-geo-fence golf venue set (no network)."""
-    return list(IN_TOWN_VENUES)
+    """The curated in-geo-fence golf venue set (no network), minus any venue
+    that has permanently closed (S4 liveness guard)."""
+    return [v for v in IN_TOWN_VENUES if not is_closed_venue(v.name)]
 
 
 # ---------------------------------------------------------------------------
@@ -371,6 +405,8 @@ def golf_hours_rows(day: date) -> list[dict[str, Any]]:
     weekday = day.weekday()
     rows: list[dict[str, Any]] = []
     for v in IN_TOWN_VENUES:
+        if is_closed_venue(v.name):
+            continue  # permanently-closed venue (S4) — never render an hours row
         if v.hours:
             spans = v.hours.get(weekday)
             if not spans:
@@ -392,7 +428,7 @@ def golf_hours_rows(day: date) -> list[dict[str, Any]]:
                 "time_label": time_label,
                 "title": f"{kind_label} — {v.name}",
                 "venue": v.name,
-                "url": v.website or "https://askhava.com/categories/outdoors-parks-trails/golf",
+                "url": v.website or GOLF_LEAF_URL,
                 "recurring": False,
                 "ongoing": True,  # venue hours, not a scheduled event
                 "tags": tags,
