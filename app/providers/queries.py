@@ -429,24 +429,91 @@ def _structured_from_google_hours_cached(provider_id: int, gh_serialized: str) -
     return converted if converted else None
 
 
+def _hm_to_minutes(value: str) -> int | None:
+    t = _parse_hours_time(value)
+    return None if t is None else t.hour * 60 + t.minute
+
+
+def _minutes_to_hm(m: int) -> str:
+    """Serialize minutes-since-midnight back to ``HH:MM``. End-of-day (>= 23:59)
+    is written as the pipeline's ``23:59`` clamp so the overnight-continuation
+    logic and the profile template's "Midnight" label keep working."""
+    if m >= 1439:
+        return "23:59"
+    return f"{m // 60:02d}:{m % 60:02d}"
+
+
+def _coalesce_day_segments(spans: Any) -> list[dict[str, str]]:
+    """Clean one weekday's open/close spans (T1.4): drop zero-length + unparseable
+    segments, then sort and merge overlapping/adjacent/contained ranges.
+
+    Fixes contradictory-hours artifacts. A cross-midnight period closing at exactly
+    ``00:00`` leaves a zero-length ``00:00-00:00`` tail that the profile template
+    misreads as "Open 24 hours" (colliding with the real span → "Open 24 hours,
+    9 AM–Midnight"). A genuine 24-hour day is ``00:00-23:59`` and is preserved.
+    """
+    if not isinstance(spans, list):
+        return [] if spans is None else spans
+    parsed: list[tuple[int, int]] = []
+    for s in spans:
+        if not isinstance(s, dict):
+            continue
+        om = _hm_to_minutes(str(s.get("open") or ""))
+        raw_close = str(s.get("close") or "")
+        cm = _hm_to_minutes(raw_close)
+        if om is None or cm is None:
+            continue
+        # A close at exactly midnight ("00:00"/"24:00") is end-of-day, not 0 — but
+        # only when the segment actually opened earlier; a 00:00-00:00 pair is the
+        # zero-length overnight-split tail and must be dropped (below), not widened.
+        if raw_close in ("00:00", "0:00", "24:00") and om != 0:
+            cm = 1440
+        if cm <= om:
+            continue  # zero-length / inverted (incl. the 00:00-00:00 overnight tail)
+        parsed.append((om, cm))
+    if not parsed:
+        return []
+    parsed.sort()
+    merged: list[list[int]] = [list(parsed[0])]
+    for om, cm in parsed[1:]:
+        last = merged[-1]
+        if om <= last[1]:  # overlap or adjacency → extend
+            last[1] = max(last[1], cm)
+        else:
+            merged.append([om, cm])
+    return [{"open": _minutes_to_hm(o), "close": _minutes_to_hm(c)} for o, c in merged]
+
+
+def _coalesce_structured(hours: dict | None) -> dict | None:
+    """Coalesce every weekday's segments in a structured-hours dict (T1.4)."""
+    if not isinstance(hours, dict):
+        return hours
+    return {k: _coalesce_day_segments(v) for k, v in hours.items()}
+
+
 def effective_hours_structured(provider: Provider) -> dict | None:
-    """Prefer ENTITY weekly ``hours`` rows when present; else legacy JSON column."""
+    """Prefer ENTITY weekly ``hours`` rows when present; else legacy JSON column.
+
+    Whatever the source, per-weekday spans are coalesced (T1.4): zero-length
+    overnight-split tails (``00:00-00:00``) are dropped and overlapping/adjacent
+    ranges merged, so no consumer renders contradictory hours.
+    """
     ent = getattr(provider, "entity", None)
     if ent is not None and ent.hours:
         rebuilt = _hours_rows_to_structured(list(ent.hours))
         if rebuilt is not None:
-            return rebuilt
+            return _coalesce_structured(rebuilt)
     hs = provider.hours_structured
     if isinstance(hs, dict):
-        return hs
+        return _coalesce_structured(hs)
     gh = provider.google_hours
     if isinstance(gh, dict) and gh:
         pid = getattr(provider, "id", None)
         if pid is not None:
             ser = json.dumps(gh, sort_keys=True, default=str)
-            return _structured_from_google_hours_cached(pid, ser)
+            return _coalesce_structured(_structured_from_google_hours_cached(pid, ser))
         converted = places_hours_to_structured(gh)
-        return converted if converted else None
+        return _coalesce_structured(converted) if converted else None
     return None
 
 
@@ -743,7 +810,7 @@ def effective_hours_structured_from_entity(entity: Entity) -> dict | None:
     rows = getattr(entity, "hours", None) or []
     if not rows:
         return None
-    return _hours_rows_to_structured(list(rows))
+    return _coalesce_structured(_hours_rows_to_structured(list(rows)))
 
 
 _OVERNIGHT_CLAMP_CLOSE = time(23, 59)
