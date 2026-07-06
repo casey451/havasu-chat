@@ -46,6 +46,51 @@ def is_suppressed_business(name: str | None) -> bool:
     return slugify(name or "") in SUPPRESSED_BUSINESS_SLUGS
 
 
+# Names that are not real businesses: bare geographies, lead-gen funnels, and CMS
+# template stubs. Unlike the identity blocklist above (specific named rows), this
+# is a PATTERN guard applied to every ingest so a source can't keep minting fresh
+# junk rows. Matched on a normalized (lowercased, punctuation-folded) form so
+# slug/spacing variants register. Bare-city names are EXACT-matched only — as a
+# substring they appear in many real names ("Lake Havasu City Aquatic Center").
+_PLACEHOLDER_NAME_EXACT: frozenset[str] = frozenset(
+    {
+        "lake havasu city",
+        "lake havasu",
+        "my website store",
+        "get free solar estimate",
+        "kids activities studio",
+    }
+)
+
+# Tight lead-gen / CMS-stub patterns, matched against the WHOLE normalized name so
+# a real business that merely contains one of these words is never rejected.
+_PLACEHOLDER_NAME_RES: tuple[re.Pattern[str], ...] = (
+    re.compile(r"^get (?:a )?free .*(?:estimate|quote|solar)$"),
+    re.compile(r"^free (?:estimate|quote|solar estimate)$"),
+    re.compile(r"^(?:click here|coming soon|untitled|home ?page|test|test test|n/?a)$"),
+)
+
+_NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _normalize_name(name: str | None) -> str:
+    return _WS_RE.sub(" ", _NON_ALNUM_RE.sub(" ", (name or "").lower())).strip()
+
+
+def is_placeholder_name(name: str | None) -> bool:
+    """True when a listing NAME is a non-business placeholder — a bare geography
+    ("Lake Havasu City"), a lead-gen funnel ("Get Free Solar Estimate"), or a CMS
+    template stub ("My Website Store"). Deliberately tight so a real business is
+    never rejected: bare-city names must match exactly, and the lead-gen/CMS
+    patterns match the whole name, not a substring."""
+    norm = _normalize_name(name)
+    if not norm:
+        return False
+    if norm in _PLACEHOLDER_NAME_EXACT:
+        return True
+    return any(rx.search(norm) for rx in _PLACEHOLDER_NAME_RES)
+
+
 # The CVB visitor-center address, used as a shared placeholder for operators with
 # no storefront. Matched loosely (normalized substring) so punctuation/spacing
 # variants still register.
