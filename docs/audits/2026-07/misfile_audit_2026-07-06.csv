@@ -1,0 +1,35 @@
+current_leaf,provider_id,provider_name,matched_pattern,suggested_target,phone,website
+med-spas-and-aesthetics,7472878e-dcf8-494a-87ea-e2c21282151e,Serenity Beauty Lash Co. & Academy,\bacademy\b|\bschool\b|\binstitute\b,training,(928) 733-8208,https://serenitybeautylashco.biz/
+med-spas-and-aesthetics,b73028a9-9beb-4e92-b3fc-46bc94fd1603,"HavaSpa IV & Boutique, LLC",\biv\b|hydration|\bdrip\b|infusion,nutrition-and-wellness,(928) 732-1223,https://www.vagaro.com/havaspaivandboutiquellc
+med-spas-and-aesthetics,8b16ebff-169a-422e-859c-95753a39e12c,HYDR8AZ IVs & Medspa | Mobile IV Therapy Lake Havasu,\biv\b|hydration|\bdrip\b|infusion,nutrition-and-wellness,(928) 733-7776,https://www.hydr8az.net/
+med-spas-and-aesthetics,49c9fb9b-653f-4eac-896f-34d133323c29,Outlaw IV and Wellness,\biv\b|hydration|\bdrip\b|infusion,nutrition-and-wellness,(928) 486-2924,https://outlawiv.com/
+med-spas-and-aesthetics,81f912f9-b474-4cb9-8a97-56eb37640c9a,Bella Faccia Skincare and Pilates,pilates|\byoga\b,yoga-and-pilates,(928) 854-7546,https://bellafacciaskincare.com/
+car-wash,09cb2825-428e-4033-9aa6-cee89153e2e0,Accelerated Detail,\bdetail|ceramic coat,auto-detailing,(928) 208-0046,
+car-wash,b7f8eedc-108b-4148-bcdf-993e501900a1,Attention 2 Detail,\bdetail|ceramic coat,auto-detailing,(928) 351-7279,http://www.attention2detaillhc.com/
+car-wash,f5c3ba6c-eece-4fc8-a358-96ce2e350bdd,Attention To Detail,\bdetail|ceramic coat,auto-detailing,(928) 412-2153,http://attentiontodetailaz.com/
+car-wash,af8d3ff5-97d8-4ae3-a5f4-bcd76cbd6e07,Daddy o’s detail and handyman services,\bdetail|ceramic coat,auto-detailing,(928) 486-4506,
+car-wash,83663e22-1fae-4b29-8551-006216df7f47,Detail Specialties & Ceramic Coating,\bdetail|ceramic coat,auto-detailing,(928) 764-0540,https://detailspecialtieslhc.com/
+car-wash,4635f0f4-13da-4889-8fcb-6231194e91be,Lake Havasu Mobile Detail LLC,\bdetail|ceramic coat,auto-detailing,(928) 231-6678,
+car-wash,43cf22f6-fb88-47f7-a7a9-8c70ff345913,Perfection 2 Detail & Ceramic Coating,\bdetail|ceramic coat,auto-detailing,(928) 412-8558,https://perfection2detail.com/
+car-wash,302c0c94-c6c0-4000-b55b-4201fa3eee0a,Tapped Out Mobile Detailing,\bdetail|ceramic coat,auto-detailing,(928) 889-5487,
+banks-and-credit-unions,683241ee-ef86-4555-87be-b1308f9685de,American Pacific Mortgage - Lake Havasu City Branch,mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(928) 423-6285,
+banks-and-credit-unions,f24b166b-b573-483c-81eb-c5ff85379c6b,"Annette Norfolk | Primary Residential Mortgage, Inc.",mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(661) 304-0757,https://www.primeres.com/lakehavasu/about/loan-officers/loan-officer/annette-norfolk
+banks-and-credit-unions,27fe3f87-41a2-4846-a3fe-3d4d90999d61,"Craig Warner Mortgage Team at Novus Home Mortgage, a division of Ixonia Bank",mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(949) 637-3380,https://www.novushomemortgage.com/loan_officers/cwarner/
+banks-and-credit-unions,1f4fc3f8-b068-4a7f-9227-8edec21d3be0,CTX Mortgage Co,mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(928) 854-7111,
+banks-and-credit-unions,9da0d453-292f-4f8a-9f01-391d86d71ea3,Guild Mortgage Company,mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(928) 505-8400,https://branches.guildmortgage.com/az/lakehavasucity/lake-havasu-982.html
+banks-and-credit-unions,5677201a-002a-412e-8522-f69be7955c27,Guild Mortgage - Dan Snyder,mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(928) 208-2081,https://branches.guildmortgage.com/az/lakehavasucity/dan-snyder-982-hpdsn.html
+banks-and-credit-unions,3baa527e-7315-4f7d-9edf-d65650c738eb,"Hi-Tech Mortgage, Inc.",mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(928) 854-1881,https://www.hi-techmortgage.com/
+banks-and-credit-unions,6702dd82-97e5-45b7-b6a3-595808b00fb2,Jason Jackson - PNC Mortgage Loan Officer (NMLS #239510),mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(800) 822-5626,https://www.pnc.com/en/personal-banking/borrowing/home-lending/contact-us/MLO.html?EmployeeId=8442&lnksrc=mlo-listing-google
+banks-and-credit-unions,a9a73f03-fd6e-4fff-82ff-7730f0121738,loanDepot,mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(928) 302-2060,https://www.loandepot.com/branches/lake-havasu-city-az
+banks-and-credit-unions,5e38cb55-69f8-46f8-9859-45f43cc80845,ML Mortgage Lake Havasu Branch,mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(928) 264-4966,https://www.mlmortgage.net/
+banks-and-credit-unions,02cf3f7f-aaa7-4501-90f1-142761663ad6,Mohave Mortgage - Lake Havasu City,mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(928) 288-2691,https://www.mohavemortgages.com/
+banks-and-credit-unions,261c57e9-cead-4e26-aba9-87b1a912b2fb,Mortgage West Financial,mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,,http://www.lakehavasu.mwfinc.com/
+banks-and-credit-unions,266c0cff-cfb9-4906-9b39-a0dde5decb8b,Mutual Of Omaha Reverse Mortgage,mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(949) 280-0858,https://mutualreverse.com/lo/shana-roach/
+banks-and-credit-unions,5d5b5162-d8c0-4184-9360-90bf6aec958d,PNC Mortgage,mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(928) 855-2151,https://www.pnc.com/en/personal-banking/borrowing/home-lending.html?lnksrc=mortgage-listing-google
+banks-and-credit-unions,fe32cd54-1822-4717-a1d3-9edce436c662,Theresa Crowell - US Mortgage,mortgage|\bloan\b|\bnmls\b|lending|loandepot,NEEDS_DECISION,(928) 846-6302,https://usmortgage.com/theresa-crowell/
+primary-care,f1eb8a18-9dbb-4c4c-b1d3-c718cd61d382,Hypnotherapist On Line,therapist|counsel|psycholog|behavioral,NEEDS_DECISION,(928) 263-0071,https://hypnotherapistonline.com/
+pharmacies,87e081b3-dd4d-42f3-bc4e-6f2601603051,"Rodney Koenig, PAC",\bpa-?c\b|physician assistant,NEEDS_DECISION,(928) 453-0150,
+dentists-and-orthodontists,cd5ba93b-4162-458f-abdc-bb1c0de717d1,Foster's Dental Lab Inc,dental lab|\blab\b|laboratory,NEEDS_DECISION,(928) 453-6648,
+dentists-and-orthodontists,e8eaa179-b13d-4000-b617-7ad7f8e01445,New West Dental Lab,dental lab|\blab\b|laboratory,NEEDS_DECISION,(800) 321-1614,https://newwestlab.com/
+auto-repair,408024f8-4d63-416a-a49c-23131a3eea19,REDHAWK POOL SERVICE & REPAIR,\bpool\b|self.?storage|\bstorage\b|mini.?storage,NEEDS_DECISION,(928) 733-7996,https://redhawkpoolsaz.com/
+auto-repair,f8d4ba73-6ac8-4159-a4f9-496efdfa2557,Winners Circle Storage,\bpool\b|self.?storage|\bstorage\b|mini.?storage,NEEDS_DECISION,(928) 855-8392,
