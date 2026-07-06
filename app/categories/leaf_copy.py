@@ -199,6 +199,15 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "local offices visible. "
         "Ask Hava doesn't sell placement, and isn't a financial adviser itself.",
     ),
+    "mortgage-lenders": _copy(
+        "Home loans, refinancing, and reverse mortgages — the mortgage lenders "
+        "and loan officers below serve Lake Havasu City. With a large retiree "
+        "and second-home market, local originators handle everything from "
+        "first-time purchases to jumbo and vacation-property financing. Listings "
+        "draw on real public reviews and rotate daily, so well-reviewed local "
+        "offices stay visible; ratings show only when a lender has earned them. "
+        "Ask Hava doesn't sell placement, and isn't a mortgage broker itself.",
+    ),
     "hair-salons-and-barbers": _copy(
         "Cuts, color, blowouts, and classic barbering — the hair salons and "
         "barbers below serve Lake Havasu City. From quick walk-in trims to "
