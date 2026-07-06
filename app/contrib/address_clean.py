@@ -78,3 +78,35 @@ def clean_street_address(address: str | None) -> str | None:
     """Return the normalized address when valid, else ``None`` — so ingest stores a
     real street address or nothing, never a plus-code / PO box / placeholder."""
     return normalize_address(address) if is_valid_street_address(address) else None
+
+
+def is_garbage_address(address: str | None) -> bool:
+    """True only for UNRECOVERABLE garbage — a plus-code or PO box with no street, or
+    a placeholder/entity-suffix string that carries no real street either.
+
+    The key guard: if a valid ``<number> <street name>`` segment survives ANYWHERE
+    (``"Inside Sage Salon, 2186 McCulloch Blvd"``, ``"THE SHOPS AT, 5601 AZ-95"``),
+    the address is recoverable and NOT blanked — only truly locationless strings
+    (``"PO Box 3704"``, ``"CMVH+9G"``) are. Unlike :func:`is_valid_street_address`,
+    a bare-city or no-house-number street is also kept (honest partial location)."""
+    norm = normalize_address(address)
+    if not norm:
+        return False
+    has_real_street = any(_STREET_NUM_SEG.match(seg) for seg in norm.split(","))
+    if has_real_street:
+        return False  # a real street survives → recoverable, not garbage
+    return bool(
+        _PLUS_CODE.search(norm)
+        or _PO_BOX.search(norm)
+        or _LEADING_PLACEHOLDER.search(norm)
+        or _ENTITY_SUFFIX_STREET.search(_street_segment(norm))
+    )
+
+
+def strip_garbage_address(address: str | None) -> str | None:
+    """Ingest guard: ``None`` for a garbage address (plus-code / PO box / placeholder
+    / entity-suffix), else the normalized address — a real or honestly-partial
+    address is preserved, only misleading junk is dropped."""
+    if address is None:
+        return None
+    return None if is_garbage_address(address) else normalize_address(address)
