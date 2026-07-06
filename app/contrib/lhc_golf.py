@@ -248,14 +248,14 @@ _VENUE_KIND_LABEL = {
 
 
 def _facility_description(v: GolfVenue) -> str:
-    bits: list[str] = []
-    if v.blurb:
-        bits.append(v.blurb)
-    if v.hours_text:
-        bits.append(f"Hours: {v.hours_text}")
-    if v.website:
-        bits.append(f"Details: {v.website}")
-    return " ".join(bits)
+    """The provider's About text — just the blurb (T4.2).
+
+    ``website`` is carried as its own EntityPayload field and ``hours_text`` renders
+    via the curated ``golf_hours_rows``; folding "Hours: …" + "Details: <url>" into
+    the description here polluted the About block (Bridgewater-style redundancy), so
+    the description is the blurb alone.
+    """
+    return v.blurb or ""
 
 
 def facility_to_entity_payload(

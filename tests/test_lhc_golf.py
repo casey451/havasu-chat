@@ -44,10 +44,13 @@ def test_facility_payload_maps_to_golf_subcategory() -> None:
     v = next(v for v in IN_TOWN_VENUES if v.name == "Golf n' Brews")
     p = facility_to_entity_payload(v)
     assert p.entity_type == "place"
-    assert p.category_slug == DEFAULT_CATEGORY_SLUG  # outdoors-parks-trails
+    assert p.category_slug == DEFAULT_CATEGORY_SLUG  # golf-courses (served leaf)
     assert p.legacy_category == "golf"
     assert p.source == SOURCE_NAME
-    assert "Hours:" in (p.description or "")
+    # T4.2: the description is the blurb alone — no "Hours:"/"Details:" pollution
+    # (website is a separate payload field; hours render via golf_hours_rows).
+    assert p.description == v.blurb
+    assert "Hours:" not in (p.description or "") and "Details:" not in (p.description or "")
 
 
 def test_hours_specs_carry_canonical_tags_and_window() -> None:
