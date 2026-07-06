@@ -128,12 +128,17 @@ def places_hours_to_structured(places_regular_opening_hours: dict) -> dict:
         day_close = _GOOGLE_DAY_TO_KEY[cd]
 
         if od == cd:
-            _append_segment(out, day_open, open_s, close_s)
+            if open_s != close_s:  # skip zero-length same-day segments
+                _append_segment(out, day_open, open_s, close_s)
             continue
 
         # Overnight or cross-midnight: split across two weekday keys.
         _append_segment(out, day_open, open_s, "23:59")
-        _append_segment(out, day_close, "00:00", close_s)
+        # A close at exactly midnight has no positive next-day tail — emitting a
+        # 00:00-00:00 segment renders as a spurious "Open 24 hours" (T1.4). Only
+        # add the close-day segment when there is real time after midnight.
+        if close_s not in ("00:00", "0:00"):
+            _append_segment(out, day_close, "00:00", close_s)
 
     return dict(out)
 
