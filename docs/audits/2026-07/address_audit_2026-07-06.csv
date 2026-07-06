@@ -1,0 +1,166 @@
+provider_id,provider_name,address,reason,source
+e22fc5a9-949e-4bad-8a7d-d682aeb44b83,Grand Canyon Caverns,"Route 66 @ Mile Marker 115, Peach Springs, AZ 86434",no_street_number,go_lake_havasu
+f285d717-5379-4ffa-b46d-b9d398ff520c,Lake Havasu Wakesurf Co.,"Lake Havasu City, AZ 86403",bare_city_no_street,search_audit_backfill_2026_06_30
+58bbccf6-fb96-40c7-96b1-ced99e6c0f36,Wakesurf Havasu,"Lake Havasu City, AZ 86403",bare_city_no_street,search_audit_backfill_2026_06_30
+9d39c454-7e8f-41c6-b792-5bd11d138a84,Optic Helicopters,"Lake Havasu City, AZ 86403",bare_city_no_street,search_audit_backfill_2026_06_30
+726a2449-ce77-4b1f-bdec-1fae9e27d5c6,Havasu Helicopters,"Lake Havasu City Airport (KHII), Lake Havasu City, AZ 86404",bare_city_no_street,search_audit_backfill_2026_06_30
+80c91ee4-e91a-4592-b2c2-016240656bc7,Lake Havasu Lighthouses (replica trail),Around the lake,no_street_number,admin
+664ea5df-445d-4ca8-be3c-7cf0f56865e8,Island Ball Fields,The Island,no_street_number,admin
+ab7eba27-3f98-40f1-8907-8f2e7621d718,Site Six,London Bridge Rd (The Island),no_street_number,admin
+220d4374-50ae-406b-902a-0561076ac5a1,Robyn Parrott Park,Lake Havasu City,bare_city_no_street,admin
+6abb06dd-df55-453c-ac22-11ba6d51e628,Advanced Animal Care,Lake Havasu City,bare_city_no_street,admin
+3f9681bb-d05a-42e4-aecd-ef28747937d7,Site Six Launch Ramp,"Beachcomber Blvd, Lake Havasu City, AZ 86403",no_street_number,google_places
+09c01022-f47b-4447-b188-7d8a9664a58a,Freedom Point Property Management,Lake Havasu City,bare_city_no_street,admin
+2416c821-c644-4a1f-9ef6-d8f2f84342c4,Back Nine Golf,"Lake Havasu City, AZ",bare_city_no_street,lhc_golf
+417143e2-c529-4774-8fa9-c3666568d96a,KRT Pool Care,Lake Havasu City,bare_city_no_street,admin
+45ebf570-d895-4f7b-b096-0cad7836df65,Seibukan Karate-Do,Lake Havasu City,bare_city_no_street,admin
+5f1adbd8-5112-43af-98dc-799164d71eae,Next Generation Mixed Martial Arts,Lake Havasu City,bare_city_no_street,admin
+621aee98-b393-452f-9606-78cf886d9b76,Bee's Rentals,Lake Havasu City (86403),bare_city_no_street,admin
+247bd223-06da-47eb-8d5b-5b8d062ca168,Three Dunes Trail,"AZ Hwy. 95 @ Lake Shore Blvd., Lake Havasu City, AZ 86406",bare_city_no_street,go_lake_havasu
+35a4a323-8953-491b-8a60-3273a28b940a,Havasu Soft Wash,Lake Havasu City (mobile),bare_city_no_street,admin
+37d09f43-e737-43f2-b0ef-ff84aaffa818,U-Haul Moving & Storage,Lake Havasu City,bare_city_no_street,admin
+888d1ef1-3da4-4f8e-a056-01583b6149e5,Bliss Pool Care,Lake Havasu City,bare_city_no_street,admin
+a88d3bd0-6ea2-4edb-b41f-d444db3c23d8,Alpine Plumbing & Air,Lake Havasu City,bare_city_no_street,admin
+cd930d18-2822-4c3a-82b9-11eced5ac37a,Aqua Beginnings Swim Lessons,Lake Havasu City,bare_city_no_street,admin
+d7e5b067-f014-4f24-bc1b-3477ea06030d,River Palm Landscaping,Lake Havasu City,bare_city_no_street,admin
+e90cbbae-2411-4118-9f9b-3def765a5555,Reinhard Pool & Spa,Lake Havasu City,bare_city_no_street,admin
+fe4228b9-d6cc-4d4f-8107-ff4a85d330b4,Indian Bend Park,Lake Havasu City,bare_city_no_street,admin
+a7c1664f-fc17-4471-a04a-fd090d77f80b,JD'S Junk Removal,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+aaea4f1c-4e91-4cda-9c72-306bb1388abc,AAA Rousse Junk Removal,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+0bedcebb-d60d-46ca-a2cf-7cf9119cdb75,LHC Cleanup Services (Get It Done),"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+1d9f26aa-e1f4-4285-9a04-b3310ea86dcf,HomeRiver Group Lake Havasu,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+a8e0888e-b264-4d81-8e7b-c35740691b42,Arizona Living Rentals & Property Management,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+486787de-ef81-472d-9118-b3ac5d7d6594,Havasu Realty Property Management,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+cf9a88d8-b4c8-40d6-b685-663ca91e9275,UNlimited RE Property Management,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+dbb5da51-cc9b-450b-b173-80b6972d40c5,A & E Auto Glass,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+021e4a49-b0ca-40ef-8db4-5b6fa0f841fa,Jim's House of Glass,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+32a8097a-2ea6-49e8-938b-f6293f2dd807,SafePro Auto Glass,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+0fded4a5-1062-4ad8-8079-8cde2bda219f,Safelite AutoGlass,"Acoma Blvd W, Lake Havasu City, AZ",no_street_number,seed_service_coverage_2026_06_20
+e50afecd-00a2-454d-8740-925be5970e5f,Iced Out PPF,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+3a97f0d9-9e78-4127-aa80-bf9e34a73a40,All In 1 Services,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+37ffeadc-bcfc-4460-9e1e-4ba44be295e9,Havasu Pressure Washing,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+6daf04a2-9085-4eca-96ed-516f1271ef8e,Havasu Lock & Key Service,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+82b4c25b-e6a2-499d-9294-eef473486451,Lock & Key Rescue,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+5fd391c1-fc29-4a12-8b6d-3a2815641d4e,Integrity Garage Door Repair LLC,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+06beac77-2d15-4ffe-b4ab-5a012006b0a6,Mohave Garage Door,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+2ed42beb-5f0e-4a66-bd07-f162c57f6823,Arizona Awning & Shade LLC,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+7de532c5-b269-4f0b-a0b5-4732a8398ba7,Apollo PowerScreens,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+6174970e-e021-4340-8f14-dbe7818872cd,Outdoor Elements,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+732f60d1-bfe9-4e2c-9197-9dde12e59fca,Screenworks,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+8709dd2f-16bb-466f-a45f-ba2870d823b7,Havasu Tropical Oasis Floating Rentals,"Lake Havasu City, AZ 86403",bare_city_no_street,go_lake_havasu
+02f5993f-b28d-47c3-82d6-880e17e809a2,Affordable Plumbing & Appliance Service LLC,"Lake Havasu City, AZ",bare_city_no_street,"seed_service_coverage_2026_06_20,admin"
+26d9e208-4a3d-46ab-ac92-026ddcdf069c,A-Lucky Pawn,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+8ea318f8-43e2-490f-9c5c-7f4054e45863,Blair's Affordable Appliance Repair,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+1a31deac-cbe7-4fa5-bc25-c9ae4140137e,Quality Rain Gutters Inc,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+1fe07dd9-97e3-4053-8c50-58dbe043dd88,Mansell Welding Inc,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+34785e97-dd81-4ebd-8723-5191049efd82,Ryan's Drywall Services & Finishes,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+36e51f9a-04ef-40cc-a6a9-472892202269,Southwest Seamless Rain Gutters,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+3811be07-c3ab-4d83-b957-70ad52539251,JB Windows & Glass,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+3e1c8dc6-a679-4941-92e3-c669214803e7,Scott Crane Roofing (Gutters),"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+439719dd-96aa-4711-a798-912697349906,Pro Line Welding & Fabrication,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+4a05080a-d260-4305-a101-73737997506c,River Valley Window & Door LLC,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+53fc580e-2ca7-499d-9038-587ab1384cdb,Mainline Welding,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+5593151b-b91c-48d1-8d7c-56e2e76d81fd,Carl's Custom Woodworks,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+7acd788d-d3b7-4ad9-9375-30f6196658b4,Havasu Flooring & Remodeling,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+8a0d56c0-27bb-487b-85da-778291eca7f2,All American Door Inc,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+936dac57-e29b-45e1-b143-578332a90db8,Lakeside Door and Window LLC,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+940d1bac-053b-4c5a-b29a-9ebc40fe9d9b,Sam's Appliance Repair,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+b47f3314-a2f0-495c-a888-c1f620c5f88e,Bob's Cabinets & More,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+c77bd80e-c7e5-4b5d-991d-92600b5cc40f,Quality Fence LLC,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+c907771c-8d46-4a72-a7be-cbf204c4f244,Fonte Welding & Fabrication,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+cab87642-b494-4dca-9183-620cb3eee5f3,Hunters Custom Cabinetry,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+d4fee430-7fa4-4f03-b235-5d0c117af65d,Wilson's Welding & Wrought Iron,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+d97d4b32-fae2-4413-a270-2cad6d4008e0,D&L Handyman & Appliance,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+fc7e4517-6203-4e0e-8056-0b686fe4760c,Accurate Measures,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+481f21c1-d85a-4c22-9924-efd44ef1d04b,Chemehuevi Wash Trail,"301-1399 Powell Dr, Lake Havasu City, AZ 86406",no_street_number,go_lake_havasu
+622a915a-bbef-45d6-af66-6d2b4d25975c,Oatman,"Oatman-Topock Hwy/Main St, Oatman, AZ 86433",no_street_number,go_lake_havasu
+d68888f4-b606-4b2a-8a33-d84cecc3fd80,Lighthouses,"PO Box 3704, Lake Havasu City, AZ 86405",po_box,go_lake_havasu
+ec80308d-1a69-4230-8053-428193cb0ac3,Sun N Sand Storage,"Lake Havasu City, AZ 86404",bare_city_no_street,google_places
+e1e0a194-a9ae-447b-aaa4-fb501a38f3e1,Kelm Concrete Inc,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+d9c7071e-2cd3-4fd2-9791-c1d6fe7c033a,Grand Canyon West,"PO Box 246, Peach Springs, AZ 86434",po_box,go_lake_havasu
+250d0259-0c7d-4f6b-b299-114f82269d94,Better Plumbing By Farr,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+27b915dd-5669-4cbb-810a-e06c8ff67754,Grand Island Disc Golf Course,"Beachcomber Blvd. and McCulloch Blvd., Lake Havasu, AZ 86403",no_street_number,pdga
+34f7757d-2021-475e-9c3d-a443528953be,Yonder Park,"3876-3900 Yonder Dr, Lake Havasu City, AZ 86406",no_street_number,google_places
+3b92b188-0172-4788-8383-407131543dc5,"Cheryl Kingsbury, MS","25 Riviera Blvd Llc, Lake Havasu City, AZ 86403",entity_suffix_street,google_places
+42b7fbdd-41b2-4a3c-92ed-810f1cf5939e,American Maintenance Pool Services,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+b5d5e19e-cd7c-4a21-8830-5971fe5a0360,Crossman Peak Trail,"4199-4181 Bison Blvd, Lake Havasu City, AZ 86404",no_street_number,go_lake_havasu
+505f3232-75bf-4a9b-97cf-7f019a4077ad,Lake Havasu City Civic Center,"2330-2360 McCulloch Blvd N, Lake Havasu City, AZ 86403",no_street_number,google_places
+507294aa-241e-4198-b21b-f4fc64cd5785,ABC Therapy,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+508935d8-e8f3-4e50-8033-3d20e740b849,"Dr. Tequa A. Salehi-Rad, DO","Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+30ea0304-886d-45c3-b10b-480f6f386ea2,Frontier Concrete Inc,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+628adea2-0e17-486e-b39a-cb15bbdbe316,Mike Ashford Plastering Drywall & Stucco Repair,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+8befce63-fab5-4ea2-bade-ed8ef10e88f3,Alamo Drywall Inc,"Lake Havasu City, AZ",bare_city_no_street,seed_service_coverage_2026_06_20
+7750ff62-b317-467e-aca5-f09760a33551,Self Serve Pumps,"Lake Havasu City, AZ 86404",bare_city_no_street,google_places
+7b3d286d-d7ab-4cef-98fd-49ba228fc676,Craggy Wash Campground,"Unnamed Road, Lake Havasu City, AZ 86404",no_street_number,google_places
+86aae213-5c9b-447c-bcc0-84efb801194b,Tinnell Memorial Sports Park,"Lake Havasu City, AZ 86406",bare_city_no_street,google_places
+231a230e-27ea-4f6a-a389-3b3c78b08e85,Home Improvement Concepts,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+3029727e-1f80-4267-96f3-2f6a3c79fb51,Gosselin Automotive Services,"Lake Havasu City, AZ 86405",bare_city_no_street,google_places
+3b643430-e25e-4086-83a5-f3170422a57c,Paramount Construction,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+718287e2-9354-423e-8adf-9ff3d042cd29,All done Mobile mechanic,"Winterhaven Dr, Lake Havasu City, AZ 86404",no_street_number,google_places
+72b7a102-d114-4a38-a985-f9ef054c793b,Greg's Trimmings Services,"Quartz Ln, Lake Havasu City, AZ 86405",no_street_number,google_places
+fc83e5b2-b7bb-4b1f-ab65-4bc47dcdfa35,London Bridge Beach Park,"1584-1598 Sir Peter Studd St, Lake Havasu City, AZ 86403",no_street_number,usapickleball
+56a3c6dc-7ed4-420d-90f9-8d23f1238d53,Craggy Wash BLM Land Camping,"Lake Havasu City, AZ 86404",bare_city_no_street,google_places
+8616d6d1-0c60-4a8c-af4f-ffda728825d2,Sweet Treats & More,"Star Dr, Lake Havasu City, AZ 86406",no_street_number,google_places
+604b84da-cfd6-40d2-b4f9-e3b9646ccc47,Famous Footwear,"THE SHOPS AT, 5601 AZ-95 #902 BUILDING #J, Lake Havasu City, AZ 86404",leading_placeholder,google_places
+7ae2f0a5-5c59-4630-9dea-2b5cf13659c8,Apple Valley Communications Alarms & Systems,"Box 511, Lake Havasu City, AZ 86405",no_street_number,google_places
+8b8ab10f-030f-45a8-bf0e-334ac79ca3ab,Copper Basin Dunes OHV Area,"Off the Parker Strip, Parker, AZ 85344",no_street_number,go_lake_havasu
+9f25a5d9-e790-4e88-b339-c54c2a909853,KIOWA CAR WASH,"Lake Havasu City, AZ 86404",bare_city_no_street,google_places
+8bc8f4ab-cefc-4f9c-af11-66e62cfc54cc,Havasu Landing Ferry Boat Terminal,"Shoreline Trail, Lake Havasu City, AZ 86403",no_street_number,google_places
+8c28941c-64ff-4986-b03b-2d9f735132a8,Legacy Estate Planning Solutions,"Inside Havasu Property Management, 1690 McCulloch Blvd N #102, Lake Havasu City, AZ 86406",leading_placeholder,google_places
+5c7e8be0-2d92-4888-a377-a7533305fe08,Cardiac Rehab Unit,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+0c63f360-29a0-4576-ad38-cb71dedaa1b8,Mockingbird Wash Trail,"1301-1399 Powell Dr, Lake Havasu City, AZ 86406",no_street_number,go_lake_havasu
+16f48b7e-f069-44b5-b87f-fefd570b8d0d,Shoreline Trail,"From Rotary Park to, The English Village, Lake Havasu City, AZ 86403",no_street_number,go_lake_havasu
+9f7993c7-8f38-4eff-af00-9cb44fa4069b,A Best Massage By Renae,"English Village, Lake Havasu City, AZ 86403",no_street_number,google_places
+aa313bdd-b847-4604-a331-f86a95e764f9,Pittstop Watersports,"Lake Havasu City, AZ 86406",bare_city_no_street,google_places
+ab41631f-7769-427e-97ac-5317fb906220,Lake Havasu Marina Fuel Dock,"Havasu, Lake Havasu City, AZ 86406",bare_city_no_street,google_places
+c6ce98b4-ece6-4af4-a74e-d2788596b4f5,Desert Bar,"AZ Hwy 95 @ Cienega Springs Rd, Parker, AZ 85344",bare_city_no_street,go_lake_havasu
+e7b60032-c8f3-47ba-a252-9675a0260ea1,Havasu Mart,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+a8a9cc77-7630-4ad9-a12d-8c94f4628c32,River rat motor sports,"370-498 El Camino Way, Lake Havasu City, AZ 86403",no_street_number,google_places
+6500626b-4506-471f-8374-78f60d2da313,Lina Little China,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+9baf2ed8-824a-4587-ba5d-5c259e66428f,Ray's Flat Top Joint,"inside Solstice Studio, 44 Mulberry Ave, Lake Havasu City, AZ 86403",leading_placeholder,google_places
+00cef8c9-fcd3-42b1-931f-eb3ac3d272ba,Killian Ronald B DPM,"25 Riviera Blvd Llc, Lake Havasu City, AZ 86403",entity_suffix_street,google_places
+09948e55-53a5-44d8-bd02-eea31edb06c4,ASU SWANSON FIELDS,"108 27-001, Lake Havasu City, AZ 86403",no_street_number,google_places
+bcd3e42c-9d01-43b6-b57d-a85e33b485c3,SunShine HVAC cleaning,"San Juan Dr, Lake Havasu City, AZ 86403",no_street_number,google_places
+ad1f6db3-e4be-492c-a824-3c48bf692c02,"Mirta I. Kaperonis, LCSW","Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+11c4ef65-819c-4905-b20e-2689bd6efbe9,Havasu Blessing Box,"S Smoketree Ave, Lake Havasu City, AZ 86403",no_street_number,google_places
+17ab7e20-f55b-4ecb-b080-930e23553995,Lavish Hair Studio,"McCulloch Blvd N RM#106, Lake Havasu City, AZ 86403",no_street_number,google_places
+b2fc6b71-7688-4c3c-97ce-acafeee83359,Aloha Electric,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+1d0460b4-7c2c-46a2-b340-143eb57f2d2e,Lake Havasu State Park Campground,"FJJV+WM, Lake Havasu City, AZ 86403",plus_code,google_places
+1e288a96-9e6b-4f22-a6e3-e0bafbd97b12,Main Street Commons,"2-44 Querio Dr, Lake Havasu City, AZ 86403",no_street_number,google_places
+28b8f28d-3f07-4f65-b7af-ff4a01292d36,Chrissy's,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+2c0bf7b4-e139-421e-bc47-2cedf176d543,Lake Havasu Rodeo Grounds,"Dub Campbell Pkwy, Lake Havasu City, AZ 86406",no_street_number,google_places
+2fc82714-fc49-4884-83a0-58fb96a65b61,Sara Park Trail Head,"Lake Havasu City, AZ 86406",bare_city_no_street,google_places
+34b58ab2-7294-4aa3-be8e-ca3f01d5259e,Marina Store,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+382f04af-6c3a-4454-b23a-ef8966e071a6,Jacklyn's Nail Studio,"inside Serenity salon studios, 1755 McCulloch Blvd N Suite #105, Lake Havasu City, AZ 86403",leading_placeholder,google_places
+c066f037-bba3-484b-a00b-bacd2035588e,Riverside Boat Dock Sales,"PO Box 4481, Lake Havasu City, AZ 86405",po_box,google_places
+47a2c7eb-0fd0-4ad0-a7c7-6bb488631d0d,SARA Park Disc Golf Course,"SARA Park Disc Golf Course, McCulloch Blvd S, Lake Havasu City, AZ 86406",no_street_number,google_places
+47373567-8143-48ea-8fb9-077ce3669bc7,London Bridge Wellness Center,"English Village Suite 208, Lake Havasu City, AZ 86403",no_street_number,google_places
+c5f67d81-8f76-44e8-b829-fc3c8c8a627d,Papa Leone's Pizza,"English Village St Suite 304, Lake Havasu City, AZ 86403",no_street_number,google_places
+11b6b49c-0303-4bee-8020-d6f549e5eb6e,Cattail Cove State Park,"AZ-95, Lake Havasu City, AZ 86406",bare_city_no_street,google_places
+83ff2b19-f516-4884-a301-00473ff49793,Wheelestatervguy,"Jamaica and McCollum, Lake Havasu City, AZ 86403",no_street_number,google_places
+678b6e1f-29e8-45a1-900f-ce8321e4a668,The Gravel Pit,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+74bcfb7a-8ba7-448e-b731-faa30341d7b0,munoz plumbing llc,"Lake Havasu City, AZ 86405",bare_city_no_street,google_places
+7a015af6-782f-4fd9-a741-58b18db26827,Boat Body Shop,"1880A Holly Ave, Lake Havasu City, AZ 86403",no_street_number,google_places
+c806912d-dd5e-4cb7-91a6-1c5d3888d6ef,Grand Island Park,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+8a710982-66f0-44b6-b108-05dcbbfbceb4,Butterfly Garden,"Rotary Park Dr, Lake Havasu City, AZ 86403",no_street_number,google_places
+b6a20145-70f7-4013-b372-de471888d916,Aj's Mobile Moto - Sports,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+96d0efd6-b176-48ac-9771-76041a721585,Marina Fuel Station - Havasu Riviera Marina,"CMVH+9G, Lake Havasu City, AZ 86406",plus_code,google_places
+2f75d5a7-7639-425a-9c9e-7d244658b4b9,TagWorks,"PetSmart 5601 N, AZ-95, Lake Havasu City, AZ 86404",no_street_number,google_places
+7bd7a727-049c-487e-bedd-f27b079fbfca,Obedience Please,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+d3750c43-897e-4d27-8a4b-4435cc5f7091,PrimePest Solutions,"2150B McCulloch Blvd N, Lake Havasu City, AZ 86403",no_street_number,google_places
+9e45401a-965d-4116-9e73-6048ee4d717c,Amazen2 Rentals,"2200-2230 S Palo Verde Blvd, Lake Havasu City, AZ 86403",no_street_number,google_places
+ae67b0c2-fd4f-4994-961f-cd32dade250c,Sara Park Hiking Trail,"Lake Havasu City, AZ 86406",bare_city_no_street,google_places
+d5a710eb-daa2-48da-a0de-c00949f9145e,the Pink Closet,"799-741 Harrah Way, Lake Havasu City, AZ 86403",no_street_number,google_places
+d8440cca-fe4c-4d8d-be5a-fc0d04a9c7b2,Define Boutique,"Inside Quail Ridge Plaza, 2168 McCulloch Blvd N Ste 102, Lake Havasu City, AZ 86403",leading_placeholder,google_places
+d94e65e7-d1c4-4885-bc69-a636e286c29b,In-N-Out Burger,"81-101 London Bridge Rd, Lake Havasu City, AZ 86403",no_street_number,google_places
+dae34ed3-5004-4e68-b5b0-1489d719005f,Waterbuzz Fly Boarding,"Shoreline Trail, Lake Havasu City, AZ 86403",no_street_number,google_places
+cfcb2b66-2a21-44fe-b1ad-88be9de112cd,Ted Cutting Edge Masonry Inc,"Lake Havasu City, AZ 86406",bare_city_no_street,google_places
+bfa52d9f-72c5-4b76-a5ed-01ba56655496,Poyo_the_barber,"Rainbow Ave N, Lake Havasu City, AZ 86403",no_street_number,google_places
+ec81b943-943b-474d-ac2d-b2240188b2ab,B W Smith Custom Homes,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+e04204a5-2cf1-4092-a098-57cb057ec72b,Hooks Boat Rentals,"Site Six Launch Ramp, Beachcomber Blvd, Lake Havasu City, AZ 86403",no_street_number,google_places
+f60c5407-062a-4f31-b9b0-da6d45c0e0d9,Sara Mountain Park Loop Trail,"Dub Campbell Pkwy, Lake Havasu City, AZ 86406",no_street_number,google_places
+ef6a6939-19cd-48a5-8ae7-6a4d215fc2d7,Hair by Jessica Cherry,"Inside Sage Salon & Suites, 2186 McCulloch Blvd N A6, Lake Havasu City, AZ 86403",leading_placeholder,google_places
+fbae24dd-c1b7-4e57-b612-ff2c4cacd39d,Metro Tax & Financial Services Inc,"Veterans Way, Lake Havasu City, AZ 86403",no_street_number,google_places
+fc633bd3-dcf4-4c96-95a6-74c42cefcc51,Mandy's Mobile Pet Salon,"Lake Havasu City, AZ 86403",bare_city_no_street,google_places
+ea7fa551-c68f-4f46-a16c-5af8d52a4c58,New Image Auto Customs,"Mobile Service, Lake Havasu Ct, Lake Havasu City, AZ 86403",no_street_number,google_places
+fa38003b-fbda-41fd-a368-5ceee7dc8f18,"Lone Tree BLM Campground, Lake Havasu, AZ","Unnamed Rd, Lake Havasu City, AZ 86404",no_street_number,google_places
