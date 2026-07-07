@@ -3,8 +3,9 @@
     {
       "title": "Tiny Tots Move & Groove",
       "date": "2026-07-08",
-      "start_time": "10:00",
-      "end_time": "10:45",
+      "weekday": "Wednesday",
+      "start_time": "10:00 AM",
+      "end_time": "10:45 AM",
       "location": "Aquatic Center",
       "cost": "$3",
       "audience": "toddlers",
