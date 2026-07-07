@@ -1,15 +1,21 @@
-name: parks-rec-crosssource-dedup
+name: parks-rec-webtrac-reconcile
 
-# GATED, MANUAL-ONLY. Retires the FLYER copy of a P&R activity when an
-# authoritative WebTrac copy of the same activity exists on the same date
-# (flyer -> pending_review; WebTrac stays live). DRY-RUN unless confirm=APPLY;
-# an apply run uploads the undo CSV. Runs where the DB secret resolves.
+# GATED, MANUAL-ONLY. Reconciles live Parks & Rec FLYER events against the WebTrac
+# registration authority (WebTrac wins on conflict) — the generalization of the
+# earlier same-date cross-source dedup (#756). Retires flyer copies a WebTrac twin
+# supersedes, quarantines flyer-only rows that fail the lint, and LEAVES
+# needs-human-confirmation time conflicts (e.g. Glow in the Dark Family Painting)
+# untouched (report only). DRY-RUN unless confirm=APPLY. Both runs upload the full
+# review CSV; an apply also uploads the undo CSV. Runs where the DB secret resolves.
+#
+# (Filename kept as parks-rec-crosssource-dedup.yml so it stays dispatchable; the
+# script it runs is now the superseding reconciler.)
 
 on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "Type APPLY to write. Anything else = dry-run."
+        description: "Type APPLY to write (supersede + quarantine). Anything else = dry-run."
         required: false
         default: ""
 
@@ -17,11 +23,11 @@ permissions:
   contents: read
 
 concurrency:
-  group: parks-rec-crosssource-dedup
+  group: parks-rec-webtrac-reconcile
   cancel-in-progress: false
 
 jobs:
-  dedup:
+  reconcile:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
@@ -34,7 +40,7 @@ jobs:
           cache: pip
       - name: Install dependencies
         run: pip install -r requirements.txt
-      - name: Cross-source dedup (dry-run unless confirm=APPLY)
+      - name: Reconcile flyer vs WebTrac (dry-run unless confirm=APPLY)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
           CONFIRM: ${{ github.event.inputs.confirm }}
@@ -45,16 +51,18 @@ jobs:
             exit 1
           fi
           if [ "${CONFIRM}" = "APPLY" ]; then
-            echo "CONFIRM=APPLY -> writing (gated, reversible)."
-            python scripts/parks_rec_crosssource_dedup_2026_07_08.py --apply
+            echo "CONFIRM=APPLY -> writing supersede + quarantine (gated, reversible)."
+            python scripts/parks_rec_webtrac_reconcile_2026_07_08.py --apply
           else
             echo "confirm != APPLY -> DRY-RUN (no DB writes)."
-            python scripts/parks_rec_crosssource_dedup_2026_07_08.py
+            python scripts/parks_rec_webtrac_reconcile_2026_07_08.py
           fi
-      - name: Upload undo CSV (apply runs only)
+      - name: Upload review + undo CSVs
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
         with:
-          name: parks-rec-crosssource-dedup-undo
-          path: parks_rec_crosssource_dedup_undo_2026-07-08.csv
+          name: parks-rec-webtrac-reconcile
+          path: |
+            parks_rec_webtrac_reconcile_review_2026-07-08.csv
+            parks_rec_webtrac_reconcile_undo_2026-07-08.csv
           if-no-files-found: ignore

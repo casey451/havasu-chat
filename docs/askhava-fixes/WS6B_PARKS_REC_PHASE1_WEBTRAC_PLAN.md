@@ -1,7 +1,32 @@
 # WS6b Phase 1 — WebTrac as the Parks & Rec datetime authority (plan)
 
-**Status:** planned (Phases 0, 2, 3, 4 shipped 2026-07-07 as PR #748/#749/#750/#751).
-This is the deeper fix that Phases 2–4 are the interim for.
+**Status:** the **reconciliation layer is BUILT** (2026-07-08) — see
+"Reconciliation layer (built)" below. Phases 0, 2, 3, 4 shipped 2026-07-07 as PR
+#748/#749/#750/#751; this is the deeper fix they were the interim for. (The
+WebTrac *acquisition* options A/B/C below remain a separate track — WebTrac records
+are already ingested today, so the reconciler operates on what exists now.)
+
+## Reconciliation layer (built) — 2026-07-08
+The "discovery → authority matching" step below is now implemented against the
+already-ingested WebTrac records (WebTrac wins on conflict):
+
+- **`app/contrib/parks_rec_reconcile.py`** — pure, tested matcher + classifier.
+  `match_flyer` pairs a flyer event to a WebTrac event by title similarity + date
+  proximity (the grid off-by-one, guarded against recurring-series mispairs) + a
+  soft venue signal. `classify_flyer` → `supersede` (retire flyer, keep WebTrac) /
+  `needs_confirmation` (times disagree, not a flip — never assumed) / `quarantine`
+  (flyer-only + trips `app/events/lint`) / `keep` (clean residue).
+- **`scripts/parks_rec_webtrac_reconcile_2026_07_08.py`** + the
+  `parks-rec-webtrac-reconcile` workflow — gated dry-run → review CSV → Casey
+  approves → `--apply` (writes supersede + quarantine only; **never** touches
+  needs_confirmation). Supersedes the narrow same-date `parks_rec_crosssource_dedup`.
+- **`scripts/parks_rec_webtrac_canary.py`** + the nightly
+  `parks-rec-webtrac-canary` workflow — read-only §14.3 canary: re-verifies every
+  *future* flyer event against WebTrac and pages (non-zero exit) on drift.
+- **Open data question flagged, not assumed:** *Glow in the Dark Family Painting* —
+  WebTrac 5:00 PM vs flyer 5:30 PM (both plausible, not a flip) classifies as
+  `needs_confirmation`; the reconciler leaves it live and surfaces it in the report
+  for a human to confirm with P&R.
 
 ## The problem this closes
 The monthly **flyer** (a calendar-grid image, vision-LLM parsed) is currently the
