@@ -386,6 +386,12 @@ def _long_day_label(d: dt_date) -> str:
     return d.strftime("%A, %B ") + str(d.day)
 
 
+def _short_day_label(d: dt_date) -> str:
+    """Abbreviated day label for the day-view pager ("Sun Jul 6"). ``str(d.day)``
+    avoids the non-portable ``%-d`` (Windows strftime lacks it)."""
+    return d.strftime("%a %b ") + str(d.day)
+
+
 
 
 @router.get("/events-ui", response_class=HTMLResponse)
@@ -494,6 +500,10 @@ def serve_events_ui(
                 "day_label": _long_day_label(single_day),
                 "prev_iso": (single_day - timedelta(days=1)).isoformat(),
                 "next_iso": (single_day + timedelta(days=1)).isoformat(),
+                # Readable pager labels (spec §7.2: "‹ Sun Jul 5 / Tue Jul 7 ›"),
+                # not a bare arrow — the day you'll land on is visible + announced.
+                "prev_label": _short_day_label(single_day - timedelta(days=1)),
+                "next_label": _short_day_label(single_day + timedelta(days=1)),
                 "is_today": single_day == today,
             }
         )

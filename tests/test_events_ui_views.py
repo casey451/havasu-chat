@@ -418,6 +418,12 @@ def test_date_view_renders_accordion_with_day_nav() -> None:
         assert 'class="evnav"' in body
         assert "/events-ui?date=2099-07-24" in body  # prev day
         assert "/events-ui?date=2099-07-26" in body  # next day
+        # M14 / spec §7.2: the pager shows a READABLE day label (not a bare arrow
+        # or a raw path) plus a descriptive aria-label announcing the target day.
+        assert "Fri Jul 24" in body
+        assert "Sun Jul 26" in body
+        assert 'aria-label="Previous day, Fri Jul 24"' in body
+        assert 'aria-label="Next day, Sun Jul 26"' in body
         assert '<a class="today" href="/events-ui">Today</a>' in body  # back to today
     finally:
         _cleanup(eids)
