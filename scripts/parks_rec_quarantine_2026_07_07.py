@@ -59,13 +59,19 @@ _HELD_STATUS = "pending_review"
 
 def _pr_vision_events(db):
     """Currently-live Parks & Rec vision events (calendar + flyer synthetic URLs)."""
+    # NB: the P&R synthetic "#cal|" URL lives in ``event_url``, NOT ``source_url``
+    # (source_url is empty for these rows). Filtering source_url matched 0 and let
+    # ~13 P&R-by-URL events whose ``source`` isn't ``parks_rec*`` (e.g. combined/
+    # admin) slip the first pass; ``event_url`` is the reliable P&R marker.
+    _CAL = "%/185/Parks-Recreation#cal|%"
     stmt = (
         select(Event)
         .where(
             Event.status == "live",
             or_(
                 Event.source.like("%parks_rec%"),
-                Event.source_url.like("%/185/Parks-Recreation#cal|%"),
+                Event.event_url.like(_CAL),
+                Event.source_url.like(_CAL),
             ),
         )
         .order_by(Event.date, Event.id)
