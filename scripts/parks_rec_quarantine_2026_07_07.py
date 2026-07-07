@@ -14,6 +14,9 @@ Quarantine reasons (a row can trip more than one):
     scrambled-field signal; reuses ``lhc_parks_rec_calendar.is_known_facility``).
   * ``midnight_start``     — ``start_time`` is 00:00 (probable PM-entered-as-AM
     or a missing time; the §14.3 event-lint ``ampm_flip`` signal).
+  * ``instructor_in_body`` — the venue OR composed description still carries a
+    known scrambled instructor name ("Jane Camlin"); the same mis-parse that hit
+    the Glow row, so the time is equally untrustworthy.
 
 Only currently-LIVE P&R vision events are selected; already-held rows are
 skipped, so re-runs are idempotent. The default venue ("Lake Havasu City Parks &
@@ -70,12 +73,23 @@ def _pr_vision_events(db):
     return list(db.scalars(stmt).all())
 
 
+# Known scrambled instructor tokens — Casey confirmed "Jane Camlin" is an
+# instructor, not a venue. A P&R vision event whose venue OR composed description
+# still carries this name was mis-parsed the same way the Glow row was, so its
+# time is equally untrustworthy -> hold. (The general fix is Phase 1: the WebTrac
+# registration catalog as the datetime authority; this token list is the interim.)
+_INSTRUCTOR_TOKENS: frozenset[str] = frozenset({"camlin"})
+
+
 def _reasons(ev: Event) -> list[str]:
     reasons: list[str] = []
     if not is_known_facility(ev.location_name):
         reasons.append("non_facility_venue")
     if ev.start_time == _MIDNIGHT:
         reasons.append("midnight_start")
+    body = f"{ev.location_name or ''} {ev.description or ''}".lower()
+    if any(tok in body for tok in _INSTRUCTOR_TOKENS):
+        reasons.append("instructor_in_body")
     return reasons
 
 
