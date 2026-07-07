@@ -75,7 +75,8 @@ PARKS_REC_FACILITIES: frozenset[str] = frozenset({
     "asu fields", "avalon park", "cypress park", "dick samp memorial park",
     "dick samp", "grand island park", "indian bend park", "island ball fields",
     "jack hardie park", "london bridge beach", "mesquite park", "realtor park",
-    "robyn parrott park", "rotary community park", "sara park", "site six",
+    "robyn parrott park", "rotary community park", "sara park",
+    "site six", "site 6",  # Site Six / Windsor Beach — printed both ways
     "wheeler park", "yonder park", "after school program",
 })
 
@@ -103,14 +104,19 @@ _LOCATION_KEYWORDS: frozenset[str] = frozenset({
 _LOCATION_CODE_RE = re.compile(r"\b(?:room|rm)\s*\d+\b|#\s*\d+")
 
 
-def is_known_facility(location: str | None) -> bool:
+def is_known_facility(location: str | None, *, strict: bool = False) -> bool:
     """True when ``location`` names a real P&R location.
 
-    Accepts a named facility (allowlist), a generic venue word
-    (park/court/kitchen/site/room…), or an explicit room/unit code. A person's
-    name — the mis-mapped-instructor bug — names no place and is rejected. Kept
-    under the historical name; the field-schema guard and the quarantine backfill
-    both call it."""
+    Default (ingest guard, #750): accepts a named facility (allowlist), a generic
+    venue word (park/court/kitchen/site/room…), or an explicit room/unit code —
+    deliberately permissive so a plausible sub-venue isn't over-held. A person's
+    name — the mis-mapped-instructor bug — names no place and is rejected.
+
+    ``strict=True`` (the WS6.3 review lint): ONLY a named facility from the
+    allowlist (or the default P&R venue) counts. A bare generic word ("Kitchen"),
+    a room code ("Room 153"), or an instructor name is *not* a recognized
+    facility — it's ambiguous (which kitchen? which room?) and worth a review.
+    This never mutates data; it only feeds the review queue."""
     if not location:
         return False
     loc = _norm_venue(location)
@@ -121,11 +127,19 @@ def is_known_facility(location: str | None) -> bool:
         return True
     if any(fac in loc for fac in PARKS_REC_FACILITIES):
         return True
+    # A short venue that is itself a fragment of a known facility name
+    # ("aquatic" ⊂ "aquatic center") is a named facility either way.
+    if len(loc) >= 5 and any(loc in fac for fac in PARKS_REC_FACILITIES):
+        return True
+    if strict:
+        # Named facilities only — a generic word / room code / person name is
+        # unrecognized and gets a human glance rather than silent publishing.
+        return False
     if set(loc.split()) & _LOCATION_KEYWORDS:
         return True
     if _LOCATION_CODE_RE.search(loc):
         return True
-    return len(loc) >= 5 and any(loc in fac for fac in PARKS_REC_FACILITIES)
+    return False
 
 
 USER_AGENT = "Mozilla/5.0 (compatible; AskHavaBot/1.0; +https://askhava.com)"
