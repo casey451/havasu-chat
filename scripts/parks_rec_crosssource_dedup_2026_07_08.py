@@ -32,7 +32,7 @@ from app.bootstrap_env import ensure_dotenv_loaded  # noqa: E402
 
 ensure_dotenv_loaded()
 
-from sqlalchemy import or_, select  # noqa: E402
+from sqlalchemy import select  # noqa: E402
 
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.models import Event  # noqa: E402
@@ -99,9 +99,9 @@ def main(argv: list[str] | None = None) -> int:
 
     if not dry and undo_rows:
         with open(_UNDO_CSV, "w", newline="", encoding="utf-8") as fh:
-            w = csv.DictWriter(fh, fieldnames=list(undo_rows[0].keys()))
-            w.writeheader()
-            w.writerows(undo_rows)
+            writer = csv.DictWriter(fh, fieldnames=list(undo_rows[0].keys()))
+            writer.writeheader()
+            writer.writerows(undo_rows)
 
     verb = "would retire" if dry else "RETIRED"
     print(f"live flyer events: {len(undo_rows) and '...'}  cross-source pairs {verb}: {len(undo_rows)}")
