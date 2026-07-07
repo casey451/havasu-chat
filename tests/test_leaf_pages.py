@@ -498,7 +498,10 @@ def test_leaf_page_has_category_claim_slot(client: TestClient, seeded_leaves: di
     # showed a triple-printed ask CTA + stray duplicate fragments).
     assert len(body) > 1000
     assert body.count("Can&#39;t decide?") + body.count("Can't decide?") == 1
-    assert body.count("Claim this category") == 1
+    # WS3.3: paid category placement is "Sponsor this category" (the free flow
+    # keeps the "Claim" verb); the CTA still renders exactly once.
+    assert body.count("Sponsor this category") == 1
+    assert "Claim this category" not in body
 
 
 def test_leaf_claim_slot_renders_above_the_listings(
