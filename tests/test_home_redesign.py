@@ -51,8 +51,11 @@ def test_home_redesign_structure() -> None:
     assert 'class="counts' not in b
     assert 'id="jump"' not in b
     assert "/static/js/lake_redesign.js" in b  # progressive-enhancement layer
-    # buyable ad placeholder, never a fake business
-    assert "Ad space · Available" in b or "Sponsored" in b
+    # The marquee is a real sponsor ("Sponsored") or, when unsold, the P3 house
+    # promo (free-listing claim + a small "Advertise" link) — never a fake business
+    # and never a consumer-facing empty ad slot ("Your logo here").
+    assert "For local businesses" in b or "Sponsored" in b
+    assert "Your logo here" not in b
 
 
 def test_home_redesign_emits_seo_jsonld() -> None:

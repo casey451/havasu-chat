@@ -739,8 +739,10 @@ def serve_chat_ui() -> RedirectResponse:
 @app.get("/advertise")
 def advertise_redirect() -> RedirectResponse:
     # DL-13: /advertise is the colloquial entry point advertisers type; the
-    # actual sponsor landing lives at /sponsor. 301 so the canonical URL is the
-    # one that ranks. (The ad *catalog* is a separate page at /portal/advertise.)
+    # actual sponsor landing (the public rate card) lives at /sponsor. 301 so the
+    # canonical URL is the one that ranks. (There is no /portal/advertise route —
+    # the merchant dashboard is /portal/placements, behind login; WS3 will make
+    # /advertise itself the canonical rate card and 301 /sponsor onto it.)
     return RedirectResponse(url="/sponsor", status_code=301)
 
 
