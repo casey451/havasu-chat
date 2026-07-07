@@ -162,22 +162,26 @@ def main(argv: list[str] | None = None) -> int:
     print(f"  {verb} write ({mode} -> {_HELD_STATUS}): {len(undo_rows)}")
     print(f"  needs_confirmation (NEVER written — human confirms with P&R): {c[pr.NEEDS_CONFIRMATION]}")
 
-    if result.needs_confirmation:
+    # Report from the already-materialized `all_rows` dicts — NOT the ORM objects,
+    # which are expired + detached after db.commit()/session close (a re-access
+    # would raise DetachedInstanceError on an --apply run).
+    by_action: dict[str, list[dict]] = {}
+    for r in all_rows:
+        by_action.setdefault(r["action"], []).append(r)
+
+    nc = by_action.get(pr.NEEDS_CONFIRMATION, [])
+    if nc:
         print("\nNEEDS HUMAN CONFIRMATION (WebTrac vs flyer disagree; do NOT assume):")
-        for v in result.needs_confirmation:
-            f, wt = v.flyer, v.webtrac
-            print(
-                f"  {f.date} {f.title!r}: flyer {f.start_time} vs WebTrac "
-                f"{wt.start_time if wt else '?'} ({v.detail})"
-            )
+        for r in nc:
+            print(f"  {r['flyer_date']} {r['title']!r}: flyer {r['flyer_time']} vs "
+                  f"WebTrac {r['webtrac_time'] or '?'} ({r['detail']})")
     print("\nsupersede (flyer retired, WebTrac kept) — first 15:")
-    for v in result.supersede[:15]:
-        wt = v.webtrac
-        print(f"  {v.flyer.date} {v.flyer.title!r} flyer@{v.flyer.start_time} "
-              f"-> WebTrac@{wt.start_time if wt else '?'} [{v.detail}]")
+    for r in by_action.get(pr.SUPERSEDE, [])[:15]:
+        print(f"  {r['flyer_date']} {r['title']!r} flyer@{r['flyer_time']} "
+              f"-> WebTrac@{r['webtrac_time'] or '?'} [{r['detail']}]")
     print("\nquarantine (flyer-only, fails lint) — first 15:")
-    for v in result.quarantine[:15]:
-        print(f"  {v.flyer.date} {v.flyer.start_time} {v.flyer.title!r} [{v.detail}]")
+    for r in by_action.get(pr.QUARANTINE, [])[:15]:
+        print(f"  {r['flyer_date']} {r['flyer_time']} {r['title']!r} [{r['detail']}]")
 
     print(f"\nreview CSV (every verdict): {_REVIEW_CSV}")
     if dry:
