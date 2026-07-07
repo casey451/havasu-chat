@@ -106,7 +106,7 @@
         <div class="pcta-act">
           {% if vm.call_phone %}<a class="btn btn-primary" href="tel:{{ vm.call_phone }}">Call{% if vm.call_phone_display %} {{ vm.call_phone_display }}{% endif %}</a>{% endif %}
           {% if vm.directions_url %}<a class="btn btn-ghost" href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">Directions</a>{% endif %}
-          {% if vm.website_url and not vm.show_claim_cta %}<a class="btn btn-ghost" href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer">Website</a>{% endif %}
+          {% if vm.website_url %}<a class="btn btn-ghost" href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer">Website</a>{% endif %}
           {% if current_user_id and favorite_entity_id %}
           <button type="button" class="fav-save favorite-heart{% if is_favorited %} is-saved{% endif %}" data-entity-id="{{ favorite_entity_id }}" aria-label="Save to favorites" aria-pressed="{% if is_favorited %}true{% else %}false{% endif %}"><span class="heart" aria-hidden="true">{{ icon('heart', 15) }}</span> Save</button>
           {% else %}
@@ -179,7 +179,7 @@
       {% elif vm.service_area_only and vm.service_area %}<p class="paddr">Serves: {{ vm.service_area|join(', ') }}</p>
       {% else %}<p class="prow muted">Address not listed.</p>{% endif %}
       {% if vm.call_phone_display %}<p class="prow"><span class="lab">Call</span> <a href="tel:{{ vm.call_phone }}">{{ vm.call_phone_display }}</a></p>{% endif %}
-      {% if vm.website_url and not vm.show_claim_cta %}<p class="prow"><a href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer">Visit website →</a></p>{% endif %}
+      {% if vm.website_url %}<p class="prow"><a href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer">Visit website →</a></p>{% endif %}
       {% if vm.freshness_copy %}<p class="prow"><span class="lab">Fresh</span> {{ vm.freshness_copy }}</p>{% endif %}
       {% if vm.verification_method_copy %}<p class="prow"><span class="lab">Verified</span> {{ vm.verification_method_copy }}</p>{% endif %}
 
