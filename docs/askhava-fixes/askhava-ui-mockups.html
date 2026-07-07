@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Ask Hava — UI Fix Renders (companion to askhava-fix-spec-for-claude-code.md)</title>
+<style>
+  :root{
+    --teal:#0c5a60; --teal-deep:#0a474c; --teal-soft:#e3eeee; --brass:#a37e2c; --brass-soft:#f4ecda;
+    --ink:#16232a; --ink2:#42555e; --ink3:#75868e; --paper:#f7f5f0; --paper2:#efece4; --surface:#fff;
+    --hair:#e2ddd2; --red:#b3261e; --green:#15803d; --amber:#92610a; --amber-bg:#fdf3dd;
+  }
+  *{box-sizing:border-box} body{margin:0;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,sans-serif;background:#eceae3;color:var(--ink);padding:32px 20px 80px}
+  h1{font-size:26px;margin:0 0 4px} .sub{color:var(--ink3);font-size:13px;margin-bottom:28px}
+  section{margin:0 0 44px}
+  h2{font-size:19px;border-left:4px solid var(--teal);padding-left:10px;margin:0 0 4px}
+  .ws{font-size:11.5px;color:var(--ink3);margin:0 0 14px;padding-left:14px}
+  .row{display:flex;gap:22px;flex-wrap:wrap;align-items:flex-start}
+  .frame{background:var(--surface);border:1px solid var(--hair);border-radius:14px;overflow:hidden;box-shadow:0 6px 18px rgba(20,30,35,.08)}
+  .phone{width:320px}
+  .wide{width:640px;max-width:100%}
+  .flabel{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;padding:8px 12px;display:flex;gap:8px;align-items:center}
+  .flabel.bad{background:#fbeae9;color:var(--red)} .flabel.good{background:#e8f3ec;color:var(--green)}
+  .screen{background:var(--paper);padding:14px;overflow:hidden}
+  .note{font-size:12px;color:var(--ink2);max-width:660px;line-height:1.55;margin-top:10px}
+  .note code{background:#e7e3d8;padding:1px 5px;border-radius:4px;font-size:11px}
+  .h-page{font-family:Georgia,serif;font-size:19px;margin:2px 0 2px}
+  .muted{font-size:11px;color:var(--ink3)}
+  /* segmented control — replica of .gseg */
+  .gsegwrap{margin:12px 0 8px}
+  .gseg{display:inline-flex;background:var(--paper2);border:1px solid var(--hair);border-radius:11px;padding:3px;gap:2px;white-space:nowrap}
+  .gseg button{border:0;background:transparent;font:700 12.5px/1 inherit;color:var(--ink3);padding:12px 16px;border-radius:8px}
+  .gseg button.on{background:#fff;color:var(--teal-deep);box-shadow:0 1px 3px rgba(0,0,0,.12)}
+  .gseg button.dsl{color:var(--green)}
+  .clipbox{overflow:hidden;width:100%} /* simulates viewport clipping */
+  .gseg-fixed{width:353px} /* measured production width */
+  .gseg-fluid{display:flex;flex-wrap:wrap;width:100%}
+  .gseg-fluid button{flex:1 1 45%;min-height:44px}
+  .cutmark{position:relative}
+  .cutmark::after{content:"viewport edge → “Diesel” clipped";position:absolute;right:0;top:-16px;font-size:10px;color:var(--red);font-weight:700}
+  .edge{border-right:2px dashed var(--red)}
+  /* gas rows */
+  .avg{display:flex;justify-content:space-between;align-items:baseline;padding:10px 2px 2px}
+  .avg b{font-family:Georgia,serif;font-size:26px}
+  .stale{display:inline-block;background:var(--amber-bg);color:var(--amber);font-size:11px;font-weight:700;border-radius:6px;padding:3px 8px}
+  .fresh{display:inline-block;background:#e8f3ec;color:var(--green);font-size:11px;font-weight:700;border-radius:6px;padding:3px 8px}
+  table.gas{width:100%;border-collapse:collapse;font-size:12px;background:#fff;border:1px solid var(--hair);border-radius:10px;overflow:hidden}
+  table.gas th,table.gas td{padding:8px 9px;text-align:left;border-top:1px solid #eee9de}
+  table.gas th{background:var(--paper2);border-top:0;font-size:10.5px;text-transform:uppercase;letter-spacing:.05em;color:var(--ink2)}
+  table.gas td.p{font-variant-numeric:tabular-nums;font-weight:600}
+  .cheapcard{background:#fff;border:1px solid var(--hair);border-radius:10px;padding:9px 11px;font-size:12px;margin:6px 0}
+  .cheapcard b{font-family:Georgia,serif}
+  .dupetag{color:var(--red);font-size:10px;font-weight:700}
+  /* chips & facets */
+  .chips{display:flex;gap:7px;flex-wrap:wrap;margin:10px 0}
+  .chip{border:1px solid var(--hair);background:#fff;border-radius:999px;padding:9px 13px;font-size:12px;font-weight:600;color:var(--ink2);min-height:38px;display:inline-flex;align-items:center;gap:6px}
+  .chip.on{background:var(--ink);color:#fff;border-color:var(--ink)}
+  .chip .n{background:var(--paper2);border-radius:999px;font-size:10px;padding:1px 7px;color:var(--ink2)}
+  .chip.on .n{background:rgba(255,255,255,.18);color:#fff}
+  .scrollrow{display:flex;gap:7px;overflow-x:auto;padding-bottom:4px}
+  .scrollrow .chip{flex:0 0 auto}
+  /* biz cards */
+  .biz{display:flex;gap:10px;background:#fff;border:1px solid var(--hair);border-radius:12px;padding:11px;margin:8px 0;align-items:center}
+  .biz .ph{width:52px;height:52px;border-radius:10px;background:linear-gradient(150deg,var(--teal-soft),var(--brass-soft));flex:0 0 auto}
+  .biz .nm{font-weight:700;font-size:13.5px}
+  .biz .mt{font-size:11px;color:var(--ink3);margin-top:2px}
+  .badge{font-size:10px;font-weight:700;border-radius:5px;padding:2px 6px}
+  .open{background:#e8f3ec;color:var(--green)}
+  .spons{background:var(--brass-soft);color:#7a5c14}
+  /* events feed */
+  .sec{background:#fff;border:1px solid var(--hair);border-radius:12px;margin:9px 0;overflow:hidden}
+  .sechd{display:flex;align-items:center;gap:9px;padding:11px 13px;font-weight:700;font-size:13.5px}
+  .sechd .cnt{font-size:10.5px;background:var(--teal-soft);color:var(--teal-deep);border-radius:999px;padding:2px 8px}
+  .ev{display:flex;gap:10px;padding:9px 13px;border-top:1px solid #f0ece2;font-size:12.5px}
+  .ev .t{min-width:56px;font-weight:700;color:var(--ink2);font-variant-numeric:tabular-nums}
+  .ev .v{color:var(--ink3);font-size:11px}
+  .railhd{padding:11px 13px;font-weight:700;font-size:12px;color:#7a5c14;background:var(--brass-soft);letter-spacing:.04em;text-transform:uppercase}
+  /* generic page bits */
+  .btn{display:inline-block;background:var(--teal);color:#fff;border-radius:9px;padding:11px 16px;font-weight:700;font-size:13px;text-decoration:none;min-height:44px}
+  .btn.ghost{background:#fff;color:var(--teal-deep);border:1px solid var(--hair)}
+  .price{font-family:Georgia,serif;font-size:22px}
+  .rate{background:#fff;border:1px solid var(--hair);border-radius:12px;padding:14px;flex:1 1 240px;min-width:230px}
+  .rate h4{margin:0 0 4px;font-size:14px}
+  .rate .muted{line-height:1.5}
+  .soldout{color:var(--red);font-weight:700;font-size:11px}
+  .tabs{display:flex;gap:2px;background:var(--paper2);border-radius:10px;padding:3px;width:max-content}
+  .tabs span{padding:8px 14px;font-size:12px;font-weight:700;border-radius:8px;color:var(--ink3)}
+  .tabs .on{background:#fff;color:var(--teal-deep);box-shadow:0 1px 3px rgba(0,0,0,.1)}
+  .newsit{padding:10px 2px;border-bottom:1px solid #e7e2d6;font-size:13px}
+  .newsit .src{font-size:11px;color:var(--ink3)}
+  .paywall{font-size:9.5px;font-weight:700;color:var(--brass);border:1px solid var(--brass-soft);border-radius:4px;padding:1px 5px;vertical-align:1px}
+  .arrow{font-size:22px;color:var(--ink3);align-self:center;padding:0 4px}
+  .kfilters .chip{min-height:44px}
+</style>
+</head>
+<body>
+
+<h1>Ask Hava — UI fix renders</h1>
+<div class="sub">Companion to <b>askhava-fix-spec-for-claude-code.md</b>. Each section is referenced from the spec as [Render §n]. Data shown is real production data from the 2026-07-06 audit.</div>
+
+<!-- ============================================================ -->
+<section id="s1">
+  <h2>§1 — Gas grade selector on small screens</h2>
+  <div class="ws">Spec WS8 · audit M15/M17 · root cause: fixed 353px inline-flex in an overflow:visible wrapper, no wrap, no media query, ~21–29px tap targets</div>
+  <div class="row">
+    <div class="frame phone">
+      <div class="flabel bad">✕ BEFORE — 320px viewport</div>
+      <div class="screen">
+        <div class="h-page">Gas prices in Lake Havasu City</div>
+        <div class="muted">24 stations tracked.</div>
+        <div class="gsegwrap clipbox edge cutmark">
+          <div class="gseg gseg-fixed">
+            <button class="on">Regular</button><button>Midgrade</button><button>Premium</button><button class="dsl">Die…</button>
+          </div>
+        </div>
+        <div class="avg"><span class="muted">City average · regular</span><b>$3.94</b></div>
+      </div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="frame phone">
+      <div class="flabel good">✓ AFTER — 320px viewport (2×2 wrap, 44px targets)</div>
+      <div class="screen">
+        <div class="h-page">Gas prices in Lake Havasu City</div>
+        <div class="muted">24 stations tracked.</div>
+        <div class="gsegwrap">
+          <div class="gseg gseg-fluid">
+            <button class="on">Regular</button><button>Midgrade</button><button>Premium</button><button class="dsl">Diesel</button>
+          </div>
+        </div>
+        <div class="avg"><span class="muted">City average · regular</span><b>$3.94</b></div>
+      </div>
+    </div>
+  </div>
+  <div class="note">CSS: <code>.gseg{display:flex;flex-wrap:wrap}</code> · <code>@media(max-width:430px){.gseg button{flex:1 1 45%}}</code> · <code>.gseg button{min-height:44px}</code>. Alternative (scroll + snap) acceptable only with a visible affordance; wrap is preferred for a 4-option segmented control. The same missing-wrap defect class exists on the <code>.counts</code> pill row — fix shown in §3.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="s2">
+  <h2>§2 — /gas page structure</h2>
+  <div class="ws">Spec WS7.5 · audit M12 (redundant "Cheapest today" block) + B1 (stale data shipped with a "Live" chip)</div>
+  <div class="row">
+    <div class="frame phone">
+      <div class="flabel bad">✕ BEFORE</div>
+      <div class="screen">
+        <div class="h-page">Gas prices</div>
+        <div><span class="stale">Updated &gt;6h ago (Jun 10, 7:06 AM)</span> <span class="fresh">Live</span></div>
+        <div class="muted" style="margin-top:8px;font-weight:700">CHEAPEST TODAY</div>
+        <div class="cheapcard"><b>#1 · Love's</b> $4.19 · 14875 US-95 <span class="dupetag">= table row 1</span></div>
+        <div class="cheapcard"><b>#2 · Pilot</b> $4.19 · 14750 S AZ-95 <span class="dupetag">= table row 2</span></div>
+        <div class="cheapcard"><b>#3 · Marathon</b> $4.34 · 2201 McCulloch <span class="dupetag">= table row 3</span></div>
+        <div class="cheapcard"><b>#4 · Zip</b> $4.35 <span class="dupetag">= row 4</span></div>
+        <div class="cheapcard"><b>#5 · Maverik</b> $4.36 <span class="dupetag">= row 5</span></div>
+        <div class="cheapcard"><b>#6 · Maverik</b> $4.36 <span class="dupetag">= row 6</span></div>
+        <div class="muted" style="margin:10px 0 6px;font-weight:700">ALL STATIONS (same data, same order)</div>
+        <table class="gas"><tr><th>Station</th><th>Reg</th></tr>
+          <tr><td>Love's Travel Stop</td><td class="p">$4.19</td></tr>
+          <tr><td>Pilot</td><td class="p">$4.19</td></tr>
+          <tr><td>Marathon</td><td class="p">$4.34</td></tr>
+        </table>
+      </div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="frame phone">
+      <div class="flabel good">✓ AFTER</div>
+      <div class="screen">
+        <div class="h-page">Gas prices</div>
+        <div><span class="fresh">Updated today · 7:16 AM</span></div>
+        <div class="avg"><span class="muted">Cheapest regular right now</span><b>$3.59</b></div>
+        <div class="muted" style="margin-bottom:8px">Love's Travel Stop · 14875 US-95 · <a style="color:var(--teal)">Directions ›</a></div>
+        <div class="gsegwrap"><div class="gseg gseg-fluid">
+          <button class="on">Regular</button><button>Midgrade</button><button>Premium</button><button class="dsl">Diesel</button>
+        </div></div>
+        <table class="gas"><tr><th>Station (sorted by price)</th><th>Reg</th></tr>
+          <tr><td>Love's Travel Stop · 14875 US-95</td><td class="p">$3.59</td></tr>
+          <tr><td>Pilot · 14750 S AZ-95</td><td class="p">$3.59</td></tr>
+          <tr><td>Maverik · 2197 McCulloch</td><td class="p">$3.65</td></tr>
+          <tr><td>Maverik · 2660 Sweetwater</td><td class="p">$3.65</td></tr>
+          <tr><td>Smith's · 80 Acoma Blvd N</td><td class="p">$3.69</td></tr>
+        </table>
+        <div class="muted" style="margin-top:8px">Sorted by selected grade · one summary line replaces the six duplicate cards</div>
+      </div>
+    </div>
+  </div>
+  <div class="note">If data is &gt;24h old, the timestamp pill goes amber ("not updated since Jun 10") and the <b>Live</b> chip must never render — the BEFORE frame shows the production contradiction verbatim. The 5-station "Cheapest gas near you" expander embedded on every other page collapses to the single header chip.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="s3">
+  <h2>§3 — Restaurants: faceted discovery (+ fixed pill row)</h2>
+  <div class="ws">Spec WS9a · audit M8 (160 items, no filters; ranking contradicts printed methodology) · M16 (.counts row clips)</div>
+  <div class="row">
+    <div class="frame phone">
+      <div class="flabel bad">✕ BEFORE</div>
+      <div class="screen">
+        <div class="h-page">160 Best Restaurants</div>
+        <div class="muted">"ranked by volume-weighted rating" —</div>
+        <div class="biz"><div class="ph"></div><div><div class="nm">La Baja Havasu</div><div class="mt">★ 5.0 (5 reviews) — <b>ranked #1</b></div></div></div>
+        <div class="biz"><div class="ph"></div><div><div class="nm">Siddhartha's Garden</div><div class="mt">★ 5.0 (163 reviews) — ranked #3 ⚠</div></div></div>
+        <div class="biz"><div class="ph"></div><div><div class="nm">Denny's Restaurant</div><div class="mt">★ 4.1 (1847) · 1620 McCulloch</div></div></div>
+        <div class="biz"><div class="ph"></div><div><div class="nm">Denny's <span class="dupetag">DUPLICATE</span></div><div class="mt">New / few reviews · 1620 McCulloch</div></div></div>
+        <div class="muted">…156 more, no way to narrow down</div>
+      </div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="frame phone">
+      <div class="flabel good">✓ AFTER — facets from existing tags</div>
+      <div class="screen">
+        <div class="h-page">Restaurants <span class="muted">· 143 after dedup</span></div>
+        <div class="scrollrow kfilters">
+          <span class="chip on">Open now</span><span class="chip">Waterfront</span><span class="chip">Kid-friendly</span><span class="chip">$</span><span class="chip">$$</span>
+        </div>
+        <div class="scrollrow">
+          <span class="chip on">Mexican <span class="n">24</span></span><span class="chip">Italian <span class="n">11</span></span><span class="chip">Sushi <span class="n">6</span></span><span class="chip">BBQ <span class="n">7</span></span><span class="chip">Pizza <span class="n">12</span></span><span class="chip">Burgers <span class="n">9</span></span>
+        </div>
+        <div class="biz"><div class="ph"></div><div><div class="nm">Chico's Tacos <span class="badge open">Open</span></div><div class="mt">★ 4.5 (2,020) · Mexican · 1641 McCulloch #21</div></div></div>
+        <div class="biz"><div class="ph"></div><div><div class="nm">El Mariachi <span class="badge open">Open</span></div><div class="mt">★ 4.4 (686) · Mexican · 141 Swanson #5</div></div></div>
+        <div class="biz"><div class="ph"></div><div><div class="nm">Amigos Birria Tacos <span class="badge open">Open</span></div><div class="mt">★ 4.6 (131) · Mexican · 55 N Lake Havasu Ave</div></div></div>
+        <div class="muted">Sort: <b>Top rated</b> (volume-weighted) · matches its label</div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Facet chips are horizontally scrollable (<code>overflow-x:auto</code> + snap — the WS8 fix for every pill row, including the homepage <code>.counts</code> row). Facets are URL params and server-rendered: <code>?cuisine=mexican&amp;open=1</code> → an indexable "Mexican restaurants in Lake Havasu City" page. Default sort must be the honest volume-weighted score or be relabeled "Featured (rotates daily)".</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="s4">
+  <h2>§3b — Events feed: real events vs "Open today" rail</h2>
+  <div class="ws">Spec WS6.2 · audit M2 (venue hours injected as events, padding counts and flooding the calendar)</div>
+  <div class="row">
+    <div class="frame phone">
+      <div class="flabel bad">✕ BEFORE — venues counted as events</div>
+      <div class="screen">
+        <div class="sec">
+          <div class="sechd">Things to Do <span class="cnt">9</span></div>
+          <div class="ev"><span class="t">6 PM</span><div>Rainforest Rush Kids Camp<div class="v">Abundant Grace Church</div></div></div>
+          <div class="ev"><span class="t">11–11</span><div>Mr. Lucky's Billiards & Pub <span class="dupetag">not an event</span><div class="v">"14 tables · full bar"</div></div></div>
+          <div class="ev"><span class="t">12–9</span><div>Havasu Lanes <span class="dupetag">not an event</span><div class="v">venue hours</div></div></div>
+          <div class="ev"><span class="t">24/7</span><div>Indoor Golf Simulators <span class="dupetag">not an event</span><div class="v">"Open 24/7"</div></div></div>
+          <div class="ev"><span class="t">daily</span><div>Golf Course — Bridgewater Links <span class="dupetag">not an event</span><div class="v">"Open daily"</div></div></div>
+        </div>
+      </div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="frame phone">
+      <div class="flabel good">✓ AFTER — events are events</div>
+      <div class="screen">
+        <div class="sec">
+          <div class="sechd">Things to Do <span class="cnt">2</span></div>
+          <div class="ev"><span class="t">9 AM</span><div>Popsicles in the Park <span class="badge open">Kids</span><div class="v">Rotary Park · Parks &amp; Rec</div></div></div>
+          <div class="ev"><span class="t">6 PM</span><div>Rainforest Rush Kids Camp <span class="badge open">Kids</span><div class="v">Nightly Jul 6–10 · Abundant Grace</div></div></div>
+        </div>
+        <div class="sec">
+          <div class="railhd">Open today — places &amp; ongoing</div>
+          <div class="ev"><span class="t">11–11</span><div>Mr. Lucky's Billiards<div class="v">14 tables · full bar</div></div></div>
+          <div class="ev"><span class="t">12–9</span><div>Havasu Lanes<div class="v">bumper lanes · arcade</div></div></div>
+          <div class="ev"><span class="t">10–7</span><div>Altitude Trampoline Park<div class="v">toddler area</div></div></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Venue-hours rows move to a visually distinct brass "Open today" rail, excluded from event counts and from calendar month cells (which were dominated by "Toptracer Range — Family Night Golf" on 10+ June days). Series render with their recurrence ("Nightly Jul 6–10") per WS5. Kids quick-filters (Free / Indoor / Tonight / This weekend) sit above the feed per WS9c.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="s5">
+  <h2>§5 — 404 page (currently: blank white page)</h2>
+  <div class="ws">Spec WS2.3 · audit B2</div>
+  <div class="row">
+    <div class="frame phone">
+      <div class="flabel good">✓ AFTER</div>
+      <div class="screen" style="text-align:center;padding:28px 18px">
+        <div class="h-page" style="font-size:24px">Ask Hava<b style="color:var(--teal)">.</b></div>
+        <p style="font-family:Georgia,serif;font-size:17px;margin:14px 0 4px">We couldn't find that page.</p>
+        <p class="muted">It may have moved — or never existed. Try a search:</p>
+        <div style="background:#fff;border:1px solid var(--hair);border-radius:10px;padding:11px 13px;color:var(--ink3);text-align:left;font-size:13px;margin:12px 0">🔍 Search places &amp; events…</div>
+        <div class="chips" style="justify-content:center">
+          <span class="chip">Eat &amp; Drink</span><span class="chip">Events today</span><span class="chip">Gas prices</span><span class="chip">Things to Do</span>
+        </div>
+        <p class="muted">Know a place we're missing? <a style="color:var(--teal);font-weight:700">Add it to Hava →</a></p>
+      </div>
+    </div>
+  </div>
+  <div class="note">Must return HTTP <code>404</code> (audit found empty <code>200</code>-style blanks). Same template styled for 500s. The "/seniors" and "/portal/advertise" blanks are separate route bugs (WS2.1) — this template is the safety net, not the fix.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="s6">
+  <h2>§6 — /seniors hub (currently: blank page linked in main nav)</h2>
+  <div class="ws">Spec WS2.2 + WS10 · audit B2 · data already ingested (Senior Center events appear in the Jul 7 feed)</div>
+  <div class="row">
+    <div class="frame phone">
+      <div class="flabel good">✓ AFTER — content, not chat deflection</div>
+      <div class="screen">
+        <div class="h-page">For Seniors</div>
+        <div class="muted">Lake Havasu Senior Center · Parks &amp; Rec 50+ · clubs</div>
+        <div class="sec">
+          <div class="sechd">Today at the Senior Center <span class="cnt">4</span></div>
+          <div class="ev"><span class="t">8:30 AM</span><div>Open Billiards</div></div>
+          <div class="ev"><span class="t">11:15 AM</span><div>Community Lunch <div class="v">Meals on Wheels</div></div></div>
+          <div class="ev"><span class="t">12:30 PM</span><div>Hand &amp; Foot</div></div>
+          <div class="ev"><span class="t">12:30 PM</span><div>Party Bridge</div></div>
+        </div>
+        <div class="sec">
+          <div class="sechd">This week</div>
+          <div class="ev"><span class="t">Tue</span><div>Mexican Train Dominoes <div class="v">Parks &amp; Rec 50+ program</div></div></div>
+          <div class="ev"><span class="t">Wed</span><div>Warm Water Yoga <div class="v">Aquatic Center</div></div></div>
+        </div>
+        <div class="chips"><span class="chip">Health &amp; Medical</span><span class="chip">Worship</span><span class="chip">Games &amp; clubs</span></div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Snowbird season (Oct–Apr) makes this the highest-traffic seasonal audience. "Mexican Train Dominoes" currently lands in Things-to-Do → Games &amp; Social; after WS6 the <code>audience=seniors</code> field routes it here.</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="s7">
+  <h2>§7 — /advertise: public rate card (currently: blank page / login wall / no prices)</h2>
+  <div class="ws">Spec WS3 · audit B3 · prices shown are market-benchmark placeholders — set real ones</div>
+  <div class="frame wide">
+    <div class="flabel good">✓ AFTER — one URL, real prices, self-serve</div>
+    <div class="screen">
+      <div class="h-page">Advertise on Ask Hava<b style="color:var(--teal)">.</b></div>
+      <div class="muted" style="margin-bottom:12px">One clearly-labeled placement per surface. No pop-ups, no dark patterns. Prices public.</div>
+      <div class="row" style="gap:12px">
+        <div class="rate"><h4>Featured around town</h4><div class="price">$249<span class="muted">/mo</span></div><div class="muted">Headline placement on Home. One sponsor per day.</div><div style="margin-top:8px"><span class="soldout">Jul sold · next opening Aug 1</span></div></div>
+        <div class="rate"><h4>Category sponsor</h4><div class="price">$149<span class="muted">/mo</span></div><div class="muted">Top card in one category (e.g. Restaurants). Labeled "Sponsored".</div><div style="margin-top:8px"><a class="btn" style="font-size:12px;padding:9px 13px">Check availability</a></div></div>
+        <div class="rate"><h4>Today's spotlight</h4><div class="price">$79<span class="muted">/wk</span></div><div class="muted">Alongside today's picks, max two per week.</div><div style="margin-top:8px"><a class="btn ghost" style="font-size:12px;padding:9px 13px">Book a week</a></div></div>
+        <div class="rate"><h4>Supporters wall</h4><div class="price">$25<span class="muted">/mo</span></div><div class="muted">Logo in the footer. Local supporters only.</div><div style="margin-top:8px"><a class="btn ghost" style="font-size:12px;padding:9px 13px">Join</a></div></div>
+      </div>
+      <div class="muted" style="margin-top:12px">Questions? <b>ads@askhava.com</b> · Every placement labeled "Sponsored" · Claiming your listing stays <b>free</b> → <span style="color:var(--teal);font-weight:700">Claim your listing</span></div>
+    </div>
+  </div>
+  <div class="note">301 <code>/sponsor</code>, <code>/portal/advertise</code>, <code>/portal/placements</code> → <code>/advertise</code>. "Claim" vocabulary is reserved for the free listing flow; paid category placement is renamed <b>Sponsor this category</b>. Single contact address on the askhava.com domain (retire havasuchat.com everywhere).</div>
+</section>
+
+<!-- ============================================================ -->
+<section id="s8">
+  <h2>§8 — News: local-first tabs (currently one list where wire &amp; Pringles outrank Havasu)</h2>
+  <div class="ws">Spec WS13.6 · audit M18</div>
+  <div class="row">
+    <div class="frame phone">
+      <div class="flabel bad">✕ BEFORE — "Havasu headlines"</div>
+      <div class="screen">
+        <div class="newsit">Suspect arrested in July 3 Island fire<div class="src">News-Herald · local ✓</div></div>
+        <div class="newsit">California woman killed by Florida alligator<div class="src">wire · not Havasu</div></div>
+        <div class="newsit">Pringles debuts potato-based Pop Dog Buns<div class="src">syndicated lifestyle</div></div>
+        <div class="newsit">Crypto prices for July 6, 2026<div class="src">wire</div></div>
+        <div class="newsit">Michael Pacer: Socialist lies<div class="src">opinion letter</div></div>
+      </div>
+    </div>
+    <div class="arrow">→</div>
+    <div class="frame phone">
+      <div class="flabel good">✓ AFTER</div>
+      <div class="screen">
+        <div class="tabs"><span class="on">Local</span><span>City Hall</span><span>Opinion</span><span>Beyond Havasu</span></div>
+        <div class="newsit" style="margin-top:8px">Suspect arrested in July 3 Island fire<div class="src">News-Herald · 8h <span class="paywall">SUBSCRIPTION</span></div></div>
+        <div class="newsit">Heat risk to climb across Mohave County this week<div class="src">News-Herald · 12h <span class="paywall">SUBSCRIPTION</span></div></div>
+        <div class="newsit">Milling &amp; paving underway on Acoma<div class="src">City of Lake Havasu · 2h</div></div>
+        <div class="newsit">Guide to Fourth of July fun in Lake Havasu City<div class="src">RiverScene · free</div></div>
+      </div>
+    </div>
+  </div>
+  <div class="note">Routing heuristics are clean in the source URLs: <code>/news/nation/</code>, <code>/opinion/</code>, <code>/lifestyle/</code> → Beyond Havasu / Opinion tabs. Homepage "Local news" module pulls the Local tab only. De-dup the daily "Your Daily Planner" series to the latest issue.</div>
+</section>
+
+<div class="note" style="margin-top:30px;border-top:1px solid var(--hair);padding-top:14px">
+  <b>Not rendered here</b> (see spec text): WS1 cache architecture, WS4 entity-resolution pipeline, WS5 ICS/RRULE output, WS11 provider-page module order (layout list in spec §11), WS12 connector map — those are diagrammed as Mermaid in the spec document itself.
+</div>
+
+</body>
+</html>
