@@ -140,15 +140,29 @@ def test_one_weekday_mismatch_holds_the_whole_month() -> None:
 # --------------------------------------------------------------------------- #
 # Guard 3 — venue must be a known facility, never a person / room
 # --------------------------------------------------------------------------- #
-def test_facility_allowlist() -> None:
-    assert prc.is_known_facility("Aquatic Center") is True
-    assert prc.is_known_facility("Sara Park Ballfields") is True
-    assert prc.is_known_facility("aquatic") is True  # fragment of "Aquatic Center"
-    assert prc.is_known_facility("Lake Havasu City Parks & Recreation") is True
-    assert prc.is_known_facility("Jane Camlin") is False
-    assert prc.is_known_facility("Kitchen") is False
-    assert prc.is_known_facility(None) is False
-    assert prc.is_known_facility("") is False
+def test_venue_classifier_accepts_real_locations() -> None:
+    # Named facilities, generic venue words, and room codes are all real places —
+    # including the sub-venues an earlier draft wrongly rejected (Kitchen, Site 6).
+    for good in (
+        "Aquatic Center",
+        "Sara Park Ballfields",
+        "aquatic",  # fragment of "Aquatic Center"
+        "Lake Havasu City Parks & Recreation",
+        "Community Center",
+        "Wheeler Park",
+        "Kitchen",
+        "Site 6",  # = Site Six, spelled with a numeral
+        "S3 - Room 153/154",
+    ):
+        assert prc.is_known_facility(good) is True, good
+
+
+def test_venue_classifier_rejects_person_names() -> None:
+    # A mis-mapped instructor names no place. "S3 - Jane Camlin" has a building
+    # tag but no room word, so it stays a reject (the real "S3 - Room 153" passes
+    # above). Even a known instructor first-name is rejected by absence of a place.
+    for bad in ("Jane Camlin", "S3 - Jane Camlin", "Margie Smith", None, ""):
+        assert prc.is_known_facility(bad) is False, bad
 
 
 def test_instructor_in_venue_is_rejected_and_held() -> None:

@@ -87,12 +87,14 @@ def main(argv: list[str] | None = None) -> int:
 
     by_reason: Counter = Counter()
     by_source: Counter = Counter()
+    venue_counts: Counter = Counter()
     undo_rows: list[dict] = []
     scanned = 0
     with SessionLocal() as db:
         events = _pr_vision_events(db)
         scanned = len(events)
         for ev in events:
+            venue_counts[ev.location_name] += 1
             reasons = _reasons(ev)
             if not reasons:
                 continue
@@ -129,6 +131,11 @@ def main(argv: list[str] | None = None) -> int:
     print("  by source:")
     for src, n in sorted(by_source.items()):
         print(f"    {src:<24} {n}")
+    print("\nDISTINCT VENUES (all scanned) — [KEEP]=real location / [hold]=rejected:")
+    for venue, n in sorted(venue_counts.items(), key=lambda kv: (-kv[1], kv[0])):
+        verdict = "KEEP" if is_known_facility(venue) else "hold"
+        print(f"  {n:>3}  [{verdict}]  {venue!r}")
+
     print("\nsample (first 15) — the events that would leave the public calendar:")
     for row in undo_rows[:15]:
         print(
