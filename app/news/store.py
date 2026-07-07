@@ -26,6 +26,7 @@ from app.conditions.cache import read_source, record_fetch_failure, upsert_sourc
 from app.conditions.constants import SOURCE_NEWS_LOCAL
 from app.contrib import lhc_newsflash, mcso_press, news_herald, river_scene_news
 from app.contrib.news_item import NewsItem
+from app.news.sections import NON_LOCAL_SECTIONS, SECTION_LABELS, news_section
 
 logger = logging.getLogger(__name__)
 
@@ -202,7 +203,13 @@ def _relative_label(iso: str | None, now: datetime) -> str | None:
     return dt.strftime("%b ") + str(dt.day)
 
 
-def _view(db: Session, *, limit: int | None, now: datetime | None) -> NewsView:
+def _view(
+    db: Session,
+    *,
+    limit: int | None,
+    now: datetime | None,
+    drop_sections: frozenset[str] = frozenset(),
+) -> NewsView:
     now = _naive_utc(now)
     row = read_source(db, SOURCE_NEWS_LOCAL, now=now)
     if row is None:
@@ -219,6 +226,12 @@ def _view(db: Session, *, limit: int | None, now: datetime | None) -> NewsView:
         title = str(it.get("title") or "")
         if _is_filler(title):
             continue
+        # M18: route into Local / City Hall / Opinion / Beyond Havasu. The
+        # homepage module drops wire/nation/lifestyle before the limit so it
+        # still fills with local headlines (no "Pringles" under a Havasu H1).
+        section = news_section(str(it.get("source") or ""), str(it.get("url") or ""), title)
+        if section in drop_sections:
+            continue
         title_key = _normalize_title(title)
         if title_key and title_key in seen_title:
             continue
@@ -227,6 +240,8 @@ def _view(db: Session, *, limit: int | None, now: datetime | None) -> NewsView:
         entry = dict(it)
         entry["published_label"] = _relative_label(it.get("published_at"), now)
         entry["region_label"] = _region_label(title, str(it.get("summary") or ""))
+        entry["section"] = section
+        entry["section_label"] = SECTION_LABELS.get(section, "Local")
         out.append(entry)
         if limit is not None and len(out) >= limit:
             break
@@ -265,8 +280,11 @@ def _region_label(title: str, summary: str = "") -> str | None:
 
 
 def ticker_view(db: Session, *, limit: int = 6, now: datetime | None = None) -> NewsView:
-    """Top headlines for the home news ticker (honest-omit when empty)."""
-    return _view(db, limit=limit, now=now)
+    """Top headlines for the home news ticker (honest-omit when empty).
+
+    M18: local-first — the homepage never surfaces wire/nation/lifestyle
+    syndication (``Beyond Havasu``) as a Havasu headline."""
+    return _view(db, limit=limit, now=now, drop_sections=NON_LOCAL_SECTIONS)
 
 
 def page_view(db: Session, *, now: datetime | None = None) -> NewsView:
