@@ -20,6 +20,12 @@ def test_health_200_when_db_ok() -> None:
     body = r.json()
     assert body["status"] == "ok"
     assert body["db_connected"] is True
+    # DB-identity fingerprint present (values are null on the SQLite test DB — the
+    # Postgres-only probes fail gracefully — but the contract/shape is asserted).
+    assert "db_identity" in body
+    assert set(body["db_identity"]) == {
+        "system_identifier", "database", "server_port", "server_version"
+    }
 
 
 def test_health_503_when_db_query_fails() -> None:

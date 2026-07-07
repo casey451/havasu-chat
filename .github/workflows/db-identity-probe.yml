@@ -1,0 +1,43 @@
+name: db-identity-probe
+
+# READ-ONLY. Prints the Postgres cluster fingerprint (system_identifier +
+# inet_server_addr/port + database + version) for the DATABASE_URL secret — the
+# GitHub-Actions / public-proxy path. Compare its system_identifier with the web
+# app's `GET /health -> db_identity` (the internal-host path) to confirm both
+# resolve to the SAME cluster. SELECTs only; writes nothing.
+#
+# On-demand only (workflow_dispatch).
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  db-identity-probe:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Probe DB identity (read-only)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is empty — refusing to run."
+            exit 1
+          fi
+          python scripts/db_identity_probe.py

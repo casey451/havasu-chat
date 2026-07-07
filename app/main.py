@@ -809,7 +809,6 @@ async def http_exception_handler(
 def health_check(db: Session = Depends(get_db)) -> JSONResponse:
     try:
         count = db.query(Event).count()
-        return JSONResponse({"status": "ok", "db_connected": True, "event_count": count})
     except Exception:
         # OPS-1: a process that can't reach the database must FAIL the
         # healthcheck (Railway healthcheckPath gates deploys on this), not
@@ -818,3 +817,42 @@ def health_check(db: Session = Depends(get_db)) -> JSONResponse:
             status_code=503,
             content={"status": "error", "db_connected": False, "event_count": 0},
         )
+    return JSONResponse(
+        {
+            "status": "ok",
+            "db_connected": True,
+            "event_count": count,
+            # Cluster fingerprint so the web-app/internal-host path can be proven
+            # the SAME Postgres as the Actions/public-proxy path (scripts/
+            # db_identity_probe.py). system_identifier is initdb-unique per cluster
+            # and non-sensitive. Best-effort: a failure here never affects the
+            # deploy healthcheck gate above.
+            "db_identity": _db_identity(db),
+        }
+    )
+
+
+def _db_identity(db: Session) -> dict[str, object | None]:
+    """Read-only cluster fingerprint for the /health identity check. Never raises;
+    an unreadable probe yields a null field, not a 503. Each probe rolls back on
+    failure so a permission-denied ``pg_control_system()`` (which aborts the
+    transaction) doesn't poison the ``inet_server_*`` fallbacks after it."""
+    from sqlalchemy import text as _sql_text
+
+    identity: dict[str, object | None] = {}
+    for label, sql in (
+        ("system_identifier", "SELECT system_identifier FROM pg_control_system()"),
+        ("database", "SELECT current_database()"),
+        ("server_port", "SELECT inet_server_port()"),
+        ("server_version", "SELECT current_setting('server_version')"),
+    ):
+        try:
+            value = db.execute(_sql_text(sql)).scalar()
+            identity[label] = str(value) if label == "system_identifier" and value is not None else value
+        except Exception:
+            identity[label] = None
+            try:
+                db.rollback()
+            except Exception:
+                pass
+    return identity
