@@ -15,7 +15,7 @@ on:
   workflow_dispatch:
     inputs:
       confirm:
-        description: "Type APPLY to write (supersede + quarantine). Anything else = dry-run."
+        description: "APPLY = supersede + quarantine · SUPERSEDE = supersede only · else dry-run."
         required: false
         default: ""
 
@@ -53,8 +53,11 @@ jobs:
           if [ "${CONFIRM}" = "APPLY" ]; then
             echo "CONFIRM=APPLY -> writing supersede + quarantine (gated, reversible)."
             python scripts/parks_rec_webtrac_reconcile_2026_07_08.py --apply
+          elif [ "${CONFIRM}" = "SUPERSEDE" ]; then
+            echo "CONFIRM=SUPERSEDE -> writing supersede ONLY (skip quarantine)."
+            python scripts/parks_rec_webtrac_reconcile_2026_07_08.py --apply --supersede-only
           else
-            echo "confirm != APPLY -> DRY-RUN (no DB writes)."
+            echo "confirm not APPLY/SUPERSEDE -> DRY-RUN (no DB writes)."
             python scripts/parks_rec_webtrac_reconcile_2026_07_08.py
           fi
       - name: Upload review + undo CSVs

@@ -108,6 +108,12 @@ def _row(v: pr.FlyerVerdict) -> dict:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Reconcile flyer P&R events vs WebTrac authority.")
     ap.add_argument("--apply", action="store_true", help="write (else dry-run)")
+    ap.add_argument(
+        "--supersede-only",
+        action="store_true",
+        help="on --apply, write ONLY supersede (skip quarantine). Use when the "
+        "deployed lint is older than intended so the quarantine set can't be trusted.",
+    )
     args = ap.parse_args(argv)
     dry = not args.apply
 
@@ -117,9 +123,13 @@ def main(argv: list[str] | None = None) -> int:
         flyers = _flyer_live(db)
         webtracs = _live(db, _WEBTRAC)
         result = pr.reconcile(flyers, webtracs, lint_fn=lint_event)
-        # The write set: supersede (WebTrac wins) + quarantine (lint failure).
+        # The write set: supersede (WebTrac wins) + quarantine (lint failure), or
+        # supersede-only when the deployed lint can't be trusted for quarantine.
         # needs_confirmation + keep are NEVER written here.
-        for v in [*result.supersede, *result.quarantine]:
+        write_set = list(result.supersede)
+        if not args.supersede_only:
+            write_set += result.quarantine
+        for v in write_set:
             undo_rows.append({
                 "action": v.action,
                 "flyer_id": v.flyer.id,
@@ -146,9 +156,10 @@ def main(argv: list[str] | None = None) -> int:
 
     c = result.counts
     verb = "would" if dry else "DID"
+    mode = "supersede ONLY" if args.supersede_only else "supersede + quarantine"
     print(f"live flyer events: {len(flyers)}   live WebTrac events: {len(webtracs)}")
     print(f"reconcile verdicts: {c}")
-    print(f"  {verb} write (supersede + quarantine -> {_HELD_STATUS}): {len(undo_rows)}")
+    print(f"  {verb} write ({mode} -> {_HELD_STATUS}): {len(undo_rows)}")
     print(f"  needs_confirmation (NEVER written — human confirms with P&R): {c[pr.NEEDS_CONFIRMATION]}")
 
     if result.needs_confirmation:
