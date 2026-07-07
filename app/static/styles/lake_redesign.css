@@ -183,8 +183,11 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .dd-menu .l{display:flex;align-items:center;gap:10px}.dd-menu .l .ic{color:var(--teal)}
 .dd-menu .c{font-size:11px;font-weight:600;color:var(--ink3)}
 
-.counts{display:flex;gap:8px;padding:13px 16px 8px}
-.cpill{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--hair);border-radius:999px;padding:8px 13px 8px 12px;cursor:pointer;transition:.22s;white-space:nowrap;text-decoration:none}
+/* WS8/M16: the pill row is a nowrap flex, so it clipped on a phone. Make it a
+   horizontal scroller with snap (no visible scrollbar); pills get a 44px target. */
+.counts{display:flex;gap:8px;padding:13px 16px 8px;flex-wrap:nowrap;overflow-x:auto;-webkit-overflow-scrolling:touch;scroll-snap-type:x proximity;scrollbar-width:none}
+.counts::-webkit-scrollbar{display:none}
+.cpill{flex:0 0 auto;display:inline-flex;align-items:center;gap:8px;background:var(--surface);border:1px solid var(--hair);border-radius:999px;padding:8px 13px 8px 12px;cursor:pointer;transition:.22s;white-space:nowrap;text-decoration:none;scroll-snap-align:start;min-height:44px}
 .cpill:hover{transform:translateY(-1px);box-shadow:var(--sh-sm);border-color:var(--teal-line)}
 .cpill .ic{color:var(--ink2)}.cpill .cl{font-size:12.5px;font-weight:600;color:var(--ink2)}
 /* --ink2 (not v4's --ink3) so the count badge clears WCAG AA 4.5:1 on --paper */
@@ -286,7 +289,8 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .showall{display:flex;align-items:center;justify-content:center;gap:6px;font-size:12.5px;font-weight:600;color:var(--teal);background:var(--teal-soft);border:1px solid var(--teal-line);border-radius:11px;padding:11px;margin-top:12px;cursor:pointer;text-decoration:none}
 .showall:hover{background:var(--teal);color:#fff}
 .times{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
-.tpill{font-size:11px;font-weight:600;color:var(--ink2);background:var(--paper2);border:1px solid var(--hair2);border-radius:6px;padding:3px 8px;font-variant-numeric:tabular-nums;text-decoration:none;transition:.15s}
+/* WS8/M17: showtime/time pills were ~20px tall — below the 44px min tap target. */
+.tpill{font-size:11px;font-weight:600;color:var(--ink2);background:var(--paper2);border:1px solid var(--hair2);border-radius:6px;padding:8px 12px;min-height:44px;display:inline-flex;align-items:center;font-variant-numeric:tabular-nums;text-decoration:none;transition:.15s}
 .ev:hover .tpill{border-color:var(--teal-line)}
 /* On /movies each tpill is itself the booking anchor — pill chrome, never an underlined link (v4.6). */
 a.tpill:hover{border-color:var(--teal-line);color:var(--teal-deep);background:var(--surface)}
@@ -400,12 +404,20 @@ body.scrolled .head-stack{box-shadow:0 6px 18px -10px rgba(19,32,29,.28)}
 .gasrow .gs{font-size:11px;color:var(--ink3)}
 .gasrow .gd{margin-left:auto;font-size:11px;font-weight:600;color:var(--teal);white-space:nowrap}
 /* v4.4 PR-6 gas grade switch (DESIGN_SPEC §5.1/§5.2). */
-.gseg{display:inline-flex;background:var(--paper2);border:1px solid var(--hair);border-radius:9px;padding:2px;gap:2px}
+/* WS8/M15: the grade selector wraps instead of clipping "Diesel" (there was no
+   flex-wrap and no breakpoint touched .gseg — it overflowed the viewport at
+   375px). On the /gas page (.lg) it becomes a 2x2 grid below 430px with 44px
+   tap targets. [Render §1] */
+.gseg{display:inline-flex;flex-wrap:wrap;background:var(--paper2);border:1px solid var(--hair);border-radius:9px;padding:2px;gap:2px}
 .gseg button{border:0;background:transparent;font-family:var(--ui);font-size:10.5px;font-weight:700;letter-spacing:.04em;text-transform:none;color:var(--ink3);padding:5px 10px;border-radius:7px;cursor:pointer;transition:.15s}
 .gseg button:hover{color:var(--ink)}
 .gseg button.on{background:#fff;color:var(--teal-deep);box-shadow:var(--sh-sm)}
 .gseg.lg{border-radius:11px;padding:3px}
-.gseg.lg button{font-size:12.5px;padding:8px 16px;border-radius:8px}
+.gseg.lg button{font-size:12.5px;padding:8px 16px;border-radius:8px;min-height:44px}
+@media(max-width:430px){
+  .gseg.lg{display:flex;width:100%}
+  .gseg.lg button{flex:1 1 45%}
+}
 /* Session 1 (Casey 2026-07-04): Diesel reads green (US pump convention) in the
    grade segment — home strip uses data-grade="dsl", the /gas page uses
    data-grade="diesel". Shade is provisional; adjust to taste. */
