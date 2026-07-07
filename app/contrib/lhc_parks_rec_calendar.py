@@ -64,6 +64,46 @@ PARKS_REC_PAGE_URL = "https://www.lhcaz.gov/185/Parks-Recreation"
 IMAGE_REPO_PATH = "/ImageRepository/Document"
 DEFAULT_VENUE = DEFAULT_PROVIDER_WEBTRAC  # "Lake Havasu City Parks & Recreation"
 
+# Known LHC Parks & Recreation facilities (from the /185 Parks-Recreation page,
+# 2026-07-07). A vision row whose "location" is NOT one of these is a mis-mapped
+# field — the monthly grid prints the INSTRUCTOR in the cell, so "Jane Camlin"
+# landed in the venue slot. Such a row is dropped to DEFAULT_VENUE and quarantined
+# rather than published with a person's name (or a bare room like "Kitchen") as
+# the "Where". Normalized (lowercase, alnum+space).
+PARKS_REC_FACILITIES: frozenset[str] = frozenset({
+    "aquatic center", "community center", "recreation center", "rec center",
+    "asu fields", "avalon park", "cypress park", "dick samp memorial park",
+    "dick samp", "grand island park", "indian bend park", "island ball fields",
+    "jack hardie park", "london bridge beach", "mesquite park", "realtor park",
+    "robyn parrott park", "rotary community park", "sara park", "site six",
+    "wheeler park", "yonder park", "after school program",
+})
+
+
+def _norm_venue(text: str) -> str:
+    return re.sub(r"[^a-z0-9 ]+", " ", text.lower()).strip()
+
+
+def is_known_facility(location: str | None) -> bool:
+    """True when ``location`` names a real P&R facility (allowlist match).
+
+    Matches when a facility name appears in the location text (e.g. "Sara Park
+    Ballfields"), or the location is a fragment of one (e.g. "Aquatic" ->
+    "Aquatic Center"). The default provider name is always accepted; a person's
+    name or a bare room name matches nothing and is rejected."""
+    if not location:
+        return False
+    loc = _norm_venue(location)
+    if not loc:
+        return False
+    default = _norm_venue(DEFAULT_VENUE)
+    if loc == default or default in loc:
+        return True
+    if any(fac in loc for fac in PARKS_REC_FACILITIES):
+        return True
+    return len(loc) >= 5 and any(loc in fac for fac in PARKS_REC_FACILITIES)
+
+
 USER_AGENT = "Mozilla/5.0 (compatible; AskHavaBot/1.0; +https://askhava.com)"
 
 # Cap flyer vision calls per run (each flyer ~= one extra call). Override via env.
@@ -412,6 +452,12 @@ def row_to_event_record(
     tag_text = " ".join(
         x for x in (row.title, row.audience or "", row.notes or "") if x
     )
+    # Field-schema guard: the venue must be a real P&R facility. When the model
+    # slotted a non-facility (usually the instructor's name — "Jane Camlin") into
+    # ``location``, drop it to the default venue AND hold the row: a scrambled
+    # venue means the cell's whole field mapping is untrustworthy.
+    venue_ok = is_known_facility(row.location)
+    hold = row.should_hide or (bool(row.location) and not venue_ok)
     return EventRecord(
         source=source,
         title=row.title,
@@ -419,7 +465,7 @@ def row_to_event_record(
         start_time=row.start_time,
         end_date=None,
         end_time=row.end_time,
-        venue_name=row.location or DEFAULT_VENUE,
+        venue_name=row.location if venue_ok else DEFAULT_VENUE,
         venue_address=None,
         # Synthetic per-occurrence URL = the idempotency key. It carries a #cal
         # fragment so a click still lands on the real Parks & Rec page.
@@ -430,7 +476,7 @@ def row_to_event_record(
         raw={
             "source_cell": row.source_cell,
             "confidence": row.confidence,
-            "should_hide": row.should_hide,
+            "should_hide": hold,
             "calendar_month": ref.month,
             "calendar_year": ref.year,
             "document_id": ref.document_id,

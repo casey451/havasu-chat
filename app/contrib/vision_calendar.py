@@ -231,6 +231,10 @@ class ValidationStats:
     dropped_no_provenance: int = 0
     dropped_bad_title: int = 0
     dropped_bad_date: int = 0
+    # 2026-07-07 P&R hardening: quarantine (not drop) rows whose datetime can't be
+    # trusted, so a human resolves them rather than a wrong time going live.
+    held_ambiguous_time: int = 0
+    held_weekday_misalign: int = 0
 
 
 # --------------------------------------------------------------------------- #
@@ -292,6 +296,36 @@ def _parse_time(value: object) -> time | None:
     return time(hour, minute, second)
 
 
+# A meridiem-less clock hour (1-11) is genuinely ambiguous — "5:30" on a flyer
+# could be morning or evening. Per the 2026-07-07 P&R hardening we NEVER silently
+# default it to AM; the row is quarantined (held for review / the registration
+# catalog) instead. 0-, 12-, and 13-23-hour values are unambiguous and pass.
+def _meridiem_ambiguous(value: object) -> bool:
+    """True when a time string names an hour 1-11 with no AM/PM marker."""
+    s = _clean_opt(value)
+    if not s:
+        return False
+    m = _TIME_RE.match(s)
+    if not m or m.group(4):  # unparseable, or an explicit am/pm -> not ambiguous
+        return False
+    return 1 <= int(m.group(1)) <= 11
+
+
+_VISION_WEEKDAYS: dict[str, int] = {
+    "monday": 0, "mon": 0, "tuesday": 1, "tue": 1, "tues": 1, "wednesday": 2,
+    "wed": 2, "weds": 2, "thursday": 3, "thu": 3, "thur": 3, "thurs": 3,
+    "friday": 4, "fri": 4, "saturday": 5, "sat": 5, "sunday": 6, "sun": 6,
+}
+
+
+def _parse_weekday(value: object) -> int | None:
+    """Map a printed weekday name/abbrev to 0=Mon..6=Sun, else None."""
+    s = _clean_opt(value)
+    if not s:
+        return None
+    return _VISION_WEEKDAYS.get(s.strip().lower().rstrip("."))
+
+
 def _clamp_confidence(value: object) -> float:
     try:
         c = float(value)  # type: ignore[arg-type]
@@ -315,6 +349,7 @@ def validate_rows(
     """
     stats = ValidationStats(raw=len(raw_rows))
     out: list[VisionEventRow] = []
+    printed_weekdays: list[int | None] = []
     for r in raw_rows:
         if not isinstance(r, dict):
             continue
@@ -338,13 +373,18 @@ def validate_rows(
             stats.dropped_out_of_month += 1
             continue
         conf = _clamp_confidence(r.get("confidence"))
-        hide = conf < CONFIDENCE_THRESHOLD
+        # Ambiguous meridiem: never publish a guessed AM/PM. Null the clock value
+        # (``source_cell`` keeps the verbatim "5:30" for the reviewer) and hold.
+        ambiguous_time = _meridiem_ambiguous(r.get("start_time"))
+        start_time = None if ambiguous_time else _parse_time(r.get("start_time"))
+        end_time = None if ambiguous_time else _parse_time(r.get("end_time"))
+        hide = conf < CONFIDENCE_THRESHOLD or ambiguous_time
         out.append(
             VisionEventRow(
                 title=title,
                 event_date=d,
-                start_time=_parse_time(r.get("start_time")),
-                end_time=_parse_time(r.get("end_time")),
+                start_time=start_time,
+                end_time=end_time,
                 location=_clean_opt(r.get("location")),
                 cost=_clean_opt(r.get("cost")),
                 audience=_clean_opt(r.get("audience")),
@@ -354,10 +394,45 @@ def validate_rows(
                 should_hide=hide,
             )
         )
+        printed_weekdays.append(_parse_weekday(r.get("weekday")))
         stats.kept += 1
-        if hide:
+        if conf < CONFIDENCE_THRESHOLD:
             stats.held_low_confidence += 1
+        if ambiguous_time:
+            stats.held_ambiguous_time += 1
+    _enforce_weekday_alignment(out, printed_weekdays, stats, month=month, year=year)
     return out, stats
+
+
+def _enforce_weekday_alignment(
+    rows: list[VisionEventRow],
+    printed_weekdays: list[int | None],
+    stats: ValidationStats,
+    *,
+    month: int,
+    year: int,
+) -> None:
+    """Grid-alignment invariant: if ANY row's printed weekday contradicts its own
+    date, the whole grid read is untrustworthy — a one-column shift moves EVERY
+    event by a day — so hold the ENTIRE batch and log loudly. A row with no printed
+    weekday contributes nothing (there is nothing to contradict)."""
+    mismatches = [
+        rows[i].event_date
+        for i, wd in enumerate(printed_weekdays)
+        if wd is not None and rows[i].event_date.weekday() != wd
+    ]
+    if not mismatches:
+        return
+    logger.error(
+        "vision_calendar: weekday/date misalignment in %04d-%02d — %d of %d rows "
+        "contradict their printed weekday (%s); holding the WHOLE month for review",
+        year, month, len(mismatches), len(rows),
+        ", ".join(d.isoformat() for d in mismatches[:5]),
+    )
+    for row in rows:
+        if not row.should_hide:
+            row.should_hide = True
+            stats.held_weekday_misalign += 1
 
 
 def apply_self_check_flags(
@@ -389,10 +464,15 @@ def calendar_system_prompt(*, month: int, year: int) -> str:
         f"the day number's full date in {year}-{month:02d}, the title verbatim, "
         f"start/end time if printed (else null), location/cost/audience/notes if "
         f"printed (else null), and the exact cell text you read in `source_cell`. "
+        f"Also return `weekday`: the day-of-week COLUMN HEADER the cell sits under "
+        f"(Monday..Sunday) — read the column, do not compute it from the date. "
+        f"Preserve any printed AM/PM on times exactly; if a time has no AM/PM, "
+        f"transcribe it as printed (do NOT add one). "
         f"Do NOT infer, complete, or invent events, dates, times, or prices. If a "
         f"cell is blank or unreadable, skip it. If you are unsure of a value, set "
         f"it to null and lower `confidence` (0-1). Output strict JSON: "
-        f'{{"events":[{{"title":...,"date":"YYYY-MM-DD","start_time":"HH:MM"|null,'
+        f'{{"events":[{{"title":...,"date":"YYYY-MM-DD","weekday":"Monday".."Sunday",'
+        f'"start_time":"HH:MM"|null,'
         f'"end_time":...,"location":...,"cost":...,"audience":...,"notes":...,'
         f'"confidence":0-1,"source_cell":...}}]}}.'
     )
