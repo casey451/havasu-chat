@@ -1,0 +1,51 @@
+name: freshness-canary
+
+# Cold-cache freshness + route-health canary (spec WS1.6 / WS2.4).
+#
+# Fetches PUBLIC askhava.com from OUTSIDE the CDN, cold (no cookies) with a
+# bot-like UA, and fails if any "today"-dated page renders a past date, if the
+# util-bar cheapest-gas price diverges across pages, if /api/gas is stale, or if
+# any nav-reachable URL returns a blank 200 / 404 / 5xx. This is the tripwire for
+# the 2026-07-06 B1 edge-cache incident (cold visitors served June content while
+# warm sessions were fresh) and the B2 blank-route defect.
+#
+# The check uses only the Python standard library (urllib + zoneinfo), so there
+# is no dependency install — it runs in seconds.
+#
+# ALERTING: a failed run marks the workflow red, which triggers GitHub's built-in
+# failure notifications to watchers. To page on-call, add a notify step gated on
+# failure() (Slack/PagerDuty webhook via a repo secret) after the canary step.
+#
+# NOTE: GitHub only runs scheduled workflows from the DEFAULT branch, so the cron
+# below is dormant until this file is merged to main. Use the "Run workflow"
+# button (workflow_dispatch) to exercise it on this branch first.
+
+on:
+  schedule:
+    # Every 15 minutes (spec WS1.6). Scheduled runs are best-effort and may be
+    # delayed under GitHub load; relax to e.g. "*/30 * * * *" if run volume is a
+    # concern — the origin's no-cache header is the primary defense, this is the
+    # watchdog.
+    - cron: "*/15 * * * *"
+  workflow_dispatch:
+    inputs:
+      base:
+        description: "Origin to probe"
+        required: false
+        default: "https://askhava.com"
+
+concurrency:
+  group: freshness-canary
+  cancel-in-progress: true
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.11"
+      - name: Cold-cache freshness + route-health canary
+        run: python scripts/freshness_canary.py --base "${{ github.event.inputs.base || 'https://askhava.com' }}"

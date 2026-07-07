@@ -1,0 +1,49 @@
+name: dedupe-catalog-audit
+
+# READ-ONLY catalog-wide dedupe PROPOSAL report (WS4). Runs the S1 clustering
+# engine (app/dedupe/cluster.py, incl. the WS4 generic-subset signal) over every
+# active provider and writes a proposed-resolution CSV — one row per provider in
+# a multi-row cluster, tagged duplicate / multi_location / parent_child.
+#
+# scripts/dedupe_catalog.py WRITES NOTHING to the catalog (--apply is hard-
+# disabled), so this job issues SELECTs only. It exists because the repo .env
+# points DATABASE_URL at Railway's INTERNAL host, unreachable from a laptop — the
+# live dry-run has to run here, where the DB secret resolves. Download the
+# artifact, review with Casey, THEN run the separate gated apply (never in CI).
+#
+# On-demand only (workflow_dispatch): this is a review tool, not a cron.
+
+on:
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  dedupe-catalog-proposal:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Catalog dedupe proposal (read-only, never applies)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/dedupe_catalog.py
+
+      - name: Upload dedupe proposal report
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: dedupe-catalog-proposal
+          path: docs/audits/2026-07/dedupe_catalog_proposal_2026-07-06.csv
+          if-no-files-found: warn
