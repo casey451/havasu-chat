@@ -326,6 +326,26 @@ def drop_event_duplicates(
     return kept
 
 
+def _leading_words(title: str) -> list[str]:
+    return [w for w in _NON_ALNUM_RE.split((title or "").lower()) if w]
+
+
+def _shares_leading_stem(a: str, b: str, *, min_words: int = 2) -> bool:
+    """True when two titles share a >= ``min_words`` leading word stem.
+
+    The WS5 §14.2 series/instance signal: "Afternoon Enrichment Workshops" and
+    "Afternoon Enrichment: Creative Arts Studio" share the stem "afternoon
+    enrichment" but diverge after it, so neither is a token-subset of the other.
+    A one-word coincidence ("Yoga Beginner" vs "Yoga Advanced") does NOT pair."""
+    wa, wb = _leading_words(a), _leading_words(b)
+    shared = 0
+    for x, y in zip(wa, wb):
+        if x != y:
+            break
+        shared += 1
+    return shared >= min_words
+
+
 def _drop_schedule_twins(occurrences: list[ClassOccurrence]) -> list[ClassOccurrence]:
     """Collapse duplicate Schedule rows for the same venue/slot.
 
@@ -358,7 +378,14 @@ def _drop_schedule_twins(occurrences: list[ClassOccurrence]) -> list[ClassOccurr
             )
             if same_slot and (tokens & k_tokens):
                 pass  # exact-slot twin
-            elif not _tokens_match(tokens, k_tokens):
+            elif not (
+                _tokens_match(tokens, k_tokens)
+                # Series + its own instance share a title STEM (WS5 §14.2):
+                # "Afternoon Enrichment Workshops" vs "Afternoon Enrichment:
+                # Creative Arts Studio" — neither is a token-subset, but the shared
+                # 2-word stem plus the time-window check below make them one row.
+                or _shares_leading_stem(o.title, k_occ.title)
+            ):
                 continue
             # Within-venue twins must agree on a REAL time window (no
             # wildcard): "Adult No-Gi (Morning)" and "(Night)" share tokens

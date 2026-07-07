@@ -334,6 +334,59 @@ def test_schedule_twins_keep_distinct_same_slot_classes() -> None:
     assert len(kept) == 2, [k.title for k in kept]
 
 
+def test_schedule_twins_collapse_series_and_its_instance_by_stem() -> None:
+    """WS5 §14.2: a series row and its own instance share a title STEM but neither
+    is a token-subset of the other — "Afternoon Enrichment Workshops" vs
+    "Afternoon Enrichment: Creative Arts Studio" @ Desert Bloom, same 12:30 slot.
+    They collapse to the more-specific variant (kills the live day-feed double)."""
+    from app.events.class_occurrences import ClassOccurrence, _drop_schedule_twins
+
+    d = date(2026, 7, 8)
+    wd = frozenset({0, 1, 2, 3, 4})
+
+    def occ(title: str) -> ClassOccurrence:
+        return ClassOccurrence(
+            title=title, date=d, start_time=time(12, 30), end_time=time(14, 0),
+            venue="Desert Bloom Learning Center", provider_slug=None, weekdays=wd,
+        )
+
+    kept = _drop_schedule_twins([
+        occ("Afternoon Enrichment Workshops"),
+        occ("Afternoon Enrichment: Creative Arts Studio"),
+    ])
+    assert len(kept) == 1, [k.title for k in kept]
+    assert kept[0].title == "Afternoon Enrichment: Creative Arts Studio"
+
+
+def test_schedule_twins_stem_rule_guardrails() -> None:
+    """The stem rule stays conservative: a shared stem at DIFFERENT (incompatible)
+    times is two real sessions, and a one-word coincidence never pairs."""
+    from app.events.class_occurrences import ClassOccurrence, _drop_schedule_twins
+
+    d = date(2026, 7, 8)
+    wd = frozenset({2})
+
+    def occ(title: str, start: time, end: time) -> ClassOccurrence:
+        return ClassOccurrence(
+            title=title, date=d, start_time=start, end_time=end,
+            venue="Rec Center", provider_slug=None, weekdays=wd,
+        )
+
+    # 2-word stem but far-apart times -> distinct sessions, both kept.
+    far = _drop_schedule_twins([
+        occ("Afternoon Enrichment Workshops", time(12, 30), time(14, 0)),
+        occ("Afternoon Enrichment: Movement Lab", time(16, 0), time(17, 30)),
+    ])
+    assert len(far) == 2, [k.title for k in far]
+
+    # Only ONE shared leading word (and not the same slot: end differs) -> kept.
+    one_word = _drop_schedule_twins([
+        occ("Yoga Flow", time(10, 0), time(11, 0)),
+        occ("Yoga Sculpt", time(10, 0), time(12, 0)),
+    ])
+    assert len(one_word) == 2, [k.title for k in one_word]
+
+
 def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
     """A permalink-less program (no provider page) still appears in the feed,
     but renders WITHOUT a "Details →" link — we no longer fabricate a
