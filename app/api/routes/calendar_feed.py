@@ -32,6 +32,24 @@ _PRODID = "-//Ask Hava//Lake Havasu Events//EN"
 # response; the lake's real calendar is comfortably under this.
 _MAX_EVENTS = 2000
 
+# Every timed event is Lake Havasu local time. Arizona keeps MST (UTC-7) all
+# year — no DST — so the VTIMEZONE has a single STANDARD component. Emitting a
+# TZID (instead of the old floating local time) is the B5 fix: a floating
+# DTSTART is interpreted in the *viewer's* zone, so an out-of-state subscriber
+# saw camp/showtime events at the wrong hour.
+_TZID = "America/Phoenix"
+_VTIMEZONE: tuple[str, ...] = (
+    "BEGIN:VTIMEZONE",
+    f"TZID:{_TZID}",
+    "BEGIN:STANDARD",
+    "DTSTART:19700101T000000",
+    "TZOFFSETFROM:-0700",
+    "TZOFFSETTO:-0700",
+    "TZNAME:MST",
+    "END:STANDARD",
+    "END:VTIMEZONE",
+)
+
 # Bucket key -> human label for the CATEGORIES line (calendar reorg 2026-06-25).
 _BUCKET_LABEL: dict[str, str] = {k: label for k, label, _icon in GROUP_DEFS}
 # Coarse tag -> category label, so non-activity rows (markets, civic, music)
@@ -113,15 +131,21 @@ def _vevent(event: Event, *, dtstamp: str, base_url: str) -> list[str]:
 
     start_at = datetime.combine(event.date, event.start_time)
     is_all_day = event.start_time == time(0, 0) and event.end_time is None
+    recurs = bool(event.is_recurring and event.rrule)
     if is_all_day:
         lines.append(f"DTSTART;VALUE=DATE:{_fmt_date(event.date)}")
         lines.append(f"DTEND;VALUE=DATE:{_fmt_date(event.date + timedelta(days=1))}")
     else:
-        lines.append(f"DTSTART:{_fmt_dt(start_at)}")
+        lines.append(f"DTSTART;TZID={_TZID}:{_fmt_dt(start_at)}")
         if event.end_time is not None:
-            end_at = datetime.combine(event.end_date or event.date, event.end_time)
+            # For a recurring event ``end_date`` is the SERIES end — the RRULE's
+            # UNTIL covers it — so each occurrence's DTEND is SAME-DAY, never a
+            # single multi-day block repeated daily. A non-recurring row keeps its
+            # genuine (possibly multi-day) span.
+            end_day = event.date if recurs else (event.end_date or event.date)
+            end_at = datetime.combine(end_day, event.end_time)
             if end_at > start_at:
-                lines.append(f"DTEND:{_fmt_dt(end_at)}")
+                lines.append(f"DTEND;TZID={_TZID}:{_fmt_dt(end_at)}")
 
     if event.is_recurring and event.rrule:
         rule = event.rrule.strip()
@@ -175,6 +199,7 @@ def events_ics_feed(request: Request, db: Session = Depends(get_db)) -> Response
         "METHOD:PUBLISH",
         "X-WR-CALNAME:Lake Havasu Events",
     ]
+    lines.extend(_VTIMEZONE)
     for ev in rows:
         lines.extend(_vevent(ev, dtstamp=dtstamp, base_url=base_url))
     lines.append("END:VCALENDAR")
@@ -202,6 +227,7 @@ def build_single_event_ics(event: Event) -> str:
         "CALSCALE:GREGORIAN",
         "METHOD:PUBLISH",
     ]
+    lines.extend(_VTIMEZONE)
     lines.extend(_vevent(event, dtstamp=dtstamp, base_url=base_url))
     lines.append("END:VCALENDAR")
     return "\r\n".join(_fold_line(line) for line in lines) + "\r\n"
