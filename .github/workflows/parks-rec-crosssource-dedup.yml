@@ -1,0 +1,60 @@
+name: parks-rec-crosssource-dedup
+
+# GATED, MANUAL-ONLY. Retires the FLYER copy of a P&R activity when an
+# authoritative WebTrac copy of the same activity exists on the same date
+# (flyer -> pending_review; WebTrac stays live). DRY-RUN unless confirm=APPLY;
+# an apply run uploads the undo CSV. Runs where the DB secret resolves.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type APPLY to write. Anything else = dry-run."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parks-rec-crosssource-dedup
+  cancel-in-progress: false
+
+jobs:
+  dedup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Cross-source dedup (dry-run unless confirm=APPLY)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is empty — refusing to run."
+            exit 1
+          fi
+          if [ "${CONFIRM}" = "APPLY" ]; then
+            echo "CONFIRM=APPLY -> writing (gated, reversible)."
+            python scripts/parks_rec_crosssource_dedup_2026_07_08.py --apply
+          else
+            echo "confirm != APPLY -> DRY-RUN (no DB writes)."
+            python scripts/parks_rec_crosssource_dedup_2026_07_08.py
+          fi
+      - name: Upload undo CSV (apply runs only)
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: parks-rec-crosssource-dedup-undo
+          path: parks_rec_crosssource_dedup_undo_2026-07-08.csv
+          if-no-files-found: ignore
