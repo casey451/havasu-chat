@@ -60,19 +60,22 @@
   </div></div>
 </a>
 {% else %}
-<a class="feature-marquee rise" href="/sponsor" aria-label="Advertise on Ask Hava">
+{# P3 (WS3.4): an unsold marquee is house inventory, not a consumer-facing empty
+   ad slot. Promote the FREE listing claim (useful to every local business owner)
+   and keep a small, honest "Advertise here" link for the paid rate card. #}
+<a class="feature-marquee rise" href="/portal/claim" aria-label="Claim your free business listing">
   <span class="glow"></span>
   <div class="inner">
     <div class="txt">
-      <span class="badge">{{ icon('spark', 12) }}Ad space · Available</span>
-      <h3 class="serif">Your business, front and center.</h3>
-      <p>The first thing locals and visitors see every day. Premium spots rotate across Ask&nbsp;Hava — homepage, events &amp; every category page.</p>
-      <span class="cta">Claim this spot {{ icon('arrow', 15) }}</span>
-      <div class="micro">Tap to see availability &amp; pricing · no commitment</div>
+      <span class="badge">{{ icon('spark', 12) }}For local businesses</span>
+      <h3 class="serif">Own a Havasu business? Claim your listing — free.</h3>
+      <p>Add your hours, photos, menu and links and earn the verified mark. A real person reviews every claim — always free.</p>
+      <span class="cta">Claim your listing {{ icon('arrow', 15) }}</span>
     </div>
-    <div class="frame only-d"><span>{{ icon('plus', 20) }}</span><span class="pl">Your logo here</span></div>
+    <div class="frame only-d"><span>{{ icon('plus', 20) }}</span><span class="pl">Free listing</span></div>
   </div>
 </a>
+<p class="marquee-alt">Want premium placement? <a href="/sponsor">Advertise on Ask&nbsp;Hava →</a></p>
 {% endif %}
 
 {# ── Hero search ─────────────────────────────────────────────────────── #}

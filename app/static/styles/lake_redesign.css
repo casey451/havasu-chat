@@ -132,6 +132,10 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .feature-marquee.sold{background:linear-gradient(120deg,#0a4a50,#0c5a60 46%,#093b40)}
 .feature-marquee.sold::before{display:none}
 .feature-marquee .spon-eyebrow{font-size:9.5px;font-weight:700;letter-spacing:.15em;text-transform:uppercase;color:#dcbd6f}
+/* P3 (WS3.4): small honest "Advertise here" link under the house-promo marquee. */
+.marquee-alt{margin:8px 16px 0;font-size:11.5px;color:var(--ink3,#75868e);text-align:right}
+.marquee-alt a{color:var(--teal,#0c5a60);font-weight:600;text-decoration:none}
+.marquee-alt a:hover{text-decoration:underline}
 
 /* v4.4 PR-9: the buyable rail/in-feed ad slot was removed with the rail ad units
    (PR-5). The marquee is the only ad-shaped unit now. */
