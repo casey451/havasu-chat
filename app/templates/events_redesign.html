@@ -60,9 +60,9 @@
   {% if mode in ('today', 'day') %}
     {% if mode == 'day' %}
     <div class="evnav">
-      {% if prev_iso %}<a href="/events-ui?date={{ prev_iso }}{{ family_qs }}" aria-label="Previous day">{{ icon('back', 16) }}</a>{% endif %}
+      {% if prev_iso %}<a href="/events-ui?date={{ prev_iso }}{{ family_qs }}" aria-label="Previous day, {{ prev_label }}">{{ icon('back', 16) }}<span class="evnav-lbl">{{ prev_label }}</span></a>{% endif %}
       {% if not is_today %}<a class="today" href="/events-ui{{ '?' ~ family_qs[1:] if family_qs }}">Today</a>{% endif %}
-      {% if next_iso %}<a href="/events-ui?date={{ next_iso }}{{ family_qs }}" aria-label="Next day">{{ icon('arrow', 16) }}</a>{% endif %}
+      {% if next_iso %}<a href="/events-ui?date={{ next_iso }}{{ family_qs }}" aria-label="Next day, {{ next_label }}"><span class="evnav-lbl">{{ next_label }}</span>{{ icon('arrow', 16) }}</a>{% endif %}
     </div>
     {% endif %}
     <div class="sections" id="sections">
