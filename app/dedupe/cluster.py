@@ -48,6 +48,35 @@ _PARENT_CHILD_HINTS: frozenset[str] = frozenset(
     }
 )
 
+# WS4 generic-subset signal. When two rows at the SAME address have names where
+# one is a token-subset of the other and the EXTRA words are all generic cuisine
+# /venue descriptors, they are the same business — the GLH-import twin shape
+# ("Denny's" vs "Denny's Restaurant", "Filiberto's" vs "Filiberto's Mexican
+# Food"). Unlike the token-subset signal below this needs NO phone, because a
+# plaza never lists a bare name AND that name + a cuisine word as two tenants.
+#
+# CRITICAL: this set is DISJOINT from ``_PARENT_CHILD_HINTS`` on purpose. Words
+# that double as department markers (cafe, bar, grill, taproom, deli, …) are
+# deliberately EXCLUDED — "Safeway" vs "Safeway Deli" must stay parent/child, and
+# "The Office" vs "The Office ... Grill" stays a review-tier case, not an auto
+# merge. Person/credential extras (a broker + a named agent) are never generic,
+# so the brokerage-plus-agent false merge stays blocked.
+_GENERIC_DESCRIPTORS: frozenset[str] = frozenset(
+    {
+        "restaurant", "restaurants", "eatery", "diner", "cantina", "cuisine",
+        "kitchen", "cocktail", "cocktails", "lounge", "pub", "brewery", "brewing",
+        "craft", "arcade", "more", "house", "steakhouse",
+        # cuisines / food types
+        "mexican", "italian", "chinese", "thai", "japanese", "american", "food",
+        "foods", "steak", "pizza", "pizzeria", "pasta", "seafood", "sushi", "bbq",
+        "burgers", "coffee", "grille",  # note: "grille" != the "grill" dept hint
+    }
+)
+# Noise tokens dropped before the generic-subset comparison: articles, the "and"
+# conjunction (so "Grill & Pub" == "Grill and Pub" after slugify drops the "&"),
+# and the lone "s" that slugify leaves from a possessive ("Denny's" -> denny-s).
+_SUBSET_STOPWORDS: frozenset[str] = frozenset({"the", "and", "of", "a", "an", "at", "s"})
+
 _SUITE_RE = re.compile(
     r"\b(?:ste|suite|unit|apt|apartment|bldg|building|fl|floor|rm|room)\b\s*#?\s*[\w-]+"
     r"|#\s*[\w-]+",
@@ -98,6 +127,30 @@ def _name_base(key: str) -> str:
 
 def _name_tokens(key: str) -> frozenset[str]:
     return frozenset(t for t in key.split("-") if t)
+
+
+def _generic_subset_match(ka: str, kb: str) -> bool:
+    """True when two name keys (at the same address) are the same business modulo
+    generic descriptor words — the WS4 GLH-twin rule.
+
+    After dropping stopwords, one token core must equal or be a subset of the
+    other, and every extra token must be a generic cuisine/venue descriptor. A
+    person name, department word, or any non-generic token makes it False, so the
+    strict phone-gated token-subset path (below) still handles those.
+    """
+    ta = _name_tokens(ka) - _SUBSET_STOPWORDS
+    tb = _name_tokens(kb) - _SUBSET_STOPWORDS
+    if not ta or not tb:
+        return False
+    if ta == tb:
+        return True  # identical cores once articles/"and"/possessive-s are gone
+    if ta <= tb:
+        extras = tb - ta
+    elif tb <= ta:
+        extras = ta - tb
+    else:
+        return False
+    return bool(extras) and extras <= _GENERIC_DESCRIPTORS
 
 
 def address_key(address: str | None) -> str | None:
@@ -193,6 +246,13 @@ def cluster_providers(records: list[ProviderRecord]) -> list[Cluster]:
                 if _name_base(ka) == _name_base(kb):
                     if pa is None or pb is None or pa == pb:  # phones compatible
                         uf.union(a.id, b.id)
+                    continue
+                # WS4: same business modulo generic descriptor words (GLH twin) —
+                # unions with no phone because the extras can't be a distinct
+                # tenant (a person, a department); precision-guarded by the
+                # generic-only extras rule.
+                if _generic_subset_match(ka, kb):
+                    uf.union(a.id, b.id)
                     continue
                 ta, tb = _name_tokens(ka), _name_tokens(kb)
                 if ta and tb and (ta <= tb or tb <= ta):
