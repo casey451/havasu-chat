@@ -1028,6 +1028,14 @@ def match_direct_destination(q: str | None) -> str | None:
 # and that the merged table is byte-identical to the committed snapshot.
 # ---------------------------------------------------------------------------
 
+# 2026-07-07 (WS9): "haircut" was the one common consumer term that fell through
+# — /search?q=haircut returned a single literal name match while "barber" / "hair
+# salon" (both already mapped) return the full ~50-listing leaf. Route the haircut
+# phrasings to that same Hair Salons & Barbers leaf. Category nouns only.
+_QUERY_TO_LEAF_SEARCH_ADD_2026_07_07: dict[str, tuple[str, ...]] = {
+    "hair-salons-and-barbers": ("haircut", "haircuts", "hair cut", "hair cuts"),
+}
+
 #: Ordered ``slug -> (terms,)`` contribution blocks, folded into ``_QUERY_TO_LEAF``.
 _LEAF_TERM_BLOCKS: tuple[dict[str, tuple[str, ...]], ...] = (
     _QUERY_TO_LEAF_EXPANSION_2026_06_20,
@@ -1038,6 +1046,7 @@ _LEAF_TERM_BLOCKS: tuple[dict[str, tuple[str, ...]], ...] = (
     _QUERY_TO_LEAF_SEARCH_ADD_2026_07_01,
     _QUERY_TO_LEAF_RENTALS_2026_07_01,
     _QUERY_TO_LEAF_BACKFILLS_2026_07_01,
+    _QUERY_TO_LEAF_SEARCH_ADD_2026_07_07,
 )
 
 for _block in _LEAF_TERM_BLOCKS:
