@@ -55,6 +55,9 @@ def test_ampm_flip_ignores_24h_and_overnight_and_missing() -> None:
     ("Fishing Tournament", "London Bridge Beach", True),
     ("CrossFit Open Gym", None, True),
     ("Havasu Half Marathon", None, True),
+    # watersports skew early — inflected forms must match (live-prod false positive)
+    ("Adult Intro to Watersports Camp - Paddleboarding Class", None, True),
+    ("Kayaking Basics", None, True),
     # not early-legit — a 5 AM start here is a real flip to flag
     ("Kids Pizza Party Cooking Class", "Kitchen", False),
     ("Glow in the Dark Painting", "Community Center", False),

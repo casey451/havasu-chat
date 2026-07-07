@@ -164,9 +164,10 @@ def test_venue_classifier_strict_accepts_only_named_facilities() -> None:
     for named in (
         "Aquatic Center", "Community Center", "Wheeler Park",
         "aquatic", "Lake Havasu City Parks & Recreation",
+        "Site 6",  # = Site Six, printed with a numeral — a real named facility
     ):
         assert prc.is_known_facility(named, strict=True) is True, named
-    for ambiguous in ("Kitchen", "Site 6", "S3 - Room 153/154", "Room 12", "Jane Camlin"):
+    for ambiguous in ("Kitchen", "S3 - Room 153/154", "Room 12", "Jane Camlin"):
         assert prc.is_known_facility(ambiguous, strict=True) is False, ambiguous
 
 

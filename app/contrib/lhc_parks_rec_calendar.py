@@ -75,7 +75,8 @@ PARKS_REC_FACILITIES: frozenset[str] = frozenset({
     "asu fields", "avalon park", "cypress park", "dick samp memorial park",
     "dick samp", "grand island park", "indian bend park", "island ball fields",
     "jack hardie park", "london bridge beach", "mesquite park", "realtor park",
-    "robyn parrott park", "rotary community park", "sara park", "site six",
+    "robyn parrott park", "rotary community park", "sara park",
+    "site six", "site 6",  # Site Six / Windsor Beach — printed both ways
     "wheeler park", "yonder park", "after school program",
 })
 

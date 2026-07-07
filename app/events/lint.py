@@ -48,7 +48,9 @@ _EARLY_OK_RE = re.compile(
     r"sunrise|sunup|dawn\s+patrol|"
     r"gym|fitness|cross\s*fit|boot\s*camp|spin(?:\s+class)?|"
     r"yoga|pilates|"
-    r"fishing|kayak|paddle|"
+    # watersports skew early (on-water before the lake gets hot/busy). No trailing
+    # \b on paddleboard/kayak/watersport so the -ing / -s inflections match.
+    r"fishing|kayak\w*|paddle\w*|watersports?|"
     r"5k|10k|fun\s+run|half\s+marathon|marathon"
     r")\b",
     re.IGNORECASE,
