@@ -367,6 +367,53 @@ def directory_launcher(db: Session) -> dict[str, Any]:
     return {"total": total_label, "total_raw": total, "tiles": tiles}
 
 
+def late_night_kitchens(
+    db: Session, *, threshold_hour: int = 22, limit: int = 8
+) -> list[dict[str, str]]:
+    """WS10 — the /night "Late-night kitchens" list, built purely from EXISTING
+    published hours (no new data source).
+
+    Eat & Drink venues whose hours show a close time at/after ``threshold_hour``
+    (10 PM) on any day — or a span that wraps past midnight. Drawn from the SAME
+    provider pool + hours primitive the real Eat & Drink page's ``?late=1`` facet
+    uses (``route_provider_filter('eat-drink')`` + ``_has_late_hours`` over
+    ``effective_hours_structured``), only with the threshold raised 8 PM → 10 PM.
+    Replaces the old "Late Kitchens" chat deep-link with real, linkable venues.
+
+    Honest-omit (§4.10): returns ``[]`` when the catalog has no qualifying venue
+    (or none carries hours), so the card is hidden rather than faked — never a
+    fabricated row. Alphabetical for a stable render.
+    """
+    # Function-scope import avoids a module-load cycle (categories.queries pulls a
+    # wide slice of the app at import time).
+    from app.categories.queries import (
+        _has_late_hours,
+        effective_hours_structured,
+        route_provider_filter,
+    )
+    from app.db.models import Provider
+
+    rows = (
+        db.query(Provider)
+        .filter(
+            route_provider_filter("eat-drink"),
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+        )
+        .all()
+    )
+    out: list[dict[str, str]] = []
+    for prov in rows:
+        if not _has_late_hours(effective_hours_structured(prov), threshold_hour=threshold_hour):
+            continue
+        name = (prov.provider_name or "").strip()
+        if not prov.slug or not name:
+            continue
+        out.append({"name": name, "url": f"/provider/{prov.slug}"})
+    out.sort(key=lambda r: r["name"].casefold())
+    return out[:limit]
+
+
 # ── events feed (count overview + accordion buckets + blurbs + fitness subs) ────
 _EVENT_ID_RE = re.compile(r"^/events/([^/?#]+)")
 

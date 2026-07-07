@@ -32,5 +32,22 @@
     </a>
     {% endfor %}
   </div>
+
+  {# WS10: real late-night kitchens (Eat & Drink venues open past 10 PM, from
+     published hours). Omitted entirely when none qualify — never a faked row. #}
+  {% if late_kitchens %}
+  <div class="sec-head famhd">
+    <h2 class="serif">Late-night kitchens</h2>
+  </div>
+  <p class="dsub">Eat &amp; Drink spots whose posted hours run past 10 PM.</p>
+  <div class="famgrid">
+    {% for k in late_kitchens %}
+    <a class="famtile" href="{{ k.url }}">
+      <div class="ft serif">{{ k.name }}</div>
+      <span class="fgo" aria-hidden="true">{{ icon('arrow', 14) }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
 </div>
 {% endblock %}

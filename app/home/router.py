@@ -242,17 +242,22 @@ def _serve_mode_landing(request: Request, db: Session, mode: str) -> HTMLRespons
     from app.home import redesign
 
     now = now_lake_havasu()
+    context: dict[str, object] = {
+        "utility_chips": _utility_chips(db),
+        "current_mode": mode,
+        "cond_tiles": redesign.conditions_tiles(db, now=now),
+        "gas": redesign.gas_panel_data(db, now=now),
+        "active_tab": "family" if mode == "family" else None,
+        **landing,
+    }
+    # WS10: /night gets a real "Late-night kitchens" list (Eat & Drink venues open
+    # past 10 PM, from published hours) in place of the old chat deep-link tile.
+    if mode == "night":
+        context["late_kitchens"] = redesign.late_night_kitchens(db)
     return templates.TemplateResponse(
         request=request,
         name="mode_redesign.html",
-        context={
-            "utility_chips": _utility_chips(db),
-            "current_mode": mode,
-            "cond_tiles": redesign.conditions_tiles(db, now=now),
-            "gas": redesign.gas_panel_data(db, now=now),
-            "active_tab": "family" if mode == "family" else None,
-            **landing,
-        },
+        context=context,
     )
 
 
