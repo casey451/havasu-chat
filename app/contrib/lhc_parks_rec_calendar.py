@@ -84,13 +84,33 @@ def _norm_venue(text: str) -> str:
     return re.sub(r"[^a-z0-9 ]+", " ", text.lower()).strip()
 
 
-def is_known_facility(location: str | None) -> bool:
-    """True when ``location`` names a real P&R facility (allowlist match).
+# Generic venue vocabulary. A real location names a PLACE — a park, a court, a
+# pool, "Site 6", "Kitchen", "Room 153". A mis-mapped instructor ("Jane Camlin")
+# contains none of these, which is exactly how we tell a real venue from a
+# scrambled person name (INSTRUCTOR_NAMES is only a handful of first names, so a
+# name blocklist is unreliable — the positive place-signal is what's robust).
+_LOCATION_KEYWORDS: frozenset[str] = frozenset({
+    "park", "center", "centre", "beach", "field", "fields", "ballfield",
+    "ballfields", "court", "courts", "pool", "gym", "gymnasium", "kitchen",
+    "ramp", "site", "room", "rooms", "hall", "studio", "complex", "arena",
+    "pavilion", "library", "lot", "aquatic", "recreation", "lanes", "range",
+    "annex", "clubhouse", "marina", "dock", "stadium", "track", "trail",
+    "plaza", "patio", "lawn", "dome", "gardens", "amphitheater", "amphitheatre",
+})
+# Explicit room / unit codes: "Room 153", "Rm 12", "#4". (A bare building code
+# like "S3" alone is deliberately NOT a location — "S3 - Jane Camlin" stays a
+# reject; the real "S3 - Room 153/154" is accepted via the "room" keyword.)
+_LOCATION_CODE_RE = re.compile(r"\b(?:room|rm)\s*\d+\b|#\s*\d+")
 
-    Matches when a facility name appears in the location text (e.g. "Sara Park
-    Ballfields"), or the location is a fragment of one (e.g. "Aquatic" ->
-    "Aquatic Center"). The default provider name is always accepted; a person's
-    name or a bare room name matches nothing and is rejected."""
+
+def is_known_facility(location: str | None) -> bool:
+    """True when ``location`` names a real P&R location.
+
+    Accepts a named facility (allowlist), a generic venue word
+    (park/court/kitchen/site/room…), or an explicit room/unit code. A person's
+    name — the mis-mapped-instructor bug — names no place and is rejected. Kept
+    under the historical name; the field-schema guard and the quarantine backfill
+    both call it."""
     if not location:
         return False
     loc = _norm_venue(location)
@@ -100,6 +120,10 @@ def is_known_facility(location: str | None) -> bool:
     if loc == default or default in loc:
         return True
     if any(fac in loc for fac in PARKS_REC_FACILITIES):
+        return True
+    if set(loc.split()) & _LOCATION_KEYWORDS:
+        return True
+    if _LOCATION_CODE_RE.search(loc):
         return True
     return len(loc) >= 5 and any(loc in fac for fac in PARKS_REC_FACILITIES)
 
