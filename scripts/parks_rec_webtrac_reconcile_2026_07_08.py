@@ -56,6 +56,18 @@ _HELD_STATUS = "pending_review"
 _FLYER = "%/185/Parks-Recreation#cal|%"
 _WEBTRAC = "%register.lhcaz.gov/webtrac%"
 
+# One-time revert (2026-07-07): the first supersede-only apply ran BEFORE the
+# self-match guard below existed, and retired 4 WebTrac-authoritative events that
+# had absorbed a flyer source (so they appeared in BOTH the flyer and WebTrac sets
+# and matched themselves). `--restore` flips exactly these back to live, guarded to
+# pending_review WebTrac-URL rows. Ids verified from the apply run's review CSV.
+_SELF_MATCH_MISRETIRED_IDS: tuple[str, ...] = (
+    "c29b0ccb-669f-4651-90d5-33acdac75d76",  # 4th of July - Mini Bakers & Parents 07-01
+    "6f358454-252c-495f-86c9-19e1b48bfbfb",  # Kids Pizza Party Cooking Class 07-08
+    "2be9f4e4-6670-4130-bb0d-278784ac3e93",  # Pickleball Round Robin July 9
+    "d24a00fc-90c4-4120-b839-dcf194193714",  # Kids Archery 07-15
+)
+
 
 def _live(db, url_like: str) -> list[Event]:
     return list(
@@ -105,6 +117,39 @@ def _row(v: pr.FlyerVerdict) -> dict:
     }
 
 
+def _restore(*, dry: bool) -> int:
+    """Restore the 4 self-matched WebTrac events (wrongly held to pending_review)
+    back to live. Guarded: only flips a row that is currently pending_review AND is
+    a WebTrac-URL event AND is in the verified id list."""
+    restored: list[tuple[str, str, str]] = []
+    skipped: list[tuple[str, str, str]] = []
+    with SessionLocal() as db:
+        for ev_id in _SELF_MATCH_MISRETIRED_IDS:
+            ev = db.get(Event, ev_id)
+            if ev is None:
+                skipped.append((ev_id, "?", "missing"))
+                continue
+            is_webtrac = bool(ev.event_url and "register.lhcaz.gov/webtrac" in ev.event_url)
+            if ev.status == _HELD_STATUS and is_webtrac:
+                restored.append((ev_id, ev.title or "", ev.status))
+                if not dry:
+                    ev.status = "live"
+            else:
+                skipped.append((ev_id, ev.title or "", f"status={ev.status} webtrac={is_webtrac}"))
+        if not dry:
+            db.commit()
+    verb = "would restore" if dry else "RESTORED"
+    print(f"{verb} (pending_review -> live): {len(restored)}")
+    for i, t, s in restored:
+        print(f"  {i[:8]}  {t!r}  (was {s})")
+    if skipped:
+        print("skipped (already live / not webtrac / missing):")
+        for i, t, s in skipped:
+            print(f"  {i[:8]}  {t!r}  [{s}]")
+    print("\nDRY RUN — no writes." if dry else "\nRESTORED.")
+    return 0
+
+
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Reconcile flyer P&R events vs WebTrac authority.")
     ap.add_argument("--apply", action="store_true", help="write (else dry-run)")
@@ -114,8 +159,17 @@ def main(argv: list[str] | None = None) -> int:
         help="on --apply, write ONLY supersede (skip quarantine). Use when the "
         "deployed lint is older than intended so the quarantine set can't be trusted.",
     )
+    ap.add_argument(
+        "--restore",
+        action="store_true",
+        help="one-time revert: restore the self-matched WebTrac events wrongly held "
+        "by the pre-guard supersede back to live (dry-run unless --apply).",
+    )
     args = ap.parse_args(argv)
     dry = not args.apply
+
+    if args.restore:
+        return _restore(dry=dry)
 
     undo_rows: list[dict] = []
     all_rows: list[dict] = []

@@ -56,8 +56,14 @@ jobs:
           elif [ "${CONFIRM}" = "SUPERSEDE" ]; then
             echo "CONFIRM=SUPERSEDE -> writing supersede ONLY (skip quarantine)."
             python scripts/parks_rec_webtrac_reconcile_2026_07_08.py --apply --supersede-only
+          elif [ "${CONFIRM}" = "RESTORE-APPLY" ]; then
+            echo "CONFIRM=RESTORE-APPLY -> restoring self-matched WebTrac events to live."
+            python scripts/parks_rec_webtrac_reconcile_2026_07_08.py --restore --apply
+          elif [ "${CONFIRM}" = "RESTORE" ]; then
+            echo "CONFIRM=RESTORE -> DRY-RUN restore (no writes)."
+            python scripts/parks_rec_webtrac_reconcile_2026_07_08.py --restore
           else
-            echo "confirm not APPLY/SUPERSEDE -> DRY-RUN (no DB writes)."
+            echo "confirm not APPLY/SUPERSEDE/RESTORE -> DRY-RUN reconcile (no writes)."
             python scripts/parks_rec_webtrac_reconcile_2026_07_08.py
           fi
       - name: Upload review + undo CSVs
