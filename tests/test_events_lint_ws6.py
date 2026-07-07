@@ -13,8 +13,10 @@ from types import SimpleNamespace
 import pytest
 
 from app.events.lint import (
+    is_early_activity,
     lint_event,
     name_category_contradiction,
+    parks_rec_venue_unrecognized,
     reads_as_venue_hours,
     suspect_ampm_flip,
 )
@@ -23,9 +25,12 @@ from app.events.lint import (
 # ── AM/PM flip (Glow in the Dark Painting 5:30 AM) ───────────────────────────
 @pytest.mark.parametrize("hh,mm,flag", [
     (5, 30, True),   # Glow in the Dark Painting — the §14.3 case
+    (5, 15, True),   # Kids Pizza Party Cooking Class — the WS6.3 follow-up case
     (0, 0, True),    # midnight
     (6, 59, True),
-    (7, 0, False),   # 7 AM is the boundary — not flagged
+    (7, 0, True),    # generalized window now runs to 8 AM (was 7)
+    (7, 59, True),
+    (8, 0, False),   # 8 AM is the boundary — not flagged
     (9, 0, False),
     (18, 30, False),  # a normal evening event
 ])
@@ -36,7 +41,36 @@ def test_ampm_flip_window(hh: int, mm: int, flag: bool) -> None:
 def test_ampm_flip_ignores_24h_and_overnight_and_missing() -> None:
     assert suspect_ampm_flip(time(2, 0), venue_is_24h=True) is False
     assert suspect_ampm_flip(time(2, 0), is_overnight=True) is False
+    assert suspect_ampm_flip(time(2, 0), early_ok=True) is False
     assert suspect_ampm_flip(None) is False
+
+
+# ── early-activity whitelist (a real pre-dawn start is not a flip) ────────────
+@pytest.mark.parametrize("title,venue,early_ok", [
+    ("Lap Swim", "Aquatic Center", True),
+    ("Sunrise Kayak", "Site Six", True),
+    ("Masters Swim", None, True),
+    ("Early Bird Boot Camp", "Community Center", True),
+    ("Sunrise Yoga", None, True),
+    ("Fishing Tournament", "London Bridge Beach", True),
+    ("CrossFit Open Gym", None, True),
+    ("Havasu Half Marathon", None, True),
+    # not early-legit — a 5 AM start here is a real flip to flag
+    ("Kids Pizza Party Cooking Class", "Kitchen", False),
+    ("Glow in the Dark Painting", "Community Center", False),
+    ("Mexican Train Dominoes", None, False),
+])
+def test_is_early_activity(title: str, venue: str | None, early_ok: bool) -> None:
+    assert is_early_activity(title, venue) is early_ok
+
+
+def test_whitelisted_early_activity_is_not_ampm_flagged() -> None:
+    # A real 5:30 AM lap swim: within the window, but whitelisted → no flag.
+    lap = SimpleNamespace(
+        title="Lap Swim", description="", start_time=time(5, 30), end_time=time(7, 0),
+        location_name="Aquatic Center", source="parks_rec_calendar",
+    )
+    assert [f.rule for f in lint_event(lap)] == []
 
 
 # ── venue-hours-as-event (Golf Course — Open daily) ──────────────────────────
@@ -105,3 +139,45 @@ def test_lint_event_overnight_is_not_ampm_flagged() -> None:
         title="Late Night Comedy", description="", start_time=time(22, 0), end_time=time(1, 0)
     )
     assert lint_event(ev) == []
+
+
+# ── P&R venue-must-be-a-named-facility ───────────────────────────────────────
+@pytest.mark.parametrize("venue,unrecognized", [
+    ("Kitchen", True),          # a bare room word — which kitchen?
+    ("Room 153", True),         # a room code, no facility
+    ("Jane Camlin", True),      # a mis-mapped instructor name
+    ("Community Center", False),  # a named facility
+    ("Aquatic Center", False),
+    ("Wheeler Park", False),
+    ("Lake Havasu City Parks & Recreation", False),  # the default venue
+    (None, False),              # absent venue is not this rule's concern
+    ("", False),
+])
+def test_parks_rec_venue_unrecognized(venue: str | None, unrecognized: bool) -> None:
+    assert parks_rec_venue_unrecognized(venue) is unrecognized
+
+
+def test_venue_rule_only_applies_to_parks_rec_rows() -> None:
+    # A non-P&R event at "Kitchen" (e.g. a cooking demo at a shop) is never
+    # venue-checked — "known facility" is a P&R-only concept.
+    non_pr = SimpleNamespace(
+        title="Knife Skills Demo", description="", start_time=time(18, 0), end_time=None,
+        location_name="Kitchen", source="eventbrite", event_url="https://example.com/x",
+    )
+    assert [f.rule for f in lint_event(non_pr)] == []
+
+
+def test_kids_pizza_party_cooking_class_trips_both_rules() -> None:
+    # Live fixture c765358a: "Kids Pizza Party Cooking Class", 5:15 AM, venue
+    # "Kitchen", a P&R flyer row — trips the AM/PM flip AND the venue rule.
+    ev = SimpleNamespace(
+        title="Kids Pizza Party Cooking Class",
+        description="Kids Pizza Party Cooking Class. At Kitchen. For Kids. Cost: $15.",
+        start_time=time(5, 15),
+        end_time=None,
+        location_name="Kitchen",
+        source="parks_rec_flyers",
+        event_url="https://www.lhcaz.gov/185/Parks-Recreation#cal|2026-07-14|kids-pizza-party-cooking-class|05-15",
+    )
+    rules = {f.rule for f in lint_event(ev)}
+    assert rules == {"ampm_flip", "venue_not_facility"}

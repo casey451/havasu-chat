@@ -157,6 +157,19 @@ def test_venue_classifier_accepts_real_locations() -> None:
         assert prc.is_known_facility(good) is True, good
 
 
+def test_venue_classifier_strict_accepts_only_named_facilities() -> None:
+    # strict=True (the WS6.3 review lint): a NAMED facility (or the default venue)
+    # passes; a bare generic word / room code / person name does NOT — it's
+    # ambiguous and worth a human glance.
+    for named in (
+        "Aquatic Center", "Community Center", "Wheeler Park",
+        "aquatic", "Lake Havasu City Parks & Recreation",
+    ):
+        assert prc.is_known_facility(named, strict=True) is True, named
+    for ambiguous in ("Kitchen", "Site 6", "S3 - Room 153/154", "Room 12", "Jane Camlin"):
+        assert prc.is_known_facility(ambiguous, strict=True) is False, ambiguous
+
+
 def test_venue_classifier_rejects_person_names() -> None:
     # A mis-mapped instructor names no place. "S3 - Jane Camlin" has a building
     # tag but no room word, so it stays a reject (the real "S3 - Room 153" passes
