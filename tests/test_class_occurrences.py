@@ -69,10 +69,19 @@ def _make_venue_with_class(title: str, days: list[str]) -> tuple[str, str, str]:
         return p.slug, eid, p.provider_name
 
 
+def _permalinkless_title(suf: str) -> str:
+    """A COLLISION-PROOF class title (a single uniquely-suffixed token). A common-
+    worded title ("Pony Lead Line Rides") is a token-subset of a generic same-day
+    Event ("Pony Rides") and gets dropped by ``drop_event_duplicates`` — which,
+    under xdist on the shared per-worker DB, made the permalink-less test flaky.
+    A uniquely-tokened title can never subset-match another row."""
+    return f"Permalinkless{suf}"
+
+
 def _make_permalinkless_program(title: str, days: list[str]) -> str:
     """Active venue Entity + recurring Schedule but NO Provider — a program with
     no permalink (occ.url == ""), like "Havasu Horseback Rides". Returns the
-    venue name."""
+    venue name (uniquely suffixed)."""
     suf = uuid.uuid4().hex[:8]
     name = f"Havasu Horseback Rides {suf}"
     with SessionLocal() as db:
@@ -91,6 +100,17 @@ def _make_permalinkless_program(title: str, days: list[str]) -> str:
         )
         db.commit()
     return name
+
+
+def _delete_permalinkless_program(venue_name: str) -> None:
+    """Hermetic teardown: drop the venue Entity + its Schedules so the fixture
+    doesn't leak into the shared per-worker DB (and can't pollute other tests)."""
+    with SessionLocal() as db:
+        ent = db.query(Entity).filter(Entity.name == venue_name).one_or_none()
+        if ent is not None:
+            db.query(Schedule).filter(Schedule.entity_id == ent.id).delete()
+            db.delete(ent)
+            db.commit()
 
 
 def test_expansion_hits_every_matching_weekday() -> None:
@@ -393,30 +413,41 @@ def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
     self-referential ``/events-ui?date=…#program-…`` anchor that just points
     back at the same bare row. (Retargeted 2026-07-02 from the deleted
     pre-v4 ``today_feed`` to ``day_groups`` — the live feed pipeline.)"""
-    title = f"Pony Lead Line Rides {uuid.uuid4().hex[:6]}"
+    # Uniquely-tokened title + hermetic teardown so a generic same-day event on
+    # another xdist worker can't drop this row via drop_event_duplicates (the old
+    # "Pony Lead Line Rides" fixture flaked exactly that way — see
+    # test_permalinkless_program_survives_generic_same_day_event).
+    title = _permalinkless_title(uuid.uuid4().hex[:8])
     venue = _make_permalinkless_program(title, ["saturday"])
     day = date(2026, 12, 5)  # a Saturday
-    with SessionLocal() as db:
-        groups = events_views.day_groups(db, day=day, events_only=False)
-    rows = _all_rows(groups)
-    row = next((r for r in rows if r.get("venue") == venue), None)
-    assert row is not None, "permalink-less program should still appear in the feed"
-    assert not row.get("url"), "should render without a fabricated Details link"
-    assert "#program" not in (row.get("url") or "")
+    try:
+        with SessionLocal() as db:
+            groups = events_views.day_groups(db, day=day, events_only=False)
+        rows = _all_rows(groups)
+        row = next((r for r in rows if r.get("venue") == venue), None)
+        assert row is not None, "permalink-less program should still appear in the feed"
+        assert not row.get("url"), "should render without a fabricated Details link"
+        assert "#program" not in (row.get("url") or "")
+    finally:
+        _delete_permalinkless_program(venue)
 
 
 def test_events_ui_renders_program_anchor_id() -> None:
     """The permalink-less program's Places row carries the matching deep-link
     anchor so the home-feed link lands on it (Item 2; Places-bound under the
     two-surface split)."""
-    title = f"Pony Lead Line Rides {uuid.uuid4().hex[:6]}"
+    # Collision-proof title + teardown (same flake class as the sibling test).
+    title = _permalinkless_title(uuid.uuid4().hex[:8])
     venue = _make_permalinkless_program(title, ["wednesday"])
     anchor = program_anchor(title, venue)
-    with SessionLocal() as db:
-        groups = events_views.day_groups(db, day=date(2026, 12, 9), events_only=False)
-    row = next((r for r in _all_rows(groups) if title in (r.get("title") or "")), None)
-    assert row is not None
-    assert row.get("anchor") == anchor
+    try:
+        with SessionLocal() as db:
+            groups = events_views.day_groups(db, day=date(2026, 12, 9), events_only=False)
+        row = next((r for r in _all_rows(groups) if title in (r.get("title") or "")), None)
+        assert row is not None
+        assert row.get("anchor") == anchor
+    finally:
+        _delete_permalinkless_program(venue)
 
 
 def test_class_cards_survive_busy_day_cap() -> None:
@@ -440,3 +471,35 @@ def test_class_cards_survive_busy_day_cap() -> None:
     with SessionLocal() as db:
         groups = events_views.day_groups(db, day=date(2026, 12, 12), events_only=False)
     assert any(title in (r.get("title") or "") for r in _all_rows(groups))
+
+
+def test_permalinkless_program_survives_generic_same_day_event() -> None:
+    """Regression (flake root-cause): a class occurrence is dropped from the feed
+    when a LIVE Event on the same date has token-subset-matching title + a
+    compatible time (``drop_event_duplicates`` — correct in prod: the richer Event
+    supersedes its Schedule twin). The permalink-less fixtures therefore use a
+    COLLISION-PROOF, uniquely-tokened title so an unrelated same-day event created
+    by another test (under xdist, on the shared per-worker DB) can never suppress
+    them. Here we plant exactly such an interfering event and assert survival."""
+    suf = uuid.uuid4().hex[:8]
+    title = _permalinkless_title(suf)  # uniquely tokened — cannot subset-match
+    venue = _make_permalinkless_program(title, ["saturday"])
+    day = date(2026, 12, 5)  # a Saturday
+    with SessionLocal() as db:
+        # A generic same-day event whose tokens WOULD suppress a common-worded
+        # class ("Pony Rides" once dropped a "Pony Lead Line Rides" fixture).
+        db.add(Event(
+            title="Pony Rides", normalized_title="pony rides",
+            date=day, start_time=time(10, 0), end_time=time(11, 0),
+            location_name="Somewhere", location_normalized="somewhere",
+            description="interfering same-day event", source="allevents",
+            tags=["community"], status="live",
+        ))
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            groups = events_views.day_groups(db, day=day, events_only=False)
+        row = next((r for r in _all_rows(groups) if r.get("venue") == venue), None)
+        assert row is not None, "unique-titled program must not be dropped by a generic event"
+    finally:
+        _delete_permalinkless_program(venue)
