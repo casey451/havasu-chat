@@ -61,6 +61,18 @@ class EventLike(Protocol):
     location_name: str | None
 
 
+_WEBTRAC_URL_MARKER = "register.lhcaz.gov/webtrac"
+
+
+def is_webtrac_event(event: Any) -> bool:
+    """True when the event's URL is a WebTrac registration URL — the datetime
+    authority, NEVER a flyer. A WebTrac event can carry a COMBINED source string
+    that also names the flyer source (via the ingest reconciler's source merge), so
+    callers MUST exclude these from the flyer set by URL, not by source, or a
+    WebTrac row would be reconciled against itself (the 2026-07-07 self-match)."""
+    return _WEBTRAC_URL_MARKER in (getattr(event, "event_url", None) or "")
+
+
 # ── title similarity ──────────────────────────────────────────────────────────
 _PAREN_RE = re.compile(r"\([^)]*\)")
 _NON_ALNUM_RE = re.compile(r"[^a-z0-9]+")
@@ -158,8 +170,17 @@ def match_flyer(
     date window — so a recurring same-title series (many nearby dates) never
     mispairs. Ties on an exact date are broken by venue compatibility then the
     closest start time.
+
+    A candidate with the SAME id as the flyer is skipped: a WebTrac event whose
+    combined ``source`` also names the flyer source can land in both sets, and it
+    must never supersede ITSELF (the 2026-07-07 self-match mis-retire).
     """
-    similar = [w for w in webtracs if titles_similar(flyer.title, w.title)]
+    flyer_id = getattr(flyer, "id", None)
+    similar = [
+        w
+        for w in webtracs
+        if getattr(w, "id", None) != flyer_id and titles_similar(flyer.title, w.title)
+    ]
     if not similar:
         return None
     exact = [w for w in similar if w.date == flyer.date and flyer.date is not None]

@@ -81,7 +81,7 @@ def _live(db, url_like: str) -> list[Event]:
 
 def _flyer_live(db) -> list[Event]:
     # The synthetic #cal URL lives in event_url; also catch the P&R vision sources.
-    return list(
+    rows = list(
         db.scalars(
             select(Event)
             .where(
@@ -92,6 +92,10 @@ def _flyer_live(db) -> list[Event]:
             .order_by(Event.date, Event.start_time)
         ).all()
     )
+    # A WebTrac-URL event is the authority, never a flyer — even if its combined
+    # source names the flyer source. Excluding by URL prevents a WebTrac row from
+    # being reconciled against itself (the 2026-07-07 self-match mis-retire).
+    return [r for r in rows if not pr.is_webtrac_event(r)]
 
 
 _FIELDNAMES = [

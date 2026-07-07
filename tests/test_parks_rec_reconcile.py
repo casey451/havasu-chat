@@ -93,6 +93,22 @@ def test_match_none_when_no_similar_title() -> None:
     assert pr.match_flyer(flyer, [_webtrac("Yoga", date(2026, 7, 14), time(10, 0))]) is None
 
 
+def test_match_never_pairs_an_event_with_itself() -> None:
+    # Regression (2026-07-07 self-match mis-retire): a WebTrac event whose combined
+    # source also names the flyer source lands in BOTH sets. It must never match /
+    # supersede itself (same id), which would retire the authoritative row.
+    ev = _webtrac("Kids Pizza Party Cooking Class", date(2026, 7, 8), time(17, 15), id="same")
+    assert pr.match_flyer(ev, [ev]) is None
+    v = pr.classify_flyer(ev, [ev], lint_fn=lint_event)
+    assert v.action != pr.SUPERSEDE  # not superseded against itself
+
+
+def test_is_webtrac_event() -> None:
+    assert pr.is_webtrac_event(_webtrac("X", date(2026, 7, 8), time(9, 0))) is True
+    assert pr.is_webtrac_event(_ev("X", date(2026, 7, 8), time(9, 0))) is False
+    assert pr.is_webtrac_event(SimpleNamespace(event_url=None)) is False
+
+
 # ── classification ────────────────────────────────────────────────────────────
 def test_supersede_when_times_agree() -> None:
     flyer = _ev("Tiny Tots", date(2026, 7, 14), time(10, 0), venue="Kitchen")

@@ -56,13 +56,18 @@ def _future_live(db, *, today: date, flyer: bool) -> list[Event]:
         )
     else:
         source_pred = Event.event_url.like(_WEBTRAC)
-    return list(
+    rows = list(
         db.scalars(
             select(Event)
             .where(Event.status == "live", Event.date >= today, source_pred)
             .order_by(Event.date, Event.start_time)
         ).all()
     )
+    # A WebTrac-URL event is never a flyer (even with a combined source) — exclude
+    # it from the flyer set so it can't be reconciled against itself.
+    if flyer:
+        return [r for r in rows if not pr.is_webtrac_event(r)]
+    return rows
 
 
 def main() -> int:
