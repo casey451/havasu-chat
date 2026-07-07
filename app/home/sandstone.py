@@ -913,7 +913,9 @@ def _night_tiles() -> list[dict[str, str]]:
         _tile("🍺", "Breweries & Wineries", "Tastings, taprooms", bars),
         _tile("🎶", "Live Music", "Who's playing & when", _chat_url("live music tonight")),
         _tile("🕙", "Happy Hours", "Sorted by ending soon", _chat_url("happy hour now")),
-        _tile("🍔", "Late Kitchens", "Food after 10 PM", _chat_url("late night food")),
+        # WS10: the "Late Kitchens" chat deep-link is replaced by a real,
+        # server-rendered list of venues open past 10 PM (redesign.late_night_kitchens,
+        # rendered as its own card on /night) — no chat round-trip for real data.
         _tile("🚖", "Get Home Safe", "Local taxi & rideshare", _chat_url("taxi or rideshare")),
     ]
 
