@@ -307,8 +307,11 @@ def test_events_ics_feed_is_valid_icalendar() -> None:
         assert "SUMMARY:ZZ ICS One-off\\; with\\, commas" in body
         # recurring event carries its RRULE
         assert "RRULE:FREQ=WEEKLY;BYDAY=MO" in body
-        # timed event with end renders DTSTART + DTEND
-        assert "DTEND:" in body
+        # WS5/B5: timed events carry an explicit America/Phoenix TZID (not floating
+        # local time) plus a VTIMEZONE, so out-of-zone subscribers see the right hour.
+        assert "BEGIN:VTIMEZONE" in body and "TZID:America/Phoenix" in body
+        assert "DTSTART;TZID=America/Phoenix:" in body
+        assert "DTEND;TZID=America/Phoenix:" in body
     finally:
         with SessionLocal() as db:
             db.execute(delete(Event).where(Event.entity_id.in_(eids)))
