@@ -31,8 +31,10 @@ class LaunchRamp:
 
 
 # The public MOTORIZED launch ramps in / near Lake Havasu City, nearest first.
-# Fees + hours transcribed Jul 2026 from the cited sources (fees vary by source /
-# season — the source_url is the authority).
+# State-park fees verified Jul 2026 against azstateparks.com/fee-schedule (which
+# changed Feb 2025 — older aggregator figures were stale). AZ State Parks revise
+# fees ANNUALLY, so both state-park cards cite the fee-schedule page and the page
+# carries "confirm at the gate" microcopy. Update here when the schedule changes.
 LAUNCH_RAMPS: tuple[LaunchRamp, ...] = (
     LaunchRamp(
         name="Site Six Launch Ramp",
@@ -45,18 +47,18 @@ LAUNCH_RAMPS: tuple[LaunchRamp, ...] = (
     LaunchRamp(
         name="Lake Havasu State Park — Windsor Beach",
         area="699 London Bridge Rd — 1 mi north of the bridge",
-        fee="$15 Mon–Thu · $20 Fri–Sun and holidays (self-pay)",
+        fee="$20 Mon–Thu · $25 Fri–Sun and holidays (per vehicle, 1–4 adults)",
         hours="Launch 24 hours · office 6 AM–5 PM",
         note="12 boat lanes plus dedicated PWC lanes; courtesy docks.",
-        source_url="https://azstateparks.com/lake-havasu/on-the-water/boating",
+        source_url="https://azstateparks.com/fee-schedule",
     ),
     LaunchRamp(
         name="Cattail Cove State Park",
         area="~15 mi south of town on AZ-95",
-        fee="$10 Mon–Thu · $15 Fri–Sun and holidays (per vehicle)",
+        fee="$10 single-occupant vehicle · $20 for 2–4 people",
         hours="8 AM–5 PM · self-pay 5 PM–8 AM",
         note="One ramp, 4 lanes — south-lake access near Havasu Springs.",
-        source_url="https://azstateparks.com/cattail-cove",
+        source_url="https://azstateparks.com/fee-schedule",
     ),
 )
 

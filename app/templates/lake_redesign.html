@@ -55,6 +55,7 @@
     </div>
     {% endfor %}
   </div>
+  <p class="cond-note">State-park fees change annually — shown as of Jul 2026; confirm at the gate.</p>
   {% if paddle_launches %}
   <p class="paddle"><strong>Kayak, canoe or SUP?</strong> These free non-motorized launches have no ramp fee:
     {% for p in paddle_launches %}<a href="{{ p.source_url }}" target="_blank" rel="noopener nofollow">{{ p.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}.</p>
