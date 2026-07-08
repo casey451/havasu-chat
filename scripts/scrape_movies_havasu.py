@@ -37,6 +37,7 @@ from app.db.database import SessionLocal  # noqa: E402
 from app.movies.havasu_parse import parse_clock_time, resolve_strip_dates  # noqa: E402
 from app.movies.store import (  # noqa: E402
     ShowtimeRecord,
+    cross_check_autocorrected,
     prune_past,
     showtime_record_is_suspect,
     upsert_showtimes,
@@ -196,7 +197,16 @@ def main(argv: list[str] | None = None) -> int:
     with SessionLocal() as db:
         counts = upsert_showtimes(db, records)
         pruned = 0 if args.no_prune else prune_past(db)
-    print(f"created: {counts['created']}  updated: {counts['updated']}  pruned_past: {pruned}")
+        # Free cross-check (nightly canary output): flag any auto-corrected showtime
+        # whose corrected time is wildly off Star Cinemas' pattern for the same film.
+        canary_flags = cross_check_autocorrected(db)
+    print(
+        f"created: {counts['created']}  updated: {counts['updated']}  "
+        f"auto_corrected: {counts['auto_corrected']}  quarantined: {counts['quarantined']}  "
+        f"pruned_past: {pruned}"
+    )
+    for flag in canary_flags:
+        print(f"CANARY: {flag}")
     return 0
 
 
