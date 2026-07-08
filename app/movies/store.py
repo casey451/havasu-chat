@@ -221,11 +221,28 @@ _MUTABLE_FIELDS = (
 )
 
 
+# Theaters whose backend systematically flips PM matinees to AM. Verified Jul 2026:
+# Movies Havasu's marketing site AND its internet-ticketing booking system BOTH
+# list Moana at "4:00 AM (ends 5:55 AM)" for a show that is really 4:00 PM (it
+# fills the 2 PM→5 PM slate gap; Star Cinemas lists Moana only in the afternoon).
+# The booking system is NOT an independent check here — it shares the flipped
+# backend — so for these sources an implausible <9 AM showtime is AUTO-CORRECTED
+# +12h and tagged, and the real matinee shows instead of being hidden. Every other
+# source keeps the quarantine behavior (Star Cinemas + its 9:30 AM kids whitelist).
+AUTO_CORRECT_SOURCES: frozenset[str] = frozenset({"movies_havasu"})
+AUTO_CORRECTED_TAG = "auto_corrected"
+_NOON = time(12, 0)
+
+
+def _shift_12h(t: time) -> time:
+    return (datetime.combine(datetime(2000, 1, 1), t) + timedelta(hours=12)).time()
+
+
 def showtime_record_is_suspect(r: ShowtimeRecord) -> bool:
     """A showtime too early to be real (before 9 AM) and not a whitelisted kids
     series — almost always a PM time entered as AM. The free summer kids series
     (``is_free``) is treated as a kids series regardless of title/tags. Public so
-    the scraper's dry-run can report quarantine candidates before any write."""
+    the scraper's dry-run can report candidates before any write."""
     kids = r.is_free or is_kids_series(r.film_title, r.tags)
     return suspect_showtime(r.show_time, kids_series=kids)
 
@@ -233,20 +250,42 @@ def showtime_record_is_suspect(r: ShowtimeRecord) -> bool:
 def upsert_showtimes(db: Session, records: list[ShowtimeRecord]) -> dict[str, int]:
     """Idempotent upsert on ``(source, source_stable_id)``. Returns counts.
 
-    Quarantine (WS6 early-AM lint, extended to showtimes): records whose time is
-    before 9 AM at either theater are almost always AM/PM flips (a 4 PM show typed
-    "4 AM"); they are dropped here — never written — and logged, so a source flip
-    can't reach the /movies surface. The kids-series matinee is whitelisted."""
-    quarantined = [r for r in records if showtime_record_is_suspect(r)]
-    for r in quarantined:
-        logger.warning(
-            "quarantined implausible showtime (before 9 AM — likely AM/PM flip): "
-            "%r %s %s @ %s",
-            r.film_title, r.show_date.isoformat(), r.show_time.isoformat(), r.theater_name,
-        )
-    records = [r for r in records if not showtime_record_is_suspect(r)]
+    Early-AM lint (WS6, extended to showtimes): a record before 9 AM is almost
+    always an AM/PM flip (a 4 PM show typed "4 AM"). For a known-flipping source
+    (:data:`AUTO_CORRECT_SOURCES`) it is AUTO-CORRECTED +12h in place, tagged
+    ``auto_corrected`` and logged, so the real matinee still shows. For every
+    other source it is QUARANTINED — dropped here, never written — so a flip can't
+    reach /movies. The kids-series matinee is whitelisted from both."""
+    kept: list[ShowtimeRecord] = []
+    corrected: list[ShowtimeRecord] = []
+    quarantined: list[ShowtimeRecord] = []
+    for r in records:
+        if not showtime_record_is_suspect(r):
+            kept.append(r)
+            continue
+        if r.source in AUTO_CORRECT_SOURCES and r.show_time < _NOON:
+            old = r.show_time
+            r.show_time = _shift_12h(old)
+            if AUTO_CORRECTED_TAG not in r.tags:
+                r.tags = [*r.tags, AUTO_CORRECTED_TAG]
+            logger.warning(
+                "auto-corrected AM/PM-flipped showtime (+12h): %r %s %s->%s @ %s",
+                r.film_title, r.show_date.isoformat(), old.isoformat(),
+                r.show_time.isoformat(), r.theater_name,
+            )
+            corrected.append(r)
+            kept.append(r)
+        else:
+            logger.warning(
+                "quarantined implausible showtime (before 9 AM — likely AM/PM flip): "
+                "%r %s %s @ %s",
+                r.film_title, r.show_date.isoformat(), r.show_time.isoformat(), r.theater_name,
+            )
+            quarantined.append(r)
+    records = kept
+    _counts_extra = {"quarantined": len(quarantined), "auto_corrected": len(corrected)}
     if not records:
-        return {"created": 0, "updated": 0, "quarantined": len(quarantined)}
+        return {"created": 0, "updated": 0, **_counts_extra}
     sources = {r.source for r in records}
     stable_ids = {r.source_stable_id for r in records}
     existing = {
@@ -275,7 +314,7 @@ def upsert_showtimes(db: Session, records: list[ShowtimeRecord]) -> dict[str, in
             row.scraped_at = now
             updated += 1
     db.commit()
-    return {"created": created, "updated": updated, "quarantined": len(quarantined)}
+    return {"created": created, "updated": updated, **_counts_extra}
 
 
 def prune_past(db: Session, *, before: date | None = None) -> int:
