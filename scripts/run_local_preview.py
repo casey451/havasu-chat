@@ -133,6 +133,59 @@ def _seed() -> None:
                     entity_id=ent.id,
                 )
             )
+        # WS10 hub QA seed: an Eat & Drink venue open past 10 PM (so /night's
+        # "Late-night kitchens" list renders) and a live-music event today (so
+        # /night's "Live music tonight" section renders). Idempotent by slug/id.
+        if not db.scalars(
+            select(Provider).where(Provider.slug == "havasu-preview-cantina")
+        ).first():
+            cant = Entity(
+                entity_type="commercial",
+                slug="havasu-preview-cantina-ent",
+                name="Havasu Preview Cantina",
+                source="local-preview",
+            )
+            db.add(cant)
+            db.flush()
+            late = [{"open": "16:00", "close": "23:30"}]
+            db.add(
+                Provider(
+                    provider_name="Havasu Preview Cantina",
+                    category="restaurant",
+                    google_primary_category="restaurant",
+                    # subcategory drives derive_primary_category → "eat-drink"
+                    # (the route_provider_filter primary), matching real data.
+                    subcategory="restaurants",
+                    slug="havasu-preview-cantina",
+                    address="500 Preview Blvd, Lake Havasu City, AZ",
+                    hours_structured={d: late for d in (
+                        "monday", "tuesday", "wednesday", "thursday",
+                        "friday", "saturday", "sunday",
+                    )},
+                    is_active=True,
+                    draft=False,
+                    source="local-preview",
+                    entity_id=cant.id,
+                )
+            )
+            db.add(
+                Event(
+                    id="preview-event-music",
+                    title="Live Music: The Preview Band",
+                    normalized_title="live music: the preview band",
+                    date=date.today(),
+                    start_time=time(20, 0),
+                    end_time=time(23, 0),
+                    location_name="Havasu Preview Cantina",
+                    location_normalized="havasu preview cantina",
+                    description="Live band on the patio. No cover.",
+                    tags=["music"],
+                    status="live",
+                    source="local-preview",
+                    created_by="seed",
+                    entity_id=cant.id,
+                )
+            )
         if not db.scalars(
             select(MovieShowtime).where(MovieShowtime.source == "local-preview")
         ).first():
