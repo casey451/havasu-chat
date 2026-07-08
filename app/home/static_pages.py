@@ -8,11 +8,17 @@ cold database. Registered in ``app/main.py`` via ``include_router`` (see the
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Request
+from typing import Any
+
+from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse
+from sqlalchemy.orm import Session
 
 from app.core.templates import make_templates
+from app.core.timezone import now_lake_havasu
+from app.db.database import get_db
 from app.events import senior_center as _sc
+from app.home import seniors_hub
 
 templates = make_templates()
 
@@ -86,12 +92,27 @@ def _special_row(e: "_sc.SpecialEvent") -> dict:
     return {"title": e.title, "when": when, "description": e.description}
 
 
+def _today_seniors(db: Session) -> tuple[list[dict[str, str]], str]:
+    """Today's live senior feed + today's label. Guarded so a conditions/DB hiccup
+    degrades to no feed rather than 500ing the page (the /seniors no-500 contract).
+    """
+    now = now_lake_havasu()
+    label = now.strftime("%A, %B ") + str(now.day)
+    try:
+        rows = seniors_hub.today_seniors_rows(db, day=now.date(), now=now)
+    except Exception:  # noqa: BLE001 — the live feed must never break the page
+        rows = []
+    return rows, label
+
+
 @router.get("/seniors", response_class=HTMLResponse)
-def seniors_page(request: Request) -> HTMLResponse:
-    """Static Seniors hub -- Lake Havasu Senior Center info, meal program, the
-    two monthly calendars, and the recurring weekly activity schedule. No DB, so
-    it renders fast and never 500s on a cold database (static constants only)."""
-    ctx = {
+def seniors_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    """Seniors hub -- Lake Havasu Senior Center info, meal program, the two monthly
+    calendars, the recurring weekly activity schedule, and (WS10) today's live
+    senior feed pulled from the events calendar. The live feed is guarded, so the
+    page still renders on a cold/empty database (static constants + honest-omit)."""
+    today_feed, today_label = _today_seniors(db)
+    ctx: dict[str, Any] = {
         "address": _sc.VENUE_ADDRESS,
         "phone": _sc.PHONE,
         "source_url": _sc.EVENTS_URL,
@@ -101,6 +122,8 @@ def seniors_page(request: Request) -> HTMLResponse:
         "lunch": _activity_row(_sc.COMMUNITY_LUNCH),
         "activities": [_activity_row(a) for a in _sc.RECURRING_ACTIVITIES],
         "specials": [_special_row(e) for e in _sc.CURATED_SPECIAL_EVENTS],
+        "today_feed": today_feed,
+        "today_label": today_label,
     }
     return templates.TemplateResponse(
         request=request, name=_t(request, "seniors.html"), context=ctx
