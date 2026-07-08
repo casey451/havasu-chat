@@ -18,6 +18,7 @@ from sqlalchemy.orm import Session
 
 from app.core.timezone import to_lake_naive
 from app.db.models import MovieShowtime
+from app.events.lint import is_kids_series, suspect_showtime
 from app.events.time_labels import short_time_label, time_sort_key
 from app.movies.posters import proxied_poster_url
 
@@ -219,6 +220,15 @@ def group_showtimes(
         if day is not None and r.show_date != day:
             continue
         if _showtime_expired(r.show_date, r.show_time, now):
+            continue
+        # Quarantine (WS6 early-AM lint): never DISPLAY an implausibly-early
+        # showtime (before 9 AM — almost always a PM time typed as AM), even if an
+        # older bad row is still in the table. The kids-series matinee is exempt.
+        if suspect_showtime(
+            r.show_time,
+            kids_series=bool(getattr(r, "is_free", False))
+            or is_kids_series(r.film_title, r.tags),
+        ):
             continue
         slug = r.theater_slug or "theater"
         tg = theaters.setdefault(

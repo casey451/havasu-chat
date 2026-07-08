@@ -13,6 +13,7 @@ to ship in the browser bundle, RLS-gated). Both values are env-overridable.
 
 from __future__ import annotations
 
+import logging
 import os
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
@@ -25,6 +26,9 @@ from sqlalchemy.orm import Session
 from app.contrib.river_scene import USER_AGENT
 from app.core.timezone import now_lake_havasu
 from app.db.models import MovieShowtime
+from app.events.lint import is_kids_series, suspect_showtime
+
+logger = logging.getLogger(__name__)
 
 STAR_CINEMAS_SUPABASE_URL = (
     os.getenv("STAR_CINEMAS_SUPABASE_URL")
@@ -217,10 +221,32 @@ _MUTABLE_FIELDS = (
 )
 
 
+def showtime_record_is_suspect(r: ShowtimeRecord) -> bool:
+    """A showtime too early to be real (before 9 AM) and not a whitelisted kids
+    series — almost always a PM time entered as AM. The free summer kids series
+    (``is_free``) is treated as a kids series regardless of title/tags. Public so
+    the scraper's dry-run can report quarantine candidates before any write."""
+    kids = r.is_free or is_kids_series(r.film_title, r.tags)
+    return suspect_showtime(r.show_time, kids_series=kids)
+
+
 def upsert_showtimes(db: Session, records: list[ShowtimeRecord]) -> dict[str, int]:
-    """Idempotent upsert on ``(source, source_stable_id)``. Returns counts."""
+    """Idempotent upsert on ``(source, source_stable_id)``. Returns counts.
+
+    Quarantine (WS6 early-AM lint, extended to showtimes): records whose time is
+    before 9 AM at either theater are almost always AM/PM flips (a 4 PM show typed
+    "4 AM"); they are dropped here — never written — and logged, so a source flip
+    can't reach the /movies surface. The kids-series matinee is whitelisted."""
+    quarantined = [r for r in records if showtime_record_is_suspect(r)]
+    for r in quarantined:
+        logger.warning(
+            "quarantined implausible showtime (before 9 AM — likely AM/PM flip): "
+            "%r %s %s @ %s",
+            r.film_title, r.show_date.isoformat(), r.show_time.isoformat(), r.theater_name,
+        )
+    records = [r for r in records if not showtime_record_is_suspect(r)]
     if not records:
-        return {"created": 0, "updated": 0}
+        return {"created": 0, "updated": 0, "quarantined": len(quarantined)}
     sources = {r.source for r in records}
     stable_ids = {r.source_stable_id for r in records}
     existing = {
@@ -249,7 +275,7 @@ def upsert_showtimes(db: Session, records: list[ShowtimeRecord]) -> dict[str, in
             row.scraped_at = now
             updated += 1
     db.commit()
-    return {"created": created, "updated": updated}
+    return {"created": created, "updated": updated, "quarantined": len(quarantined)}
 
 
 def prune_past(db: Session, *, before: date | None = None) -> int:

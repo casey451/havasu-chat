@@ -35,7 +35,12 @@ import httpx  # noqa: E402
 from app.core.timezone import now_lake_havasu  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
 from app.movies.havasu_parse import parse_clock_time, resolve_strip_dates  # noqa: E402
-from app.movies.store import ShowtimeRecord, prune_past, upsert_showtimes  # noqa: E402
+from app.movies.store import (  # noqa: E402
+    ShowtimeRecord,
+    prune_past,
+    showtime_record_is_suspect,
+    upsert_showtimes,
+)
 
 SITE = "https://www.movieshavasu.com"
 SOURCE = "movies_havasu"
@@ -170,6 +175,16 @@ def main(argv: list[str] | None = None) -> int:
     dates = sorted({r.show_date.isoformat() for r in records})
     span = f"{dates[0]}..{dates[-1]}" if dates else "(none)"
     print(f"scraped {len(records)} showtimes, {len(films)} films, dates {span}")
+
+    # Surface implausibly-early showtimes (before 9 AM — almost always a PM time
+    # the source listed as AM). These are QUARANTINED by upsert_showtimes (never
+    # written); reporting them here lets a --dry-run verify a suspected flip (e.g.
+    # Moana @ 4 AM) against the live render without touching the DB.
+    suspect = [r for r in records if showtime_record_is_suspect(r)]
+    if suspect:
+        print(f"QUARANTINE: {len(suspect)} implausible <9AM showtime(s) (likely AM/PM flip):")
+        for r in sorted(suspect, key=lambda x: (x.show_date, x.show_time, x.film_title)):
+            print(f"  {r.show_date.isoformat()} {r.show_time.isoformat()}  {r.film_title}  {r.booking_url or ''}")
 
     if args.dry_run:
         print("DRY RUN: no writes")
