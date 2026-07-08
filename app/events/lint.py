@@ -80,6 +80,44 @@ def suspect_ampm_flip(
     return _EARLY_START <= start_time < _EARLY_END
 
 
+# ── movie showtime plausibility (AM/PM flip) ──────────────────────────────────
+# A showtime before this floor is almost always a PM time typed as AM (a 4 PM
+# show stored as "4 AM" — a real 2026-07 defect: Moana @ Movies Havasu). The
+# earliest LEGITIMATE showtime in town is the ~9:30 AM summer kids series, so
+# 9 AM is a safe general floor. A kids/family matinee is whitelisted down to a
+# slightly earlier floor (8 AM) — enough that a genuine early matinee is never
+# quarantined, but NOT a blanket pass: an absurd time (a 4 AM "kids" show) is
+# still caught, so a mis-tagged flip can't ride the whitelist through.
+_SHOWTIME_FLOOR = time(9, 0)
+_KIDS_SERIES_FLOOR = time(8, 0)
+_KIDS_SERIES_RE = re.compile(
+    r"kids?\s+(?:series|club)|summer\s+(?:kids|movie|film)|family\s+series|"
+    r"sensory(?:\s+friendly|\s+showing|\s+screening)?|little\s+movie",
+    re.IGNORECASE,
+)
+
+
+def is_kids_series(title: str | None = None, tags: Any = None) -> bool:
+    """True for a kids/family matinee series — the one legitimately-early showing
+    (the ~9:30 AM summer series). Detected by a series title or a kids/family
+    series tag; the caller also passes the ``is_free`` summer-series flag in as an
+    extra whitelist signal."""
+    if title and _KIDS_SERIES_RE.search(title):
+        return True
+    toks = {str(t).strip().lower() for t in (tags or [])}
+    return bool(toks & {"kids", "kids-series", "family", "family-series", "summer-series"})
+
+
+def suspect_showtime(show_time: time | None, *, kids_series: bool = False) -> bool:
+    """True when a movie showtime is implausibly early — almost always a PM time
+    entered as AM. Before 9 AM at either theater; a kids-series matinee gets a
+    slightly lower 8 AM floor (whitelisted, but an absurd 4 AM show is still
+    caught)."""
+    if show_time is None:
+        return False
+    return show_time < (_KIDS_SERIES_FLOOR if kids_series else _SHOWTIME_FLOOR)
+
+
 # ── venue-hours-as-event ──────────────────────────────────────────────────────
 # "Open daily", "Open 24/7", "Open 9 AM - 5 PM" read as hours, NOT a dated event.
 # Guarded so real events survive: "Open Swim", "Open Mic", "Open House", "Open

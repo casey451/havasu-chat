@@ -67,6 +67,23 @@ def test_group_by_theater_then_film_sorted():
     assert toy.poster == "http://p.jpg"
 
 
+def test_pre_9am_showtime_is_quarantined_from_display():
+    """A before-9 AM showtime (AM/PM flip, e.g. the live Moana "4 AM" @ Movies
+    Havasu) never renders, even if the bad row is still in the table; the same
+    film's real afternoon show does. A free kids-series matinee is exempt."""
+    kids = ms("Summer Kids Series", "star-cinemas", 8, name="Star Cinemas")
+    kids.is_free = True  # the whitelisted early matinee
+    rows = [
+        ms("Moana 2", "movies-havasu", 4, name="Movies Havasu"),   # 4 AM → hidden
+        ms("Moana 2", "movies-havasu", 16, name="Movies Havasu"),  # 4 PM → shown
+        kids,                                                       # 8 AM free → shown
+    ]
+    groups = group_showtimes(rows, day=DAY)
+    labels = {f.title: [s.label for s in f.showtimes] for g in groups for f in g.films}
+    assert labels.get("Moana 2") == ["4 PM"]  # the 4 AM row was dropped
+    assert "Summer Kids Series" in labels  # free kids matinee survives
+
+
 def test_showtimes_drop_an_hour_after_they_start():
     # Calendar rule (2026-06-24): a showtime stops showing 1h after it starts.
     rows = [

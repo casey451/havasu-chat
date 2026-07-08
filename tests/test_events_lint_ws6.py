@@ -14,11 +14,13 @@ import pytest
 
 from app.events.lint import (
     is_early_activity,
+    is_kids_series,
     lint_event,
     name_category_contradiction,
     parks_rec_venue_unrecognized,
     reads_as_venue_hours,
     suspect_ampm_flip,
+    suspect_showtime,
 )
 
 
@@ -43,6 +45,37 @@ def test_ampm_flip_ignores_24h_and_overnight_and_missing() -> None:
     assert suspect_ampm_flip(time(2, 0), is_overnight=True) is False
     assert suspect_ampm_flip(time(2, 0), early_ok=True) is False
     assert suspect_ampm_flip(None) is False
+
+
+# ── movie showtime plausibility (Moana @ Movies Havasu "4 AM") ───────────────
+@pytest.mark.parametrize("hh,mm,flag", [
+    (4, 0, True),    # the live Moana defect — 4 PM stored as 4 AM
+    (0, 0, True),    # midnight
+    (8, 59, True),   # anything before 9 AM
+    (9, 0, False),   # 9 AM floor — not flagged
+    (9, 30, False),  # the legit kids-series floor
+    (16, 0, False),  # the corrected afternoon time
+])
+def test_suspect_showtime_window(hh: int, mm: int, flag: bool) -> None:
+    assert suspect_showtime(time(hh, mm)) is flag
+
+
+def test_suspect_showtime_whitelists_kids_series_and_missing() -> None:
+    # A kids-series matinee gets a lower 8 AM floor (whitelisted), but the
+    # whitelist is NOT a blanket pass — an absurd 4 AM "kids" show is still caught.
+    assert suspect_showtime(time(8, 0), kids_series=True) is False   # 8 AM ok for kids
+    assert suspect_showtime(time(8, 30), kids_series=True) is False  # early matinee ok
+    assert suspect_showtime(time(4, 0), kids_series=True) is True    # absurd — still flagged
+    assert suspect_showtime(time(8, 0), kids_series=False) is True   # 8 AM flagged for non-kids
+    assert suspect_showtime(None) is False
+
+
+def test_is_kids_series_by_title_and_tag() -> None:
+    assert is_kids_series("Summer Kids Series") is True
+    assert is_kids_series("Kids Club") is True
+    assert is_kids_series(tags=["family-series"]) is True
+    assert is_kids_series("Moana 2") is False
+    assert is_kids_series(None, None) is False
 
 
 # ── early-activity whitelist (a real pre-dawn start is not a flip) ────────────

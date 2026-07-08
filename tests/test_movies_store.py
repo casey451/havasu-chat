@@ -44,14 +44,51 @@ def test_upsert_is_idempotent_and_updates():
     try:
         with SessionLocal() as db:
             c1 = upsert_showtimes(db, [_rec("s1", day=day, hh=11), _rec("s2", day=day, hh=14)])
-            assert c1 == {"created": 2, "updated": 0}
+            assert c1 == {"created": 2, "updated": 0, "quarantined": 0}
             # Re-run with the same stable ids -> updates, no new rows.
             c2 = upsert_showtimes(db, [_rec("s1", day=day, hh=12), _rec("s2", day=day, hh=14)])
-            assert c2 == {"created": 0, "updated": 2}
+            assert c2 == {"created": 0, "updated": 2, "quarantined": 0}
             rows = list(db.scalars(select(MovieShowtime).where(MovieShowtime.source == SRC)).all())
             assert len(rows) == 2
             s1 = next(r for r in rows if r.source_stable_id == "s1")
             assert s1.show_time == time(12, 0)  # field was updated
+    finally:
+        _cleanup()
+
+
+def test_upsert_quarantines_pre_9am_showtime():
+    """A before-9 AM showtime (AM/PM flip, e.g. a 4 PM Moana stored "4 AM") is
+    quarantined — never written — while a legit afternoon show upserts normally."""
+    day = date(2099, 8, 5)
+    try:
+        with SessionLocal() as db:
+            counts = upsert_showtimes(
+                db,
+                [
+                    _rec("moana-flip", day=day, hh=4, title="Moana 2"),  # 4 AM → quarantine
+                    _rec("moana-pm", day=day, hh=16, title="Moana 2"),  # 4 PM → keep
+                ],
+            )
+            assert counts == {"created": 1, "updated": 0, "quarantined": 1}
+            times = {
+                r.source_stable_id: r.show_time
+                for r in db.scalars(select(MovieShowtime).where(MovieShowtime.source == SRC)).all()
+            }
+            assert times == {"moana-pm": time(16, 0)}  # only the plausible row landed
+    finally:
+        _cleanup()
+
+
+def test_upsert_keeps_free_kids_series_before_9am():
+    """The kids series is whitelisted — an is_free showing before 9 AM is never
+    quarantined (8 AM here to genuinely exercise the exemption)."""
+    day = date(2099, 8, 6)
+    try:
+        with SessionLocal() as db:
+            counts = upsert_showtimes(
+                db, [_rec("kids", day=day, hh=8, free=True, title="Kids Summer Series")]
+            )
+            assert counts == {"created": 1, "updated": 0, "quarantined": 0}
     finally:
         _cleanup()
 
