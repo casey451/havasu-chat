@@ -924,6 +924,11 @@ def _apply_list_controls(
     if sort not in ("top", "az", "favorites"):
         sort = "top"
     open_now = (query_params.get("open") or "").lower() in ("1", "true", "yes", "on")
+    # WS9a: cuisine facet on Eat & Drink leaves. Cards already carry a derived
+    # ``cuisine`` token (queries._build_category_card → derive_cuisine over Google
+    # types), so filtering here keeps the leaf's data-sourcing (primary-link join)
+    # intact and just narrows the rendered set. A blank/unknown value is a no-op.
+    cuisine = (query_params.get("cuisine") or "").strip().lower() or None
     try:
         page = int(query_params.get("page") or "1")
     except (TypeError, ValueError):
@@ -931,6 +936,8 @@ def _apply_list_controls(
     page = max(1, page)
 
     working = list(cards)
+    if cuisine:
+        working = [c for c in working if (c.get("cuisine") or "") == cuisine]
     if open_now:
         working = [c for c in working if c.get("is_open") is True]
     if sort == "az":
@@ -967,8 +974,15 @@ def _apply_list_controls(
     start = (page - 1) * _LEAF_PAGE_SIZE
     visible = working[start : start + _LEAF_PAGE_SIZE]
 
-    def _href(*, want_sort: str, want_open: bool, want_page: int) -> str:
+    def _href(
+        *, want_sort: str, want_open: bool, want_page: int, want_cuisine: str | None = cuisine
+    ) -> str:
         parts: list[str] = []
+        # Cuisine leads so a filtered view reads ``?cuisine=mexican&sort=favorites``.
+        # Defaults to the active cuisine, so every sort/open/pager link preserves
+        # the current cuisine narrowing (DL-20 param-preservation, cuisine lane).
+        if want_cuisine:
+            parts.append(f"cuisine={want_cuisine}")
         if want_sort and want_sort != "top":
             parts.append(f"sort={want_sort}")
         if want_open:
@@ -980,6 +994,7 @@ def _apply_list_controls(
     controls = {
         "sort": sort,
         "open_now": open_now,
+        "cuisine": cuisine,
         "shown_total": shown_total,
         "page": page,
         "total_pages": total_pages,
@@ -995,6 +1010,88 @@ def _apply_list_controls(
         "url_next": _href(want_sort=sort, want_open=open_now, want_page=page + 1),
     }
     return visible, controls
+
+
+# WS9a — cuisine facet on Eat & Drink leaves.
+#
+# The canonical leaf page (``/categories/eat-and-drink/restaurants``) lists by the
+# leaf's PRIMARY entity_categories link (leaf_pages.leaf_listing). Its cards already
+# carry a derived ``cuisine`` token (queries._build_category_card → derive_cuisine
+# over Google types), so a cuisine facet is a server-rendered narrowing over that
+# existing token — no new data model, no merge with the /lake-havasu/{cuisine} SEO
+# landings (which stay the indexable cuisine pages; these facet views canonical to
+# the bare leaf). Only Eat & Drink leaves carry cuisine signal; every other leaf
+# gets no chip row. A chip renders only for a cuisine with >= _CUISINE_CHIP_MIN
+# listings here, so a lone-outlier cuisine never clutters the row (honest facets).
+_EAT_DRINK_DEPARTMENT_SLUG = "eat-and-drink"
+_CUISINE_CHIP_MIN = 2
+
+
+def _leaf_cuisine_facet(
+    query_params: Any, leaf: "leaf_pages.Leaf", cards: list[dict[str, Any]], *, base_path: str
+) -> dict[str, Any] | None:
+    """Server-rendered cuisine facet for an Eat & Drink leaf, or ``None``.
+
+    Returns ``None`` (no chip row) unless the leaf is under Eat & Drink and at
+    least two cuisines each clear ``_CUISINE_CHIP_MIN`` listings on this leaf.
+    The returned dict carries the chip list (label + count + crawlable href +
+    active flag), the "All" href, and the active cuisine's label/count for the
+    filter-summary line. Chip hrefs preserve the active sort / open-now toggle
+    and drop ``page`` (a narrower set invalidates the old page index).
+    """
+    if (leaf.department_slug or "").strip().lower() != _EAT_DRINK_DEPARTMENT_SLUG:
+        return None
+    counts: dict[str, int] = {}
+    for card in cards:
+        cui = (card.get("cuisine") or "").strip().lower()
+        if cui:
+            counts[cui] = counts.get(cui, 0) + 1
+    ordered = [
+        (slug, counts[slug])
+        for slug in subcats.cuisine_slugs_in_order()
+        if counts.get(slug, 0) >= _CUISINE_CHIP_MIN
+    ]
+    if len(ordered) < 2:
+        return None
+
+    active = (query_params.get("cuisine") or "").strip().lower() or None
+    if active is not None and active not in subcats.cuisine_slugs_in_order():
+        active = None
+
+    sort = (query_params.get("sort") or "").strip().lower()
+    keep_sort = sort if sort in ("favorites", "az") else None
+    keep_open = (query_params.get("open") or "").strip().lower() in ("1", "true", "yes", "on")
+
+    def _href(cuisine: str | None) -> str:
+        parts: list[str] = []
+        if cuisine:
+            parts.append(f"cuisine={cuisine}")
+        if keep_sort:
+            parts.append(f"sort={keep_sort}")
+        if keep_open:
+            parts.append("open=1")
+        return base_path + ("?" + "&".join(parts) if parts else "")
+
+    chips = [
+        {
+            "slug": slug,
+            "label": subcats.cuisine_label(slug) or slug,
+            "count": n,
+            "href": _href(slug),
+            "active": slug == active,
+        }
+        for slug, n in ordered
+    ]
+    active_label = subcats.cuisine_label(active) if active else None
+    active_count = counts.get(active, 0) if active else 0
+    return {
+        "chips": chips,
+        "all_href": _href(None),
+        "all_active": active is None,
+        "active": active,
+        "active_label": active_label,
+        "active_count": active_count,
+    }
 
 
 # Leaf sub-grouping (P7 follow-up): when a leaf lists enough places spread across
@@ -1100,6 +1197,11 @@ def _render_leaf_page(
 
     display = leaf_seo.display_noun(leaf.slug, leaf.name)
     page_path = f"/categories/{leaf.department_slug}/{leaf.slug}"
+    # WS9a: cuisine facet (Eat & Drink leaves only) — computed over the FULL leaf
+    # listing so chip counts reflect the whole leaf, not the paginated window.
+    cuisine_facet = _leaf_cuisine_facet(
+        request.query_params, leaf, cards, base_path=page_path
+    )
     visible_cards, list_controls = _apply_list_controls(
         request.query_params, cards, base_path=page_path
     )
@@ -1181,6 +1283,8 @@ def _render_leaf_page(
             "category_cards": visible_cards,
             "card_groups": card_groups,
             "list_controls": list_controls,
+            # WS9a: cuisine facet chip row (Eat & Drink leaves only; None elsewhere).
+            "cuisine_facet": cuisine_facet,
             # P3 finding 34: top-of-page ad slot — sold page_ad pins above the
             # unsold "claim" CTA. None (dormant default) → claim invitation.
             "sponsored": serving.serve_category_page_ad(db, leaf.slug),
