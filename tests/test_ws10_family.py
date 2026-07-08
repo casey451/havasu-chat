@@ -114,6 +114,32 @@ def test_camps_index_selects_camps_excludes_lookalikes() -> None:
         _cleanup(eids)
 
 
+def test_camps_index_excludes_adult_programming() -> None:
+    """The KIDS camps page must not list adult programming (Casey 2026-07-08 live
+    review: "Adult Intro to Watersports" clinics were showing). Excluded by an
+    "Adult"-prefixed title OR an adult audience tag; a plain kids clinic stays."""
+    suf = uuid.uuid4().hex[:8]
+    # Real P&R rows lead with "Adult" (and the loader also tags them adult).
+    adult_title = f"Adult Intro to Watersports Clinic {suf}"  # 'Adult' prefix
+    adult_tagged = f"ZZ Intro to Pickleball Clinic {suf}"  # only the adult AUDIENCE tag
+    kids_clinic = f"ZZ Youth Pitching Clinic {suf}"
+    with SessionLocal() as db:
+        eids = [
+            _add_event(db, title=adult_title, on=_FUTURE),
+            _add_event(db, title=adult_tagged, on=_FUTURE, tags=["adult"]),
+            _add_event(db, title=kids_clinic, on=_FUTURE, tags=["youth"]),
+        ]
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            got = {r["title"] for r in family_hub.camps_index(db, today=_FUTURE)}
+        assert adult_title not in got  # excluded by the "Adult" title prefix
+        assert adult_tagged not in got  # excluded by the adult audience tag
+        assert kids_clinic in got  # a plain youth clinic still shows
+    finally:
+        _cleanup(eids)
+
+
 def test_camps_index_dedupes_by_title_with_date_range() -> None:
     suf = uuid.uuid4().hex[:8]
     title = f"ZZ Camp I Wanna Go {suf}"
