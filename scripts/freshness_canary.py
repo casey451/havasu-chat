@@ -92,6 +92,7 @@ DATED_PAGES: tuple[str, ...] = (
 # with content — either is healthy); a 404/5xx on any of them fails.
 NAV_PAGES: tuple[str, ...] = (
     "/news",
+    "/lake",      # WS10: a real content hub now (was a 301 to the category)
     "/family",
     "/seniors",
     "/categories",
@@ -106,7 +107,6 @@ NAV_PAGES: tuple[str, ...] = (
     "/terms",
 )
 NAV_REDIRECTS: tuple[str, ...] = (
-    "/lake",      # 301 → /categories/on-the-water
     "/ask",       # 302 → /chat
     "/advertise",  # 301 → /sponsor
     "/account",   # 200 or 3xx to /login depending on auth state

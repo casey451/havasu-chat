@@ -1,0 +1,80 @@
+{% extends "base_redesign.html" %}
+{#- WS10 /lake hub. Live lake conditions + public launch ramps + the on-the-water
+   subcategory lists. Reuses the .famx hub container. Conditions come from
+   build_today_payload (honest live-or-"Unavailable" — never fabricated); ramps
+   are curated + sourced (app.home.lake_hub). Supersedes the C11 redirect; the
+   full directory stays at directory_url and is linked below. -#}
+{% from "components/redesign_icons.html" import icon %}
+{% block title %}Lake &amp; boating — Ask Hava{% endblock %}
+{% block meta_description %}Lake Havasu conditions — water temp, lake level, wind, sunset — plus the public boat launch ramps with fees, and boat rentals, marinas and repair.{% endblock %}
+
+{% block main %}
+<div class="famx">
+  <div class="pagehead">
+    <span class="eyebrow">Lake &amp; boating</span>
+    <h1 class="serif">On the water in Havasu</h1>
+    <p class="dsub">Live lake conditions, where to launch, and who rents, fuels, tours and fixes boats — all in one place.</p>
+  </div>
+
+  {# Live conditions — the SAME source /today uses; the header strip carries the
+     compact version. Each tile is honest live-or-"Unavailable". #}
+  <div class="sec-head famhd">
+    <h2 class="serif">Lake conditions</h2>
+  </div>
+  {% if conditions %}
+  <section class="cgrid" aria-label="Lake conditions">
+    {% for f in conditions %}
+    <div class="cstat">
+      <p class="l">{{ f.label }}</p>
+      {% if f.available %}
+      <p class="v num">{{ f.primary }}</p>
+      {% if f.secondary %}<p class="sub">{{ f.secondary }}</p>{% endif %}
+      {% if f.attribution %}<p class="attr">{{ f.attribution }}{% if f.staleness_label %} &middot; {{ f.staleness_label }}{% endif %}</p>{% endif %}
+      {% else %}
+      <p class="v unavail">{{ f.primary }}</p>
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  {% endif %}
+  <p class="cond-note">Live as of {{ local_time_label }}. Assembled from local sources (USGS, NWS, AirNow, USBR); we show &ldquo;Unavailable&rdquo; rather than guess when a source is out of date — always confirm before you head out.</p>
+
+  {# Public launch ramps — curated + sourced. Fees vary by season/source, so each
+     ramp links to its authority for the reader to verify. #}
+  {% if ramps %}
+  <div class="sec-head famhd">
+    <h2 class="serif">Launch ramps</h2>
+  </div>
+  <div class="famgrid">
+    {% for r in ramps %}
+    <div class="ramp">
+      <div class="rn">{{ r.name }}</div>
+      <span class="rfee">{{ r.fee }}</span>
+      <div class="rmeta">{{ r.area }}<br>{{ r.hours }}<br>{{ r.note }}</div>
+      <a class="rsrc" href="{{ r.source_url }}" target="_blank" rel="noopener nofollow">Details &amp; fees {{ icon('arrow', 12) }}</a>
+    </div>
+    {% endfor %}
+  </div>
+  <p class="cond-note">State-park fees change annually — shown as of Jul 2026; confirm at the gate.</p>
+  {% if paddle_launches %}
+  <p class="paddle"><strong>Kayak, canoe or SUP?</strong> These free non-motorized launches have no ramp fee:
+    {% for p in paddle_launches %}<a href="{{ p.source_url }}" target="_blank" rel="noopener nofollow">{{ p.name }}</a>{% if not loop.last %}, {% endif %}{% endfor %}.</p>
+  {% endif %}
+  {% endif %}
+
+  {# On-the-water subcategory lists — real filtered leaf pages. #}
+  <div class="sec-head famhd">
+    <h2 class="serif">Rentals, marinas &amp; service</h2>
+    <a class="showall" href="{{ directory_url }}">All lake &amp; boating {{ icon('arrow', 14) }}</a>
+  </div>
+  <div class="famgrid">
+    {% for t in tiles %}
+    <a class="famtile" href="{{ t.url }}">
+      <div class="ft serif">{{ t.label }}</div>
+      {% if t.blurb %}<div class="fn">{{ t.blurb }}</div>{% endif %}
+      <span class="fgo" aria-hidden="true">{{ icon('arrow', 14) }}</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}

@@ -24,10 +24,11 @@ from app.analytics import record_event
 from app.categories.display_labels import map_scope_label
 from app.conditions.cache import read_source
 from app.conditions.constants import SOURCE_GAS
+from app.conditions.today_payload import build_today_payload
 from app.conditions.view_model import build_conditions_strip_view_model
 from app.core.rate_limit import limiter
 from app.core.templates import make_templates
-from app.core.timezone import now_lake_havasu
+from app.core.timezone import format_now_lake_havasu, now_lake_havasu
 from app.db.database import get_db
 from app.db.models import AdSlot, Provider, Sponsor
 from app.gas.service import board_from_cache
@@ -37,6 +38,7 @@ from app.home import (
     events_views,
     family_hub,
     family_venues,
+    lake_hub,
     redesign,
     sandstone,
     sponsor_store,
@@ -257,29 +259,60 @@ def _serve_mode_landing(request: Request, db: Session, mode: str) -> HTMLRespons
         "active_tab": "family" if mode == "family" else None,
         **landing,
     }
-    # WS10: /night gets a real "Late-night kitchens" list (Eat & Drink venues open
-    # past 10 PM, from published hours) in place of the old chat deep-link tile.
+    # WS10: /night renders its own richer template — real content, zero /chat?q=
+    # tiles: tonight's live music (the events "music" bucket), the venues-open-
+    # past-10-PM list (from published hours), and honest "coming soon" cards for
+    # surfaces with no structured source yet (happy hours → WS12 connector).
+    template = "mode_redesign.html"
     if mode == "night":
         context["late_kitchens"] = redesign.late_night_kitchens(db)
+        context["music_tonight"] = redesign.night_music_rows(db, day=now.date(), now=now)
+        context["coming_soon"] = list(redesign.NIGHT_COMING_SOON)
+        template = "night_redesign.html"
     return templates.TemplateResponse(
         request=request,
-        name="mode_redesign.html",
+        name=template,
         context=context,
     )
 
 
-# C11: the curated "/lake" mode landing and the "Lake Life" directory category
-# (``/categories/on-the-water``) were two pages for the same thing. Merged into
-# one: ``/lake`` now permanently redirects to the canonical Lake Life category,
-# so the inbound URL keeps working while there is a single surface. (Night/Family
-# keep their mode landings.)
+# C11 merged the curated ``/lake`` landing into the ``on-the-water`` ("Lake Life")
+# directory category (a 301). WS10 supersedes that: ``/lake`` is a real hub again
+# — live conditions + the public launch ramps + the on-the-water subcategory
+# lists — and the full directory stays at this URL, linked from the hub as
+# "Browse all lake & boating listings" (so the two surfaces are complementary,
+# not duplicates).
 LAKE_LIFE_CATEGORY_URL = "/categories/on-the-water"
 
 
 @router.get("/lake", response_class=HTMLResponse, response_model=None)
-def serve_lake(request: Request) -> RedirectResponse:
-    """Permanent redirect: /lake → the Lake Life category (merged surfaces)."""
-    return RedirectResponse(url=LAKE_LIFE_CATEGORY_URL, status_code=301)
+def serve_lake(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    """WS10 /lake hub — live lake conditions (lake level, water temp, wind, AQI,
+    sunset, gas), the public launch ramps with fees, and the on-the-water
+    subcategory lists.
+
+    Conditions reuse the SAME ``build_today_payload`` the /today report uses, so
+    the two never disagree and each field is honest live-or-"Unavailable" (never
+    fabricated). Launch-ramp facts are curated + sourced (``app.home.lake_hub``).
+    """
+    now = now_lake_havasu()
+    payload = build_today_payload(db, now=datetime.now(UTC).replace(tzinfo=None))
+    return templates.TemplateResponse(
+        request=request,
+        name="lake_redesign.html",
+        context={
+            "cond_tiles": redesign.conditions_tiles(db, now=now),
+            "gas": redesign.gas_panel_data(db, now=now),
+            "conditions": payload["fields"],
+            "any_conditions": payload["any_available"],
+            "local_time_label": format_now_lake_havasu(now),
+            "ramps": lake_hub.LAUNCH_RAMPS,
+            "paddle_launches": lake_hub.PADDLE_LAUNCHES,
+            "tiles": lake_hub.lake_tiles(),
+            "directory_url": LAKE_LIFE_CATEGORY_URL,
+            "active_tab": "lake",
+        },
+    )
 
 
 @router.get("/ask", response_class=HTMLResponse, response_model=None)
