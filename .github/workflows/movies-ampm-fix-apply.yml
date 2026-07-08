@@ -1,0 +1,82 @@
+name: movies-ampm-fix-apply
+
+# Approval-gated, reversible correction of AM/PM-flipped Movies Havasu showtimes
+# (a 4 PM matinee the source labels "4 AM"). Fenced like every prod-write op here:
+#   * manual trigger only (workflow_dispatch) — never scheduled, never on push
+#   * dry_run defaults TRUE: the first run previews the rows and writes nothing
+#   * to apply: set dry_run=false AND type CORRECT in `confirm`
+#   * runs in the `production-writes` Environment, so GitHub holds the job until a
+#     required reviewer (Casey) approves it in the UI
+#   * corrects ONLY the rows the WS6 showtime lint flags (<9 AM Movies Havasu,
+#     not a kids-series) with an AM clock → +12h; writes an undo CSV (reversible)
+#
+# Reverse a run: download the `movies-ampm-undo` artifact, then re-dispatch with a
+# small tweak, or locally: python scripts/fix_movies_havasu_ampm_flips.py \
+#   --undo-from undo_movies_ampm.csv --apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview only (no writes). Uncheck to apply.'
+        type: boolean
+        default: true
+      confirm:
+        description: 'Type CORRECT to apply (ignored on dry run)'
+        required: false
+        default: ''
+
+concurrency:
+  group: movies-ampm-fix-apply
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-writes
+    steps:
+      - name: Guard — confirm phrase required to apply
+        if: ${{ !inputs.dry_run && inputs.confirm != 'CORRECT' }}
+        run: |
+          echo "::error::apply requested but confirm was '${{ inputs.confirm }}', expected 'CORRECT'. Aborting before any write."
+          exit 1
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Preview correction (DRY RUN — no writes)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/fix_movies_havasu_ampm_flips.py
+
+      - name: Apply correction (reversible) + write undo CSV
+        if: ${{ !inputs.dry_run && inputs.confirm == 'CORRECT' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/fix_movies_havasu_ampm_flips.py \
+            --apply --undo-csv undo_movies_ampm.csv
+
+      - name: Purge CDN cache after the write (no-op without CF creds)
+        if: ${{ !inputs.dry_run && inputs.confirm == 'CORRECT' }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
+
+      - name: Upload undo CSV
+        if: ${{ always() && !inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: movies-ampm-undo
+          path: undo_movies_ampm.csv
+          if-no-files-found: warn
+          retention-days: 180
