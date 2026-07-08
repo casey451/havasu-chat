@@ -59,7 +59,9 @@ def test_movies_feature_renders_under_lake_theme(monkeypatch: pytest.MonkeyPatch
         with TestClient(app) as client:
             movies = client.get("/movies")
             home = client.get("/home")
-            events = client.get("/events-ui")
+            # WS9c: request the explicit Today view — bare /events-ui defaults to
+            # the This-weekend span on Fri–Sun, which has no movies accordion.
+            events = client.get("/events-ui?view=today")
 
         # /movies: lake base + lake nav Movies link + the film grid body.
         assert movies.status_code == 200

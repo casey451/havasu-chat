@@ -215,6 +215,85 @@ def _is_golf_db_hours(tags: list[str] | None) -> bool:
     return "facet:hours" in tagset and "activity:golf" in tagset
 
 
+# WS9c — feed quick filters (Free / Indoor / Tonight). Occurrence-level
+# predicates applied at the same choke point as the family/seniors narrows, so
+# the day, week and weekend views agree. Each is honest about its data: an event
+# is "free" only when its cost text positively says so (unknown cost is NOT
+# assumed free), "tonight" only from a real evening start_time, "indoor" from the
+# venue's heat_exposure attribute (the cool-venue signal app.alerts.venue_context
+# already uses) plus the inherently climate-controlled funzone activities.
+_EVENING_HOUR = time(17, 0)  # "Tonight" = starts at/after 5 PM
+_INDOOR_ACTIVITY_SLUGS: frozenset[str] = frozenset(
+    {"bowling", "billiards", "trampoline", "family-fun"}
+)
+
+
+def _event_is_free(ev: Event) -> bool:
+    """True only when the event's cost text positively reads as free."""
+    cost = (ev.cost or "").strip().lower()
+    if not cost:
+        return False
+    if "free" in cost or "no charge" in cost:
+        return True
+    return cost.replace("$", "").replace(".00", "").strip() in {"0", "0.0"}
+
+
+def _event_is_evening(ev: Event) -> bool:
+    """True for a real evening start (>= 5 PM); the all-day/TBD sentinel is not."""
+    st = ev.start_time
+    if st is None or (st == time(0, 0) and ev.end_time is None):
+        return False
+    return st >= _EVENING_HOUR
+
+
+def _indoor_venue_name_keys(db: Session) -> set[str]:
+    """Normalized names of venues known indoor/shaded (Entity.heat_exposure).
+
+    One small query — the same indoor/shaded set the heat alerts use for cool-
+    venue suggestions. Empty on any hiccup (Indoor then falls back to the
+    activity-tag signal only)."""
+    from app.db.models import Entity
+
+    try:
+        rows = (
+            db.query(Entity.name)
+            .filter(Entity.heat_exposure.in_(("indoor", "shaded")))
+            .all()
+        )
+    except Exception:
+        return set()
+    return {(n or "").strip().lower() for (n,) in rows if n and n.strip()}
+
+
+def _event_is_indoor(ev: Event, indoor_keys: set[str]) -> bool:
+    """True when the venue is a known indoor/shaded place or the activity is
+    inherently climate-controlled (bowling / billiards / trampoline / arcade)."""
+    tagset = {str(t).strip().lower() for t in (ev.tags or [])}
+    if any(f"activity:{slug}" in tagset for slug in _INDOOR_ACTIVITY_SLUGS):
+        return True
+    key = (getattr(ev, "location_normalized", None) or ev.location_name or "").strip().lower()
+    return bool(key) and key in indoor_keys
+
+
+def _apply_event_quick_filters(
+    events: list[Event],
+    *,
+    free: bool,
+    indoor: bool,
+    tonight: bool,
+    indoor_keys: set[str],
+) -> list[Event]:
+    """Narrow an occurrence list by the WS9c quick filters (independent, AND-ed)."""
+    out = events
+    if free:
+        out = [ev for ev in out if _event_is_free(ev)]
+    if tonight:
+        out = [ev for ev in out if _event_is_evening(ev)]
+    if indoor:
+        out = [ev for ev in out if _event_is_indoor(ev, indoor_keys)]
+    return out
+
+
 def _row_has_special(row: dict[str, Any]) -> bool:
     """True when a row carries a themed-special or competition facet."""
     tagset = {str(t).strip().lower() for t in (row.get("tags") or [])}
@@ -417,6 +496,9 @@ def day_groups(
     day: date,
     family: bool = False,
     seniors: bool = False,
+    free: bool = False,
+    indoor: bool = False,
+    tonight: bool = False,
     now: datetime | None = None,
     events_only: bool = False,
 ) -> list[dict[str, Any]]:
@@ -449,6 +531,14 @@ def day_groups(
         events = [ev for ev in events if is_family_event(ev.title, ev.tags, ev.location_name)]
     elif seniors:
         events = [ev for ev in events if is_senior_event(ev.title, ev.tags, ev.location_name)]
+    # WS9c quick filters (Free / Indoor / Tonight) — same choke point as the
+    # audience narrows so counts and rows stay consistent. indoor_keys is queried
+    # once only when the Indoor narrow is on.
+    if free or indoor or tonight:
+        indoor_keys = _indoor_venue_name_keys(db) if indoor else set()
+        events = _apply_event_quick_filters(
+            events, free=free, indoor=indoor, tonight=tonight, indoor_keys=indoor_keys
+        )
     # Auto-expiry: on the current day, drop occurrences that started >1h ago
     # (no-op for past/future days or when ``now`` isn't supplied).
     events = [
@@ -668,6 +758,9 @@ def calendar_day_view_model(
     now: datetime | None = None,
     family: bool = False,
     seniors: bool = False,
+    free: bool = False,
+    indoor: bool = False,
+    tonight: bool = False,
 ) -> dict[str, Any]:
     """THE single Calendar-surface builder (parity refactor, Rule 0 2026-06-26;
     UNIFY flip, Rule 0b 2026-06-26).
@@ -693,7 +786,8 @@ def calendar_day_view_model(
     order) tuples match across surfaces).
     """
     sections = day_groups(
-        db, day=day, family=family, seniors=seniors, now=now, events_only=False
+        db, day=day, family=family, seniors=seniors, free=free, indoor=indoor,
+        tonight=tonight, now=now, events_only=False,
     )
     movies = movies_today(db, day=day, now=now)
     if movies:
@@ -741,6 +835,9 @@ def week_rows(
     days: int = 7,
     family: bool = False,
     seniors: bool = False,
+    free: bool = False,
+    indoor: bool = False,
+    tonight: bool = False,
     events_only: bool = False,
 ) -> list[dict[str, Any]]:
     """The next-``days`` rows for the week view (gap-free: contiguous dates).
@@ -771,6 +868,15 @@ def week_rows(
     elif seniors:
         by_day = {
             d: [ev for ev in evs if is_senior_event(ev.title, ev.tags, ev.location_name)]
+            for d, evs in by_day.items()
+        }
+    # WS9c quick filters — same predicates as the day view, per day.
+    if free or indoor or tonight:
+        indoor_keys = _indoor_venue_name_keys(db) if indoor else set()
+        by_day = {
+            d: _apply_event_quick_filters(
+                evs, free=free, indoor=indoor, tonight=tonight, indoor_keys=indoor_keys
+            )
             for d, evs in by_day.items()
         }
     event_keys = {

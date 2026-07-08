@@ -135,14 +135,17 @@ def test_calendar_cell_carries_iso_and_count_and_prioritises_oneoffs() -> None:
 # --- /events-ui rendering + ?view= / ?when= / ?date= -------------------------
 
 
-def test_events_ui_renders_view_toggle_and_today_accordion() -> None:
-    """Default /events-ui is the TODAY view: a no-JS Today|Week|Month toggle
-    plus the labelled today section. (Replaces the old ?when= chip/bucket
-    assertions — the protected contract is still "the page exposes labelled,
-    navigable structure", just over the new views.) Seeds one all-day happening
-    for today so the events-only Calendar (two-surface spec §1) has a group to
-    render — without it a quiet day legitimately shows the empty state."""
-    today = now_lake_havasu().date()
+def test_events_ui_renders_view_toggle_and_today_accordion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """On a weekday, the default /events-ui is the TODAY view: a no-JS
+    Today|Week|Month toggle plus the labelled today section. (WS9c makes Fri–Sun
+    default to the This-weekend span, so the clock is pinned to a Monday to test
+    the weekday default deterministically.) Seeds one all-day happening for that
+    day so the events-only Calendar has a group to render."""
+    monday = datetime(2099, 3, 9, 9, 0, tzinfo=_LHC)  # a Monday
+    monkeypatch.setattr("app.home.router.now_lake_havasu", lambda: monday)
+    today = monday.date()
     title = f"ZZ Toggle Probe Festival {uuid.uuid4().hex[:6]}"
     with SessionLocal() as db:
         eid, _ent = _add_event(db, title=title, on=today, start=time(0, 0), loc="Beach",

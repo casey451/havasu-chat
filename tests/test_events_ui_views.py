@@ -424,7 +424,9 @@ def test_date_view_renders_accordion_with_day_nav() -> None:
         assert "Sun Jul 26" in body
         assert 'aria-label="Previous day, Fri Jul 24"' in body
         assert 'aria-label="Next day, Sun Jul 26"' in body
-        assert '<a class="today" href="/events-ui">Today</a>' in body  # back to today
+        # WS9c: the "Today" link is explicit (?view=today) so it overrides the
+        # Fri–Sun weekend default and always lands on the today accordion.
+        assert '<a class="today" href="/events-ui?view=today">Today</a>' in body
     finally:
         _cleanup(eids)
 
