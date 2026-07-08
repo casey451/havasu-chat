@@ -44,10 +44,10 @@ def test_upsert_is_idempotent_and_updates():
     try:
         with SessionLocal() as db:
             c1 = upsert_showtimes(db, [_rec("s1", day=day, hh=11), _rec("s2", day=day, hh=14)])
-            assert c1 == {"created": 2, "updated": 0, "quarantined": 0}
+            assert c1 == {"created": 2, "updated": 0, "quarantined": 0, "auto_corrected": 0}
             # Re-run with the same stable ids -> updates, no new rows.
             c2 = upsert_showtimes(db, [_rec("s1", day=day, hh=12), _rec("s2", day=day, hh=14)])
-            assert c2 == {"created": 0, "updated": 2, "quarantined": 0}
+            assert c2 == {"created": 0, "updated": 2, "quarantined": 0, "auto_corrected": 0}
             rows = list(db.scalars(select(MovieShowtime).where(MovieShowtime.source == SRC)).all())
             assert len(rows) == 2
             s1 = next(r for r in rows if r.source_stable_id == "s1")
@@ -69,7 +69,7 @@ def test_upsert_quarantines_pre_9am_showtime():
                     _rec("moana-pm", day=day, hh=16, title="Moana 2"),  # 4 PM → keep
                 ],
             )
-            assert counts == {"created": 1, "updated": 0, "quarantined": 1}
+            assert counts == {"created": 1, "updated": 0, "quarantined": 1, "auto_corrected": 0}
             times = {
                 r.source_stable_id: r.show_time
                 for r in db.scalars(select(MovieShowtime).where(MovieShowtime.source == SRC)).all()
@@ -77,6 +77,36 @@ def test_upsert_quarantines_pre_9am_showtime():
             assert times == {"moana-pm": time(16, 0)}  # only the plausible row landed
     finally:
         _cleanup()
+
+
+def test_upsert_autocorrects_movies_havasu_flip():
+    """Movies Havasu is an AUTO_CORRECT source (its backend flips PM matinees to
+    AM): a <9 AM Moana is corrected +12h, tagged ``auto_corrected``, and STORED
+    (so the real matinee shows) — not quarantined."""
+    day = date(2099, 8, 7)
+    rec = ShowtimeRecord(
+        source="movies_havasu", source_stable_id="mh-moana-flip",
+        theater_slug="movies-havasu", theater_name="Movies Havasu",
+        film_title="Moana", show_date=day, show_time=time(4, 0), booking_url="http://book",
+    )
+    try:
+        with SessionLocal() as db:
+            counts = upsert_showtimes(db, [rec])
+            assert counts == {"created": 1, "updated": 0, "quarantined": 0, "auto_corrected": 1}
+            row = db.scalars(
+                select(MovieShowtime).where(
+                    MovieShowtime.source == "movies_havasu",
+                    MovieShowtime.source_stable_id == "mh-moana-flip",
+                )
+            ).one()
+            assert row.show_time == time(16, 0)  # 04:00 flipped +12h
+            assert "auto_corrected" in row.tags
+    finally:
+        with SessionLocal() as db:
+            db.execute(
+                delete(MovieShowtime).where(MovieShowtime.source_stable_id == "mh-moana-flip")
+            )
+            db.commit()
 
 
 def test_upsert_keeps_free_kids_series_before_9am():
@@ -88,7 +118,7 @@ def test_upsert_keeps_free_kids_series_before_9am():
             counts = upsert_showtimes(
                 db, [_rec("kids", day=day, hh=8, free=True, title="Kids Summer Series")]
             )
-            assert counts == {"created": 1, "updated": 0, "quarantined": 0}
+            assert counts == {"created": 1, "updated": 0, "quarantined": 0, "auto_corrected": 0}
     finally:
         _cleanup()
 

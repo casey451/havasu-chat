@@ -21,7 +21,7 @@ from __future__ import annotations
 
 import argparse
 import sys
-from datetime import date
+from datetime import date, time
 from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
@@ -177,14 +177,17 @@ def main(argv: list[str] | None = None) -> int:
     print(f"scraped {len(records)} showtimes, {len(films)} films, dates {span}")
 
     # Surface implausibly-early showtimes (before 9 AM — almost always a PM time
-    # the source listed as AM). These are QUARANTINED by upsert_showtimes (never
-    # written); reporting them here lets a --dry-run verify a suspected flip (e.g.
-    # Moana @ 4 AM) against the live render without touching the DB.
+    # the source listed as AM). Movies Havasu is an AUTO_CORRECT source, so
+    # upsert_showtimes flips these +12h and tags them ``auto_corrected`` (its
+    # backend systematically mislabels PM matinees as AM — the booking system has
+    # the same flip). Reporting them here lets a --dry-run see exactly what will be
+    # corrected, no DB writes.
     suspect = [r for r in records if showtime_record_is_suspect(r)]
     if suspect:
-        print(f"QUARANTINE: {len(suspect)} implausible <9AM showtime(s) (likely AM/PM flip):")
+        print(f"AUTO-CORRECT: {len(suspect)} implausible <9AM showtime(s) will flip +12h:")
         for r in sorted(suspect, key=lambda x: (x.show_date, x.show_time, x.film_title)):
-            print(f"  {r.show_date.isoformat()} {r.show_time.isoformat()}  {r.film_title}  {r.booking_url or ''}")
+            fixed = time((r.show_time.hour + 12) % 24, r.show_time.minute)
+            print(f"  {r.show_date.isoformat()} {r.show_time.isoformat()} -> {fixed.isoformat()}  {r.film_title}  {r.booking_url or ''}")
 
     if args.dry_run:
         print("DRY RUN: no writes")
