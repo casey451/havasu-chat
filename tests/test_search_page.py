@@ -93,15 +93,28 @@ def test_search_question_query_redirects_to_ai(db: Session) -> None:
     assert "nf=1" not in r.headers["location"]  # direct AI, not the 0-result note
 
 
-def test_search_zero_result_keyword_falls_back_to_ai(db: Session) -> None:
-    """F13: a real keyword query that matches nothing falls back to the AI
-    (with the nf=1 'no exact matches' note) instead of the dead-end page."""
+def test_search_zero_result_renders_serp_with_escalation_and_logs(db: Session) -> None:
+    """WS9b: a real keyword query that matches nothing no longer 302s to /chat —
+    it renders the SERP with an 'Ask Hava' escalation card, and the miss is
+    logged to QueryLog (result_count == 0) for the coverage backlog."""
+    from sqlalchemy import select
+
+    from app.db.models import QueryLog
+
     nomatch = f"zzqqx{_suffix()}plumberless"
     with TestClient(app) as client:
         r = client.get("/search", params={"q": nomatch}, follow_redirects=False)
-    assert r.status_code == 302
-    assert r.headers["location"].startswith("/chat?q=")
-    assert "nf=1" in r.headers["location"]
+    assert r.status_code == 200  # no redirect — the SERP owns the miss
+    body = r.text
+    assert "No exact matches" in body
+    assert f"/chat?q={nomatch}" in body  # escalation card links to chat
+    assert "Businesses" not in body  # no result sections rendered
+    # The zero-result miss is captured for the demand dashboard.
+    logged = db.scalars(
+        select(QueryLog).where(QueryLog.normalized_intent == nomatch.lower())
+    ).all()
+    assert logged, "zero-result query should be logged"
+    assert all(row.result_count == 0 for row in logged)
 
 
 def test_search_keyword_hit_still_renders_results_no_redirect(db: Session) -> None:
@@ -204,16 +217,19 @@ def test_search_page_blank_q_shows_empty_state() -> None:
     assert "Businesses" not in r.text
 
 
-def test_search_page_no_match_now_falls_back_to_ai() -> None:
-    # F13: a non-empty keyword query with zero matches no longer renders a
-    # dead-end "No matches" page — it 302s to the AI concierge (nf=1 note).
+def test_search_page_no_match_renders_escalation_card_not_redirect() -> None:
+    # WS9b: a non-empty keyword query with zero matches renders the SERP with an
+    # Ask Hava escalation card + popular-category suggestions — never a 302 to a
+    # dead end (the audit's "No exact matches" redirect is gone).
     with TestClient(app) as client:
         r = client.get(
             "/search", params={"q": f"zzqqxx{_suffix()}nomatch"}, follow_redirects=False
         )
-    assert r.status_code == 302
-    assert r.headers["location"].startswith("/chat?q=")
-    assert "nf=1" in r.headers["location"]
+    assert r.status_code == 200
+    body = r.text
+    assert "No exact matches" in body
+    assert 'class="srch-suggest"' in body  # popular-category suggestion chips
+    assert "Eat &amp; Drink" in body
 
 
 def test_search_page_does_not_leak_internal_fields(db: Session) -> None:
@@ -265,13 +281,14 @@ def test_search_page_excludes_draft_and_inactive(db: Session) -> None:
 
     with TestClient(app) as client:
         r = client.get("/search", params={"q": mark}, follow_redirects=False)
-    # The draft+inactive provider is excluded, so the keyword search matches
-    # nothing and falls back to the AI (F13) rather than rendering the draft row.
-    # A 302 to /chat proves the draft produced no keyword result; a leaked row
-    # would instead render a 200 results page.
-    assert r.status_code == 302
-    assert r.headers["location"].startswith("/chat?q=")
-    assert f"draftdojo-{suf}" not in r.headers["location"]
+    # The draft provider is excluded, so the keyword search matches nothing and
+    # renders the no-match SERP (WS9b: no redirect). The draft's slug/name must
+    # not leak into the page; a leaked row would render a Businesses section.
+    assert r.status_code == 200
+    body = r.text
+    assert "No exact matches" in body
+    assert f"draftdojo-{suf}" not in body
+    assert "Businesses" not in body
 
 
 def test_home_has_single_search_form_to_chat() -> None:

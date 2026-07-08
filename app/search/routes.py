@@ -626,6 +626,93 @@ def _keyword_event_rows(db: Session, *, q_clean: str, limit: int) -> list[Event]
     return list(db.scalars(ev_stmt).unique().all())
 
 
+def _keyword_category_results(
+    db: Session, *, q_clean: str, limit: int = 4
+) -> list[dict[str, Any]]:
+    """Category / cuisine landing pages matching the query (WS9b 'categories').
+
+    A structured SERP answers with more than individual providers: a query like
+    "boat rental" or "mexican" also surfaces the *category page* itself as a
+    direct destination. Resolves the query to its taxonomy leaf (the same
+    matcher the provider recall branch uses) and, for a food query, its cuisine
+    landing. Deduped by URL, capped, and never raises."""
+    from app.categories import cuisine_pages, leaf_query, leaf_seo
+    from app.categories.subcategories import cuisine_label, cuisine_query_slug
+
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    # Leaf match is gate-checked inside match_leaf_query (_resolve_gated), so it
+    # only ever returns a leaf whose page actually renders — never a dead link.
+    try:
+        leaf = leaf_query.match_leaf_query(db, q_clean) or leaf_query.match_leaf_service_intent(
+            db, q_clean
+        )
+    except Exception:
+        leaf = None
+    if leaf is not None:
+        url = f"/categories/{leaf.department_slug}/{leaf.slug}"
+        if url not in seen:
+            out.append(
+                {
+                    "name": leaf_seo.display_noun(leaf.slug, leaf.name),
+                    "url": url,
+                    "kind": "Category",
+                }
+            )
+            seen.add(url)
+
+    # Cuisine landing is only linked when it clears its own render gate — the
+    # /lake-havasu/{cuisine} route 404s below CUISINE_PAGE_MIN_PROVIDERS, so an
+    # ungated card would be a dead link.
+    try:
+        cuisine = cuisine_query_slug(q_clean)
+        cuisine_ok = bool(cuisine) and (
+            cuisine_pages.cuisine_provider_count(db, cuisine)
+            >= cuisine_pages.CUISINE_PAGE_MIN_PROVIDERS
+        )
+    except Exception:
+        cuisine, cuisine_ok = None, False
+    if cuisine and cuisine_ok:
+        url = f"/lake-havasu/{cuisine}"
+        if url not in seen:
+            out.append(
+                {
+                    "name": f"{cuisine_label(cuisine)} restaurants",
+                    "url": url,
+                    "kind": "Cuisine",
+                }
+            )
+            seen.add(url)
+
+    return out[:limit]
+
+
+def _log_search_query(db: Session, *, q_clean: str, result_count: int) -> None:
+    """Best-effort QueryLog write for a rendered SERP (WS9b).
+
+    Feeds the existing admin demand dashboard (``app.admin.demand``): rows with
+    ``result_count == 0`` are the coverage backlog — the misses a searcher hit
+    that we have nothing to serve (this is how "batting cages" gets caught).
+    Never raises; a logging hiccup must not break the results page."""
+    from app.v1.query_log import log_query_intent
+
+    normalized = re.sub(r"\s+", " ", (q_clean or "").strip().lower())[:128]
+    if not normalized:
+        return
+    try:
+        log_query_intent(
+            db,
+            normalized_intent=normalized,
+            sub_intent=None,
+            mode="search",
+            min_layer="search",
+            result_count=result_count,
+        )
+    except Exception:  # pragma: no cover - logging is best-effort
+        pass
+
+
 @router.get("/search", response_class=HTMLResponse)
 def search_results_page(
     request: Request,
@@ -648,6 +735,7 @@ def search_results_page(
 
     providers: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
+    categories: list[dict[str, Any]] = []
     if q_clean:
         for p in _keyword_provider_rows(db, q_clean=q_clean, limit=_PAGE_RESULT_LIMIT):
             # Raw Google type tokens ("mexican_restaurant", "bar_and_grill")
@@ -682,15 +770,20 @@ def search_results_page(
                 }
             )
 
-        # F13: a real keyword query that matched nothing no longer dead-ends on
-        # the "No matches" page — fall through to the AI (nf=1 shows a short
-        # "no exact matches" note above the answer). The AI path never re-invokes
-        # keyword search, so there is no loop.
-        if not providers and not events:
-            return RedirectResponse(url=f"/chat?q={quote(q_clean)}&nf=1", status_code=302)
+        categories = _keyword_category_results(db, q_clean=q_clean)
 
-    # Lake Ink & Brass: the concierge falls through here for descriptive
-    # queries, so /search must follow the active theme (was desert-only).
+        # WS9b: log the query (feeds the demand dashboard's coverage backlog).
+        # result_count == 0 is a miss — the acquisition list, e.g. "batting cages"
+        # until WS12 adds Split Finger.
+        _log_search_query(
+            db, q_clean=q_clean, result_count=len(providers) + len(events) + len(categories)
+        )
+
+    # WS9b: a keyword query that matches nothing no longer 302s to /chat (the
+    # audit's "No exact matches" dead end). It renders the SERP with an "Ask
+    # Hava" escalation card; the query is captured above for the coverage feed.
+    # Only genuine natural-language questions (INTENT_AI, handled above) go to
+    # chat directly. Lake Ink & Brass: /search follows the active theme.
     template = "search_lake.html"
     return templates.TemplateResponse(
         request=request,
@@ -699,6 +792,7 @@ def search_results_page(
             "q": q_clean,
             "providers": providers,
             "events": events,
-            "has_results": bool(providers or events),
+            "categories": categories,
+            "has_results": bool(providers or events or categories),
         },
     )

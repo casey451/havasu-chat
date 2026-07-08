@@ -28,10 +28,33 @@
     <p class="srch-empty">Type a keyword above to search Lake Havasu businesses and events,
       or <a href="/chat">ask Hava anything</a>.</p>
   {% elif not has_results %}
-    <p class="srch-empty">No matches for &ldquo;{{ q }}&rdquo; —
-      <a href="/chat?q={{ q | urlencode }}">try Ask Hava</a>.</p>
+    {# WS9b: no dead-end 302 — the SERP owns the miss with an Ask Hava escalation
+       card + popular-category suggestions, and the query is captured for the
+       coverage backlog (admin demand dashboard). #}
+    <div class="srch-escalate-card card" role="group" aria-label="No exact matches">
+      <p class="srch-noresults-h">No exact matches for &ldquo;{{ q }}&rdquo; yet.</p>
+      <a class="btn btn-primary srch-escalate-btn" href="/chat?q={{ q | urlencode }}">Ask Hava about &ldquo;{{ q }}&rdquo; &rarr;</a>
+      <p class="srch-suggest-h">Or browse popular categories</p>
+      <div class="srch-suggest">
+        <a class="chip" href="/categories/eat-and-drink">Eat &amp; Drink</a>
+        <a class="chip" href="/events">Events</a>
+        <a class="chip" href="/gas">Gas prices</a>
+        <a class="chip" href="/categories/things-to-do-and-attractions">Things to Do</a>
+      </div>
+    </div>
   {% else %}
     <p class="srch-summary">Results for &ldquo;{{ q }}&rdquo;</p>
+
+    {% if categories %}
+    <section class="srch-section" aria-labelledby="categories-heading">
+      <div class="sec-head"><h2 id="categories-heading">Categories</h2></div>
+      <div class="srch-cats">
+        {% for c in categories %}
+        <a class="srch-cat" href="{{ c.url }}"><span class="srch-cat-name">{{ c.name }}</span><span class="srch-cat-kind">{{ c.kind }}</span></a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
 
     {% if providers %}
     <section class="srch-section" aria-labelledby="providers-heading">
@@ -68,7 +91,11 @@
     </section>
     {% endif %}
 
-    <p class="srch-cta"><a class="srch-ask" href="/chat?q={{ q | urlencode }}">Ask Hava about this instead &rarr;</a></p>
+    {# WS9b: chat as an escalation card embedded on the SERP (not a redirect). #}
+    <aside class="srch-escalate-card srch-escalate-inline card" aria-label="Ask Hava">
+      <div class="srch-escalate-copy"><strong>Didn't find it?</strong> Ask Hava about &ldquo;{{ q }}&rdquo; — the concierge can search deeper and answer in plain language.</div>
+      <a class="btn btn-primary srch-escalate-btn" href="/chat?q={{ q | urlencode }}">Ask Hava &rarr;</a>
+    </aside>
   {% endif %}
   </div>
 </div>
