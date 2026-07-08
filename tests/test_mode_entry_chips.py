@@ -18,13 +18,10 @@ from app.main import app
 # above-the-fold chip row, removed in the Lake home redesign. Only the
 # route-existence contract (every chip target must resolve) remains under test.
 def test_mode_landing_routes_exist() -> None:
-    """Every entry chip must resolve. C11 merged /lake into the Lake Life
-    category, so /lake now 301-redirects there; /night and /family still render
-    their mode landing."""
+    """Every entry chip must resolve. WS10 rebuilt /lake as a content hub (it had
+    briefly 301'd to the Lake Life category under C11); /lake, /night and /family
+    all render their hub now."""
     with TestClient(app) as client:
-        lake = client.get("/lake", follow_redirects=False)
-        assert lake.status_code == 301
-        assert lake.headers["location"] == "/categories/on-the-water"
-        for path in ("/night", "/family"):
-            r = client.get(path)
+        for path in ("/lake", "/night", "/family"):
+            r = client.get(path, follow_redirects=False)
             assert r.status_code == 200, f"{path} should render (chip target must exist)"
