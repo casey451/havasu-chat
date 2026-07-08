@@ -8,8 +8,10 @@ Meals on Wheels). WS10 adds the live "Today at the Senior Center" feed — the s
 from __future__ import annotations
 
 import uuid
-from datetime import date, time
+from datetime import date, datetime, time
+from zoneinfo import ZoneInfo
 
+import pytest
 from fastapi.testclient import TestClient
 from sqlalchemy import delete
 
@@ -18,6 +20,8 @@ from app.db.database import SessionLocal
 from app.db.models import Entity, Event
 from app.home import seniors_hub
 from app.main import app
+
+_LHC = ZoneInfo("America/Phoenix")
 
 
 def _add_senior_event(db, *, title, on, start=time(12, 30), loc="Lake Havasu Senior Center"):
@@ -58,8 +62,14 @@ def test_seniors_page_renders_static_grid() -> None:
     assert "chat?q=" not in body
 
 
-def test_seniors_today_feed_lists_todays_senior_event() -> None:
+def test_seniors_today_feed_lists_todays_senior_event(monkeypatch: pytest.MonkeyPatch) -> None:
     today = now_lake_havasu().date()
+    # Pin the PAGE's clock to this morning so the seeded 12:30 activity is always
+    # "still upcoming" — otherwise day_groups' same-day auto-expiry (drop items
+    # finished >1h ago) drops it when CI happens to run after ~1:30 PM Phoenix,
+    # making the page assertion time-of-day flaky.
+    fixed = datetime(today.year, today.month, today.day, 9, 0, tzinfo=_LHC)
+    monkeypatch.setattr("app.home.static_pages.now_lake_havasu", lambda: fixed)
     suf = uuid.uuid4().hex[:8]
     title = f"ZZ Senior Bunco {suf}"
     with SessionLocal() as db:
@@ -67,7 +77,7 @@ def test_seniors_today_feed_lists_todays_senior_event() -> None:
         db.commit()
     try:
         with SessionLocal() as db:
-            rows = seniors_hub.today_seniors_rows(db, day=today)
+            rows = seniors_hub.today_seniors_rows(db, day=today, now=fixed)
         match = next((r for r in rows if r["title"].startswith("ZZ Senior Bunco")), None)
         assert match is not None
         assert match["url"].startswith("/events/")
