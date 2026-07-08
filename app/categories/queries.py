@@ -33,7 +33,7 @@ from typing import Any
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
-from app.categories.subcategories import derive_cuisine
+from app.categories.subcategories import effective_cuisine
 from app.core.liveness import DAMPENER_FLOOR, liveness_dampener
 from app.db.models import Provider
 from app.home.queries import _format_phone, _hours_status, _provider_image_url
@@ -725,7 +725,8 @@ def _build_category_card(
         # DL-8: out-of-area hint; "" for in-area / geo-unknown rows.
         "distance_hint": _card_distance_hint(provider),
         "subcategory": _card_subcategory_token(provider, allowed_subcategories),
-        "cuisine": derive_cuisine(
+        "cuisine": effective_cuisine(
+            getattr(provider, "attributes", None),
             getattr(provider, "google_primary_category", None),
             getattr(provider, "google_categories", None),
         )
@@ -1349,7 +1350,8 @@ def category_listing(
             rows = [
                 p
                 for p in rows
-                if derive_cuisine(
+                if effective_cuisine(
+                    getattr(p, "attributes", None),
                     getattr(p, "google_primary_category", None),
                     getattr(p, "google_categories", None),
                 )

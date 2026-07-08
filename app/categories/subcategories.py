@@ -795,6 +795,15 @@ _CUISINES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("sandwiches", "Sandwiches", ("sandwich", "deli", "_sub_", "submarine")),
     ("breakfast", "Breakfast", ("breakfast", "brunch", "pancake")),
     ("diner", "Diner", ("diner",)),
+    # WS9a enum additions (Casey, 2026-07-08): specific cuisines that show up in
+    # Google types with no home in the enum. Each currently has a single Havasu
+    # member, so the >= _CUISINE_CHIP_MIN (2) chip rule keeps them OUT of the facet
+    # row — the enum HOLDS the value (search / data), the UI stays uncluttered.
+    # KFC maps to ``fried_chicken`` because the enum has no generic "fast food"
+    # home. Kept before the generic ``american`` so a specific type wins.
+    ("korean", "Korean", ("korean",)),
+    ("cuban", "Cuban", ("cuban",)),
+    ("fried_chicken", "Fried Chicken", ("chicken_restaurant", "fried_chicken")),
     ("american", "American", ("american",)),
 )
 
@@ -832,6 +841,28 @@ def derive_cuisine(
                 if needle in tok:
                     return slug
     return None
+
+
+def effective_cuisine(
+    attributes: Any = None,
+    google_primary_category: str | None = None,
+    google_categories: Any = None,
+) -> str | None:
+    """Cuisine for a restaurant: curated override first, else derived.
+
+    The WS9a backfill writes an operator-approved cuisine to
+    ``Provider.attributes['cuisine']`` (a valid enum slug); it WINS over the
+    Google-types :func:`derive_cuisine` so a name-only classification ("Filiberto's
+    Mexican Food", whose Google types carry no cuisine token) still surfaces on the
+    facet. A provider with no curated value (or an unknown/invalid one) falls back
+    to the derivation — so this is a no-op until the gated backfill applies. Pure,
+    never raises.
+    """
+    if isinstance(attributes, dict):
+        curated = str(attributes.get("cuisine") or "").strip().lower()
+        if curated in _CUISINE_LABELS:
+            return curated
+    return derive_cuisine(google_primary_category, google_categories)
 
 
 # --- Free-text cuisine intent (search routing) -----------------------------
