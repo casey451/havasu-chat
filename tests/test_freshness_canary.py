@@ -16,6 +16,7 @@ from scripts.freshness_canary import (
     DATED_PAGES,
     NAV_PAGES,
     NAV_REDIRECTS,
+    SAMPLE_UAS,
     Resp,
     extract_cheapest_gas,
     phoenix_today_label,
@@ -72,11 +73,20 @@ def _gas_json(*, now: datetime = _NOW, hours_old: float = 0.5, is_stale: bool = 
     )
 
 
-def _make_fetch(overrides: dict[str, Resp] | None = None):
-    """A fetcher where every URL is healthy unless overridden."""
-    overrides = overrides or {}
+def _make_fetch(overrides: dict | None = None, *, ua_overrides: dict | None = None):
+    """A fetcher where every URL is healthy unless overridden.
 
-    def fetch(path: str) -> Resp:
+    ``overrides`` is keyed by path (any UA). ``ua_overrides`` is keyed by
+    ``(path, ua_name)`` to simulate a UA-keyed edge cache freezing one variant.
+    """
+    overrides = overrides or {}
+    ua_overrides = ua_overrides or {}
+    _ua_name = {ua: name for name, ua in SAMPLE_UAS}
+
+    def fetch(path: str, ua: str | None = None) -> Resp:
+        key = (path, _ua_name.get(ua or ""))
+        if key in ua_overrides:
+            return ua_overrides[key]
         if path in overrides:
             return overrides[path]
         if path == "/health":
@@ -180,6 +190,34 @@ def test_missing_freshness_meta_fails() -> None:
     failures = run_checks(_make_fetch({"/events-ui": no_meta}), _NOW)
     assert any("/events-ui" in f and "build-sha" in f for f in failures)
     assert any("/events-ui" in f and "render-ts" in f for f in failures)
+
+
+def test_one_stale_ua_variant_fails_even_if_others_fresh() -> None:
+    # The 2026-07-07 case: googlebot fresh, but a generic-fetcher UA gets a frozen
+    # pre-deploy copy. One green UA is NOT green — the stale variant must fail.
+    stale = Resp(200, _page(sha="oldsha000000"))
+    failures = run_checks(_make_fetch(ua_overrides={("/events-ui", "curl"): stale}), _NOW)
+    assert any("/events-ui [curl]" in f and "STALE render" in f for f in failures)
+    # ...and the other UAs on that page do NOT fail.
+    assert not any("/events-ui [chrome]" in f for f in failures)
+
+
+def test_all_three_uas_are_sampled() -> None:
+    seen: set[str] = set()
+
+    def fetch(path: str, ua: str | None = None) -> Resp:
+        if path == "/events-ui":
+            seen.add(ua or "")
+        if path == "/health":
+            return Resp(200, _health_json())
+        if path == "/api/gas":
+            return Resp(200, _gas_json())
+        if path in NAV_REDIRECTS:
+            return Resp(301, "")
+        return Resp(200, _page())
+
+    run_checks(fetch, _NOW)
+    assert {ua for _, ua in SAMPLE_UAS} <= seen  # every sample UA hit the page
 
 
 def test_specific_date_day_view_is_freshness_checked() -> None:
