@@ -94,16 +94,18 @@ def main(argv: list[str] | None = None) -> int:
     ap.add_argument("--urls", default="", help="Comma-separated URLs to purge (else purge all).")
     args = ap.parse_args(argv)
 
+    # Wait for the deploy FIRST — independent of CF creds. This doubles as the
+    # post-deploy gate the canary relies on: without it, a credential-less no-op
+    # would return instantly and the canary would run against the OLD build (the
+    # 2026-07-07 post-deploy-verify false red).
+    if args.verify_sha:
+        wait_for_deploy(args.base, args.verify_sha)
+
     token = (os.getenv("CF_PURGE_API_TOKEN") or "").strip()
     zone = (os.getenv("CF_ZONE_ID") or "").strip()
     if not token or not zone:
         print("cache purge SKIPPED — CF_PURGE_API_TOKEN / CF_ZONE_ID not set (no-op).")
         return 0
-
-    if args.verify_sha:
-        # Don't purge into an un-propagated deploy; proceed anyway on timeout so a
-        # slow healthcheck doesn't skip the purge entirely (a later canary catches it).
-        wait_for_deploy(args.base, args.verify_sha)
 
     urls = [u.strip() for u in args.urls.split(",") if u.strip()] or None
     return 0 if purge(token, zone, urls) else 1
