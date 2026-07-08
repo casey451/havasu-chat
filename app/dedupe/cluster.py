@@ -133,6 +133,7 @@ class ProviderRecord:
     review_count: int = 0
     verified: bool = False
     slug: str | None = None
+    website: str | None = None
 
 
 @dataclass
@@ -223,6 +224,18 @@ def _same_brand_core(a: str | None, b: str | None) -> bool:
     """True when two names share the SAME non-empty distinctive brand core."""
     ca = _brand_core(a)
     return bool(ca) and ca == _brand_core(b)
+
+
+# A GLH import twin is an UNMATCHED listing, so it carries ~0 reviews. The phone
+# signal (Signal 5) only fires when at least one row is this thin — the twin's
+# signature — which structurally excludes the co-located class (two established,
+# well-reviewed venues that merely share a resort/plaza switchboard).
+_GLH_TWIN_MAX_REVIEWS = 5
+
+
+def _is_thin(r: ProviderRecord) -> bool:
+    """A row with ~0 reviews — the GLH-import-twin signature."""
+    return int(r.review_count or 0) <= _GLH_TWIN_MAX_REVIEWS
 
 
 class _UnionFind:
@@ -317,10 +330,13 @@ def cluster_providers(records: list[ProviderRecord]) -> list[Cluster]:
                         uf.union(a.id, b.id)
 
     # Signal 5: phone twin — same EXACT phone + EQUAL distinctive brand core, with
-    # NO address requirement (the GLH twin often has a null/different address). The
-    # equal-core gate is what makes phone safe to use across addresses: a shared
-    # resort/plaza switchboard only merges rows whose distinctive brand tokens are
-    # identical, so distinct co-located venues (different lead tokens) stay apart.
+    # NO address requirement (the GLH twin often has a null/different address), AND
+    # at least one row THIN (<= _GLH_TWIN_MAX_REVIEWS). A GLH import twin is
+    # unmatched so it carries ~0 reviews — that thinness is its signature and the
+    # gate that structurally blocks the co-located class: two ESTABLISHED venues
+    # sharing a resort/plaza switchboard (Turtle Grille ★479 vs Turtle Beach Bar
+    # ★480 — both non-thin) never merge, even with an equal bare core. The
+    # equal-core gate still handles the different-brand co-located case.
     by_phone: dict[str, list[ProviderRecord]] = {}
     for r in records:
         pk = phone_key(r.phone)
@@ -330,7 +346,7 @@ def cluster_providers(records: list[ProviderRecord]) -> list[Cluster]:
         for i in range(len(group)):
             for j in range(i + 1, len(group)):
                 a, b = group[i], group[j]
-                if _same_brand_core(a.name, b.name):
+                if (_is_thin(a) or _is_thin(b)) and _same_brand_core(a.name, b.name):
                     uf.union(a.id, b.id)
 
     # Assemble components.
@@ -354,13 +370,20 @@ def cluster_providers(records: list[ProviderRecord]) -> list[Cluster]:
 
 def _pick_primary(members: list[ProviderRecord]) -> ProviderRecord:
     """The row to keep: prefer a google_place_id, then verified, then most reviews,
-    then a stable id tiebreak."""
+    then — the tiebreak that decides 0-vs-0 pairs — DATA RICHNESS (address > phone
+    > website), and finally a stable id. The richness tiebreak keeps the fuller
+    record when review count can't decide (e.g. two GLH imports with no reviews:
+    ``Lake Havasu Bike & Fitness`` / ``Havasu Bike and Fitness``), rather than
+    picking by name or an arbitrary id (WS4, Casey 2026-07-08)."""
     return sorted(
         members,
         key=lambda r: (
             r.google_place_id is None,  # False (has id) sorts first
             not r.verified,
             -int(r.review_count or 0),
+            not bool((r.address or "").strip()),  # richness: address
+            not bool(phone_key(r.phone)),  # richness: phone
+            not bool((r.website or "").strip()),  # richness: website
             str(r.id),
         ),
     )[0]

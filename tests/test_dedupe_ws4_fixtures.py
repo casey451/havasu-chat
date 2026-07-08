@@ -192,3 +192,45 @@ def test_phone_shared_but_distinct_brands_do_not_merge(a: str, b: str) -> None:
         ProviderRecord(id="2", name=b, phone="(928) 855-0000"),
     ]
     assert cluster_providers(recs) == []
+
+
+def test_two_established_venues_sharing_a_phone_do_not_merge() -> None:
+    """The Turtle Beach Bar case: two REAL outlets at one resort with an equal bare
+    brand core ({turtle}) and a shared switchboard — ★4.3/480 in Bars vs ★3.9/479 in
+    Restaurants. Neither is thin, so the phone signal never fires (the thin-row gate
+    is the GLH-twin signature). Distinct venues stay distinct."""
+    recs = [
+        ProviderRecord(id="bar", name="Turtle Beach Bar", phone="(928) 855-6789", review_count=480),
+        ProviderRecord(id="grille", name="Turtle Grille", phone="(928) 855-6789", review_count=479),
+    ]
+    assert cluster_providers(recs) == []
+
+
+def test_phone_signal_still_fires_when_one_row_is_a_thin_twin() -> None:
+    """Same phone + equal core DOES merge once one side is a thin (~0-review) GLH
+    twin — the keeper (reviews + place_id) survives."""
+    recs = [
+        ProviderRecord(id="keeper", name="Turtle Grille", phone="(928) 855-6789",
+                       review_count=479, google_place_id="PID"),
+        ProviderRecord(id="twin", name="Turtle Grille at The Nautical Beachfront Resort",
+                       phone="(928) 855-6789", review_count=0),
+    ]
+    clusters = cluster_providers(recs)
+    assert len(clusters) == 1
+    assert clusters[0].primary.id == "keeper"
+    assert clusters[0].relationship_type == "duplicate"
+
+
+def test_keeper_for_zero_vs_zero_pair_by_data_richness() -> None:
+    """0-vs-0 review twins: keep the RICHER record (address > phone > website), not
+    the one with a longer name or a lower id — the Lake Havasu Bike & Fitness /
+    Havasu Bike and Fitness case."""
+    phone = "(928) 855-0001"
+    recs = [
+        ProviderRecord(id="poor", name="Lake Havasu Bike & Fitness", phone=phone, review_count=0),
+        ProviderRecord(id="rich", name="Havasu Bike and Fitness", phone=phone, review_count=0,
+                       address="2126 McCulloch Blvd N", website="https://havasubike.example"),
+    ]
+    clusters = cluster_providers(recs)
+    assert len(clusters) == 1  # equal {bike, fitness} core + shared phone, both thin
+    assert clusters[0].primary.id == "rich"  # richer record wins the 0-vs-0 tiebreak

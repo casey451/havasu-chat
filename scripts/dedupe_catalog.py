@@ -58,6 +58,7 @@ def _load_records(db) -> list[ProviderRecord]:
             Provider.google_review_count,
             Provider.verified,
             Provider.slug,
+            Provider.website,
         ).where(Provider.is_active.is_(True))
     ).all()
     return [
@@ -70,6 +71,7 @@ def _load_records(db) -> list[ProviderRecord]:
             review_count=int(r.google_review_count or 0),
             verified=bool(r.verified),
             slug=r.slug,
+            website=r.website,
         )
         for r in rows
     ]
