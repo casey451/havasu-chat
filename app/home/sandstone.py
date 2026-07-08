@@ -886,23 +886,14 @@ def parse_cal_param(value: str | None, *, default: datetime) -> tuple[int, int]:
 
 
 
-def _chat_url(query: str) -> str:
-    """A real search URL into the existing 3-tier /chat backend."""
-    from urllib.parse import quote_plus
-
-    return f"/chat?q={quote_plus(query)}"
-
-
 def _tile(emoji: str, title: str, blurb: str, url: str) -> dict[str, str]:
     return {"emoji": emoji, "label": title, "blurb": blurb, "url": url}
 
 
-# -- Lake -------------------------------------------------------------------
-# Boat rentals / launch ramps / marinas+fuel / gear+ice / tours+charters /
-# watercraft service. The closest real page for all on-water sub-tiles is the
-# ``/categories/on-the-water`` department landing. Where the sub-tile is a
-# finer intent than that page exposes today, we deep-link a /chat search so
-# the user still lands on real results instead of a generic page.
+# The mode-landing config now serves ONLY /night — WS10 gave /lake, /family and
+# /seniors their own routes/templates with real content (and /night its own
+# night_redesign.html). The night hero copy + drink tiles live here; the rest of
+# /night's content is assembled in redesign.py + the route.
 
 def _night_tiles() -> list[dict[str, str]]:
     # Both drink tiles land on the bars-and-breweries LEAF (a real filtered list),
@@ -922,24 +913,9 @@ def _night_tiles() -> list[dict[str, str]]:
     ]
 
 
-# -- Family -----------------------------------------------------------------
-# Parks / swim+splash / classes+camps / free events / beat-the-heat /
-# kid-friendly eats. Parks map onto the outdoors department, classes onto
-# family-and-education; free events and kid eats are finer intents routed to
-# /chat search.
-def _family_tiles() -> list[dict[str, str]]:
-    outdoors = "/categories/things-to-do-and-attractions"
-    classes = "/categories/family-and-education"
-    return [
-        _tile("🛝", "Parks & Playgrounds", "Shade, splash pads", outdoors),
-        _tile("🏊", "Swim & Splash", "Aquatic center, beaches", _chat_url("swimming and splash pads")),
-        _tile("🎨", "Classes & Camps", "Art, music, sports", classes),
-        _tile("🎈", "Free Family Events", "This week's lineup", _chat_url("free family events")),
-        _tile("🌧️", "Beat-the-Heat / Rainy Day", "Indoor play, library", _chat_url("indoor activities for kids")),
-        _tile("🍦", "Kid-Friendly Eats", "Menus, patios, treats", _chat_url("kid friendly restaurants")),
-    ]
-
-
+# WS10 (2026-07-08): /family got its own hub (app.home.family_hub +
+# family_redesign.html), so its mode-landing config + chat-deflection tiles are
+# gone. Only /night remains a mode landing.
 _MODE_CONFIG: dict[str, dict[str, Any]] = {
     "night": {
         "eyebrow": "Night",
@@ -950,16 +926,6 @@ _MODE_CONFIG: dict[str, dict[str, Any]] = {
         ),
         "sec_head": "Out tonight",
         "tiles": _night_tiles,
-    },
-    "family": {
-        "eyebrow": "Family",
-        "heading": "Plenty to do with the kids",
-        "blurb": (
-            "The answer to \"there's nothing to do here\" — parks, splash pads, "
-            "classes, free events, and rainy-day backups, all in one place."
-        ),
-        "sec_head": "For the kids",
-        "tiles": _family_tiles,
     },
 }
 
