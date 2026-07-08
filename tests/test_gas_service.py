@@ -156,3 +156,57 @@ def test_legacy_station_dict_shape() -> None:
     assert d["prices"]["midgrade"] == 3.8
     assert d["prices"]["diesel"] is None
     assert "google.com/maps" in board.stations[0].directions_url
+
+
+# ── staleness threshold vs the 3x/day pull cadence (2026-07-08 canary red) ───
+
+
+def test_gas_config_ttl_not_shorter_than_stale_threshold() -> None:
+    """The gas cache TTL must not silently undercut GAS_STALE_AFTER_HOURS.
+
+    ``board_from_cache`` computes ``is_stale = age > GAS_STALE_AFTER_HOURS OR
+    row.is_stale``, and ``row.is_stale`` is driven by ``TTL_BY_SOURCE[SOURCE_GAS]``.
+    If the TTL is shorter than the documented threshold it wins the OR and the
+    board reads stale sooner than intended — the root cause of the 2026-07-08
+    false-red (TTL 8h < 10h threshold).
+    """
+    from app.conditions.constants import (
+        GAS_STALE_AFTER_HOURS,
+        SOURCE_GAS,
+        TTL_BY_SOURCE,
+    )
+
+    assert TTL_BY_SOURCE[SOURCE_GAS] >= GAS_STALE_AFTER_HOURS * 3600
+
+
+def test_gas_stale_threshold_covers_overnight_pull_gap() -> None:
+    """The threshold must exceed the largest normal inter-run gap.
+
+    gas-prices.yml pulls at 06:00 / 13:00 / 20:00 America/Phoenix, so the widest
+    normal gap is the overnight 20:00 -> 06:00 stretch (~10h) plus GitHub cron
+    lag. Below ~11h the banner false-flags stale every morning.
+    """
+    from app.conditions.constants import GAS_STALE_AFTER_HOURS
+
+    assert GAS_STALE_AFTER_HOURS >= 11
+
+
+def test_gas_board_not_stale_within_overnight_gap() -> None:
+    """End-to-end reproduction: a 9h-old payload (mid overnight gap) is fresh.
+
+    Feeds ``board_from_cache`` the ``row.is_stale`` that ``read_source`` would
+    compute from the live gas TTL at 9h, exactly as the /api/gas path does. Before
+    the fix (TTL 8h) this row read stale at 9h and tripped the canary; after it
+    (TTL/threshold 12h) neither OR term fires.
+    """
+    from app.conditions.cache import _is_stale
+    from app.conditions.constants import SOURCE_GAS, TTL_BY_SOURCE
+
+    now = datetime(2026, 7, 8, 13, 0, 0)
+    pulled = now - timedelta(hours=9)
+    row_is_stale = _is_stale(pulled, TTL_BY_SOURCE[SOURCE_GAS], now)
+    assert row_is_stale is False  # cache-layer flag (TTL) must not fire at 9h
+    board = board_from_cache(
+        _row([_st("A", 3.59)], fetched_at=pulled, is_stale=row_is_stale), now=now
+    )
+    assert board.is_stale is False  # board (threshold OR row flag) agrees
