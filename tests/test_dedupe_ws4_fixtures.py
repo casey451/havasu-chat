@@ -115,3 +115,80 @@ def test_generic_subset_does_not_merge_a_person_extra() -> None:
         ),
     ]
     assert cluster_providers(recs) == []
+
+
+# --- WS4 phone-twin signal (Signal 5, 2026-07-08) ---------------------------
+#
+# The GLH twin carries its keeper's PHONE but a name variant and a NULL/different
+# address — the shape the name+address and name+phone signals both miss (the
+# Dos Amigos Taco's case, and the 9 §14.1 twins the client-side cuisine review
+# re-flagged). Several of these are the same pairs the address-only _REVIEW_TIER
+# above still xfails: without a phone they need fuzzy matching; WITH the shared
+# phone + an equal distinctive brand core they resolve at high precision.
+
+# (keeper, glh_twin, shared_phone)
+_PHONE_TWIN: list[tuple[str, str, str]] = [
+    ("Dos Amigos Tacos", "Dos Amigos Taco's", "(928) 302-3282"),  # real, motivating pair
+    ("Bad Miguel's Mexican Restaurant", "Bad Miguel's", "(928) 855-1234"),
+    ("Montana's", "Montana Steak House", "(928) 855-2345"),
+    ("Niko's Grill & Pub", "Niko's Grill and Pub", "(928) 855-3456"),
+    ("Hangar 24 Lake Havasu", "Hangar 24 Taproom & Restaurant", "(928) 855-4567"),
+    ("Kokomo Beach Club", "Kokomo - Beach, Surf & Party Bar", "(928) 855-5678"),
+    ("Turtle Grille", "Turtle Grille at The Nautical Beachfront Resort", "(928) 855-6789"),
+    ("The Office Cocktail Lounge & Grill", "The Office Cocktail Lounge", "(928) 855-7890"),
+    ("Shugrue's Restaurant and Brewery Group", "Shugrue's Restaurant & Bar", "(928) 453-1400"),
+]
+
+
+def _phone_twin_records(keeper: str, twin: str, phone: str) -> list[ProviderRecord]:
+    # Keeper: Google-matched (place_id + reviews + address). Twin: SAME phone, NO
+    # address, a DIFFERENT place_id (two separate Google listings) — the exact shape
+    # that escaped the merge and left both live on the restaurants page.
+    return [
+        ProviderRecord(id="keeper", name=keeper, address="1000 McCulloch Blvd", phone=phone,
+                       google_place_id="PID-keeper", review_count=800, verified=True),
+        ProviderRecord(id="twin", name=twin, address=None, phone=phone,
+                       google_place_id="PID-twin"),
+    ]
+
+
+@pytest.mark.parametrize("keeper,twin,phone", _PHONE_TWIN, ids=[p[0] for p in _PHONE_TWIN])
+def test_phone_twin_merges_as_duplicate(keeper: str, twin: str, phone: str) -> None:
+    clusters = cluster_providers(_phone_twin_records(keeper, twin, phone))
+    assert len(clusters) == 1, f"{keeper} + {twin} did not cluster on the shared phone"
+    c = clusters[0]
+    assert {m.id for m in c.members} == {"keeper", "twin"}
+    assert c.relationship_type == "duplicate", (
+        f"{keeper} + {twin} classified {c.relationship_type}, expected duplicate"
+    )
+    assert c.primary.id == "keeper"  # the reviewed, place_id'd row survives
+
+
+def test_phone_twin_holds_distinctive_landmark_for_review() -> None:
+    """Shugrue's Bridgeview Room shares the group's phone but adds a distinctive
+    LANDMARK token ("bridgeview") — not a generic descriptor. Auto-merging it on
+    phone alone carries the same risk as merging co-located venues, so it stays for
+    human review (an unknown beats a wrong merge)."""
+    recs = _phone_twin_records(
+        "Shugrue's Restaurant and Brewery Group", "Shugrue's Bridgeview Room", "(928) 453-1400"
+    )
+    assert cluster_providers(recs) == []
+
+
+@pytest.mark.parametrize(
+    "a,b",
+    [
+        ("Turtle Grille", "Naked Turtle Beach Bar"),
+        ("WET Pool Bar at The Nautical", "Turtle Grille at The Nautical"),
+        ("Outlet East", "Outlet West"),
+    ],
+)
+def test_phone_shared_but_distinct_brands_do_not_merge(a: str, b: str) -> None:
+    """A shared resort/plaza switchboard must NOT collapse genuinely distinct
+    venues — their distinctive brand tokens differ, so the equal-core gate on the
+    phone signal rejects them."""
+    recs = [
+        ProviderRecord(id="1", name=a, phone="(928) 855-0000"),
+        ProviderRecord(id="2", name=b, phone="(928) 855-0000"),
+    ]
+    assert cluster_providers(recs) == []
