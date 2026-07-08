@@ -49,6 +49,13 @@ _MON = (
 # narrows the scan; this is the precise gate.
 _CAMP_RE = re.compile(r"\b(camps?|clinics?|vbs)\b|vacation bible", re.IGNORECASE)
 
+# Adult-audience veto (Casey 2026-07-08 live review): a KIDS camps page must not
+# list adult programming (e.g. P&R's "Adult Intro to Watersports"). Excluded when
+# the title leads with "Adult"/"Adults" OR the row carries an adult audience tag
+# (the parks_rec loader stamps ``adult`` from an "adult" keyword — AUDIENCE_KEYWORDS).
+_ADULT_TITLE_RE = re.compile(r"^\s*adults?\b", re.IGNORECASE)
+_ADULT_TAGS = frozenset({"adult", "adults"})
+
 
 def _walk_rows(groups: list[dict[str, Any]]) -> list[dict[str, Any]]:
     """Flatten every event row across a day_groups tree (rows + subgroups)."""
@@ -148,6 +155,11 @@ def camps_index(
     for ev in rows:
         title = (ev.title or "").strip()
         if not title or not _CAMP_RE.search(title):
+            continue
+        # Never surface adult programming on the kids camps page.
+        if _ADULT_TITLE_RE.match(title):
+            continue
+        if {str(t).strip().lower() for t in (ev.tags or [])} & _ADULT_TAGS:
             continue
         key = (ev.normalized_title or title).strip().casefold()
         if key in seen:
