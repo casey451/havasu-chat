@@ -79,6 +79,40 @@ def test_favorites_preserves_rating_order_while_featured_demotes_closed():
     assert [c["name"] for c in feat] == ["Open lower", "Top but closed"]  # open lifted
 
 
+def test_cuisine_facet_filters_cards_by_derived_token():
+    # WS9a: cards carry a derived ``cuisine`` token; ?cuisine=mexican keeps only
+    # those, and shown_total reflects the narrowed set.
+    cards = [
+        {"name": "Taqueria", "is_open": True, "cuisine": "mexican"},
+        {"name": "Trattoria", "is_open": True, "cuisine": "italian"},
+        {"name": "Cantina", "is_open": True, "cuisine": "mexican"},
+        {"name": "Place card", "is_open": None, "cuisine": ""},
+    ]
+    visible, ctrl = _apply_list_controls({"cuisine": "mexican"}, cards, base_path=BASE)
+    assert ctrl["cuisine"] == "mexican"
+    assert ctrl["shown_total"] == 2
+    assert [c["name"] for c in visible] == ["Taqueria", "Cantina"]
+
+
+def test_cuisine_absent_is_noop_and_preserves_urls():
+    # No cuisine param -> cuisine is None and the control URLs are byte-identical
+    # to the pre-WS9a contract (no ?cuisine= leaks in).
+    _, ctrl = _apply_list_controls({}, _cards(3), base_path=BASE)
+    assert ctrl["cuisine"] is None
+    assert ctrl["url_top"] == BASE
+    assert ctrl["url_favorites"] == f"{BASE}?sort=favorites"
+    assert ctrl["url_open_on"] == f"{BASE}?open=1"
+
+
+def test_cuisine_preserved_across_sort_and_open_and_pager_urls():
+    # Every sort/open/pager link keeps the active cuisine narrowing.
+    cards = [{"name": f"M{i}", "is_open": True, "cuisine": "mexican"} for i in range(70)]
+    _, ctrl = _apply_list_controls({"cuisine": "mexican"}, cards, base_path=BASE)
+    assert ctrl["url_favorites"] == f"{BASE}?cuisine=mexican&sort=favorites"
+    assert ctrl["url_open_on"] == f"{BASE}?cuisine=mexican&open=1"
+    assert ctrl["url_next"] == f"{BASE}?cuisine=mexican&page=2"
+
+
 def test_pagination_slices_and_links():
     cards = _cards(130)
     visible, ctrl = _apply_list_controls({"page": "2"}, cards, base_path=BASE)
