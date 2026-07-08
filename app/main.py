@@ -62,6 +62,7 @@ from app.auth.session import COOKIE_NAME, SessionMiddleware, cookie_secure_in_pr
 from app.billing.router import router as billing_router
 from app.categories.router import router as direction_c_categories_router
 from app.chat.entity_matcher import refresh_entity_matcher
+from app.core.build_info import build_sha
 from app.core.event_quality import friendly_errors
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
@@ -822,6 +823,10 @@ def health_check(db: Session = Depends(get_db)) -> JSONResponse:
             "status": "ok",
             "db_connected": True,
             "event_count": count,
+            # The running build's commit SHA — the cold-cache canary compares this
+            # (the ACTUAL running app) against each page's <meta name="build-sha">,
+            # so a stale/edge render from an older build is caught.
+            "build_sha": build_sha(),
             # Cluster fingerprint so the web-app/internal-host path can be proven
             # the SAME Postgres as the Actions/public-proxy path (scripts/
             # db_identity_probe.py). system_identifier is initdb-unique per cluster

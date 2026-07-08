@@ -15,6 +15,9 @@
   {% include '_partials/plausible.html' %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  {# Freshness observability — see base_redesign.html. #}
+  <meta name="build-sha" content="{{ build_sha }}">
+  <meta name="render-ts" content="{{ render_ts() }}">
   <title>{% block title %}Ask Hava — Lake Havasu City{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}Ask Hava is Lake Havasu City's local concierge.{% endblock %}">
   {% if canonical_url is defined %}
