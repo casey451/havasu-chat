@@ -1186,6 +1186,22 @@ a.collcard:hover{transform:translateY(-3px);box-shadow:var(--sh-lift)}
 .srch-row-meta{color:var(--ink3);font-size:13px;margin-top:4px}
 .srch-row-venue{margin-left:8px}
 .srch-cta{margin-top:20px}
+/* WS9b: structured SERP — category result cards, escalation card, suggestions */
+.srch-cats{display:flex;flex-wrap:wrap;gap:10px}
+.srch-cat{display:inline-flex;flex-direction:column;gap:2px;min-height:44px;justify-content:center;background:var(--surface);border:1px solid var(--hair);border-radius:12px;padding:10px 16px;text-decoration:none;box-shadow:var(--sh-sm);transition:.16s}
+.srch-cat:hover{border-color:var(--teal-line)}
+.srch-cat-name{font-family:var(--disp);font-weight:600;font-size:15px;color:var(--ink)}
+.srch-cat-kind{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brass-ink)}
+.srch-escalate-card{margin:24px 0 8px;padding:20px;display:flex;flex-direction:column;gap:12px;align-items:flex-start;background:linear-gradient(165deg,var(--teal),var(--teal-deep));color:#eef3f7;border:0;border-radius:var(--rad)}
+.srch-escalate-card.card{background:linear-gradient(165deg,var(--teal),var(--teal-deep))}
+.srch-escalate-inline{flex-direction:row;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:14px}
+.srch-escalate-copy{font-size:14.5px;line-height:1.5;flex:1 1 260px}
+.srch-noresults-h{font-family:var(--disp);font-size:18px;font-weight:600;margin:0}
+.srch-escalate-btn{align-self:flex-start;min-height:44px;display:inline-flex;align-items:center}
+.srch-suggest-h{font-size:13px;color:#dfeaec;margin:4px 0 0;opacity:.9}
+.srch-suggest{display:flex;flex-wrap:wrap;gap:8px}
+.srch-suggest .chip{display:inline-flex;align-items:center;min-height:44px;font-size:13px;font-weight:500;color:#eef3f7;background:rgba(255,255,255,.12);border:1px solid rgba(255,255,255,.22);border-radius:999px;padding:8px 15px;text-decoration:none;transition:.16s}
+.srch-suggest .chip:hover{background:rgba(255,255,255,.2)}
 
 /* ── /map full-page chrome (v4.6 PR-1). map_view.css owns the load-bearing
    full-viewport layout; base_plain's centered shell must not constrain it. ── */

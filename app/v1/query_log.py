@@ -72,18 +72,29 @@ def log_query_intent(
     component_type: str = "none",
     component_data: dict[str, Any] | None = None,
     min_layer: str | None = None,
+    result_count: int | None = None,
 ) -> None:
-    """Best-effort insert; never raises."""
+    """Best-effort insert; never raises.
+
+    ``result_count`` overrides the component-derived count when the caller
+    already knows how many results it rendered (e.g. the ``/search`` SERP, whose
+    result set is a flat provider/event/category list rather than a chat
+    component). ``result_count == 0`` rows are the coverage backlog the admin
+    demand dashboard (``app.admin.demand``) surfaces as the acquisition list.
+    """
     intent = (normalized_intent or sub_intent or mode or "unknown").strip()[:128]
     if not intent:
         intent = "unknown"
     category = bucket_for_legacy_category(category_hint) if category_hint else None
     if category is None and sub_intent:
         category = bucket_for_legacy_category(sub_intent)
-    count = _result_count_from_component(
-        component_type or "none",
-        component_data or {},
-    )
+    if result_count is not None:
+        count = max(int(result_count), 0)
+    else:
+        count = _result_count_from_component(
+            component_type or "none",
+            component_data or {},
+        )
     try:
         row = QueryLog(
             normalized_intent=intent,
