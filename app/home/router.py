@@ -33,7 +33,14 @@ from app.db.models import AdSlot, Provider, Sponsor
 from app.gas.service import board_from_cache
 from app.groups.themed_groups import group_label
 from app.home import collections as curated_collections
-from app.home import events_views, redesign, sandstone, sponsor_store
+from app.home import (
+    events_views,
+    family_hub,
+    family_venues,
+    redesign,
+    sandstone,
+    sponsor_store,
+)
 from app.monetization import serving
 from app.news import store as news_store
 
@@ -291,8 +298,44 @@ def serve_night(request: Request, db: Session = Depends(get_db)) -> HTMLResponse
 
 @router.get("/family", response_class=HTMLResponse)
 def serve_family(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Family mode landing."""
-    return _serve_mode_landing(request, db, "family")
+    """WS10 /family hub — today's kids feed, the indoor/"beat the heat" venues open
+    now, a summer-camps preview, and the kids subcategory lists. Real,
+    server-rendered content only — no /chat?q= deflection tiles."""
+    now = now_lake_havasu()
+    day = now.date()
+    return templates.TemplateResponse(
+        request=request,
+        name="family_redesign.html",
+        context={
+            **family_hub.FAMILY_HERO,
+            "cond_tiles": redesign.conditions_tiles(db, now=now),
+            "gas": redesign.gas_panel_data(db, now=now),
+            "kids_today": family_hub.kids_today_rows(db, day=day, now=now),
+            "open_today": family_venues.open_today_rows(day),
+            "camps": family_hub.camps_index(db, today=day, limit=6),
+            "camps_url": "/family/camps",
+            "tiles": family_hub.family_tiles(),
+            "active_tab": "family",
+        },
+    )
+
+
+@router.get("/family/camps", response_class=HTMLResponse, response_model=None)
+def serve_family_camps(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
+    """WS10 /family/camps — the seasonal index of day camps / clinics / VBS already
+    in the events DB (v1). Designed so WS12 connector camp rows slot in with no
+    page change."""
+    now = now_lake_havasu()
+    return templates.TemplateResponse(
+        request=request,
+        name="family_camps.html",
+        context={
+            "cond_tiles": redesign.conditions_tiles(db, now=now),
+            "gas": redesign.gas_panel_data(db, now=now),
+            "camps": family_hub.camps_index(db, today=now.date()),
+            "active_tab": "family",
+        },
+    )
 
 
 @router.get("/kids", response_model=None)
