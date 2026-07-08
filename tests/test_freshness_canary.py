@@ -140,11 +140,12 @@ def test_404_on_nav_page_fails() -> None:
 
 
 def test_redirect_nav_url_404_fails_but_3xx_passes() -> None:
-    # /lake normally 301s (healthy). A 404 there is a broken nav link.
+    # /ask 302s to /chat (healthy). A 404 there is a broken nav link. (/lake is a
+    # content NAV_PAGE now — WS10 — so /ask is the redirect example here.)
     ok = run_checks(_make_fetch(), _NOW)
-    assert not any("/lake" in f for f in ok)
-    bad = run_checks(_make_fetch({"/lake": Resp(404, "")}), _NOW)
-    assert any("/lake" in f for f in bad)
+    assert not any("/ask" in f for f in ok)
+    bad = run_checks(_make_fetch({"/ask": Resp(404, "")}), _NOW)
+    assert any("/ask" in f for f in bad)
 
 
 def test_old_gas_feed_fails() -> None:

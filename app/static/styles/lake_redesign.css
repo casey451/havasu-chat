@@ -1329,3 +1329,28 @@ body.map-page .rd-shell > main{padding:0}
 .famtile.ph{cursor:default;background:var(--paper2);box-shadow:none}
 .famtile.ph:hover{box-shadow:none;border-color:var(--hair);transform:none}
 .famtile .soon{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brass-ink);background:var(--brass-soft);border:1px solid var(--brass-line);border-radius:999px;padding:2px 9px;margin-bottom:8px}
+
+/* ── WS10 /lake hub ─────────────────────────────────────────────────────
+   Reuses the .famx hub container (pagehead / eyebrow / famhd / famgrid /
+   famtile) and adds a live-conditions grid + launch-ramp cards. Self-contained
+   cards (no dependency on a global .card base). */
+.famx .cgrid{display:grid;grid-template-columns:repeat(3,1fr);gap:14px;margin-top:6px}
+.famx .cstat{background:var(--surface);border:1px solid var(--hair);border-radius:var(--rad);box-shadow:var(--sh-sm);padding:16px 18px}
+.famx .cstat .l{font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--ink3)}
+.famx .cstat .v{font-family:var(--disp);font-weight:600;font-size:28px;letter-spacing:-.02em;margin-top:6px;color:var(--ink)}
+.famx .cstat .v.unavail{color:var(--ink3);font-size:20px}
+.famx .cstat .sub{font-size:13px;color:var(--ink2);margin-top:3px}
+.famx .cstat .attr{font-size:12px;color:var(--ink3);margin-top:7px}
+@media(max-width:860px){.famx .cgrid{grid-template-columns:1fr 1fr}}
+@media(max-width:520px){.famx .cgrid{grid-template-columns:1fr}}
+.famx .cond-note{font-size:13px;color:var(--ink3);margin:12px 0 0;max-width:70ch;line-height:1.55}
+/* Launch-ramp cards: name · fee (emphasized) · area/hours · source link. */
+.ramp{display:block;background:var(--surface);border:1px solid var(--hair);border-radius:var(--rad);box-shadow:var(--sh-sm);padding:16px 18px}
+.ramp .rn{font-family:var(--disp);font-weight:500;font-size:17px;color:var(--ink)}
+.ramp .rfee{display:inline-block;margin:7px 0 0;font-size:12.5px;font-weight:700;color:var(--brass-ink);background:var(--brass-soft);border:1px solid var(--brass-line);border-radius:999px;padding:2px 10px}
+.ramp .rmeta{font-size:13px;color:var(--ink2);margin-top:8px;line-height:1.5}
+.ramp .rsrc{font-size:12px;color:var(--teal);margin-top:8px;display:inline-block;text-decoration:none}
+.ramp .rsrc:hover{text-decoration:underline}
+.paddle{font-size:13.5px;color:var(--ink2);margin-top:8px;line-height:1.6}
+.paddle a{color:var(--teal);text-decoration:none}
+.paddle a:hover{text-decoration:underline}
