@@ -1,0 +1,53 @@
+name: dedupe-ws4-apply
+
+# GATED apply of the WS4 phone-signal dedup retirements (2026-07-08). Retires every
+# duplicate-classified clone + the 4 audit-confirmed multi_location upgrades
+# (address variants) via provider_merge (soft-retire + merged_into_slug 301 +
+# gap-fill + FK repoint), and uploads an undo CSV. Nothing else is touched. Dry-run
+# by default; the real write needs apply=true on dispatch. Runs here because the
+# repo .env points DATABASE_URL at Railway's internal host.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Set true to WRITE the retirements (default false = dry-run)"
+        type: boolean
+        default: false
+
+permissions:
+  contents: read
+
+jobs:
+  dedupe-ws4-apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Apply WS4 dedup retirements (dry-run unless apply=true)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          if [ "${{ inputs.apply }}" = "true" ]; then
+            python scripts/dedupe_apply_ws4_2026_07_08.py --apply
+          else
+            python scripts/dedupe_apply_ws4_2026_07_08.py
+          fi
+
+      - name: Upload undo CSV
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: dedupe-ws4-apply-undo
+          path: dedupe_apply_ws4_undo_2026-07-08.csv
+          if-no-files-found: warn

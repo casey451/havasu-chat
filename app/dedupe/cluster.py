@@ -10,6 +10,15 @@ Signals, in priority order (a match on ANY unions two records into one cluster):
   3. Normalized name + normalized phone equal.
   4. Slug-family: trailing ``-N`` name variant (``x`` vs ``x-2``), or a token-subset
      name match at the SAME address (``denny-s`` vs ``denny-s-restaurant``).
+  5. **Phone twin (WS4):** the SAME exact phone + an EQUAL distinctive brand core
+     (brand tokens after dropping articles / venue / cuisine / geo / entity
+     descriptors and folding plural-possessive), address NOT required. Catches the
+     GLH-import twin that carries its keeper's phone but has a name variant and a
+     missing/different address — ``Dos Amigos Taco's`` (same ``(928) 302-3282``, no
+     address) vs ``Dos Amigos Tacos``. Equal-core-gated so co-located venues that
+     share a resort/plaza switchboard (``Turtle Grille`` vs ``Naked Turtle Beach
+     Bar``; ``Outlet East`` vs ``Outlet West``) — whose distinctive tokens differ —
+     are NOT merged.
 
 Per cluster the engine emits the **primary** (the row to keep) plus the **members**
 and a best-guess **relationship type**:
@@ -77,6 +86,32 @@ _GENERIC_DESCRIPTORS: frozenset[str] = frozenset(
 # and the lone "s" that slugify leaves from a possessive ("Denny's" -> denny-s).
 _SUBSET_STOPWORDS: frozenset[str] = frozenset({"the", "and", "of", "a", "an", "at", "s"})
 
+# WS4 phone-twin brand-core descriptor set (Signal 5). A SUPERSET of
+# ``_GENERIC_DESCRIPTORS`` that additionally drops venue-type, resort/location, and
+# business-entity words, so two rows that are the SAME brand differing only by a
+# venue / location / legal suffix collapse to the same distinctive core
+# (``Hangar 24 Lake Havasu`` and ``Hangar 24 Taproom & Restaurant`` both → {hangar,
+# 24}). Kept SEPARATE from ``_GENERIC_DESCRIPTORS`` (the conservative same-address
+# path must NOT drop "bar"/"grill"). Deliberately excludes distinctive tokens — a
+# person, a landmark ("Bridgeview"), a direction ("East"/"West"), or a second brand
+# word ("Naked") — so genuinely distinct co-located venues keep distinct cores.
+_CORE_DESCRIPTORS: frozenset[str] = _GENERIC_DESCRIPTORS | frozenset(
+    {
+        # venue / vibe types
+        "bar", "grill", "taproom", "taphouse", "tavern", "saloon", "cafe", "bistro",
+        "club", "pool", "deli", "bakery", "catering", "brewhouse", "shack", "room",
+        "patio", "wine", "winery", "spirits", "eats",
+        # beach / water vibe descriptors
+        "beach", "surf", "party", "waterfront",
+        # lodging / on-site location descriptors
+        "resort", "hotel", "motel", "spa", "marina", "nautical", "beachfront",
+        # geo (Lake Havasu region)
+        "lake", "havasu", "city", "az", "arizona", "lhc",
+        # business-entity suffixes
+        "co", "company", "group", "holdings", "inc", "llc", "ltd",
+    }
+)
+
 _SUITE_RE = re.compile(
     r"\b(?:ste|suite|unit|apt|apartment|bldg|building|fl|floor|rm|room)\b\s*#?\s*[\w-]+"
     r"|#\s*[\w-]+",
@@ -98,6 +133,7 @@ class ProviderRecord:
     review_count: int = 0
     verified: bool = False
     slug: str | None = None
+    website: str | None = None
 
 
 @dataclass
@@ -166,6 +202,40 @@ def address_key(address: str | None) -> str | None:
 def phone_key(phone: str | None) -> str | None:
     """Canonical phone key (reuses contact_norm.norm_phone)."""
     return norm_phone(phone)
+
+
+def _depluralize(tok: str) -> str:
+    """Fold a trailing plural/possessive ``s`` on tokens long enough to be a real
+    word (so ``tacos``/``taco`` and ``amigos``/``amigo`` match, but ``dos`` and a
+    lone ``s`` are untouched)."""
+    return tok[:-1] if len(tok) > 3 and tok.endswith("s") else tok
+
+
+def _brand_core(name: str | None) -> frozenset[str]:
+    """Distinctive brand tokens of a name: tokens minus articles and venue /
+    cuisine / geo / entity descriptors, plural-folded. An all-descriptor name
+    ("The Grill", "Beach Bar") yields the empty set and therefore never matches —
+    a brand core must carry at least one distinctive word."""
+    toks = _name_tokens(name_key(name)) - _SUBSET_STOPWORDS - _CORE_DESCRIPTORS
+    return frozenset(_depluralize(t) for t in toks)
+
+
+def _same_brand_core(a: str | None, b: str | None) -> bool:
+    """True when two names share the SAME non-empty distinctive brand core."""
+    ca = _brand_core(a)
+    return bool(ca) and ca == _brand_core(b)
+
+
+# A GLH import twin is an UNMATCHED listing, so it carries ~0 reviews. The phone
+# signal (Signal 5) only fires when at least one row is this thin — the twin's
+# signature — which structurally excludes the co-located class (two established,
+# well-reviewed venues that merely share a resort/plaza switchboard).
+_GLH_TWIN_MAX_REVIEWS = 5
+
+
+def _is_thin(r: ProviderRecord) -> bool:
+    """A row with ~0 reviews — the GLH-import-twin signature."""
+    return int(r.review_count or 0) <= _GLH_TWIN_MAX_REVIEWS
 
 
 class _UnionFind:
@@ -259,6 +329,26 @@ def cluster_providers(records: list[ProviderRecord]) -> list[Cluster]:
                     if pa is not None and pa == pb:  # strict: same phone required
                         uf.union(a.id, b.id)
 
+    # Signal 5: phone twin — same EXACT phone + EQUAL distinctive brand core, with
+    # NO address requirement (the GLH twin often has a null/different address), AND
+    # at least one row THIN (<= _GLH_TWIN_MAX_REVIEWS). A GLH import twin is
+    # unmatched so it carries ~0 reviews — that thinness is its signature and the
+    # gate that structurally blocks the co-located class: two ESTABLISHED venues
+    # sharing a resort/plaza switchboard (Turtle Grille ★479 vs Turtle Beach Bar
+    # ★480 — both non-thin) never merge, even with an equal bare core. The
+    # equal-core gate still handles the different-brand co-located case.
+    by_phone: dict[str, list[ProviderRecord]] = {}
+    for r in records:
+        pk = phone_key(r.phone)
+        if pk:
+            by_phone.setdefault(pk, []).append(r)
+    for group in by_phone.values():
+        for i in range(len(group)):
+            for j in range(i + 1, len(group)):
+                a, b = group[i], group[j]
+                if (_is_thin(a) or _is_thin(b)) and _same_brand_core(a.name, b.name):
+                    uf.union(a.id, b.id)
+
     # Assemble components.
     comps: dict[str, list[ProviderRecord]] = {}
     for r in records:
@@ -280,13 +370,20 @@ def cluster_providers(records: list[ProviderRecord]) -> list[Cluster]:
 
 def _pick_primary(members: list[ProviderRecord]) -> ProviderRecord:
     """The row to keep: prefer a google_place_id, then verified, then most reviews,
-    then a stable id tiebreak."""
+    then — the tiebreak that decides 0-vs-0 pairs — DATA RICHNESS (address > phone
+    > website), and finally a stable id. The richness tiebreak keeps the fuller
+    record when review count can't decide (e.g. two GLH imports with no reviews:
+    ``Lake Havasu Bike & Fitness`` / ``Havasu Bike and Fitness``), rather than
+    picking by name or an arbitrary id (WS4, Casey 2026-07-08)."""
     return sorted(
         members,
         key=lambda r: (
             r.google_place_id is None,  # False (has id) sorts first
             not r.verified,
             -int(r.review_count or 0),
+            not bool((r.address or "").strip()),  # richness: address
+            not bool(phone_key(r.phone)),  # richness: phone
+            not bool((r.website or "").strip()),  # richness: website
             str(r.id),
         ),
     )[0]
@@ -307,11 +404,15 @@ def _classify(members: list[ProviderRecord], primary: ProviderRecord) -> tuple[s
     # "X at Y" / "X @ Y" names an amenity located inside the parent venue (a pub
     # at a bowling alley, a dog park at a beach). Keep it as a child rather than
     # retire it — biasing an ambiguous cluster toward KEEP is the safe direction.
+    # EXCEPTION (WS4): when the "at Y" member shares the primary's distinctive
+    # brand core (``Turtle Grille`` vs ``Turtle Grille at The Nautical Beachfront
+    # Resort``), the "at Y" is a location suffix on the SAME brand, not a distinct
+    # amenity — that is a duplicate to retire, so don't force parent/child here.
     for m in members:
         if m.id == primary.id:
             continue
         low = f" {m.name.lower()} "
-        if " at " in low or " @ " in low:
+        if (" at " in low or " @ " in low) and not _same_brand_core(m.name, primary.name):
             return ("parent_child", "a member is an amenity located 'at' the parent venue")
 
     prim_tokens = _name_tokens(name_key(primary.name))
