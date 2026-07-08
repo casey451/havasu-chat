@@ -46,6 +46,19 @@ DEFAULT_BASE = "https://askhava.com"
 
 # A crawler UA with no cookie jar — the exact profile that reproduced B1 cold.
 BOT_UA = "Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)"
+CURL_UA = "curl/8.4.0"
+CHROME_UA = (
+    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 "
+    "(KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36"
+)
+# Sample every freshness-critical page with ≥3 UA classes: a UA-keyed edge cache
+# can freeze ONE variant while another stays fresh (2026-07-07: a generic-fetcher
+# UA got a pre-deploy render while Googlebot was fresh). One green UA is not green.
+SAMPLE_UAS: tuple[tuple[str, str], ...] = (
+    ("googlebot", BOT_UA),
+    ("curl", CURL_UA),
+    ("chrome", CHROME_UA),
+)
 
 # Gas older than this (or self-reported stale) fails the canary (spec WS1: gas
 # ``updated_at`` must be < 24h). The app flags is_stale sooner (10h) — either
@@ -195,6 +208,19 @@ def _check_page_freshness(
         )
 
 
+def _sweep_freshness(
+    fetch, path: str, expected_sha: str | None, now_utc: datetime, failures: list[str]
+) -> None:
+    """Fetch ``path`` with EVERY sample UA and freshness-check each — a UA-keyed
+    edge cache that freezes one variant fails here even if another UA is fresh."""
+    for uaname, ua in SAMPLE_UAS:
+        r = fetch(path, ua)
+        if r.status != 200:
+            failures.append(f"{path} [{uaname}]: expected 200, got {r.status}")
+            continue
+        _check_page_freshness(f"{path} [{uaname}]", r.text, expected_sha, now_utc, failures)
+
+
 def _check_gas_freshness(fetch, now_utc: datetime, failures: list[str]) -> None:
     r = fetch("/api/gas")
     if r.status != 200:
@@ -227,8 +253,9 @@ def _check_gas_freshness(fetch, now_utc: datetime, failures: list[str]) -> None:
 def run_checks(fetch, now_utc: datetime) -> list[str]:
     """Return a list of human-readable failure messages (empty == all green).
 
-    ``fetch(path) -> Resp`` must NOT auto-follow redirects, so route health can
-    distinguish a 3xx from a blank 200.
+    ``fetch(path, ua=None) -> Resp`` must NOT auto-follow redirects, so route
+    health can distinguish a 3xx from a blank 200. Freshness-critical pages are
+    sampled across :data:`SAMPLE_UAS`; the rest use the default UA.
     """
     failures: list[str] = []
     label = phoenix_today_label(now_utc)
@@ -251,7 +278,8 @@ def run_checks(fetch, now_utc: datetime) -> list[str]:
             )
         if _main_len(r.text) < _MAIN_MIN_CHARS:
             failures.append(f"{path}: <main> is nearly empty ({_main_len(r.text)} chars)")
-        _check_page_freshness(path, r.text, expected_sha, now_utc, failures)
+        # Freshness sampled across ≥3 UA classes (a UA-keyed edge cache freezes one).
+        _sweep_freshness(fetch, path, expected_sha, now_utc, failures)
         price = extract_cheapest_gas(r.text)
         if price is not None:
             gas_prices.add(price)
@@ -259,11 +287,7 @@ def run_checks(fetch, now_utc: datetime) -> list[str]:
     # 1b. A SPECIFIC-date day view (the exact surface a stale render was served on):
     #     no "today" label to lean on, so build-sha + render-ts are the only guard.
     specific_day = "/events-ui?date=" + now_utc.astimezone(LAKE_HAVASU_TZ).date().isoformat()
-    rd = fetch(specific_day)
-    if rd.status != 200:
-        failures.append(f"{specific_day}: expected 200, got {rd.status}")
-    else:
-        _check_page_freshness(specific_day, rd.text, expected_sha, now_utc, failures)
+    _sweep_freshness(fetch, specific_day, expected_sha, now_utc, failures)
 
     # 2. One cheapest-gas price everywhere (edge divergence = the '5 prices' bug).
     if len(gas_prices) > 1:
@@ -302,9 +326,9 @@ class _NoRedirect(urllib.request.HTTPRedirectHandler):
 def _live_fetcher(base: str):
     opener = urllib.request.build_opener(_NoRedirect)
 
-    def fetch(path: str) -> Resp:
-        req = urllib.request.Request(  # noqa: S310 — fixed https base, bot UA
-            base + path, headers={"User-Agent": BOT_UA, "Cookie": ""}
+    def fetch(path: str, ua: str | None = None) -> Resp:
+        req = urllib.request.Request(  # noqa: S310 — fixed https base, bot/sample UA
+            base + path, headers={"User-Agent": ua or BOT_UA, "Cookie": ""}
         )
         try:
             with opener.open(req, timeout=30) as resp:
