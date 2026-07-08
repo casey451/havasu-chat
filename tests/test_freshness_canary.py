@@ -26,15 +26,37 @@ from scripts.freshness_canary import (
 # rendered label is "Monday, July 6".
 _NOW = datetime(2099, 7, 6, 19, 0, tzinfo=UTC)
 _LABEL = "Monday, July 6"
+_SHA = "abc123def456"
 
 
-def _page(*, label: str = _LABEL, price: str | None = "$3.59", body: str = "x" * 800) -> str:
-    """A healthy dated page: today's label, a fat <main>, optional gas chip."""
+def _ts(dt: datetime) -> str:
+    return dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+
+
+def _page(
+    *,
+    label: str = _LABEL,
+    price: str | None = "$3.59",
+    body: str = "x" * 800,
+    sha: str | None = _SHA,
+    rendered: datetime | None = None,
+) -> str:
+    """A healthy dated page: today's label, a fat <main>, optional gas chip, and
+    the freshness metas (build-sha + render-ts) — fresh by default."""
     gas = f'<span class="gr num">{price}</span>' if price else ""
+    meta = ""
+    if sha is not None:
+        meta += f'<meta name="build-sha" content="{sha}">'
+    meta += f'<meta name="render-ts" content="{_ts(rendered or _NOW)}">'
     return (
+        f"<head>{meta}</head>"
         f"<header><span class='r'>{label}</span>{gas}</header>"
         f'<main id="main">{body}</main>'
     )
+
+
+def _health_json(*, sha: str = _SHA) -> str:
+    return json.dumps({"status": "ok", "db_connected": True, "build_sha": sha})
 
 
 def _gas_json(*, now: datetime = _NOW, hours_old: float = 0.5, is_stale: bool = False,
@@ -57,6 +79,8 @@ def _make_fetch(overrides: dict[str, Resp] | None = None):
     def fetch(path: str) -> Resp:
         if path in overrides:
             return overrides[path]
+        if path == "/health":
+            return Resp(200, _health_json())
         if path == "/api/gas":
             return Resp(200, _gas_json())
         if path in NAV_REDIRECTS:
@@ -133,6 +157,42 @@ def test_gas_endpoint_500_fails() -> None:
 def test_dated_page_500_fails() -> None:
     failures = run_checks(_make_fetch({"/gas": Resp(500, "")}), _NOW)
     assert any("/gas" in f and "500" in f for f in failures)
+
+
+def test_stale_build_sha_fails() -> None:
+    # A page served from an OLDER build than the running app (edge/CDN copy). Its
+    # date label is fine — only the build-sha mismatch catches it (Casey's case).
+    old_build = Resp(200, _page(sha="oldsha000000"))
+    failures = run_checks(_make_fetch({"/events-ui": old_build}), _NOW)
+    assert any("/events-ui" in f and "STALE render" in f for f in failures)
+
+
+def test_old_render_ts_fails() -> None:
+    # Same build + today's date, but rendered 3h ago (a same-day cached copy).
+    stale = Resp(200, _page(rendered=_NOW - timedelta(hours=3)))
+    failures = run_checks(_make_fetch({"/events-ui": stale}), _NOW)
+    assert any("/events-ui" in f and "rendered" in f and "ago" in f for f in failures)
+
+
+def test_missing_freshness_meta_fails() -> None:
+    no_meta = Resp(200, f'<header><span class="r">{_LABEL}</span></header>'
+                        f'<main id="main">{"x" * 800}</main>')
+    failures = run_checks(_make_fetch({"/events-ui": no_meta}), _NOW)
+    assert any("/events-ui" in f and "build-sha" in f for f in failures)
+    assert any("/events-ui" in f and "render-ts" in f for f in failures)
+
+
+def test_specific_date_day_view_is_freshness_checked() -> None:
+    # The exact surface Casey hit: /events-ui?date=<today>. No "today" label to
+    # lean on — a stale build there is caught only by build-sha.
+    day = "/events-ui?date=" + _NOW.date().isoformat()
+    failures = run_checks(_make_fetch({day: Resp(200, _page(sha="oldsha000000"))}), _NOW)
+    assert any(day in f and "STALE render" in f for f in failures)
+
+
+def test_health_unreadable_disables_sha_match_but_flags() -> None:
+    failures = run_checks(_make_fetch({"/health": Resp(500, "")}), _NOW)
+    assert any("/health" in f and "build_sha" in f for f in failures)
 
 
 def test_url_sets_are_disjoint_and_nonempty() -> None:

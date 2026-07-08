@@ -16,6 +16,10 @@
   {% include '_partials/plausible.html' %}
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  {# Freshness observability — the cold-cache canary asserts build-sha == the running
+     app (/health) and render-ts is recent, catching a stale/edge render an old build. #}
+  <meta name="build-sha" content="{{ build_sha }}">
+  <meta name="render-ts" content="{{ render_ts() }}">
   <title>{% block title %}Ask Hava — Lake Havasu City{% endblock %}</title>
   <meta name="description" content="{% block meta_description %}Ask Hava is Lake Havasu City's local concierge: what's happening today, the best local spots, events, and live conditions.{% endblock %}">
   {% if canonical_url is defined %}

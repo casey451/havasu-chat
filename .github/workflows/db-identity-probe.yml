@@ -9,7 +9,12 @@ name: db-identity-probe
 # On-demand only (workflow_dispatch).
 
 on:
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      probe_event_ids:
+        description: "Optional comma-separated event ids to report status for (read-only)."
+        required: false
+        default: ""
 
 permissions:
   contents: read
@@ -34,6 +39,7 @@ jobs:
       - name: Probe DB identity (read-only)
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          PROBE_EVENT_IDS: ${{ github.event.inputs.probe_event_ids }}
         run: |
           set -euo pipefail
           if [ -z "${DATABASE_URL:-}" ]; then

@@ -20,6 +20,9 @@ def test_health_200_when_db_ok() -> None:
     body = r.json()
     assert body["status"] == "ok"
     assert body["db_connected"] is True
+    # Build SHA present so the cold-cache canary can match it against each page's
+    # <meta name="build-sha"> ("dev" locally where the deploy env var is unset).
+    assert "build_sha" in body and body["build_sha"]
     # DB-identity fingerprint present (values are null on the SQLite test DB — the
     # Postgres-only probes fail gracefully — but the contract/shape is asserted).
     assert "db_identity" in body

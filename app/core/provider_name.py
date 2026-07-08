@@ -125,6 +125,14 @@ def register_template_globals(templates_or_env: "object") -> None:
     from app.core.static_assets import static_url
 
     env.globals["static_url"] = static_url
+    # Freshness observability: the deployed build SHA (static) + a render-time
+    # timestamp (callable). Stamped into every page as <meta> so the cold-cache
+    # canary can catch a stale/edge render from an OLDER build or an hours-old
+    # cached copy — which a same-day date-label check can't see.
+    from app.core.build_info import build_sha, render_ts
+
+    env.globals["build_sha"] = build_sha()
+    env.globals["render_ts"] = render_ts
 
 
 def _norm_provider_name(name: str) -> str:

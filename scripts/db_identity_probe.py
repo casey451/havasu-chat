@@ -37,6 +37,7 @@ ensure_dotenv_loaded()
 from sqlalchemy import text  # noqa: E402
 
 from app.db.database import SessionLocal  # noqa: E402
+from app.db.models import Event  # noqa: E402
 
 
 def _sanitized_host() -> dict[str, str | int | None]:
@@ -73,6 +74,24 @@ def probe() -> dict[str, object]:
     return out
 
 
+def _event_status(ids: list[str]) -> list[dict[str, object]]:
+    """Read-only: (id, status, title, date, event_url) for specific event ids.
+    Ground-truth check for a data op (e.g. did a quarantine land?)."""
+    rows: list[dict[str, object]] = []
+    with SessionLocal() as db:
+        for eid in ids:
+            ev = db.get(Event, eid.strip())
+            if ev is None:
+                rows.append({"id": eid, "found": False})
+                continue
+            rows.append({
+                "id": eid, "found": True, "status": ev.status, "title": ev.title,
+                "date": str(ev.date), "start_time": str(ev.start_time),
+                "event_url": ev.event_url,
+            })
+    return rows
+
+
 def main() -> int:
     result = probe()
     print(json.dumps(result, indent=2, default=str))
@@ -80,6 +99,10 @@ def main() -> int:
         "\nCompare `system_identifier` (or inet_server_addr/port) with the web app's "
         "GET /health -> db_identity. Equal => same Postgres cluster."
     )
+    ids = [x for x in (os.getenv("PROBE_EVENT_IDS", "").split(",")) if x.strip()]
+    if ids:
+        print("\nEVENT STATUS PROBE (read-only):")
+        print(json.dumps(_event_status(ids), indent=2, default=str))
     return 0
 
 

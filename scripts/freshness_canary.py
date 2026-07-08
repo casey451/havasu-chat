@@ -56,6 +56,11 @@ GAS_MAX_AGE_HOURS = 24
 # collapses to almost nothing. Well below any real page, well above an empty one.
 _MAIN_MIN_CHARS = 400
 
+# A page's render must be recent. A same-day stale render (an old-build copy from
+# earlier today) keeps today's date label and so slips the date check — but its
+# <meta name="render-ts"> is hours old. This is the tripwire for that.
+RENDER_MAX_AGE_HOURS = 2
+
 # Pages whose content is anchored to "today". Each must render the current
 # Phoenix date label and a non-empty <main>; util-bar gas prices are collected
 # here for the single-price cross-check.
@@ -100,6 +105,9 @@ _REDIRECT_CODES = frozenset({301, 302, 303, 307, 308})
 _GAS_PRICE_RE = re.compile(r'class="gr num">\s*(\$?\d+\.\d{2})')
 # Slice the <main> content region to gauge whether a page actually rendered.
 _MAIN_RE = re.compile(r'<main[^>]*id="main"[^>]*>(.*?)</main>', re.DOTALL | re.IGNORECASE)
+# Freshness stamps: <meta name="build-sha" content="..."> / <meta name="render-ts" ...>.
+_BUILD_SHA_RE = re.compile(r'<meta\s+name="build-sha"\s+content="([^"]*)"', re.IGNORECASE)
+_RENDER_TS_RE = re.compile(r'<meta\s+name="render-ts"\s+content="([^"]*)"', re.IGNORECASE)
 
 
 @dataclass
@@ -144,6 +152,49 @@ def _parse_iso(ts: str) -> datetime | None:
     return dt if dt.tzinfo else dt.replace(tzinfo=UTC)
 
 
+def _meta(html: str, pattern: re.Pattern[str]) -> str | None:
+    m = pattern.search(html)
+    return m.group(1) if m else None
+
+
+def running_build_sha(fetch) -> str | None:
+    """The SHA of the actually-running app, read from ``GET /health``. The served
+    pages' ``build-sha`` meta is compared to THIS, so an edge/CDN copy from an
+    older build (which no date check can catch) fails the canary."""
+    r = fetch("/health")
+    if r.status != 200:
+        return None
+    try:
+        return str(json.loads(r.text).get("build_sha") or "") or None
+    except (ValueError, TypeError):
+        return None
+
+
+def _check_page_freshness(
+    path: str, html: str, expected_sha: str | None, now_utc: datetime, failures: list[str]
+) -> None:
+    """Assert a rendered page is from the running build and rendered recently."""
+    page_sha = _meta(html, _BUILD_SHA_RE)
+    if page_sha is None:
+        failures.append(f"{path}: no <meta name='build-sha'> — un-stamped/old render")
+    elif expected_sha and page_sha != expected_sha:
+        failures.append(
+            f"{path}: build-sha {page_sha!r} != running app {expected_sha!r} "
+            f"— STALE render (edge/CDN copy of an older build)"
+        )
+    ts_raw = _meta(html, _RENDER_TS_RE)
+    rendered = _parse_iso(ts_raw) if ts_raw else None
+    if rendered is None:
+        failures.append(f"{path}: missing/invalid <meta name='render-ts'> ({ts_raw!r})")
+        return
+    age = now_utc - rendered
+    if age > timedelta(hours=RENDER_MAX_AGE_HOURS):
+        failures.append(
+            f"{path}: rendered {age.total_seconds() / 3600:.1f}h ago "
+            f"(> {RENDER_MAX_AGE_HOURS}h) — stale cached copy; render-ts={ts_raw}"
+        )
+
+
 def _check_gas_freshness(fetch, now_utc: datetime, failures: list[str]) -> None:
     r = fetch("/api/gas")
     if r.status != 200:
@@ -182,8 +233,13 @@ def run_checks(fetch, now_utc: datetime) -> list[str]:
     failures: list[str] = []
     label = phoenix_today_label(now_utc)
     gas_prices: set[str] = set()
+    # The running app's SHA — the yardstick for every page's build-sha meta.
+    expected_sha = running_build_sha(fetch)
+    if expected_sha is None:
+        failures.append("/health: could not read running build_sha (SHA match disabled)")
 
-    # 1. Dated-page freshness (the heart of B1).
+    # 1. Dated-page freshness (the heart of B1) + build-sha/render-ts (same-day
+    #    staleness the date label can't catch).
     for path in DATED_PAGES:
         r = fetch(path)
         if r.status != 200:
@@ -195,9 +251,19 @@ def run_checks(fetch, now_utc: datetime) -> list[str]:
             )
         if _main_len(r.text) < _MAIN_MIN_CHARS:
             failures.append(f"{path}: <main> is nearly empty ({_main_len(r.text)} chars)")
+        _check_page_freshness(path, r.text, expected_sha, now_utc, failures)
         price = extract_cheapest_gas(r.text)
         if price is not None:
             gas_prices.add(price)
+
+    # 1b. A SPECIFIC-date day view (the exact surface a stale render was served on):
+    #     no "today" label to lean on, so build-sha + render-ts are the only guard.
+    specific_day = "/events-ui?date=" + now_utc.astimezone(LAKE_HAVASU_TZ).date().isoformat()
+    rd = fetch(specific_day)
+    if rd.status != 200:
+        failures.append(f"{specific_day}: expected 200, got {rd.status}")
+    else:
+        _check_page_freshness(specific_day, rd.text, expected_sha, now_utc, failures)
 
     # 2. One cheapest-gas price everywhere (edge divergence = the '5 prices' bug).
     if len(gas_prices) > 1:
