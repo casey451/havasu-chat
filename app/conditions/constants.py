@@ -82,16 +82,33 @@ TTL_BY_SOURCE: dict[str, int] = {
     # RISE posts a daily Parker Dam water temp; refetch a few times a day.
     SOURCE_RISE_WATER_TEMP: 21600,
     SOURCE_OPENUV: 3600,
-    SOURCE_GAS: 28800,
+    # Gas is pulled by scripts/gas_prices_pull.py (gas-prices.yml), NOT the
+    # conditions cron, so this TTL never drives a refetch — it ONLY feeds the
+    # cache row's ``is_stale`` flag. ``app.gas.service.board_from_cache`` computes
+    # ``is_stale = age > GAS_STALE_AFTER_HOURS OR row.is_stale``, so a TTL SHORTER
+    # than ``GAS_STALE_AFTER_HOURS`` silently wins and undercuts the documented
+    # threshold. It MUST stay >= GAS_STALE_AFTER_HOURS*3600 (asserted in
+    # tests/test_gas_service.py). 2026-07-08: was 28800 (8h) < the 10h threshold,
+    # so every early morning read "stale" during the normal overnight pull gap and
+    # tripped the post-deploy freshness canary. Now 12h, matching the threshold.
+    SOURCE_GAS: 43200,
     # News refreshes on a ~hourly pull; the ticker still shows the last good
     # headlines past TTL (staleness only drives an optional "updated" hint).
     SOURCE_NEWS_LOCAL: 3600,
 }
 
-# Gas prices refresh on a roughly-daily cadence (86400s TTL), so the generic 2h
-# staleness threshold flagged every fresh fetch as "stale". Allow a full day plus
-# headroom before the gas banner reads stale (G-2). See staleness_label().
-GAS_STALE_AFTER_HOURS = 10
+# Gas is crowd-sourced (GasBuddy) and pulled 3x/day by gas-prices.yml at
+# 06:00 / 13:00 / 20:00 America/Phoenix (cron ``0 3,13,20`` UTC, AZ = UTC-7).
+# The largest normal inter-run gap is the overnight 20:00 -> 06:00 stretch, ~10h,
+# and GitHub's scheduler routinely lags each slot 10-30 min. The staleness
+# threshold must exceed that gap (+ lag), or the banner flags a false "stale"
+# every morning between the widening gap and the 06:00 refresh — the 2026-07-08
+# canary red (the 03:00-UTC pull ran at 04:01, canary at 12:49 UTC / 05:49 MST
+# saw a 9h-old-but-fine payload flagged stale). 12h gives ~1.5h margin over the
+# gap yet still flags a genuine two-missed-pulls outage, well under the canary's
+# 24h hard ceiling (GAS_MAX_AGE_HOURS). Keep TTL_BY_SOURCE[SOURCE_GAS] in lockstep
+# (see the note there). See staleness_label() and app.gas.service.
+GAS_STALE_AFTER_HOURS = 12
 
 NWS_USER_AGENT = "havasu-chat/1.0 (contact: support@havasu-chat.example.com)"
 LHC_LAT = 34.4839
