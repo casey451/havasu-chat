@@ -24,7 +24,7 @@ from app.categories import queries as cat_queries
 from app.categories.subcategories import (
     cuisine_label,
     cuisine_slugs_in_order,
-    derive_cuisine,
+    effective_cuisine,
 )
 from app.db.models import Provider
 
@@ -60,7 +60,11 @@ def _eat_drink_cuisine_counts(db: Session) -> dict[str, int]:
     classifies the pool in Python. Empty on any DB hiccup."""
     try:
         rows = (
-            db.query(Provider.google_primary_category, Provider.google_categories)
+            db.query(
+                Provider.attributes,
+                Provider.google_primary_category,
+                Provider.google_categories,
+            )
             .filter(
                 cat_queries.route_provider_filter(EAT_DRINK_ROUTE),
                 Provider.is_active.is_(True),
@@ -72,8 +76,10 @@ def _eat_drink_cuisine_counts(db: Session) -> dict[str, int]:
     except Exception:
         return {}
     counts: dict[str, int] = {}
-    for primary, cats in rows:
-        c = derive_cuisine(primary, cats)
+    for attributes, primary, cats in rows:
+        # Curated attributes['cuisine'] wins over the Google-types derivation
+        # (WS9a backfill) so the gate count matches what the facet renders.
+        c = effective_cuisine(attributes, primary, cats)
         if c:
             counts[c] = counts.get(c, 0) + 1
     return counts
