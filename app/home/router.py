@@ -236,42 +236,33 @@ def serve_home(
     )
 
 
-def _serve_mode_landing(request: Request, db: Session, mode: str) -> HTMLResponse:
-    """Shared renderer for the Lake / Night / Family landings.
+def _serve_night_landing(request: Request, db: Session) -> HTMLResponse:
+    """Render /night — the Night hub, on the standalone v4 shell (base_redesign's
+    live-conditions strip + gas panel).
 
-    The page loads PRE-THEMED (``data-mode`` = mode) so Night fires its dark
-    transformation server-side. Sub-tiles are navigation to real routes; the
-    hero shows only live data (Lake conditions) or copy — never the mock
-    counters (anti-confabulation, §4.10).
+    Real, server-rendered content, zero ``/chat?q=`` tiles: the drink tiles →
+    bars-and-breweries leaf; tonight's live music (the events "music" bucket);
+    the venues-open-past-10-PM list (from published hours); and honest "coming
+    soon" cards for surfaces with no structured source yet (happy hours → WS12).
+    (WS10 gave /lake, /family and /seniors their own routes; this is now the only
+    mode landing.)
     """
-    landing = sandstone.mode_landing(db, mode)
-    # v4.5 PR-5: the Family / Night landings wear the standalone v4 shell
-    # (base_redesign) — the live-conditions strip + cheapest-gas panel like every
-    # other discovery page, instead of the retired desert mode-hero.
-    from app.home import redesign
-
+    landing = sandstone.mode_landing(db, "night")
     now = now_lake_havasu()
     context: dict[str, object] = {
         "utility_chips": _utility_chips(db),
-        "current_mode": mode,
+        "current_mode": "night",
         "cond_tiles": redesign.conditions_tiles(db, now=now),
         "gas": redesign.gas_panel_data(db, now=now),
-        "active_tab": "family" if mode == "family" else None,
+        "active_tab": None,
+        "late_kitchens": redesign.late_night_kitchens(db),
+        "music_tonight": redesign.night_music_rows(db, day=now.date(), now=now),
+        "coming_soon": list(redesign.NIGHT_COMING_SOON),
         **landing,
     }
-    # WS10: /night renders its own richer template — real content, zero /chat?q=
-    # tiles: tonight's live music (the events "music" bucket), the venues-open-
-    # past-10-PM list (from published hours), and honest "coming soon" cards for
-    # surfaces with no structured source yet (happy hours → WS12 connector).
-    template = "mode_redesign.html"
-    if mode == "night":
-        context["late_kitchens"] = redesign.late_night_kitchens(db)
-        context["music_tonight"] = redesign.night_music_rows(db, day=now.date(), now=now)
-        context["coming_soon"] = list(redesign.NIGHT_COMING_SOON)
-        template = "night_redesign.html"
     return templates.TemplateResponse(
         request=request,
-        name=template,
+        name="night_redesign.html",
         context=context,
     )
 
@@ -325,8 +316,8 @@ def serve_ask(request: Request) -> RedirectResponse:
 
 @router.get("/night", response_class=HTMLResponse)
 def serve_night(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    """Night mode landing (fires the dark transformation)."""
-    return _serve_mode_landing(request, db, "night")
+    """Night hub — real content (live music, late kitchens, coming-soon cards)."""
+    return _serve_night_landing(request, db)
 
 
 @router.get("/family", response_class=HTMLResponse)

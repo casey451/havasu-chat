@@ -55,19 +55,22 @@ def test_night_landing_on_v4_shell_single_theme() -> None:
 
 
 def test_mode_landing_data_contract() -> None:
-    # ("lake" left _MODE_CONFIG 2026-07-02: /lake has 301'd to the category
-    # page since IA v2, so its landing config/tiles/mini-conditions were dead.)
+    # /night is the ONLY remaining mode landing: WS10 gave /lake, /family and
+    # /seniors their own routes/templates, so their _MODE_CONFIG entries were
+    # removed as dead. (/lake had also 301'd since IA v2 before WS10.)
     with SessionLocal() as db:
-        family = sandstone.mode_landing(db, "family")
         night = sandstone.mode_landing(db, "night")
-    # Every landing ships exactly six navigation sub-tiles, each with a real url.
-    assert len(family["tiles"]) == 6
-    for tile in family["tiles"]:
+    # Every landing ships navigation sub-tiles, each with a real url.
+    assert night["tiles"]
+    for tile in night["tiles"]:
         assert tile["url"].startswith(("/categories/", "/chat?q=", "/events-ui", "/calendar"))
-    # Night/Family never show a fake counter (anti-confabulation §4.10).
+    # Night never shows a fake counter (anti-confabulation §4.10).
     assert night["mini_conditions"] == []
+    # The de-configured modes now raise (no landing behind them).
     with SessionLocal() as db, pytest.raises(KeyError):
         sandstone.mode_landing(db, "lake")
+    with SessionLocal() as db, pytest.raises(KeyError):
+        sandstone.mode_landing(db, "family")
 
 
 def test_unknown_mode_raises() -> None:
