@@ -40,7 +40,7 @@ _JUNE_2 = datetime(2099, 6, 2, 9, 0, tzinfo=_LHC)
 # Sunday five days later — the day the stale render was still being served.
 _JUNE_7 = datetime(2099, 6, 7, 9, 0, tzinfo=_LHC)
 
-_EXPECTED_CACHE_CONTROL = "no-cache, max-age=0, must-revalidate"
+_EXPECTED_CACHE_CONTROL = "no-store, no-cache, max-age=0, must-revalidate"
 
 
 def _add_event(db, *, title: str, on, start: time, loc: str) -> tuple[str, str]:
