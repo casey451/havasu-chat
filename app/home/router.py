@@ -392,6 +392,29 @@ def _short_day_label(d: dt_date) -> str:
     return d.strftime("%a %b ") + str(d.day)
 
 
+# WS9c — This-weekend view. Pure, deterministic helpers (unit-tested) so the
+# day-of-week default doesn't need a live clock injected into the route.
+def _weekend_dates(today: dt_date) -> list[dt_date]:
+    """This weekend's Fri/Sat/Sun on/after ``today``.
+
+    Mon–Fri → the coming (or current) Fri, Sat, Sun. Sat → [Sat, Sun]. Sun →
+    [Sun]. Always contiguous and always ``>= today`` (a past Friday is dropped
+    once the weekend is underway), so it feeds ``week_rows(start, days)`` directly.
+    """
+    wd = today.weekday()  # Mon=0 … Sun=6
+    if wd <= 4:
+        friday = today + timedelta(days=4 - wd)
+        span = [friday + timedelta(days=i) for i in range(3)]
+    else:  # Sat / Sun — the weekend has already started
+        span = [today + timedelta(days=i) for i in range(6 - wd + 1)]
+    return [d for d in span if d >= today]
+
+
+def _is_weekend_default_day(today: dt_date) -> bool:
+    """Whether the bare ``/events-ui`` lands on This-weekend (Fri–Sun, WS9c)."""
+    return today.weekday() in (4, 5, 6)
+
+
 
 
 @router.get("/events-ui", response_class=HTMLResponse)
@@ -404,6 +427,10 @@ def serve_events_ui(
     cal: str | None = None,
     family: str | None = None,
     seniors: str | None = None,
+    free: str | None = None,
+    indoor: str | None = None,
+    tonight: str | None = None,
+    weekend: str | None = None,
 ) -> HTMLResponse:
     """Render the Sandstone events page — three zoom levels of one concept.
 
@@ -423,106 +450,201 @@ def serve_events_ui(
     today = now.date()
     single_day = _parse_iso_date(date)
 
-    view_key = (view or "").strip().lower()
-    # UNIFY (Rule 0b 2026-06-26): the ?view=places surface is retired — one calendar
-    # now shows the full tree (hours + classes inline, collapsed). A legacy
-    # ?view=places link falls through to Today like any other unknown view.
-    if view_key not in {key for key, _label in _EVENT_VIEWS}:
-        when_key = (when or "").strip().lower()
-        view_key = "today" if when_key in ("", "today") else "week"
-
-    # Audience narrows (?family=1 / ?seniors=1) — kid/family or senior
-    # occurrences only, across all three zoom levels. Mutually exclusive (family
-    # wins if both). ``family_qs`` carries the ACTIVE audience on every intra-
-    # page link so the narrow survives day paging, view switches, and month
-    # paging (name kept for the desert template; value is whichever is on).
     _TRUE = ("1", "true", "yes", "on")
+    # Audience narrows (?family=1 / ?seniors=1) — mutually exclusive, family wins.
     family_on = (family or "").strip().lower() in _TRUE
     seniors_on = (seniors or "").strip().lower() in _TRUE and not family_on
-    aud = "family" if family_on else ("seniors" if seniors_on else "")
-    family_qs = f"&{aud}=1" if aud else ""
+    # WS9c quick filters (?free=1 / ?indoor=1 / ?tonight=1) — independent, AND-ed.
+    free_on = (free or "").strip().lower() in _TRUE
+    indoor_on = (indoor or "").strip().lower() in _TRUE
+    tonight_on = (tonight or "").strip().lower() in _TRUE
+    weekend_param = (weekend or "").strip().lower() in _TRUE
 
-    def _view_url(key: str) -> str:
-        base = "/events-ui" if key == "today" else f"/events-ui?view={key}"
-        if not aud:
-            return base
-        return base + (f"?{aud}=1" if "?" not in base else f"&{aud}=1")
+    view_key = (view or "").strip().lower()
+    when_key = (when or "").strip().lower()
+    # Resolve the calendar mode. WS9c adds "weekend" (a Fri–Sun span) and makes it
+    # the default landing on Fri–Sun; a legacy ?when= still maps to the Week view,
+    # and ?view=today explicitly overrides the weekend default.
+    if single_day is not None:
+        mode = "day"
+    elif weekend_param or view_key == "weekend":
+        mode = "weekend"
+    elif view_key == "week":
+        mode = "week"
+    elif view_key == "month":
+        mode = "month"
+    elif view_key == "today" or when_key == "today":
+        mode = "today"
+    elif when_key not in ("", "today"):
+        mode = "week"  # legacy ?when=weekend/this-week/next-week/all → Week
+    elif _is_weekend_default_day(today):
+        mode = "weekend"  # This-weekend is the default landing tab Fri–Sun
+    else:
+        mode = "today"
+    weekend_on = mode == "weekend"
+
+    # Unified URL builder — one source for the view pills, the audience/quick-
+    # filter chips, and the day/week pagers, so every intra-page link preserves
+    # the whole active filter set (audience + free/indoor/tonight) and the mode.
+    cur = {
+        "mode": mode,
+        "date": single_day.isoformat() if single_day is not None else None,
+        "cal": cal,
+        "family": family_on,
+        "seniors": seniors_on,
+        "free": free_on,
+        "indoor": indoor_on,
+        "tonight": tonight_on,
+    }
+
+    def _build_url(p: dict[str, Any]) -> str:
+        parts: list[str] = []
+        m = p.get("mode")
+        if m == "day" and p.get("date"):
+            parts.append(f"date={p['date']}")
+        elif m == "weekend":
+            parts.append("weekend=1")
+        elif m == "week":
+            parts.append("view=week")
+        elif m == "month":
+            parts.append("view=month")
+            if p.get("cal"):
+                parts.append(f"cal={p['cal']}")
+        elif m == "today":
+            parts.append("view=today")
+        if p.get("family"):
+            parts.append("family=1")
+        elif p.get("seniors"):
+            parts.append("seniors=1")
+        if p.get("free"):
+            parts.append("free=1")
+        if p.get("indoor"):
+            parts.append("indoor=1")
+        if p.get("tonight"):
+            parts.append("tonight=1")
+        return "/events-ui" + ("?" + "&".join(parts) if parts else "")
+
+    def _view_url(target_mode: str) -> str:
+        p = dict(cur)
+        p["mode"] = target_mode
+        p["date"] = None
+        if target_mode != "month":
+            p["cal"] = None
+        return _build_url(p)
 
     def _toggle_url(target: str) -> str:
-        """Current page URL with the ``target`` audience flipped (the toggle's
-        href). Turning one audience on clears the other (mutually exclusive)."""
-        params: list[str] = []
-        if single_day is not None:
-            params.append(f"date={single_day.isoformat()}")
-        elif view_key == "week":
-            params.append("view=week")
-        elif view_key == "month":
-            params.append("view=month")
-            if cal:
-                params.append(f"cal={cal}")
-        if aud != target:  # not already this audience → turn it on (clears other)
-            params.append(f"{target}=1")
-        return "/events-ui" + ("?" + "&".join(params) if params else "")
+        """Current URL with one audience/quick-filter/weekend chip flipped."""
+        p = dict(cur)
+        if target == "family":
+            p["family"] = not family_on
+            if p["family"]:
+                p["seniors"] = False
+        elif target == "seniors":
+            p["seniors"] = not seniors_on
+            if p["seniors"]:
+                p["family"] = False
+        elif target == "weekend":
+            # Turning weekend off drops to Today; on switches the span (drops date).
+            p["mode"] = "today" if weekend_on else "weekend"
+            p["date"] = None
+        else:  # free / indoor / tonight
+            p[target] = not cur.get(target, False)
+        return _build_url(p)
 
-    # UNIFY (Rule 0b 2026-06-26): one calendar, no Calendar⇄Places toggle. Just the
-    # Today/Week/Month zoom levels over the single unified tree.
+    # ``filter_qs``: the audience + quick-filter suffix appended to date pagers /
+    # week-row day links so the active narrow survives day paging (replaces the
+    # old audience-only ``family_qs``).
+    _fs: list[str] = []
+    if family_on:
+        _fs.append("&family=1")
+    elif seniors_on:
+        _fs.append("&seniors=1")
+    if free_on:
+        _fs.append("&free=1")
+    if indoor_on:
+        _fs.append("&indoor=1")
+    if tonight_on:
+        _fs.append("&tonight=1")
+    filter_qs = "".join(_fs)
+
     context: dict[str, Any] = {
         "active_tab": "events",
-        # v4.5 PR-1: /events-ui wears the v4 shell (base_redesign) — the cond-tile
-        # strip + gas panel like home/calendar, not the old utility ribbon.
         "today_label": now.strftime("%A, %B ") + str(now.day),
         "cond_tiles": redesign.conditions_tiles(db, now=now),
         "gas": redesign.gas_panel_data(db, now=now),
         "family_mode": family_on,
         "seniors_mode": seniors_on,
-        "family_qs": family_qs,
+        # WS9c chip states + toggles.
+        "free_mode": free_on,
+        "indoor_mode": indoor_on,
+        "tonight_mode": tonight_on,
+        "weekend_mode": weekend_on,
+        "family_qs": filter_qs,  # kept name for the template's date links
         "family_toggle_url": _toggle_url("family"),
         "seniors_toggle_url": _toggle_url("seniors"),
-        # Calendar zoom levels (Today/Week/Month).
+        "free_toggle_url": _toggle_url("free"),
+        "indoor_toggle_url": _toggle_url("indoor"),
+        "tonight_toggle_url": _toggle_url("tonight"),
+        "weekend_toggle_url": _toggle_url("weekend"),
+        # Calendar zoom levels (Today/Week/Month). Weekend is a separate chip, so
+        # none of these read active while the weekend span is showing.
         "view_links": [
             {
                 "key": key,
                 "label": label,
                 "url": _view_url(key),
-                "active": single_day is None and key == view_key,
+                "active": mode == key,
             }
             for key, label in _EVENT_VIEWS
         ],
     }
 
-    if single_day is not None:
+    if mode == "day":
+        assert single_day is not None
         context.update(
             {
                 "mode": "day",
                 "groups": events_views.calendar_day_view_model(
-                    db, day=single_day, family=family_on, seniors=seniors_on, now=now
+                    db, day=single_day, family=family_on, seniors=seniors_on,
+                    free=free_on, indoor=indoor_on, tonight=tonight_on, now=now,
                 )["sections"],
                 "day_label": _long_day_label(single_day),
                 "prev_iso": (single_day - timedelta(days=1)).isoformat(),
                 "next_iso": (single_day + timedelta(days=1)).isoformat(),
-                # Readable pager labels (spec §7.2: "‹ Sun Jul 5 / Tue Jul 7 ›"),
-                # not a bare arrow — the day you'll land on is visible + announced.
                 "prev_label": _short_day_label(single_day - timedelta(days=1)),
                 "next_label": _short_day_label(single_day + timedelta(days=1)),
                 "is_today": single_day == today,
             }
         )
-    elif view_key == "week":
+    elif mode == "weekend":
+        wk_dates = _weekend_dates(today)
+        context.update(
+            {
+                "mode": "week",  # renders with the week-row template
+                "weekend_view": True,
+                "week_rows": events_views.week_rows(
+                    db, start=wk_dates[0], days=len(wk_dates),
+                    family=family_on, seniors=seniors_on,
+                    free=free_on, indoor=indoor_on, tonight=tonight_on,
+                    events_only=True,
+                ),
+            }
+        )
+    elif mode == "week":
         context.update(
             {
                 "mode": "week",
                 "week_rows": events_views.week_rows(
-                    db, start=today, family=family_on, seniors=seniors_on, events_only=True
+                    db, start=today, family=family_on, seniors=seniors_on,
+                    free=free_on, indoor=indoor_on, tonight=tonight_on,
+                    events_only=True,
                 ),
-                # Item 3: consecutive weeks for the mobile swipeable calendar
-                # (lake template renders these as a swipe carousel; the desert
-                # template ignores it and keeps the flat week list).
                 "swipe_weeks": events_views.swipe_weeks(
                     db, today=today, family=family_on, seniors=seniors_on, events_only=True
                 ),
             }
         )
-    elif view_key == "month":
+    elif mode == "month":
         cal_year, cal_month = sandstone.parse_cal_param(cal, default=now)
         context.update(
             {
@@ -532,19 +654,18 @@ def serve_events_ui(
                     db, year=cal_year, month=cal_month, today=today,
                     family=family_on, seniors=seniors_on,
                 ),
-                # Mobile falls back to the swipeable week here too (a month grid
-                # is unreadable on a phone); desktop keeps the visible grid.
                 "swipe_weeks": events_views.swipe_weeks(
                     db, today=today, family=family_on, seniors=seniors_on, events_only=True
                 ),
             }
         )
-    else:
+    else:  # today
         context.update(
             {
                 "mode": "today",
                 "groups": events_views.calendar_day_view_model(
-                    db, day=today, family=family_on, seniors=seniors_on, now=now
+                    db, day=today, family=family_on, seniors=seniors_on,
+                    free=free_on, indoor=indoor_on, tonight=tonight_on, now=now,
                 )["sections"],
                 "day_label": _long_day_label(today),
             }

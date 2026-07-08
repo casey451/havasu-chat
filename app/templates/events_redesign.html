@@ -6,8 +6,9 @@
 {% from "components/feed_macros.html" import section %}
 
 {%- set _h1 = day_label if mode == 'day'
+      else ('This weekend' if weekend_view|default(false)
       else ('This week' if mode == 'week'
-      else (month_label if mode == 'month' else 'Happening today')) -%}
+      else (month_label if mode == 'month' else 'Happening today'))) -%}
 {% block title %}{{ _h1 }} — Ask Hava events, Lake Havasu City{% endblock %}
 {% block meta_description %}What's happening in Lake Havasu City — events, live music, family fun, lake outings, and fitness classes by day, week, and month.{% endblock %}
 
@@ -53,15 +54,20 @@
     {% for v in view_links %}
     <a class="cpill{% if v.active %} on{% endif %}" href="{{ v.url }}"{% if v.active %} aria-current="page"{% endif %}><span class="cl">{{ v.label }}</span></a>
     {% endfor %}
+    <a class="cpill places{% if weekend_mode %} on{% endif %}" href="{{ weekend_toggle_url }}" role="button" aria-pressed="{{ 'true' if weekend_mode else 'false' }}"><span class="cl">This weekend</span></a>
     <a class="cpill places{% if family_mode %} on{% endif %}" href="{{ family_toggle_url }}" role="button" aria-pressed="{{ 'true' if family_mode else 'false' }}">{{ icon('kid', 15) }}<span class="cl">For Kids</span></a>
     <a class="cpill places{% if seniors_mode %} on{% endif %}" href="{{ seniors_toggle_url }}" role="button" aria-pressed="{{ 'true' if seniors_mode else 'false' }}">{{ icon('people', 15) }}<span class="cl">For Seniors</span></a>
+    {# WS9c feed quick filters — server-rendered params, same scroll row (WS8). #}
+    <a class="cpill places{% if free_mode %} on{% endif %}" href="{{ free_toggle_url }}" role="button" aria-pressed="{{ 'true' if free_mode else 'false' }}"><span class="cl">Free</span></a>
+    <a class="cpill places{% if indoor_mode %} on{% endif %}" href="{{ indoor_toggle_url }}" role="button" aria-pressed="{{ 'true' if indoor_mode else 'false' }}"><span class="cl">Indoor</span></a>
+    <a class="cpill places{% if tonight_mode %} on{% endif %}" href="{{ tonight_toggle_url }}" role="button" aria-pressed="{{ 'true' if tonight_mode else 'false' }}"><span class="cl">Tonight</span></a>
   </div>
 
   {% if mode in ('today', 'day') %}
     {% if mode == 'day' %}
     <div class="evnav">
       {% if prev_iso %}<a href="/events-ui?date={{ prev_iso }}{{ family_qs }}" aria-label="Previous day, {{ prev_label }}">{{ icon('back', 16) }}<span class="evnav-lbl">{{ prev_label }}</span></a>{% endif %}
-      {% if not is_today %}<a class="today" href="/events-ui{{ '?' ~ family_qs[1:] if family_qs }}">Today</a>{% endif %}
+      {% if not is_today %}<a class="today" href="/events-ui?view=today{{ family_qs }}">Today</a>{% endif %}
       {% if next_iso %}<a href="/events-ui?date={{ next_iso }}{{ family_qs }}" aria-label="Next day, {{ next_label }}"><span class="evnav-lbl">{{ next_label }}</span>{{ icon('arrow', 16) }}</a>{% endif %}
     </div>
     {% endif %}
