@@ -8,15 +8,21 @@ types carry no cuisine token (or that have no Google types at all) show no
 cuisine and are invisible to the facet — this report proposes a cuisine for
 them, into the SAME fixed enum the facet already uses.
 
-Two proposal tiers, cheapest first (mirrors the WS9a spec):
-  1. **deterministic** — name / Google primary type / review snippets carry a
-     cuisine keyword (extended needle map below). Free, reproducible, no API.
-  2. **needs_llm** — a real restaurant with signal (a Google type and/or review
-     snippets) but no keyword hit: the ambiguous remainder a one-shot LLM pass
-     over name+type+snippets would classify. This script does NOT call the LLM
-     (spend gate) — it only SIZES and SAMPLES that bucket.
-  3. **needs_places** — no Google types at all: needs a Places ``types`` fetch
-     (API cost) before either tier can run.
+Tiers, cheapest first (mirrors the WS9a spec):
+  1. **reliable** — the cuisine is in the business NAME or a Google type
+     (high-precision keyword map below). Review snippets are NOT used to classify
+     (a single review word mis-tagged 24 of 34 rows in the first dry-run); they
+     ride along only as evidence. Free, reproducible, no API — but still routed
+     for review, never blind-applied.
+  2. **enum_gap** — a Google type names a cuisine the fixed enum has no home for
+     (korean/cuban/fried-chicken). Proposed as a separate enum-ADDITION list; the
+     row stays UNKNOWN rather than force-fit to a wrong cuisine.
+  3. **needs_llm** — a real restaurant with a Google signal but no reliable hit:
+     the ambiguous remainder a one-shot LLM pass (name + type + snippet context)
+     resolves. This script does NOT call the LLM (spend gate) — it SIZES/SAMPLES.
+  4. **needs_places** — no Google types at all: the LLM tries the name; whatever
+     it can't resolve needs a Places ``types`` fetch (API cost) and stays unknown
+     until then.
 
 WRITES NOTHING. ``--apply`` is intentionally disabled. The approved apply is a
 separate gated job that writes ``Provider.attributes['cuisine'] = <slug>`` as a
@@ -81,20 +87,31 @@ _NEEDLES: dict[str, tuple[str, ...]] = {
 }
 
 
-def _text_blob(name: str, primary: str | None, cats, snippets) -> str:
+def _name_type_blob(name: str, primary: str | None, cats) -> str:
+    """Classification signal: business NAME + Google types ONLY.
+
+    Review snippets are deliberately EXCLUDED. The first dry-run included them and
+    a single word in one review ("great tacos") mis-tagged 24 of 34 rows — Babaloo
+    Lounge, a ``cuban_restaurant``, → Chinese; a steakhouse → Seafood. Snippets are
+    LLM CONTEXT only (see :func:`_snippet_excerpt`), never a deterministic match
+    (Casey, 2026-07-08).
+    """
     parts = [name or "", primary or ""]
     if isinstance(cats, list):
         parts += [str(c) for c in cats]
-    if isinstance(snippets, list):
-        for s in snippets[:5]:
-            if isinstance(s, dict):
-                parts.append(str(s.get("text") or s.get("snippet") or ""))
     return " ".join(parts).lower()
 
 
-def _propose_deterministic(name, primary, cats, snippets) -> str | None:
-    """First keyword hit into the fixed enum, or None (→ LLM/Places tier)."""
-    blob = _text_blob(name, primary, cats, snippets)
+def _propose_deterministic(name, primary, cats, snippets=None) -> str | None:
+    """First name/Google-type keyword hit into the fixed enum, or None.
+
+    High-precision by design: a generic token ('american', grill/pub/brewery) is
+    never proposed — those fall to the LLM tier. ``snippets`` is accepted but
+    IGNORED (kept in the signature so callers/tests document that snippets do not
+    classify).
+    """
+    del snippets
+    blob = _name_type_blob(name, primary, cats)
     for slug in cuisine_slugs_in_order():
         for needle in _NEEDLES.get(slug, ()):  # 'american' absent → skipped
             if needle in blob:
@@ -102,8 +119,43 @@ def _propose_deterministic(name, primary, cats, snippets) -> str | None:
     return None
 
 
-def _has_google_signal(primary, cats, snippets) -> bool:
-    return bool(primary) or bool(cats) or bool(snippets)
+def _snippet_excerpt(snippets) -> str:
+    """First review-snippet text, trimmed — EVIDENCE / LLM context only."""
+    if isinstance(snippets, list):
+        for s in snippets:
+            if isinstance(s, dict):
+                text = str(s.get("text") or s.get("snippet") or "").strip()
+                if text:
+                    return text[:160]
+    return ""
+
+
+# Google type tokens that name a cuisine with NO home in the fixed enum. These
+# become enum-ADDITION proposals (a separate list) — the row stays UNKNOWN, never
+# force-fit to a wrong cuisine (Casey: an unknown beats a wrong chip). Deliberately
+# specific: generic 'asian_restaurant' is left to the LLM, not proposed as an enum.
+_ENUM_GAP_TYPES: dict[str, str] = {
+    "korean_restaurant": "korean",
+    "cuban_restaurant": "cuban",
+    "chicken_restaurant": "fried_chicken",
+    "vietnamese_restaurant": "vietnamese",
+    "filipino_restaurant": "filipino",
+    "hawaiian_restaurant": "hawaiian",
+    "caribbean_restaurant": "caribbean",
+}
+
+
+def _enum_gap(primary, cats) -> str | None:
+    """Proposed enum-addition label when a Google type names an unhomed cuisine."""
+    blob = ((primary or "") + " " + " ".join(str(c) for c in (cats or []))).lower()
+    for tok, label in _ENUM_GAP_TYPES.items():
+        if tok in blob:
+            return label
+    return None
+
+
+def _has_google_signal(primary, cats) -> bool:
+    return bool(primary) or bool(cats)
 
 
 def _restaurants_leaf_providers(db) -> list[Provider]:
@@ -151,8 +203,9 @@ def main(argv: list[str] | None = None) -> int:
         rows = _restaurants_leaf_providers(db)
 
     total = len(rows)
-    tier = Counter()  # already / deterministic / needs_llm / needs_places
-    proposed_dist = Counter()  # cuisine slug -> count (deterministic proposals)
+    tier = Counter()  # already / reliable / enum_gap / needs_llm / needs_places
+    proposed_dist = Counter()  # cuisine slug -> count (reliable proposals)
+    gap_dist = Counter()  # enum-addition label -> count
     report: list[dict] = []
 
     for p in rows:
@@ -164,15 +217,21 @@ def main(argv: list[str] | None = None) -> int:
         if current is not None:
             tier["already"] += 1
             continue
-        # Unknown → try to propose.
-        proposal = _propose_deterministic(name, primary, cats, snippets)
+        # Unknown → classify on NAME + Google types only (snippets are evidence,
+        # never a match). No hit → enum-gap / LLM / Places tier; never force-fit.
+        proposal = _propose_deterministic(name, primary, cats)
+        gap = _enum_gap(primary, cats)
+        gap_label = ""
         if proposal is not None:
-            source, bucket = "deterministic", "deterministic"
+            source, bucket = "name/type", "reliable"
             proposed_dist[proposal] += 1
-        elif _has_google_signal(primary, cats, snippets):
-            source, bucket, proposal = "llm", "needs_llm", ""
+        elif gap is not None:
+            source, bucket, gap_label = "enum_gap", "enum_gap", gap
+            gap_dist[gap] += 1
+        elif _has_google_signal(primary, cats):
+            source, bucket = "llm", "needs_llm"
         else:
-            source, bucket, proposal = "places", "needs_places", ""
+            source, bucket = "llm_or_places", "needs_places"
         tier[bucket] += 1
         report.append(
             {
@@ -181,48 +240,52 @@ def main(argv: list[str] | None = None) -> int:
                 "address": (p.address or "").split(",", 1)[0],
                 "google_primary_category": primary or "",
                 "google_categories": "|".join(str(c) for c in (cats or []))[:120],
+                "snippet_excerpt": _snippet_excerpt(snippets),
                 "current_cuisine": "",
-                "proposed_cuisine": proposal,
+                "proposed_cuisine": proposal or "",
                 "proposed_label": cuisine_label(proposal) or "",
+                "enum_gap": gap_label,
                 "source": source,
                 "tier": bucket,
             }
         )
 
+    cols = (
+        "slug", "name", "address", "google_primary_category", "google_categories",
+        "snippet_excerpt", "current_cuisine", "proposed_cuisine", "proposed_label",
+        "enum_gap", "source", "tier",
+    )
     out_path = Path(_REPORT_CSV)
     out_path.parent.mkdir(parents=True, exist_ok=True)
     with out_path.open("w", newline="", encoding="utf-8") as f:
         w = csv.writer(f)
-        w.writerow(
-            ["slug", "name", "address", "google_primary_category", "google_categories",
-             "current_cuisine", "proposed_cuisine", "proposed_label", "source", "tier"]
-        )
+        w.writerow(list(cols))
         for r in report:
-            w.writerow([r[k] for k in (
-                "slug", "name", "address", "google_primary_category", "google_categories",
-                "current_cuisine", "proposed_cuisine", "proposed_label", "source", "tier")])
+            w.writerow([r[k] for k in cols])
 
     # ---- summary to the run log --------------------------------------------
     print("=== CUISINE BACKFILL DRY-RUN (restaurants leaf) ===")
-    print(f"total restaurants scanned      : {total}")
-    print(f"  already classified (facet ok): {tier['already']}")
-    unknown = tier["deterministic"] + tier["needs_llm"] + tier["needs_places"]
-    print(f"  UNKNOWN (backfill target)    : {unknown}")
-    print(f"    - deterministic proposal   : {tier['deterministic']}  (free, this run)")
-    print(f"    - needs LLM (has signal)   : {tier['needs_llm']}  (paid one-shot LLM pass)")
-    print(f"    - needs Places types fetch : {tier['needs_places']}  (no Google types; API cost)")
-    print("\ndeterministic proposals by cuisine:")
+    print(f"total restaurants scanned          : {total}")
+    print(f"  already classified (facet ok)    : {tier['already']}")
+    unknown = tier["reliable"] + tier["enum_gap"] + tier["needs_llm"] + tier["needs_places"]
+    print(f"  UNKNOWN (backfill target)        : {unknown}")
+    print(f"    - RELIABLE (name/Google-type)  : {tier['reliable']}  (safe; still needs your OK)")
+    print(f"    - enum-gap (no home; stay unknown): {tier['enum_gap']}  (propose enum addition)")
+    print(f"    - needs LLM (has Google signal): {tier['needs_llm']}  (one-shot LLM pass)")
+    print(f"    - needs LLM/Places (no type)   : {tier['needs_places']}  (LLM by name; else Places fetch)")
+    print("\nRELIABLE proposals by cuisine:")
     for slug in cuisine_slugs_in_order():
         if proposed_dist.get(slug):
             print(f"    {slug:<14} {proposed_dist[slug]}")
+    if gap_dist:
+        print("\nENUM-GAP additions proposed (separate list — rows stay unknown):")
+        for label, n in gap_dist.most_common():
+            print(f"    {label:<16} {n}")
 
-    print("\n=== 15 SAMPLE PROPOSALS ===")
-    det = [r for r in report if r["tier"] == "deterministic"]
-    llm = [r for r in report if r["tier"] == "needs_llm"]
-    samples = (det[:10] + llm[:5]) or report[:15]
-    for r in samples[:15]:
-        prop = r["proposed_label"] or f"<{r['tier']}>"
-        print(f"  [{r['source']:<13}] {r['name'][:34]:<34} | google={r['google_primary_category'][:26]:<26} → {prop}")
+    print("\n=== RELIABLE proposals (safe tier — for your glance) ===")
+    for r in [x for x in report if x["tier"] == "reliable"]:
+        ev = r["google_primary_category"] or r["google_categories"].split("|")[0] or "name-only"
+        print(f"  {r['name'][:34]:<34} [{ev[:24]:<24}] → {r['proposed_label']}")
 
     print(f"\nreport written: {out_path}")
     print("DRY RUN — no catalog writes. Review with Casey before any gated apply (prod-data gate).")
