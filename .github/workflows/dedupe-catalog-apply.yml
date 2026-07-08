@@ -64,6 +64,13 @@ jobs:
             python scripts/dedupe_apply_2026_07_06.py
           fi
 
+      - name: Purge CDN cache after a write (no-op on dry-run / without CF creds)
+        if: ${{ github.event.inputs.confirm == 'APPLY' }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
+
       - name: Upload undo CSV (apply runs only)
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5

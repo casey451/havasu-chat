@@ -77,7 +77,7 @@ def test_html_pages_demand_revalidation(client: TestClient) -> None:
         r = client.get(path)
         assert r.status_code == 200, path
         assert (r.headers.get("content-type") or "").startswith("text/html"), path
-        assert r.headers.get("cache-control") == "no-cache, max-age=0, must-revalidate", path
+        assert r.headers.get("cache-control") == "no-store, no-cache, max-age=0, must-revalidate", path
 
 
 def test_route_served_text_feeds_keep_default_caching(client: TestClient) -> None:

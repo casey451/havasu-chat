@@ -471,8 +471,14 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
         content_type = (response.headers.get("content-type") or "").lower()
         if content_type.startswith("text/html"):
+            # ``no-store`` (not just ``no-cache``) — the 2026-07-07 stale-day-view
+            # was a Cloudflare edge copy frozen at one PoP. no-store tells every
+            # cache to never STORE the HTML, so a broad "cache everything" rule
+            # can't silently freeze a per-URL copy again. (A CF rule with "override
+            # origin" still wins, but the standing config now correctly signals
+            # uncacheable; the deploy/data-op CDN purge is the active backstop.)
             response.headers.setdefault(
-                "Cache-Control", "no-cache, max-age=0, must-revalidate"
+                "Cache-Control", "no-store, no-cache, max-age=0, must-revalidate"
             )
             # Launch hardening (audit M1): start CSP in Report-Only to inventory
             # inline scripts/styles + image sources, then rename the header to
