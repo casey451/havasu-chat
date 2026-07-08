@@ -15,6 +15,19 @@
   <article class="article">
     <p class="lead">A warm, welcoming hub for Lake Havasu City seniors — daily lunch, weekly classes and games, Meals on Wheels, and good company. Here's what's happening and how to join in.</p>
 
+    {# WS10: today's live senior feed from the events calendar (senior-narrowed).
+       Omitted entirely when the center has nothing on today — never fabricated. #}
+    {% if today_feed %}
+    <h2>Today at the Senior Center</h2>
+    <p><small>{{ today_label }}</small></p>
+    <ul>
+      {% for r in today_feed %}
+      <li>{% if r.time_label %}<strong>{{ r.time_label }}</strong> — {% endif %}<a href="{{ r.url }}">{{ r.title }}</a>{% if r.venue %} <small>· {{ r.venue }}</small>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    <p><small>Pulled from the live <a href="/events-ui?seniors=1">Seniors calendar</a>; holidays may change the schedule — call {{ phone }} to confirm.</small></p>
+    {% endif %}
+
     <h2>Visit us</h2>
     <p>
       {{ address }}<br>
