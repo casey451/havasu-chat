@@ -71,6 +71,13 @@ _GAP_FILL_FIELDS: tuple[str, ...] = (
     "google_hours",
 )
 
+# Operational / merge-internal ``attributes`` keys that must NEVER transfer from a
+# retired loser to the keeper during the per-key attributes gap-fill (they describe
+# the loser's own lifecycle, not curated content about the business).
+_ATTRS_GAP_FILL_DENYLIST: frozenset[str] = frozenset(
+    {"merged_into_slug", "address_flag_dismissed"}
+)
+
 
 @dataclass
 class MergeResult:
@@ -148,6 +155,28 @@ def merge_providers(
                     dup.google_place_id = None
                     db.flush()
                 setattr(keep, f, value)
+
+    # 1b. Gap-fill CURATED attributes per-key (never clobber). The keeper inherits
+    # each of the loser's ``attributes`` keys where its own value is empty, so an
+    # operator-approved cuisine — or any future curated key — survives the merge
+    # instead of dying with the retired twin. (WS4 2026-07-08: hangar-24-taproom's
+    # client-assigned 'american' was lost because ``attributes`` wasn't gap-filled;
+    # this makes WS12-era curated data survive merges by construction.) Merge-
+    # internal / operational keys never transfer.
+    dup_attrs = dup.attributes if isinstance(dup.attributes, dict) else {}
+    keep_attrs = dict(keep.attributes) if isinstance(keep.attributes, dict) else {}
+    inherited = {
+        k: v
+        for k, v in dup_attrs.items()
+        if k not in _ATTRS_GAP_FILL_DENYLIST
+        and not _is_empty(v)
+        and _is_empty(keep_attrs.get(k))
+    }
+    if inherited:
+        result.gap_filled.append("attributes")
+        if not dry_run:
+            keep_attrs.update(inherited)
+            keep.attributes = keep_attrs
 
     # 2. Combine source provenance on the keeper.
     combined = _combine_sources(keep.source, dup.source or "")
