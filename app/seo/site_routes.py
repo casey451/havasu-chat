@@ -168,6 +168,7 @@ def _build_sitemap_pages_xml() -> str:
         "/lake",
         "/night",
         "/family",
+        "/family/camps",  # WS10 camps hub
         "/seniors",
         "/privacy",
         "/terms",
