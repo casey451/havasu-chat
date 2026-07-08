@@ -250,13 +250,19 @@ def _serve_mode_landing(request: Request, db: Session, mode: str) -> HTMLRespons
         "active_tab": "family" if mode == "family" else None,
         **landing,
     }
-    # WS10: /night gets a real "Late-night kitchens" list (Eat & Drink venues open
-    # past 10 PM, from published hours) in place of the old chat deep-link tile.
+    # WS10: /night renders its own richer template — real content, zero /chat?q=
+    # tiles: tonight's live music (the events "music" bucket), the venues-open-
+    # past-10-PM list (from published hours), and honest "coming soon" cards for
+    # surfaces with no structured source yet (happy hours → WS12 connector).
+    template = "mode_redesign.html"
     if mode == "night":
         context["late_kitchens"] = redesign.late_night_kitchens(db)
+        context["music_tonight"] = redesign.night_music_rows(db, day=now.date(), now=now)
+        context["coming_soon"] = list(redesign.NIGHT_COMING_SOON)
+        template = "night_redesign.html"
     return templates.TemplateResponse(
         request=request,
-        name="mode_redesign.html",
+        name=template,
         context=context,
     )
 

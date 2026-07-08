@@ -414,6 +414,70 @@ def late_night_kitchens(
     return out[:limit]
 
 
+# WS10 /night — "coming soon" placeholders for surfaces that have NO structured
+# data yet. Live music IS structured (the events "music" bucket — see
+# ``night_music_rows``), so it is deliberately NOT here; a happy-hour table has no
+# source until the WS12 venue/Facebook connector lands, so we say so honestly
+# rather than deep-link a canned chat query (WS10 acceptance: zero /chat?q= tiles).
+NIGHT_COMING_SOON: tuple[dict[str, str], ...] = (
+    {
+        "title": "Happy hours",
+        "note": (
+            "A sortable happy-hour table — venue, days, times, and the deal — is "
+            "on the way, once we finish connecting local venue calendars."
+        ),
+    },
+)
+
+
+def night_music_rows(
+    db: Session, *, day: date, now: datetime | None = None, limit: int = 12
+) -> list[dict[str, str]]:
+    """WS10 /night — tonight's real live-music & nightlife, drawn from the SAME
+    "Music & Nightlife" bucket the events calendar renders (``event_buckets`` key
+    ``music``) for ``day``. Each row is ``{title, time_label, venue, url}`` with a
+    real internal ``/events/<id>`` link — never a chat deep-link.
+
+    Honest-omit (§4.10): returns ``[]`` when nothing is on that night, so the
+    /night "Live music tonight" card is hidden rather than faked. The rows come
+    from ``day_groups`` (the same builder ``/events-ui`` uses), so /night and the
+    calendar can never disagree about what's playing.
+
+    Since Session 2b (2026-07-05) "Music & Nightlife" is no longer a top-level
+    group — it folds into "Things to Do" (key ``events``) as the Live Music /
+    Comedy & Theater / More-music subsections. We read exactly those folded
+    subsections (by the canonical ``MUSIC_SUBGROUP_ORDER`` labels), so this stays
+    the music slice the calendar shows and nothing else.
+    """
+    from app.events.activity_taxonomy import MUSIC_SUBGROUP_ORDER
+
+    groups = events_views.day_groups(db, day=day, now=now)
+    events_group = next((g for g in groups if g.get("key") == "events"), None)
+    if not events_group:
+        return []
+    music_labels = set(MUSIC_SUBGROUP_ORDER)
+    walked: list[dict[str, Any]] = []
+    for sub in events_group.get("subgroups") or []:
+        if sub.get("label") in music_labels:
+            _feed_walk(sub, walked)
+    out: list[dict[str, str]] = []
+    for r in walked:
+        title = (r.get("title") or "").strip()
+        url = (r.get("url") or "").strip()
+        if not title or not url:
+            continue
+        tl = (r.get("time_label") or "").strip()
+        out.append(
+            {
+                "title": title,
+                "time_label": "" if "TBD" in tl.upper() else tl,
+                "venue": (r.get("venue") or "").strip(),
+                "url": url,
+            }
+        )
+    return out[:limit]
+
+
 # ── events feed (count overview + accordion buckets + blurbs + fitness subs) ────
 _EVENT_ID_RE = re.compile(r"^/events/([^/?#]+)")
 

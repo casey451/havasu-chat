@@ -1,0 +1,90 @@
+{% extends "base_redesign.html" %}
+{#- WS10 /night hub (v4 language). Real, server-rendered content only — no /chat
+   deep-link tiles. Sections (each honest-omit when empty):
+     * drink tiles  → the bars-and-breweries LEAF (a real filtered list)
+     * Live music tonight → the events "music" bucket for today (redesign.night_music_rows)
+     * Late-night kitchens → Eat & Drink venues open past 10 PM (redesign.late_night_kitchens)
+     * Coming soon → honest placeholders for surfaces with no source yet (happy hours)
+   Same _serve_mode_landing context (heading / eyebrow / blurb / tiles / sec_head)
+   plus music_tonight / late_kitchens / coming_soon. Zero-emoji (§0). -#}
+{% from "components/redesign_icons.html" import icon %}
+{% block title %}Ask Hava — {{ heading }}{% endblock %}
+{% block meta_description %}{{ blurb }}{% endblock %}
+
+{% block main %}
+<div class="famx">
+  <div class="pagehead">
+    <span class="eyebrow">{{ eyebrow }}</span>
+    <h1 class="serif">{{ heading }}</h1>
+    <p class="dsub">{{ blurb }}</p>
+  </div>
+
+  <div class="sec-head famhd">
+    <h2 class="serif">{{ sec_head }}</h2>
+    <a class="showall" href="/events-ui">This week's events {{ icon('arrow', 14) }}</a>
+  </div>
+  <div class="famgrid">
+    {% for t in tiles %}
+    <a class="famtile" href="{{ t.url }}">
+      <div class="ft serif">{{ t.label }}</div>
+      {% if t.blurb %}<div class="fn">{{ t.blurb }}</div>{% endif %}
+      <span class="fgo" aria-hidden="true">{{ icon('arrow', 14) }}</span>
+    </a>
+    {% endfor %}
+  </div>
+
+  {# Tonight's live music & nightlife — real events from the Music & Nightlife
+     bucket for today, each linking to its /events/<id> page. Hidden when nothing
+     is on (never a fabricated row). #}
+  {% if music_tonight %}
+  <div class="sec-head famhd">
+    <h2 class="serif">Live music tonight</h2>
+    <a class="showall" href="/events-ui">All events {{ icon('arrow', 14) }}</a>
+  </div>
+  <div class="famgrid">
+    {% for m in music_tonight %}
+    <a class="famtile" href="{{ m.url }}">
+      <div class="ft serif">{{ m.title }}</div>
+      {% set meta = [m.time_label, m.venue]|select|join(' · ') %}
+      {% if meta %}<div class="fn">{{ meta }}</div>{% endif %}
+      <span class="fgo" aria-hidden="true">{{ icon('arrow', 14) }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# Late-night kitchens: Eat & Drink venues whose posted hours run past 10 PM.
+     Omitted entirely when none qualify — never a faked row. #}
+  {% if late_kitchens %}
+  <div class="sec-head famhd">
+    <h2 class="serif">Late-night kitchens</h2>
+  </div>
+  <p class="dsub">Eat &amp; Drink spots whose posted hours run past 10 PM.</p>
+  <div class="famgrid">
+    {% for k in late_kitchens %}
+    <a class="famtile" href="{{ k.url }}">
+      <div class="ft serif">{{ k.name }}</div>
+      <span class="fgo" aria-hidden="true">{{ icon('arrow', 14) }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# Honest "coming soon" cards for surfaces we don't have structured data for
+     yet — plain non-link cards (no /chat deep-link), so the acceptance holds. #}
+  {% if coming_soon %}
+  <div class="sec-head famhd">
+    <h2 class="serif">Coming soon</h2>
+  </div>
+  <div class="famgrid">
+    {% for c in coming_soon %}
+    <div class="famtile ph">
+      <span class="soon">Coming soon</span>
+      <div class="ft serif">{{ c.title }}</div>
+      <div class="fn">{{ c.note }}</div>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

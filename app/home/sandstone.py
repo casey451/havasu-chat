@@ -905,18 +905,20 @@ def _tile(emoji: str, title: str, blurb: str, url: str) -> dict[str, str]:
 # the user still lands on real results instead of a generic page.
 
 def _night_tiles() -> list[dict[str, str]]:
-    # Deep-link the drink tiles to the bars-and-breweries LEAF — both used to
-    # dump onto the unfiltered Eat & Drink department (audit, mode pages #3).
+    # Both drink tiles land on the bars-and-breweries LEAF (a real filtered list),
+    # not the unfiltered Eat & Drink department (audit, mode pages #3).
+    #
+    # WS10: the old chat deep-link tiles are gone — /night now renders REAL,
+    # server-rendered content instead (no /chat?q= tiles anywhere on the hub):
+    #   * "Live Music" / "Happy Hours" tiles → live music renders as an events
+    #     list (redesign.night_music_rows, the "music" bucket for tonight) and
+    #     happy hours as an honest "coming soon" card (redesign.NIGHT_COMING_SOON);
+    #   * "Late Kitchens" → the venues-open-past-10 PM list (late_night_kitchens);
+    #   * "Get Home Safe" → dropped (no structured taxi/rideshare surface exists).
     bars = "/categories/eat-and-drink/bars-and-breweries"
     return [
         _tile("🍸", "Bars & Lounges", "Waterfront, dive, cocktail", bars),
         _tile("🍺", "Breweries & Wineries", "Tastings, taprooms", bars),
-        _tile("🎶", "Live Music", "Who's playing & when", _chat_url("live music tonight")),
-        _tile("🕙", "Happy Hours", "Sorted by ending soon", _chat_url("happy hour now")),
-        # WS10: the "Late Kitchens" chat deep-link is replaced by a real,
-        # server-rendered list of venues open past 10 PM (redesign.late_night_kitchens,
-        # rendered as its own card on /night) — no chat round-trip for real data.
-        _tile("🚖", "Get Home Safe", "Local taxi & rideshare", _chat_url("taxi or rideshare")),
     ]
 
 
@@ -943,8 +945,8 @@ _MODE_CONFIG: dict[str, dict[str, Any]] = {
         "eyebrow": "Night",
         "heading": "Where the night goes",
         "blurb": (
-            "Tonight's happy hours, the patios, live music, late kitchens — "
-            "and a safe ride home."
+            "The bars and patios, tonight's live music, and the kitchens still "
+            "serving late."
         ),
         "sec_head": "Out tonight",
         "tiles": _night_tiles,

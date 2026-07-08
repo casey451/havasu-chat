@@ -1321,3 +1321,11 @@ body.map-page .rd-shell > main{padding:0}
 .contribx .foot{margin-top:24px;font-size:14px;color:var(--ink3);text-align:center}
 .contribx .foot a{color:var(--brass-ink);font-weight:600}
 @media(min-width:720px){.contribx .form-card{padding:32px}.contribx .form-card label{margin:22px 0 8px}}
+
+/* WS10 /night — non-interactive "coming soon" placeholder card. A muted famtile
+   variant (no hover lift, default cursor) with a soft brass "Coming soon" pill.
+   Used for surfaces with no structured source yet (happy hours), so the hub
+   stays honest without a /chat deep-link. */
+.famtile.ph{cursor:default;background:var(--paper2);box-shadow:none}
+.famtile.ph:hover{box-shadow:none;border-color:var(--hair);transform:none}
+.famtile .soon{display:inline-block;font-size:10px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--brass-ink);background:var(--brass-soft);border:1px solid var(--brass-line);border-radius:999px;padding:2px 9px;margin-bottom:8px}
