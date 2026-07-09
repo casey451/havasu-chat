@@ -135,3 +135,87 @@ def test_redesign_visual(server: str) -> None:
 
     assert not overflow, "Horizontal overflow at 390px: " + "; ".join(overflow)
     assert not failures, "Visual drift: " + "; ".join(failures)
+
+
+# ── Desktop wide-width shell guard (2026-07-09) ──────────────────────────────
+# The audit's declared blind spot (§5) was that nothing tested above ~540px, so
+# the wide-monitor layout was never verified. This deterministic guard runs the
+# home + calendar at 1280 and 1920 and asserts the centered-shell invariants:
+#
+#   * the shell (``.rd-shell``) caps content width (≤ ~1300px) and stays centered;
+#   * no structural block escapes the shell horizontally.
+#
+# The second check is load-bearing and NOT redundant with a scrollWidth check:
+# the bug it guards against (a bare ``1fr`` feed track blowing out and shoving
+# the rail off the right edge) was *clipped by* ``body{overflow-x:hidden}``, so
+# ``scrollWidth <= innerWidth`` still held — only the rail's own box, at
+# ``right`` far beyond the shell, betrayed it. So we assert on the boxes of the
+# structural wrappers directly, not on document scroll width.
+_DESKTOP_SIZES = {"desktop": (1280, 1024), "wide": (1920, 1080)}
+
+# Structural blocks that must live inside the shell on any page that has them.
+_SHELL_CHILDREN = [
+    ".cond", ".daystrip", ".main", ".sections", ".rail", ".foot", ".calbar",
+    ".evx", ".dirx", ".prof-wrap", ".artx", ".chat-shell", ".todayx", ".acctx",
+    ".coll-wrap", ".sponx", ".portx", ".famx", ".grpx",
+]
+
+_SHELL_PROBE_JS = """
+(sels) => {
+  const iw = document.documentElement.clientWidth;
+  const shellEl = document.querySelector('.rd-shell');
+  if (!shellEl) return {noShell: true};
+  const s = shellEl.getBoundingClientRect();
+  const offenders = [];
+  for (const sel of sels) {
+    for (const el of document.querySelectorAll(sel)) {
+      const r = el.getBoundingClientRect();
+      if (r.width > 0 && (r.right > s.right + 2 || r.left < s.left - 2)) {
+        offenders.push(sel + ' L' + Math.round(r.left) + ' R' + Math.round(r.right));
+      }
+    }
+  }
+  return {
+    iw, shellLeft: Math.round(s.left), shellRight: Math.round(s.right),
+    shellWidth: Math.round(s.width), offenders,
+  };
+}
+"""
+
+
+def test_desktop_shell_layout(server: str) -> None:
+    """The centered content shell holds at 1280 and 1920 with nothing escaping it."""
+    problems: list[str] = []
+
+    with sync_playwright() as p:
+        browser = p.chromium.launch()
+        for page_name, path in _PAGES.items():
+            for size_name, (w, h) in _DESKTOP_SIZES.items():
+                page = browser.new_page(
+                    viewport={"width": w, "height": h}, reduced_motion="reduce"
+                )
+                page.goto(server + path, wait_until="networkidle")
+                page.wait_for_timeout(300)
+                res = page.evaluate(_SHELL_PROBE_JS, _SHELL_CHILDREN)
+                tag = f"{page_name}@{w}px"
+                if res.get("noShell"):
+                    problems.append(f"{tag}: no .rd-shell element")
+                    page.close()
+                    continue
+                # shell caps content width (max-width applied, not full-bleed)
+                if res["shellWidth"] > 1300:
+                    problems.append(f"{tag}: shell width {res['shellWidth']} > 1300")
+                # shell is centered within the content area (allow scrollbar slack)
+                skew = abs(res["shellLeft"] - (res["iw"] - res["shellRight"]))
+                if skew > 4:
+                    problems.append(
+                        f"{tag}: shell not centered (left={res['shellLeft']} "
+                        f"right-gap={res['iw'] - res['shellRight']} skew={skew})"
+                    )
+                # no structural block escapes the shell (catches the grid blowout)
+                if res["offenders"]:
+                    problems.append(f"{tag}: escaped shell: {', '.join(res['offenders'])}")
+                page.close()
+        browser.close()
+
+    assert not problems, "Desktop shell layout: " + " | ".join(problems)
