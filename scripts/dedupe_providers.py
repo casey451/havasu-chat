@@ -80,36 +80,14 @@ class MergeSpec:
     dup_contains: str | None = None
 
 
-MERGE_SPECS: list[MergeSpec] = [
-    MergeSpec(
-        label="Bike shop dup",
-        gather="bike",  # broad on purpose: "&" vs "and" differ, so match the common token
-        strategy="names",
-        keep_contains="havasu bike and fitness",
-        dup_contains="lake havasu bike",
-        reason="'Lake Havasu Bike & Fitness' duplicates the real 'Havasu Bike and Fitness'",
-    ),
-    MergeSpec(
-        label="Next Generation MMA dup",
-        gather="next generation mixed martial",
-        strategy="place_id",
-        reason="bare Next Gen MMA entry duplicates the real provider (the one with a place id)",
-    ),
-    # 2026-07-08 re-audit (item 6): two "911 Mobile Mechanic" rows — the SAME
-    # business (identical website 911mobilemechanic.com), but Google has two place
-    # records at different addresses, so BOTH carry a (distinct) google_place_id.
-    # The place_id strategy therefore skipped it (dry-run 2026-07-09); Casey chose
-    # to keep the 620 Lake Havasu Ave listing (`911-mobile-mechanic`) and retire
-    # the 2660 Sweetwater one (a gas-station geocode). Resolve by exact slug.
-    MergeSpec(
-        label="911 Mobile Mechanic dup",
-        gather="911 mobile mechanic",
-        strategy="slugs",
-        keep_contains="911-mobile-mechanic",
-        dup_contains="911-mobile-mechanic-2",
-        reason="same business (same website), two Google records — keep 620 Lake Havasu Ave",
-    ),
-]
+# No open known duplicates: all prior specs are applied/resolved (2026-07-09) —
+# the bike + Next Gen MMA pairs merged in earlier sessions, and the 911 Mobile
+# Mechanic pair (two Google records for one business) was resolved by slug via the
+# dedupe-providers workflow. An always-skip spec is just noise in the dry-run, so
+# they're retired here. Add a new MergeSpec when the cross-source audit surfaces
+# the next real dupe; the resolve STRATEGIES (names / place_id / slugs) stay
+# regression-tested against synthetic specs in tests/test_dedupe_providers.py.
+MERGE_SPECS: list[MergeSpec] = []
 
 
 # --------------------------------------------------------------------------- #
@@ -213,10 +191,11 @@ def dedupe(
     *,
     apply: bool,
     undo: list[dict[str, Any]],
+    specs: list[MergeSpec] | None = None,
 ) -> Counter[str]:
     c: Counter[str] = Counter()
 
-    for spec in MERGE_SPECS:
+    for spec in MERGE_SPECS if specs is None else specs:
         c["total"] += 1
         print(f"\n=== {spec.label} — {spec.reason} ===")
         keeper, dups, note = _resolve(db, spec)
@@ -277,9 +256,15 @@ def sanity_check_cycle_therapy(db: Session) -> None:
         print(f"--- {_describe(db, p)}")
 
 
-def run(db: Session, *, apply: bool, snapshot_dir: Path | None = None) -> Counter[str]:
+def run(
+    db: Session,
+    *,
+    apply: bool,
+    snapshot_dir: Path | None = None,
+    specs: list[MergeSpec] | None = None,
+) -> Counter[str]:
     undo: list[dict[str, Any]] = []
-    c = dedupe(db, apply=apply, undo=undo)
+    c = dedupe(db, apply=apply, undo=undo, specs=specs)
     sanity_check_cycle_therapy(db)
 
     if apply and undo:
