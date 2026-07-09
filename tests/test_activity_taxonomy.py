@@ -154,3 +154,11 @@ def test_split_orders_and_omits_empty():
     labels = [s["label"] for s in subs]
     assert labels == ["Yoga", "Strength & Cardio", "Other classes"]
     assert all(s["count"] == len(s["rows"]) for s in subs)
+
+
+def test_big_fish_little_fish_routes_to_aquatic_not_around_town():
+    # 2026-07-08 re-audit: the named kids learn-to-swim program carried no generic
+    # swim keyword, so it fell through to the Around Town (None) bucket.
+    assert classify_activity("Big Fish Little Fish") == "aquatic"
+    assert classify_activity("Big Fish Little Fish Swim Program") == "aquatic"
+    assert "activity:aquatic" in event_activity_tags("Big Fish Little Fish")

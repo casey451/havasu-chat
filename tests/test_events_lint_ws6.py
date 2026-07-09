@@ -15,6 +15,7 @@ import pytest
 from app.events.lint import (
     is_early_activity,
     is_kids_series,
+    landmark_venue_mismatch,
     lint_event,
     name_category_contradiction,
     parks_rec_venue_unrecognized,
@@ -217,3 +218,45 @@ def test_kids_pizza_party_cooking_class_trips_both_rules() -> None:
     )
     rules = {f.rule for f in lint_event(ev)}
     assert rules == {"ampm_flip", "venue_not_facility"}
+
+
+# ── landmark venue vs. the real venue in the prose (2026-07-08 re-audit) ───────
+def test_landmark_venue_mismatch_flags_placeholder_with_named_venue() -> None:
+    # The Bunco case: venue is the shared visitor-center placeholder while the
+    # prose names Mudshark Public House.
+    assert (
+        landmark_venue_mismatch(
+            "Go Lake Havasu Visitor Center",
+            "Red, White and Blue Bunco Party! Join us at Mudshark Public House.",
+        )
+        == "Mudshark Public House"
+    )
+
+
+def test_landmark_venue_mismatch_precision_negatives() -> None:
+    # A real venue is never flagged, even with an "at <venue>" in the prose.
+    assert landmark_venue_mismatch("Mudshark Public House", "Join us at Mudshark Public House.") is None
+    # A placeholder whose prose names nothing distinct → no flag (may be a genuine
+    # visitor-center event).
+    assert landmark_venue_mismatch("Go Lake Havasu Visitor Center", "A fun night out.") is None
+    # A placeholder whose prose names the placeholder again → no flag.
+    assert (
+        landmark_venue_mismatch(
+            "Go Lake Havasu Visitor Center", "Meet at the Go Lake Havasu Visitor Center."
+        )
+        is None
+    )
+
+
+def test_lint_event_flags_landmark_venue_mismatch_on_glh_row() -> None:
+    ev = SimpleNamespace(
+        title="Red, White and Blue Bunco Party",
+        description="A patriotic Bunco night. Join us at Mudshark Public House.",
+        start_time=time(18, 0),
+        end_time=None,
+        location_name="Go Lake Havasu Visitor Center",
+        source="go_lake_havasu",
+        event_url="https://www.golakehavasu.com/event/bunco",
+    )
+    rules = {f.rule for f in lint_event(ev)}
+    assert "landmark_venue_mismatch" in rules

@@ -137,16 +137,29 @@ def recover_event_fields(
 
     venue: str
     address: str | None = None
-    loc_corrupt = (not raw_loc) or _looks_like_prose(raw_loc)
+    loc_missing = (not raw_loc) or _looks_like_prose(raw_loc)
+    # The shared CVB visitor-center placeholder ("Go Lake Havasu Visitor Center")
+    # is a real-shaped string, so it isn't "missing" — but it's a stand-in a GLH
+    # event's own prose should override when a real venue is named (the Bunco party
+    # tagged to the visitor center whose LOCATION line reads Mudshark Public House).
+    # We override it ONLY when a real venue is actually recovered — a genuine
+    # visitor-center event with no better venue keeps its label, never blanked.
+    from app.contrib.ingest_suppression import is_placeholder_address
+
+    loc_placeholder = is_placeholder_address(raw_loc)
+    loc_recoverable = loc_missing or loc_placeholder
 
     if recovered_location:
         rv, address = _split_venue_address(recovered_location)
-        # When the stored location is corrupt, prefer the recovered venue; if the
-        # LOCATION line was a pure street address (no venue name), use it whole.
-        venue = (rv or recovered_location) if loc_corrupt else raw_loc
-    elif prefixed_venue and loc_corrupt:
+        # When the stored location is missing/placeholder, prefer the recovered
+        # venue; if the LOCATION line was a pure street address (no venue name),
+        # use it whole.
+        venue = (rv or recovered_location) if loc_recoverable else raw_loc
+    elif prefixed_venue and loc_recoverable:
         venue = prefixed_venue
-    elif loc_corrupt:
+    elif loc_missing:
+        # Only a truly missing/prose location falls back to TBD — a placeholder we
+        # couldn't improve on stays as-is (it may be a real visitor-center event).
         venue = "Location TBD"
     else:
         venue = raw_loc
