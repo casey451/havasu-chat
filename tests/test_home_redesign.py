@@ -100,8 +100,9 @@ def test_home_redesign_conditions_bar_with_seeded_data() -> None:
 
     b = _home()
     assert 'class="cond"' in b  # conditions bar present
-    assert 'id="gasPanel"' in b  # gas top-5 expander
-    assert "$3.79" in b  # cheapest gas figure
+    assert 'id="gasPanel"' not in b  # M12: the per-page gas expander was removed
+    assert '<a class="c gas" href="/gas"' in b  # gas chip now links to /gas
+    assert "$3.79" in b  # cheapest gas figure (header chip)
     assert ">104°<" in b or "104°" in b  # temp tile, clean single value
 
 

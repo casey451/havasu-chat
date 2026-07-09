@@ -105,17 +105,23 @@ def test_freshness_label_and_timestamp_share_one_clock() -> None:
     assert "Updated" in body
 
 
-def test_shows_six_cheapest_not_five() -> None:
-    """Fix 3: up to 6 cheapest cards render (no cut-off top 5)."""
+def test_all_stations_table_is_regular_sorted_cheapest_first() -> None:
+    """M12 (2026-07-08): the "Cheapest today" ranked-card strip was removed; the
+    price-sorted "All stations" table is the only cheapest view. The route sorts
+    it regular-cheapest-first by construction, so a shuffled payload still renders
+    the cheapest regular price ahead of the dearer ones."""
     fetched = _now() - timedelta(minutes=5)
-    # Route slices data["stations"]... actually it slices data["cheapest"]; give 6+.
-    payload = _payload(8)
-    payload["cheapest"] = payload["stations"][:8]
-    body = _get_gas(_result(payload, fetched_at=fetched))
-    # Six ranked cards => #1..#6 present, #7 absent.
-    for n in range(1, 7):
-        assert f"#{n}" in body
-    assert "#7" not in body
+    payload = _payload(3)
+    # Deliberately out of price order; the route must sort regular-ascending.
+    # Distinctive names (no collision with grade-column headers like "Mid").
+    payload["stations"] = [
+        {"name": "Zephyr", "address": "1 St", "prices": {"regular": 4.99}},
+        {"name": "Yonder", "address": "2 St", "prices": {"regular": 3.11}},
+        {"name": "Xavier", "address": "3 St", "prices": {"regular": 4.00}},
+    ]
+    body = _body_only(_get_gas(_result(payload, fetched_at=fetched)))
+    assert "Cheapest today" not in body  # the ranked-card strip is gone
+    assert body.index("Yonder") < body.index("Xavier") < body.index("Zephyr")
 
 
 def test_city_average_rendered_prominently() -> None:
@@ -142,19 +148,9 @@ def test_stale_banner_flags_out_of_date() -> None:
 
 
 # -- WP-8: humanized timestamp, 2-decimal avg, copy + single "Updated" -------
-
-
-def test_cheapest_heading_is_today_as_of_time() -> None:
-    """N-27 / M-10: the cheapest strip heading reads 'Cheapest today (as of
-    {time})' on the live render path, not 'Cheapest right now'."""
-    # 21:30 UTC -> 2:30 PM Lake Havasu (America/Phoenix, UTC-7). Anchored to
-    # yesterday so it stays within the v4.4 >7d honest-hide window (PR-1).
-    fetched = (_now() - timedelta(days=1)).replace(hour=21, minute=30, second=0, microsecond=0)
-    body = _get_gas(_result(_payload(), fetched_at=fetched))
-    assert "Cheapest today (as of" in body
-    assert "Cheapest right now" not in body
-    # The "as of" clause carries a time-only label derived from fetched_at.
-    assert "as of 2:30 PM" in body
+# (The "Cheapest today (as of …)" strip-heading test was retired with the strip
+# itself — M12, 2026-07-08. The price-sorted "All stations" table is the only
+# cheapest view now.)
 
 
 def test_single_updated_phrasing() -> None:

@@ -58,13 +58,16 @@
   {% if cond_tiles %}
     <div class="cond" aria-label="Live conditions">
       {% for t in cond_tiles %}
-      {# v4.5 PR-2: on the /gas page the gas tile is a plain span (no caret/panel) —
-         you're already on the gas page. cond_gas_plain routes it to the else branch. #}
+      {# v4.5 PR-2: on the /gas page the gas tile is a plain span (no link) — you're
+         already on the gas page. cond_gas_plain routes it to the else branch. #}
       {% if t.is_gas and not cond_gas_plain %}
-      <button type="button" class="c gas" id="gasTile" aria-expanded="false" aria-controls="gasPanel">
-        <span class="lab">{{ icon(t.icon, 12) }}{{ t.label }}<span class="gl"></span></span>
+      {# M12 (2026-07-08 re-audit): the gas tile links to /gas instead of toggling a
+         per-page 5-station expander. That expander duplicated /gas on every page and
+         was removed site-wide, leaving the header chip as the single entry point. #}
+      <a class="c gas" href="/gas" title="All gas stations">
+        <span class="lab">{{ icon(t.icon, 12) }}{{ t.label }}</span>
         <span class="val"><span class="gval">{{ t.value }}</span><span class="caret">{{ icon('chev', 11) }}</span></span>
-      </button>
+      </a>
       {% elif t.source_url %}
       {# v4.7 conditions provenance (Casey 2026-07-05): the tile links out to where
          its number comes from (temp/wind → NWS KHII, water → USBR RISE Parker Dam,
@@ -82,36 +85,6 @@
       {% endif %}
       {% endfor %}
     </div>
-    {% if gas and gas.cheapest %}
-    <div class="gaspanel" id="gasPanel" role="region" aria-label="Cheapest gas near you">
-      <div class="gp">
-        <div class="gphead">
-          <span>Cheapest gas near you</span>
-          {% if gas.grades and not gas.single_grade %}
-          <div class="gseg" id="gasSeg" role="group" aria-label="Fuel grade">
-            {% for gk in gas.grades %}
-            <button type="button" data-grade="{{ gk }}" aria-pressed="{{ 'true' if gk == 'reg' else 'false' }}"{% if gk == 'reg' %} class="on"{% endif %}>{{ gas.grade_labels[gk] }}</button>
-            {% endfor %}
-          </div>
-          {% endif %}
-        </div>
-        <div class="gplist" id="gasList" aria-live="polite">
-          {% for g in gas.cheapest %}
-          <a class="gasrow" href="{{ g.directions_url }}" target="_blank" rel="noopener nofollow">
-            <span class="gr num">{{ g.price }}</span>
-            <span style="min-width:0"><span class="gn">{{ g.name }}</span>{% if g.cross_street %}<span class="gs"> · {{ g.cross_street }}</span>{% endif %}</span>
-            <span class="gd">Directions ›</span>
-          </a>
-          {% endfor %}
-        </div>
-        <a class="gpall" href="/gas">{% if gas.station_count %}All {{ gas.station_count }} stations · {% endif %}{{ gas.staleness_label }} {{ icon('arrow', 13) }}</a>
-      </div>
-    </div>
-    {% if gas.by_grade %}
-    <script type="application/json" id="gasByGrade">{{ gas.by_grade|tojson }}</script>
-    <script type="application/json" id="gasEcho">{{ gas.echo|tojson }}</script>
-    {% endif %}
-    {% endif %}
   {% endif %}
 
   <main id="main" role="main" tabindex="-1">

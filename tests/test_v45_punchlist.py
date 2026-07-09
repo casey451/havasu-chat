@@ -8,7 +8,6 @@
 
 from __future__ import annotations
 
-import re
 from datetime import UTC, datetime
 from pathlib import Path
 from types import SimpleNamespace
@@ -16,7 +15,6 @@ from unittest.mock import patch
 
 from fastapi.testclient import TestClient
 
-from app.conditions.cache import CacheReadResult
 from app.main import app
 
 
@@ -24,26 +22,9 @@ def _now() -> datetime:
     return datetime.now(UTC).replace(tzinfo=None)
 
 
-def _gas_row() -> CacheReadResult:
-    stations = [
-        {"name": "A", "address": "1 St", "prices": {"regular": 3.5, "diesel": 4.8}},
-        {"name": "B", "address": "2 St", "prices": {"regular": 3.2}},
-    ]
-    return CacheReadResult(
-        data={"stations": stations}, fetched_at=_now(), ttl_seconds=86400, is_stale=False
-    )
-
-
-def test_gas_panel_footer_says_updated_once() -> None:
-    with patch("app.home.redesign.read_source", return_value=_gas_row()):
-        with TestClient(app) as client:
-            html = client.get("/home").text
-    # Isolate the panel footer link and count case-insensitive "updated".
-    m = re.search(r'<a class="gpall"[^>]*>(.*?)</a>', html, re.DOTALL)
-    assert m, "gas panel footer (.gpall) not found"
-    footer = m.group(1)
-    assert len(re.findall(r"updated", footer, re.IGNORECASE)) == 1, footer
-    assert "updated Updated" not in footer
+# (test_gas_panel_footer_says_updated_once was retired with the gas panel itself —
+#  M12, 2026-07-08. The per-page 5-station expander and its ".gpall" footer are
+#  gone; the header chip links straight to /gas.)
 
 
 def test_news_updated_date_is_phoenix_local() -> None:

@@ -54,8 +54,10 @@ def test_gas_card_brand_never_contradicts_name():
     tpl = (_ROOT / "app" / "templates" / "gas_prices_lake.html").read_text(
         encoding="utf-8"
     )
-    assert "brand_matches" in tpl
-    assert "{{ s.brand or s.name }}" not in tpl  # the old contradictory line
+    # M12 (2026-07-08): the "Cheapest today" gas-card strip — and its brand line —
+    # was removed; the price-sorted "All stations" table shows plain station names.
+    assert 'class="gas-cheap"' not in tpl  # the ranked-card strip is gone
+    assert "{{ s.brand or s.name }}" not in tpl  # the old contradictory line, still out
 
 
 def test_contribute_uses_em_dash():

@@ -64,9 +64,6 @@ def serve_calendar(
             "cal": view,
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "cond_tiles": redesign.conditions_tiles(db, now=now),
-            # gas_panel_data (v4.4 PR-6) so the calendar's gas panel carries the
-            # same grade switch as the home panel (base_redesign renders it).
-            "gas": redesign.gas_panel_data(db, now=now),
             "active_tab": "today",
         },
     )

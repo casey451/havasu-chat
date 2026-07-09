@@ -77,9 +77,9 @@ def test_home_and_gas_agree_on_cheapest_by_construction() -> None:
 
     # Both surfaces derive the cheapest from the same board -> both show the true
     # minimum ($3.95). The pre-v4.4 split (home $3.95 vs /gas $4.19) is gone.
-    assert "$3.95" in home
+    assert "$3.95" in home  # header chip (conditions strip)
     assert "$3.95" in gas
-    assert 'id="gasPanel"' in home  # the v4 gas top-5 expander
+    assert 'id="gasPanel"' not in home  # M12: the per-page gas expander was removed
 
 
 def test_priceless_station_never_surfaces() -> None:
