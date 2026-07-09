@@ -17,55 +17,59 @@ Sandstone re-skin (2026-06-02, UI build guide §4.11):
 from __future__ import annotations
 
 from datetime import UTC, datetime
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 from fastapi.responses import HTMLResponse, JSONResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.conditions.cache import read_source
-from app.conditions.constants import GAS_STALE_AFTER_HOURS, SOURCE_GAS
-from app.conditions.staleness import staleness_label
-from app.core.provider_name import register_template_filters, register_template_globals
+from app.conditions.constants import SOURCE_GAS
+from app.core.rate_limit import limiter, public_api_rate_limit, public_html_rate_limit
+from app.core.templates import make_templates
 from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.database import get_db
+from app.gas.service import GasBoard, board_from_cache, to_legacy_station_dict
 
 router = APIRouter(tags=["gas"])
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-# Every Jinja2Templates instance must run the shared registrars: without
-# ``canonical_url``/``absolute_url`` globals, desert_base silently skips its
-# whole canonical + Open Graph head block — live /gas shipped with NO
-# canonical and NO og:* tags because this module skipped the calls.
-register_template_filters(templates)
-register_template_globals(templates)
+# make_templates() runs the shared registrars. This page learned why that
+# matters the hard way: without the ``canonical_url``/``absolute_url`` globals,
+# desert_base silently skips its whole canonical + Open Graph head block — live
+# /gas once shipped with NO canonical and NO og:* tags after skipping the calls.
+templates = make_templates()
 
 # Number of cheapest stations to surface above the full table. The prototype's
 # cut-off "top 5" is replaced with a clean 6-up grid (UI build guide §4.11).
 _CHEAPEST_SHOWN = 6
 
 
-def _read_payload(
+def _read_board(
     db: Session,
-) -> tuple[dict[str, Any], str | None, bool, str | None, str | None]:
-    """Return (payload, staleness_label, is_stale, fetched_at_label, fetched_at_time_label).
+) -> tuple[GasBoard, dict[str, Any], str | None, str | None]:
+    """Return (board, city_avg, fetched_at_label, fetched_at_time_label).
 
-    The staleness label AND both human timestamps derive from a SINGLE clock
-    (``row.fetched_at``), so the banner can never read "updated 2 min ago" next
-    to an absolute time that disagrees. ``fetched_at_time_label`` is a time-only
-    form ("2:30 PM") for the "Cheapest today (as of {time})" heading.
+    The board is the single source of truth (v4.4 PR-1) the strip tile and home
+    panel also use, so /gas can never disagree with them on a station or a
+    cheapest figure. ``city_avg`` is the page-level "typical price" per grade — the
+    MEDIAN across the exact board stations shown, not the pull's stored mean (a
+    simple mean let the high-price outliers skew it above the pump most drivers
+    see; 2026-07-08 re-audit: mean $3.83 vs median $3.72). Computed off the board
+    so it can never disagree with the displayed table. Both human timestamps
+    derive from ``board.pulled_at`` — one clock.
     """
     now = datetime.now(UTC).replace(tzinfo=None)
     row = read_source(db, SOURCE_GAS, now=now)
-    if row is None or not isinstance(row.data, dict):
-        return {}, None, False, None, None
-    label, stale = staleness_label(row.fetched_at, now, stale_after_hours=GAS_STALE_AFTER_HOURS)
-    fetched_at_label = _format_fetched_at(row.fetched_at)
-    fetched_at_time_label = _format_fetched_at_time(row.fetched_at)
-    return row.data, label, bool(stale or row.is_stale), fetched_at_label, fetched_at_time_label
+    board = board_from_cache(row, now=now)
+    _short_to_long = {"reg": "regular", "mid": "midgrade", "prem": "premium", "dsl": "diesel"}
+    city_avg: dict[str, Any] = {
+        lng: m
+        for sh, lng in _short_to_long.items()
+        if (m := board.median_price(sh)) is not None
+    }
+    label = _format_fetched_at(board.pulled_at) if board.pulled_at else None
+    time_label = _format_fetched_at_time(board.pulled_at) if board.pulled_at else None
+    return board, city_avg, label, time_label
 
 
 def _local_fetched_at(fetched_at: datetime) -> datetime:
@@ -91,52 +95,87 @@ def _format_fetched_at_time(fetched_at: datetime) -> str:
 
 
 def _shell_context(db: Session) -> dict[str, Any]:
-    """Header nav + conditions ribbon context, so /gas wears the full Sandstone
-    shell (the ribbon partial in sandstone_base renders only when
-    ``utility_chips`` is supplied). Built from the canonical home builders;
-    imported lazily to avoid a module-load cycle with app.home.router.
+    """v4 shell context (v4.5 PR-2): the cond-tile strip for base_redesign. On /gas
+    the gas cond-tile is a plain span (``cond_gas_plain`` — no caret/panel, you're
+    already on the gas page). Imported lazily to avoid a module-load cycle.
     """
-    from app.home import sandstone
-    from app.home.router import _utility_chips
+    from app.core.timezone import now_lake_havasu
+    from app.home import redesign
 
+    now = now_lake_havasu()
     return {
-        "utility_chips": _utility_chips(db),
-        "primary_nav": sandstone.primary_nav(),
-        "mega_columns": sandstone.mega_columns(db),
+        "cond_tiles": redesign.conditions_tiles(db, now=now),
+        "today_label": now.strftime("%A, %B ") + str(now.day),
+        "cond_gas_plain": True,
+        "active_tab": "gas",
     }
 
 
 @router.get("/gas", response_class=HTMLResponse)
+@limiter.limit(public_html_rate_limit)
 def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    data, staleness, is_stale, fetched_at_label, fetched_at_time_label = _read_payload(db)
-    stations = [s for s in (data.get("stations") or []) if isinstance(s, dict)]
-    cheapest = [s for s in (data.get("cheapest") or []) if isinstance(s, dict)]
+    board, city_avg, fetched_at_label, fetched_at_time_label = _read_board(db)
+    # M12 (2026-07-08 re-audit): the price-sorted table is the only cheapest view
+    # now (the "Cheapest today" card was removed), so sort it regular-cheapest-first
+    # by construction rather than relying on the pull's stored order. Stations
+    # without a regular price sink to the bottom (they still show under their grade).
+    ranked = sorted(
+        board.stations,
+        key=lambda s: (s.prices.get("reg") is None, s.prices.get("reg") or 0.0),
+    )
+    stations = [to_legacy_station_dict(s) for s in ranked]
+    long_labels = {"regular": "Regular", "midgrade": "Midgrade", "premium": "Premium", "diesel": "Diesel"}
+    short_to_long = {"reg": "regular", "mid": "midgrade", "prem": "premium", "dsl": "diesel"}
+    # v4.4 PR-6: the grade segment offers only the grades the data actually has
+    # (a single grade -> no segment). The table columns stay the four canonical
+    # grades so the tabular view still shows what each station carries.
+    grades_available = [short_to_long[g] for g in board.grades_available if g in short_to_long]
     return templates.TemplateResponse(
         request=request,
-        name="gas_prices.html",
+        name="gas_prices_lake.html",
         context={
             **_shell_context(db),
-            "data": data,
-            "staleness_label": staleness,
-            "is_stale": is_stale,
+            "data": {"station_count": len(stations)},
+            "staleness_label": board.label,
+            "is_stale": board.is_stale,
             "fetched_at_label": fetched_at_label,
             "fetched_at_time_label": fetched_at_time_label,
             "has_data": bool(stations),
             "stations": stations,
-            "cheapest": cheapest[:_CHEAPEST_SHOWN],
-            "city_avg": data.get("city_avg") or {},
+            "city_avg": city_avg,
             "grades": ["regular", "midgrade", "premium", "diesel"],
+            "grades_available": grades_available,
+            "single_grade": len(grades_available) <= 1,
             "grade_labels": {
                 "regular": "Regular",
                 "midgrade": "Mid",
                 "premium": "Premium",
                 "diesel": "Diesel",
             },
+            "grade_seg_labels": long_labels,
         },
     )
 
 
 @router.get("/api/gas", response_class=JSONResponse)
-def gas_api(db: Session = Depends(get_db)) -> JSONResponse:
-    data, staleness, is_stale, _, _ = _read_payload(db)
-    return JSONResponse(content={**data, "staleness_label": staleness, "is_stale": is_stale})
+@limiter.limit(public_api_rate_limit)
+def gas_api(request: Request, db: Session = Depends(get_db)) -> JSONResponse:
+    board, city_avg, _, _ = _read_board(db)
+    stations = [to_legacy_station_dict(s) for s in board.stations]
+    pulled_iso = (
+        board.pulled_at.replace(tzinfo=UTC).isoformat().replace("+00:00", "Z")
+        if board.pulled_at
+        else None
+    )
+    return JSONResponse(
+        content={
+            "stations": stations,
+            "cheapest": [to_legacy_station_dict(s) for s in board.cheapest("reg", _CHEAPEST_SHOWN)],
+            "city_avg": city_avg,
+            "station_count": len(stations),
+            "grades_available": board.grades_available,
+            "updated_at_iso": pulled_iso,
+            "staleness_label": board.label,
+            "is_stale": board.is_stale,
+        }
+    )

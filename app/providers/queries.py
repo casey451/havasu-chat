@@ -22,7 +22,7 @@ from functools import lru_cache
 from typing import TYPE_CHECKING, Any, Optional
 from urllib.parse import quote
 
-from sqlalchemy import select
+from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload, selectinload
 
 if TYPE_CHECKING:
@@ -149,11 +149,18 @@ def effective_seasonal_hours(
     return (season_key, rows, copy)
 
 
-def category_label_for(provider: Provider) -> str:
-    """Prefer ENTITY taxonomy (``entity_categories`` → ``Category.name``), then
-    ``category_ref``, then the canonical ``primary_category`` (one of the 12,
-    WP-9), then legacy ``category`` — all mapped through
-    ``app.home.queries.CATEGORY_LABELS`` / ``LEGACY_PROVIDER_CATEGORY_LABELS``.
+def label_category_row(provider: Provider) -> Any:
+    """The ``Category`` row the breadcrumb LABEL is derived from, when that label
+    comes from a taxonomy ``Category`` (entity primary category → ``category_ref``).
+
+    Returns ``None`` when the label falls through to ``primary_category`` /
+    legacy-string mapping (the row has no taxonomy ``Category`` to link). Shared
+    by :func:`category_label_for` and
+    ``app.providers.view_models._category_url_for`` so the breadcrumb's label and
+    its href always derive from the SAME source (P2-2.1: live bug where the label
+    came from the entity category but the href came from the legacy
+    ``provider.category`` column — e.g. "Kids' Classes & Camps" linking to
+    ``/categories/health-and-medical``).
     """
     ent = getattr(provider, "entity", None)
     if ent is not None and ent.categories:
@@ -161,10 +168,22 @@ def category_label_for(provider: Provider) -> str:
         for ec in ordered:
             cr = ec.category
             if cr is not None and getattr(cr, "name", None):
-                return cr.name
+                return cr
     ref = getattr(provider, "category_ref", None)
     if ref is not None and getattr(ref, "name", None):
-        return ref.name
+        return ref
+    return None
+
+
+def category_label_for(provider: Provider) -> str:
+    """Prefer ENTITY taxonomy (``entity_categories`` → ``Category.name``), then
+    ``category_ref``, then the canonical ``primary_category`` (one of the 12,
+    WP-9), then legacy ``category`` — all mapped through
+    ``app.home.queries.CATEGORY_LABELS`` / ``LEGACY_PROVIDER_CATEGORY_LABELS``.
+    """
+    row = label_category_row(provider)
+    if row is not None:
+        return row.name
     # WP-9 (P-4): the canonical primary is one of the 12 CATEGORY_LABELS keys.
     primary = getattr(provider, "primary_category", None)
     if primary and primary in CATEGORY_LABELS:
@@ -213,6 +232,23 @@ def derive_freshness(provider: Provider, *, now: Optional[datetime] = None) -> t
     return ("stale", "Business information may have changed")
 
 
+# F14: categories where the auto-scraped GOOGLE photo is usually noise — a logo,
+# a random user snapshot, or an unrelated image (the audit's "kite on a plumber",
+# "gravel for another") — so it hurts trust more than it helps, and a photo isn't
+# how anyone picks a tradesperson. For these we drop the Google photo and let the
+# branded monogram placeholder show. Owner-uploaded ``Photo`` rows and pinned
+# hero URLs are CURATED and always kept; photo-meaningful categories (food,
+# lodging, retail, lake rec, beauty, health, ...) keep their Google photos.
+_PHOTO_UNRELIABLE_CATEGORIES: frozenset[str] = frozenset(
+    {"home_services", "professional_services", "auto", "service"}
+)
+
+
+def _google_photos_allowed(provider: Provider) -> bool:
+    """False for trade categories whose Google photos are unreliable (F14)."""
+    return (getattr(provider, "category", None) or "") not in _PHOTO_UNRELIABLE_CATEGORIES
+
+
 def derive_hero_photo(provider: Provider) -> Optional[str]:
     """Hero URL: owner ``Photo`` (live + ``is_hero``) → pinned URL → Google."""
     ent = getattr(provider, "entity", None)
@@ -226,6 +262,8 @@ def derive_hero_photo(provider: Provider) -> Optional[str]:
     pinned = attrs.get("hero_pin_photo_url")
     if pinned:
         return pinned
+    if not _google_photos_allowed(provider):
+        return None  # trade: skip the unreliable Google photo -> placeholder
     return first_renderable_google_photo(provider)
 
 
@@ -251,10 +289,13 @@ def derive_gallery(provider: Provider, *, exclude_hero: bool = True) -> list[str
     attrs = provider.attributes or {}
     pinned = attrs.get("hero_pin_photo_url")
     hero_url = derive_hero_photo(provider) if exclude_hero else None
-    for resolved in iter_renderable_google_photos(provider):
-        if exclude_hero and not pinned and hero_url is not None and resolved == hero_url:
-            continue
-        out.append(resolved)
+    # F14: same trade-category rule as the hero — owner photos above are kept,
+    # but the unreliable Google gallery is dropped for trades.
+    if _google_photos_allowed(provider):
+        for resolved in iter_renderable_google_photos(provider):
+            if exclude_hero and not pinned and hero_url is not None and resolved == hero_url:
+                continue
+            out.append(resolved)
     return out
 
 
@@ -388,24 +429,91 @@ def _structured_from_google_hours_cached(provider_id: int, gh_serialized: str) -
     return converted if converted else None
 
 
+def _hm_to_minutes(value: str) -> int | None:
+    t = _parse_hours_time(value)
+    return None if t is None else t.hour * 60 + t.minute
+
+
+def _minutes_to_hm(m: int) -> str:
+    """Serialize minutes-since-midnight back to ``HH:MM``. End-of-day (>= 23:59)
+    is written as the pipeline's ``23:59`` clamp so the overnight-continuation
+    logic and the profile template's "Midnight" label keep working."""
+    if m >= 1439:
+        return "23:59"
+    return f"{m // 60:02d}:{m % 60:02d}"
+
+
+def _coalesce_day_segments(spans: Any) -> list[dict[str, str]]:
+    """Clean one weekday's open/close spans (T1.4): drop zero-length + unparseable
+    segments, then sort and merge overlapping/adjacent/contained ranges.
+
+    Fixes contradictory-hours artifacts. A cross-midnight period closing at exactly
+    ``00:00`` leaves a zero-length ``00:00-00:00`` tail that the profile template
+    misreads as "Open 24 hours" (colliding with the real span → "Open 24 hours,
+    9 AM–Midnight"). A genuine 24-hour day is ``00:00-23:59`` and is preserved.
+    """
+    if not isinstance(spans, list):
+        return [] if spans is None else spans
+    parsed: list[tuple[int, int]] = []
+    for s in spans:
+        if not isinstance(s, dict):
+            continue
+        om = _hm_to_minutes(str(s.get("open") or ""))
+        raw_close = str(s.get("close") or "")
+        cm = _hm_to_minutes(raw_close)
+        if om is None or cm is None:
+            continue
+        # A close at exactly midnight ("00:00"/"24:00") is end-of-day, not 0 — but
+        # only when the segment actually opened earlier; a 00:00-00:00 pair is the
+        # zero-length overnight-split tail and must be dropped (below), not widened.
+        if raw_close in ("00:00", "0:00", "24:00") and om != 0:
+            cm = 1440
+        if cm <= om:
+            continue  # zero-length / inverted (incl. the 00:00-00:00 overnight tail)
+        parsed.append((om, cm))
+    if not parsed:
+        return []
+    parsed.sort()
+    merged: list[list[int]] = [list(parsed[0])]
+    for om, cm in parsed[1:]:
+        last = merged[-1]
+        if om <= last[1]:  # overlap or adjacency → extend
+            last[1] = max(last[1], cm)
+        else:
+            merged.append([om, cm])
+    return [{"open": _minutes_to_hm(o), "close": _minutes_to_hm(c)} for o, c in merged]
+
+
+def _coalesce_structured(hours: dict | None) -> dict | None:
+    """Coalesce every weekday's segments in a structured-hours dict (T1.4)."""
+    if not isinstance(hours, dict):
+        return hours
+    return {k: _coalesce_day_segments(v) for k, v in hours.items()}
+
+
 def effective_hours_structured(provider: Provider) -> dict | None:
-    """Prefer ENTITY weekly ``hours`` rows when present; else legacy JSON column."""
+    """Prefer ENTITY weekly ``hours`` rows when present; else legacy JSON column.
+
+    Whatever the source, per-weekday spans are coalesced (T1.4): zero-length
+    overnight-split tails (``00:00-00:00``) are dropped and overlapping/adjacent
+    ranges merged, so no consumer renders contradictory hours.
+    """
     ent = getattr(provider, "entity", None)
     if ent is not None and ent.hours:
         rebuilt = _hours_rows_to_structured(list(ent.hours))
         if rebuilt is not None:
-            return rebuilt
+            return _coalesce_structured(rebuilt)
     hs = provider.hours_structured
     if isinstance(hs, dict):
-        return hs
+        return _coalesce_structured(hs)
     gh = provider.google_hours
     if isinstance(gh, dict) and gh:
         pid = getattr(provider, "id", None)
         if pid is not None:
             ser = json.dumps(gh, sort_keys=True, default=str)
-            return _structured_from_google_hours_cached(pid, ser)
+            return _coalesce_structured(_structured_from_google_hours_cached(pid, ser))
         converted = places_hours_to_structured(gh)
-        return converted if converted else None
+        return _coalesce_structured(converted) if converted else None
     return None
 
 
@@ -559,7 +667,24 @@ def nearby_providers(
     if primary:
         # Canonical match: a sibling shares this primary (its own primary, or —
         # while un-backfilled — its legacy category folds to the same primary).
-        q = q.filter(Provider.primary_category == primary)
+        # The fold clause makes the comment true: NULL-primary siblings whose
+        # legacy category maps to the same primary were silently excluded from
+        # "While you're here".
+        from app.categories.subcategories import LEGACY_CATEGORY_TO_PRIMARY
+
+        legacy_folds = [
+            legacy for legacy, p in LEGACY_CATEGORY_TO_PRIMARY.items() if p == primary
+        ]
+        match = Provider.primary_category == primary
+        if legacy_folds:
+            match = or_(
+                match,
+                and_(
+                    Provider.primary_category.is_(None),
+                    Provider.category.in_(legacy_folds),
+                ),
+            )
+        q = q.filter(match)
     else:
         q = q.filter(Provider.category == provider.category)
     district = (provider.district or "").strip()
@@ -685,7 +810,7 @@ def effective_hours_structured_from_entity(entity: Entity) -> dict | None:
     rows = getattr(entity, "hours", None) or []
     if not rows:
         return None
-    return _hours_rows_to_structured(list(rows))
+    return _coalesce_structured(_hours_rows_to_structured(list(rows)))
 
 
 _OVERNIGHT_CLAMP_CLOSE = time(23, 59)
@@ -1049,11 +1174,19 @@ def _assemble_card_view_model(
     provider: Provider | None,
     event: Event | None,
     now_dt: datetime,
+    sponsored_provider_ids: set[str] | None = None,
 ) -> HavaCardViewModel:
     """Build the view model from already-fetched rows (no DB access).
 
     Shared by :func:`build_card_view_model` (single) and
     :func:`build_card_view_models` (batched) so both produce identical output.
+
+    ``sponsored_provider_ids`` is the honesty gate (Phase F §7.2): provider ids
+    that hold an active paid Placement for the surface being rendered. A card for
+    such a provider carries the Sponsored label even when its legacy
+    ``provider.tier`` is not ``"sponsored"`` — so a paid placement can never
+    appear in a promoted slot without disclosure. Omitting the arg (the default)
+    leaves the legacy tier-only behavior untouched.
     """
     from app.providers.view_models import HavaCardViewModel
 
@@ -1081,6 +1214,15 @@ def _assemble_card_view_model(
         status_color = "red" if freshness == "red" else ("green" if is_open is True else "amber")
         is_sponsored = bool(provider and _provider_is_sponsored_now(provider, now=now_dt))
 
+    # Honesty gate: a card promoted by an active paid Placement must carry the
+    # Sponsored label regardless of the legacy provider tier.
+    if (
+        sponsored_provider_ids
+        and provider is not None
+        and provider.id in sponsored_provider_ids
+    ):
+        is_sponsored = True
+
     boat_badge = entity.boat_access is not None
 
     return HavaCardViewModel(
@@ -1107,8 +1249,13 @@ def build_card_view_model(
     entity_id: str,
     *,
     now: Optional[datetime] = None,
+    sponsored_provider_ids: set[str] | None = None,
 ) -> HavaCardViewModel | None:
-    """Build a :class:`~app.providers.view_models.HavaCardViewModel` for any ENTITY row."""
+    """Build a :class:`~app.providers.view_models.HavaCardViewModel` for any ENTITY row.
+
+    ``sponsored_provider_ids`` (honesty gate) is forwarded to
+    :func:`_assemble_card_view_model` — see its docstring.
+    """
     now_dt = _normalize_card_now(now)
 
     entity = (
@@ -1123,7 +1270,9 @@ def build_card_view_model(
     provider = db.query(Provider).filter(Provider.entity_id == entity_id).first()
     event = db.query(Event).filter(Event.entity_id == entity_id).first()
 
-    return _assemble_card_view_model(entity, provider, event, now_dt)
+    return _assemble_card_view_model(
+        entity, provider, event, now_dt, sponsored_provider_ids=sponsored_provider_ids
+    )
 
 
 def build_card_view_models(
@@ -1131,6 +1280,7 @@ def build_card_view_models(
     entity_ids: list[str],
     *,
     now: Optional[datetime] = None,
+    sponsored_provider_ids: set[str] | None = None,
 ) -> list[HavaCardViewModel]:
     """Batched :func:`build_card_view_model` — three relation queries total
     instead of ~5 per entity (T3.2 N+1 fix).
@@ -1166,7 +1316,15 @@ def build_card_view_models(
         entity = entities.get(eid)
         if entity is None:
             continue
-        out.append(_assemble_card_view_model(entity, providers.get(eid), events.get(eid), now_dt))
+        out.append(
+            _assemble_card_view_model(
+                entity,
+                providers.get(eid),
+                events.get(eid),
+                now_dt,
+                sponsored_provider_ids=sponsored_provider_ids,
+            )
+        )
     return out
 
 

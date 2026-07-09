@@ -1,0 +1,38 @@
+{% extends "portal_base.html" %}
+{% block title %}Traffic{% endblock %}
+{% block content %}
+<h1>Traffic</h1>
+<p class="sub">First-party signals from <span class="mono">chat_logs</span> + <span class="mono">analytics_events</span>. Plausible tracks pageviews client-side (no server API), so general visits/top-pages live in your Plausible dashboard; this view covers what Plausible can't.</p>
+
+<div class="filters">
+  <span class="muted">Window:</span>
+  {% for w in windows %}<a href="?window={{ w }}" {% if window == w %}class="chip accent"{% endif %}>{{ w }}</a>{% endfor %}
+</div>
+
+<div class="grid">
+  <div class="card"><div class="num{% if not sessions %} zero{% endif %}">{{ sessions }}</div><div class="label">Distinct sessions</div><div class="blurb">Unique chat sessions (visit proxy)</div></div>
+  <div class="card"><div class="num{% if not ask_turns %} zero{% endif %}">{{ ask_turns }}</div><div class="label">Ask turns</div><div class="blurb">User messages to the concierge</div></div>
+  <div class="card"><div class="num{% if not total_events %} zero{% endif %}">{{ total_events }}</div><div class="label">Ad-surface events</div><div class="blurb">Impressions + clicks recorded</div></div>
+</div>
+
+<div class="cols2">
+  <div>
+    <h2>Top surfaces</h2>
+    <table>
+      <tr><th>Surface</th><th>Events</th></tr>
+      {% for surface, n in top_surfaces %}
+      <tr><td class="mono">{{ surface }}</td><td>{{ n }}</td></tr>
+      {% else %}<tr><td colspan="2" class="muted">No events in this window.</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div>
+    <h2>Top categories searched</h2>
+    <table>
+      <tr><th>Category</th><th>Searches</th></tr>
+      {% for cat, n in top_categories %}
+      <tr><td>{{ cat }}</td><td>{{ n }}</td></tr>
+      {% else %}<tr><td colspan="2" class="muted">No categorized searches yet.</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -2,15 +2,27 @@
    app/categories/queries). Shared by the category grid (category_sandstone.html)
    and the dedicated trade pages (category_trade.html) — SEO P2.1/P2.2: the trade
    page renders the SAME listing cards as the parent category page. #}
-{# A Provider-backed card links to its /provider/{slug} page; a Provider-less
-   place entity (no slug) renders the same card non-linking — it has no detail
-   page, and linking would 404. #}
-{% if card.slug %}<a class="biz" href="/provider/{{ card.slug }}" data-subcategory="{{ card.subcategory }}">{% else %}<div class="biz biz--place" data-subcategory="{{ card.subcategory }}">{% endif %}
-  <div class="img"{% if card.image_url %} style="background-image:url('{{ card.image_url }}')"{% endif %}>
+{# A Provider-backed card links to its /provider/{slug} page. A Provider-less
+   place entity (no slug) links OUT to its official website when it has one
+   (e.g. the Aquatic Center → city Parks & Rec page); otherwise it renders
+   non-linking — it has no detail page and linking would 404.
+   The card is a <div> grid; the whole-card link is a stretched-link overlay
+   (.biz-link, absolutely positioned) so the Call / Directions action buttons
+   can be real, independently-tappable <a> tags WITHOUT nesting anchors. The
+   chip filter JS keeps toggling the single .biz[data-subcategory] element, so
+   the buttons hide with their card. #}
+<div class="biz{% if not card.slug %} biz--place{% endif %}" data-subcategory="{{ card.subcategory }}">
+  {% if card.slug %}<a class="biz-link" href="/provider/{{ card.slug }}" aria-label="{{ card.name }}"></a>{% elif card.website %}<a class="biz-link" href="{{ card.website }}" target="_blank" rel="noopener nofollow" aria-label="{{ card.name }}"></a>{% endif %}
+  <div class="img{% if not card.image_url %} img--art{% endif %}"{% if card.image_url %} style="background-image:url('{{ card.image_url }}')"{% else %} data-monogram="{{ (card.name or '?')|first|upper }}"{% endif %}>
     {% if card.is_open is not none %}<span class="open{% if not card.is_open %} closed{% endif %}">{{ 'Open now' if card.is_open else 'Closed' }}</span>{% endif %}
+    {% if card.is_sponsored %}<span class="d-tag d-tag--sponsored spon-label">Sponsored</span>{% endif %}
   </div>
   <div class="body">
     <h3>{{ card.name }}</h3>
+    {# A2: a sponsored placement with an attached ad creative shows the creative's
+       headline as a tagline under the name (its art skins the thumbnail above).
+       Empty for every organic card, so the layout is unchanged until one sells. #}
+    {% if card.ad_headline %}<div class="ad-tagline">{{ card.ad_headline }}</div>{% endif %}
     <div class="meta">
       {% if card.has_reviews %}
       <span class="stars">★ {{ card.rating }}</span>
@@ -28,4 +40,13 @@
     {% endif %}
     {% if card.subcategory %}<div class="typ">{{ card.subcategory|replace('-', ' ')|replace('_', ' ')|title }}</div>{% endif %}
   </div>
-{% if card.slug %}</a>{% else %}</div>{% endif %}
+  {# Browse-card quick actions (P7 follow-up): tap-to-call and directions. Each
+     renders only when we hold the data, so a card never shows a dead link.
+     z-index above the .biz-link overlay keeps them independently tappable. #}
+  {% if card.phone_tel or card.directions_url %}
+  <div class="biz-actions">
+    {% if card.phone_tel %}<a class="biz-action biz-action--call" href="tel:{{ card.phone_tel }}" aria-label="Call {{ card.name }}">Call</a>{% endif %}
+    {% if card.directions_url %}<a class="biz-action biz-action--dir" href="{{ card.directions_url }}" target="_blank" rel="noopener noreferrer" aria-label="Directions to {{ card.name }}">Directions</a>{% endif %}
+  </div>
+  {% endif %}
+</div>

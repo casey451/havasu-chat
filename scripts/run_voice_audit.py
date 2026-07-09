@@ -50,9 +50,14 @@ from app.chat.intent_classifier import IntentResult  # noqa: E402
 from app.chat.normalizer import normalize  # noqa: E402
 from app.chat.tier1_handler import (  # noqa: E402
     _open_now_from_hours,
-    _utcnow,
     try_tier1,
 )
+
+
+def _utcnow() -> datetime:
+    """Aware UTC now. (Was imported from tier1_handler, which no longer exports
+    it; the runner needs an aware datetime for ``.date()`` / ``.astimezone``.)"""
+    return datetime.now(UTC)
 from app.chat.unified_router import route  # noqa: E402
 from app.core.llm_messages import call_anthropic_messages  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402

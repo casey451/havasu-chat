@@ -1,0 +1,42 @@
+{% extends "base_redesign.html" %}
+{% set account_active = "account" %}
+{#- Lake account hub (/account, auth-gated). Same context as account.html
+   ({user}); the logout POST and the two account links are unchanged. noindex. -#}
+{% block title %}Your account — Ask Hava{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+{% endblock %}
+{% block main %}
+<div class="acctx">
+  <div class="pagehead">
+    <h1>Your account</h1>
+    <p class="sub">Signed in as <strong>{{ user.email }}</strong>.</p>
+  </div>
+  <div class="acct">
+    {% include "_partials/lake_account_nav.html" %}
+    <div>
+      <div class="card">
+        <a class="srow" href="/account/favorites">
+          <span class="mono" aria-hidden="true">&hearts;</span>
+          <span class="bb">
+            <span class="t">Saved listings</span>
+            <span class="m">The local places you've kept for later.</span>
+          </span>
+          <span class="chev" aria-hidden="true">&rsaquo;</span>
+        </a>
+        <a class="srow" href="/account/alerts">
+          <span class="mono" aria-hidden="true">&#9873;</span>
+          <span class="bb">
+            <span class="t">Conditions alerts</span>
+            <span class="m">Heat, air-quality, and lake-hazard emails.</span>
+          </span>
+          <span class="chev" aria-hidden="true">&rsaquo;</span>
+        </a>
+      </div>
+      <form class="logout" action="/logout" method="post">
+        <button class="btn btn-ghost" type="submit">Log out</button>
+      </form>
+    </div>
+  </div>
+</div>
+{% endblock %}

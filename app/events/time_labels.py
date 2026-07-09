@@ -24,9 +24,14 @@ TIME_TBD_LABEL = "Time TBD"
 def is_time_tbd(start_time: time | None, end_time: time | None = None) -> bool:
     """True when the event has no real start time.
 
-    A NULL start is unknown outright. A bare 00:00 start with no end time —
-    or a midnight-to-midnight zero span — is the aggregator-ingest fallback.
-    An explicit non-midnight end time means the midnight start is real.
+    A NULL start is unknown outright. A bare 00:00 start is the aggregator/OCR
+    ingest fallback for a MISSING start. It counts as a *real* midnight start
+    only for a genuine overnight event that ends in the small hours (e.g. a
+    midnight–2 AM party). A daytime end (a flyer that listed only an end time,
+    so the start defaulted to 00:00 — "Creative Mondays 00:00–4:45 PM"), the
+    00:00–23:59 all-day marker, a midnight-to-midnight zero span, or no end at
+    all all mean the midnight start is bogus → TBD (F5b: stop rendering these
+    as "12 am" in chat / on the calendar).
     """
     if start_time is None:
         return True
@@ -34,7 +39,7 @@ def is_time_tbd(start_time: time | None, end_time: time | None = None) -> bool:
         return False
     if end_time is None:
         return True
-    return end_time.hour == 0 and end_time.minute == 0
+    return not (time(0, 0) < end_time < time(6, 0))
 
 
 def format_short_time(t: time) -> str:
@@ -48,6 +53,34 @@ def format_short_time(t: time) -> str:
     if t.minute:
         return f"{hour12}:{t.minute:02d} {meridiem}"
     return f"{hour12} {meridiem}"
+
+
+def format_short_time_hhmm(hm: str) -> str:
+    """``"09:00"`` -> "9 AM"; ``"17:30"`` -> "5:30 PM"; junk passes through.
+
+    String-input twin of :func:`format_short_time` — consolidated 2026-07-02
+    (the chat tiers each carried their own copy with drifting edge cases).
+    """
+    raw = (hm or "").strip() if isinstance(hm, str) else ""
+    if not raw:
+        return ""
+    try:
+        hour_str, minute_str = raw.split(":", 1)
+        parsed = time(int(hour_str), int(minute_str[:2]))
+    except (ValueError, AttributeError):
+        return raw
+    return format_short_time(parsed)
+
+
+def format_full_time(t: time) -> str:
+    """Always-minutes 12-hour label: ``18:00`` -> "6:00 PM", ``09:05`` -> "9:05 AM".
+
+    Cross-platform (no ``%-I``/``%#I`` strftime divergence). The full-minutes
+    twin of :func:`format_short_time` for surfaces that keep ":00".
+    """
+    hour12 = t.hour % 12 or 12
+    meridiem = "AM" if t.hour < 12 else "PM"
+    return f"{hour12}:{t.minute:02d} {meridiem}"
 
 
 def short_time_label(start_time: time | None, end_time: time | None = None) -> str | None:

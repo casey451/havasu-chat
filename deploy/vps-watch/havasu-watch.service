@@ -1,0 +1,15 @@
+[Unit]
+Description=Ask Hava VPS watchdog (prod /health + scraper freshness + disk)
+After=network-online.target
+Wants=network-online.target
+
+[Service]
+Type=oneshot
+# Runs as root so it can read `systemctl show` for the scrape unit and disk.
+# It performs no prod-DB writes and exposes nothing.
+WorkingDirectory=/opt/havasu-chat
+EnvironmentFile=/etc/havasu/havasu-watch.env
+ExecStart=/opt/havasu-chat/.venv/bin/python /opt/havasu-chat/scripts/vps_watch.py
+# State file lives here; create it if missing.
+StateDirectory=havasu-watch
+Environment=WATCH_STATE_FILE=/var/lib/havasu-watch/state.json

@@ -442,12 +442,40 @@ def test_standalone_events_capped(isolated_catalog: Session) -> None:
     db = isolated_catalog
     _seed_one_provider(db)
     for i in range(MAX_STANDALONE_EVENTS + 3):
-        db.add(_standalone_event(f"EvtCap{i:02d}", date.today() + timedelta(days=2 + i)))
+        # Distinct venues so per-venue diversification (P2-2) doesn't interfere
+        # with what this test checks — the overall standalone-events cap.
+        db.add(
+            _standalone_event(
+                f"EvtCap{i:02d}",
+                date.today() + timedelta(days=2 + i),
+                location_name=f"Venue {i:02d}",
+            )
+        )
     db.flush()
     ctx = build_context_for_tier3("events?", _intent(), db)
     assert "EvtCap00" in ctx
     assert f"EvtCap{MAX_STANDALONE_EVENTS - 1:02d}" in ctx
     assert f"EvtCap{MAX_STANDALONE_EVENTS:02d}" not in ctx
+
+
+def test_standalone_events_diversified_by_venue(isolated_catalog: Session) -> None:
+    # P2-2: many same-venue events (the Aquatic Center's recurring swim slots)
+    # must not flood the Tier-3 context — the venue is capped so other venues show.
+    db = isolated_catalog
+    _seed_one_provider(db)
+    for i in range(6):
+        db.add(
+            _standalone_event(
+                f"Swim{i:02d}",
+                date.today() + timedelta(days=2 + i),
+                location_name="Aquatic Center",
+            )
+        )
+    db.add(_standalone_event("Trampoline", date.today() + timedelta(days=3), location_name="Altitude"))
+    db.flush()
+    ctx = build_context_for_tier3("what should I do when it's too hot", _intent(), db)
+    assert ctx.count("Aquatic Center") <= 2  # flooding venue capped
+    assert "Trampoline" in ctx              # a different venue still surfaces
 
 
 def test_events_only_catalog_still_lists_events(isolated_catalog: Session) -> None:

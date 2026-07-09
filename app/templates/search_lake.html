@@ -1,0 +1,102 @@
+{% extends "base_redesign.html" %}
+{#- Lake Ink & Brass — /search keyword results page. Same data + behaviour as
+   search.html (GET /search?q=, provider + event lists, empty states, Ask-Hava
+   fallback); the concierge falls through here for descriptive queries that
+   don't map to a category leaf. Results pages stay noindex (search hygiene);
+   the bare /search form stays indexable. -#}
+{% block title %}{% if q %}{{ q }} — Search — Ask Hava{% else %}Search — Ask Hava{% endif %}{% endblock %}
+{% block meta_description %}Keyword search across Lake Havasu City businesses and events on Ask Hava.{% endblock %}
+{% block head_extra %}
+{% if q %}<meta name="robots" content="noindex">{% endif %}
+{% endblock %}
+
+{% block main %}
+<div class="srch">
+  <div class="pagehead">
+    <h1>Search <span class="srch-accent">Lake Havasu.</span></h1>
+  </div>
+
+  <form class="srch-form" action="/search" method="get" role="search" aria-label="Search Lake Havasu">
+    <label class="srch-vh" for="search-q">Search businesses and events</label>
+    <input id="search-q" type="text" name="q" value="{{ q }}" placeholder="Search businesses and events" autofocus>
+    <button class="btn btn-primary" type="submit">Search</button>
+  </form>
+  <a class="srch-ask" href="/chat?q={{ q | urlencode }}">Ask Hava instead &rarr;</a>
+
+  <div id="search-results">
+  {% if not q %}
+    <p class="srch-empty">Type a keyword above to search Lake Havasu businesses and events,
+      or <a href="/chat">ask Hava anything</a>.</p>
+  {% elif not has_results %}
+    {# WS9b: no dead-end 302 — the SERP owns the miss with an Ask Hava escalation
+       card + popular-category suggestions, and the query is captured for the
+       coverage backlog (admin demand dashboard). #}
+    <div class="srch-escalate-card card" role="group" aria-label="No exact matches">
+      <p class="srch-noresults-h">No exact matches for &ldquo;{{ q }}&rdquo; yet.</p>
+      <a class="btn btn-primary srch-escalate-btn" href="/chat?q={{ q | urlencode }}">Ask Hava about &ldquo;{{ q }}&rdquo; &rarr;</a>
+      <p class="srch-suggest-h">Or browse popular categories</p>
+      <div class="srch-suggest">
+        <a class="chip" href="/categories/eat-and-drink">Eat &amp; Drink</a>
+        <a class="chip" href="/events">Events</a>
+        <a class="chip" href="/gas">Gas prices</a>
+        <a class="chip" href="/categories/things-to-do-and-attractions">Things to Do</a>
+      </div>
+    </div>
+  {% else %}
+    <p class="srch-summary">Results for &ldquo;{{ q }}&rdquo;</p>
+
+    {% if categories %}
+    <section class="srch-section" aria-labelledby="categories-heading">
+      <div class="sec-head"><h2 id="categories-heading">Categories</h2></div>
+      <div class="srch-cats">
+        {% for c in categories %}
+        <a class="srch-cat" href="{{ c.url }}"><span class="srch-cat-name">{{ c.name }}</span><span class="srch-cat-kind">{{ c.kind }}</span></a>
+        {% endfor %}
+      </div>
+    </section>
+    {% endif %}
+
+    {% if providers %}
+    <section class="srch-section" aria-labelledby="providers-heading">
+      <div class="sec-head"><h2 id="providers-heading">Businesses</h2></div>
+      <div class="card"><ul class="srch-list">
+        {% for p in providers %}
+        <li class="srch-row">
+          <div class="srch-row-name">
+            {% if p.url %}<a href="{{ p.url }}">{{ p.name }}</a>{% else %}{{ p.name }}{% endif %}
+          </div>
+          {% if p.subtype %}<div class="srch-row-subtype">{{ p.subtype }}</div>{% endif %}
+          {% if p.phone %}<div class="srch-row-phone"><a href="tel:{{ p.phone_tel or p.phone }}">{{ p.phone }}</a></div>{% endif %}
+          {% if p.address %}<div class="srch-row-area">{{ p.address }}</div>{% endif %}
+        </li>
+        {% endfor %}
+      </ul></div>
+    </section>
+    {% endif %}
+
+    {% if events %}
+    <section class="srch-section" aria-labelledby="events-heading">
+      <div class="sec-head"><h2 id="events-heading">Events</h2></div>
+      <div class="card"><ul class="srch-list">
+        {% for e in events %}
+        <li class="srch-row">
+          <div class="srch-row-name"><a href="{{ e.url }}">{{ e.title }}</a></div>
+          <div class="srch-row-meta">
+            {% if e.date %}<span class="srch-row-date">{{ e.date.strftime('%b %d, %Y') }}</span>{% endif %}
+            {% if e.venue %}<span class="srch-row-venue">{{ e.venue }}</span>{% endif %}
+          </div>
+        </li>
+        {% endfor %}
+      </ul></div>
+    </section>
+    {% endif %}
+
+    {# WS9b: chat as an escalation card embedded on the SERP (not a redirect). #}
+    <aside class="srch-escalate-card srch-escalate-inline card" aria-label="Ask Hava">
+      <div class="srch-escalate-copy"><strong>Didn't find it?</strong> Ask Hava about &ldquo;{{ q }}&rdquo; — the concierge can search deeper and answer in plain language.</div>
+      <a class="btn btn-primary srch-escalate-btn" href="/chat?q={{ q | urlencode }}">Ask Hava &rarr;</a>
+    </aside>
+  {% endif %}
+  </div>
+</div>
+{% endblock %}

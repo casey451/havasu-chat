@@ -1,0 +1,46 @@
+{% extends "base_redesign.html" %}
+{#- Lake Ink & Brass curated collection (/collection/{slug}) — a hand-picked
+   editorial grouping of local spots. SAME context: collection.{title,blurb,
+   accent,places[{slug,image_url,name,where,blurb,meta_line}]}. -#}
+{% block title %}{{ collection.title }} — Ask Hava, Lake Havasu City{% endblock %}
+{% block meta_description %}{{ collection.blurb | meta_desc(160) }}{% endblock %}
+{% block head_extra %}
+{% if canonical_url is defined %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": {{ collection.title|tojson }},
+  "url": "{{ canonical_url(request) }}",
+  "mainEntity": { "@type": "ItemList", "itemListElement": [{% for p in collection.places %}{ "@type": "ListItem", "position": {{ loop.index }}, "name": {{ p.name|tojson }}{% if p.slug %}, "url": {{ absolute_url('/provider/' ~ p.slug)|tojson }}{% endif %} }{% if not loop.last %}, {% endif %}{% endfor %}]}
+}
+</script>
+{% endif %}
+{% endblock %}
+
+{% block main %}
+<div class="coll-wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><a href="/categories">Directory</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">{{ collection.title }}</span></nav>
+  <div class="pagehead">
+    <h1>{{ collection.title }}</h1>
+    {% if collection.blurb %}<p class="sub">{{ collection.blurb }}</p>{% endif %}
+    {% if today_label %}<p class="eyebrow" style="margin-top:12px;text-transform:none;letter-spacing:0;color:var(--ink3);font-weight:500">Lake Havasu City · {{ today_label }} · <a href="/contribute" style="color:var(--brass-ink)">Add to Hava</a></p>{% endif %}
+  </div>
+
+  <section class="coll-stream" aria-label="{{ collection.title }} picks">
+    {% for place in collection.places %}
+    {% if place.slug %}<a class="collcard" href="/provider/{{ place.slug }}">{% else %}<div class="collcard">{% endif %}
+      {% if place.image_url %}<span class="media" role="img" aria-label="{{ place.name }}" style="background-image:url('{{ place.image_url }}')"></span>{% endif %}
+      <div class="body">
+        <div class="nm">{{ place.name }}</div>
+        {% if place.where %}<div class="where">{{ place.where }}</div>{% endif %}
+        {% if place.blurb %}<div class="blurb">{{ place.blurb }}</div>{% endif %}
+        {% if place.meta_line %}<div class="cmeta">{{ place.meta_line }}</div>{% endif %}
+      </div>
+    {% if place.slug %}</a>{% else %}</div>{% endif %}
+    {% endfor %}
+  </section>
+
+  <p class="coll-foot">Curated by Hava — a hand-picked grouping of local spots. Spotted something we missed? <a href="/contribute">Add it to Hava</a>.</p>
+</div>
+{% endblock %}

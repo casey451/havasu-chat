@@ -87,6 +87,7 @@ SEO_NOUNS: dict[str, str] = {
     "thrift-and-consignment": "Thrift & Consignment Stores",
     "specialty-food": "Specialty Food Stores",
     "smoke-vape-and-cannabis": "Smoke & Vape Shops",
+    "cannabis-dispensaries": "Cannabis Dispensaries",
     "shoes": "Shoe Stores",
     "hobby-and-craft": "Hobby & Craft Stores",
     # Community & Civic
@@ -96,6 +97,10 @@ SEO_NOUNS: dict[str, str] = {
     "theaters-and-cinema": "Movie Theaters",
     # Outdoors & Recreation
     "disc-golf": "Disc Golf Courses",
+    # 2026-06-19: golf-courses is the combined "Golf" hub (courses + driving
+    # range/Toptracer + indoor simulators), so the page reads "Golf", not the
+    # narrower "Golf Courses". Slug unchanged — SEO/URLs stay put.
+    "golf-courses": "Golf",
     # On the Water
     "kayak-and-paddle": "Kayak & Paddleboard Rentals",
     # Thin-leaf batch (2026-06-11): plural/agent nouns so the slug name doesn't
@@ -109,6 +114,10 @@ SEO_NOUNS: dict[str, str] = {
     "tutoring-and-test-prep": "Tutors & Test Prep",
     "music-lessons": "Music Teachers",
     "post-office": "Post Offices",
+    "scuba-and-dive": "Scuba & Dive Shops",
+    # Lodging — pin the searcher noun so the leaf's displayed term stays
+    # "Vacation Rentals" even if the taxonomy ``Category.name`` is ever relabeled.
+    "vacation-rentals": "Vacation Rentals",
 }
 
 

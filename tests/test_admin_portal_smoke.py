@@ -52,6 +52,13 @@ def client():
 
 PAGES = (
     "/admin/portal",
+    "/admin/portal/traffic",
+    "/admin/portal/traffic?window=7d",
+    "/admin/portal/search",
+    "/admin/portal/search?window=all",
+    "/admin/portal/placements",
+    "/admin/portal/feedback",
+    "/admin/portal/feedback?status=resolved",
     "/admin/portal/moderation",
     "/admin/portal/addresses",
     "/admin/portal/users",
@@ -71,7 +78,9 @@ def test_pages_render(client, path):
 def test_unauthenticated_redirects_to_login(client):
     client.cookies.delete(COOKIE_NAME)
     resp = client.get("/admin/portal", follow_redirects=False)
-    assert resp.status_code == 303
+    # 302 since the 2026-07-02 guard consolidation (the classic /admin guard's
+    # status; the portal copy used 303).
+    assert resp.status_code == 302
     assert resp.headers["location"] == "/admin/login"
 
 
@@ -99,7 +108,7 @@ def test_wired_app_serves_portal_unauthenticated_redirect():
 
     with TestClient(real_app) as c:
         resp = c.get("/admin/portal", follow_redirects=False)
-    assert resp.status_code == 303
+    assert resp.status_code == 302
     assert resp.headers["location"] == "/admin/login"
 
 

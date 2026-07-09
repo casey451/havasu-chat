@@ -1,0 +1,66 @@
+{% extends "base_redesign.html" %}
+{#- Department page (/categories/{department}) in the v4 language (v4.5 PR-4) —
+   the leaf list, over the SAME real _render_department_page context.
+   breadcrumb_jsonld + itemlist_jsonld come pre-built in the context (dicts). -#}
+
+{% block title %}{{ department_label }} in Lake Havasu City — Ask Hava{% endblock %}
+{% block meta_description %}{{ department_label }} in Lake Havasu City — {{ listing_total }} local listings across {{ leaf_total }} categories. Real, open-now first.{% endblock %}
+
+{% block head_extra %}
+{% if breadcrumb_jsonld %}<script type="application/ld+json">{{ breadcrumb_jsonld | tojson | safe }}</script>{% endif %}
+{% if itemlist_jsonld %}<script type="application/ld+json">{{ itemlist_jsonld | tojson | safe }}</script>{% endif %}
+{% endblock %}
+
+{% block main %}
+<div class="dirx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><a href="/categories">Directory</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">{{ department_label }}</span></nav>
+  <div class="pagehead">
+    <h1>{{ department_label }}</h1>
+    <p class="dsub">{{ listing_total }} listing{{ '' if listing_total == 1 else 's' }} across {{ leaf_total }} categor{{ 'y' if leaf_total == 1 else 'ies' }} in Lake Havasu City.</p>
+  </div>
+
+  {# P2 (2026-06-23): a few real "open now first" listings above the sub-tiles, so
+     the landing honors its "open-now first" promise instead of forcing a click
+     into a leaf before any business is visible. Omitted entirely when empty. #}
+  {% if false and landing_cards %}{#- Session 1 (2026-07-04): "Open now & popular"
+     hidden across department pages — the contents read as arbitrary. The
+     _landing_cards builder (categories/router.py) is kept; restore by removing
+     `false and` above. A proper featured section will replace it later. -#}
+  <section class="dir-listings" aria-label="Open now in {{ department_label }}">
+    <div class="sec-head"><h2 class="serif">Open now &amp; popular</h2></div>
+    <div class="listcard">
+      {% for card in landing_cards %}{% include 'components/lake_biz_card.html' %}{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+
+  <div class="leafgrid">
+    {% for leaf in leaves %}
+    <a class="leaftile" href="{{ leaf.url }}"><span class="ln serif">{{ leaf.name }}</span>{% if leaf.count %}<span class="lc num">{{ leaf.count }}</span>{% endif %}</a>
+    {% endfor %}
+  </div>
+
+  {% for sec in also_sections %}
+  <section class="also-sec" aria-label="{{ sec.heading }}">
+    <div class="sec-head"><h2 class="serif">{{ sec.heading }}</h2></div>
+    <div class="leafgrid">
+      {% for leaf in sec.leaves %}
+      <a class="leaftile" href="{{ leaf.url }}"><span class="ln serif">{{ leaf.name }}</span>{% if leaf.count %}<span class="lc num">{{ leaf.count }}</span>{% endif %}</a>
+      {% endfor %}
+    </div>
+  </section>
+  {% endfor %}
+
+  {# Paid advertiser surface — hidden while ADS_ENABLED is off. #}
+  {% if ads_enabled() %}
+  <aside class="cat-claim" aria-label="Advertise in this category">
+    <div class="cc-body">
+      <span class="stag">Advertise</span>
+      <h2 class="serif">Own a spot in {{ department_label }}</h2>
+      <p>Be the featured local business here — quiet, clearly labeled, no pop-ups.</p>
+    </div>
+    <a class="btn btn-brass" href="/sponsor">Sponsor this category</a>
+  </aside>
+  {% endif %}
+</div>
+{% endblock %}

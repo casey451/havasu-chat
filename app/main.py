@@ -1,34 +1,32 @@
 from __future__ import annotations
 
-# Force redeploy 2026-04-16
 from app.bootstrap_env import ensure_dotenv_loaded
+
+# Force redeploy 2026-04-16
+from app.core.templates import make_templates
 
 ensure_dotenv_loaded()
 
 import asyncio
-import html
 import logging
 import logging.config
 import os
-import re
 from contextlib import asynccontextmanager
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Any
 from urllib.parse import urlparse
 
-from fastapi import Depends, FastAPI, HTTPException, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.exceptions import RequestValidationError
 from fastapi.responses import (
     FileResponse,
     HTMLResponse,
     JSONResponse,
-    PlainTextResponse,
     RedirectResponse,
     Response,
 )
 from fastapi.staticfiles import StaticFiles
-from fastapi.templating import Jinja2Templates
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy.orm import Session
 from starlette.exceptions import HTTPException as StarletteHTTPException
@@ -39,7 +37,6 @@ from app.admin.provider_approval import router as admin_provider_approval_router
 from app.admin.provider_merge_review import router as admin_provider_merge_review_router
 from app.admin.router import router as admin_router
 from app.admin.sponsor_surface import merchant_upgrade_router
-from app.admin.url_safety import safe_href
 from app.admin.v1_overview import router as admin_v1_overview_router
 from app.admin_portal.router import portal_router as admin_portal_router
 from app.api.routes.account_alerts import router as account_alerts_router
@@ -62,32 +59,69 @@ from app.api.routes.themed_groups import router as themed_groups_router
 from app.api.routes.today import router as today_router
 from app.auth.routes import router as auth_router
 from app.auth.session import COOKIE_NAME, SessionMiddleware, cookie_secure_in_prod
+from app.billing.router import router as billing_router
 from app.categories.router import router as direction_c_categories_router
 from app.chat.entity_matcher import refresh_entity_matcher
+from app.core.build_info import build_sha
 from app.core.event_quality import friendly_errors
-from app.core.provider_name import (
-    register_template_filters as _register_template_filters,
-)
-from app.core.provider_name import (
-    register_template_globals as _register_template_globals,
-)
+from app.core.feature_flags import ads_enabled, claim_surfaces_enabled
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
-from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.jobs_store import count_stale_running, requeue_stale_claims
-from app.db.models import AuthSession, Event, Provider
+from app.db.models import AuthSession, Event
 from app.digest.routes import router as digest_router
-from app.events.time_labels import is_time_tbd
-from app.events.title_clean import clean_event_title
+
+# Event permalink feature (/events, /events/{id}, .ics) lives in
+# app/events/permalink.py. The tested render helpers are re-exported below under
+# their historical private names so app.main._event_is_past etc. resolve unchanged.
+from app.events.permalink import (
+    _display_date,  # noqa: F401 — re-export
+    _event_is_past,  # noqa: F401 — re-export
+    _event_link_html,  # noqa: F401 — re-export
+    _format_event_datetime,  # noqa: F401 — re-export
+    _link_domain,  # noqa: F401 — re-export
+    _link_label,  # noqa: F401 — re-export
+    _truncate_for_og,  # noqa: F401 — re-export
+    _venue_profile_url,  # noqa: F401 — re-export
+)
+from app.events.permalink import router as events_permalink_router
+from app.feedback.routes import router as feedback_router
+from app.home.calendar_route import router as calendar_page_router
 from app.home.chat_route import router as new_chat_ui_router
 from app.home.router import router as home_router
 from app.home.static_pages import router as static_pages_router
+
+# Static legal/policy pages (/privacy, /terms). The renderer + doc-path names are
+# re-exported below under their historical private names so existing callers/tests
+# resolve app.main._render_doc_markdown_to_html / app.main._TOS_MD_PATH unchanged.
+from app.legal_docs import (
+    _PRIVACY_MD_PATH,  # noqa: F401 — re-export for back-compat
+    _TOS_MD_PATH,  # noqa: F401 — re-export for back-compat
+    _render_doc_markdown_to_html,  # noqa: F401 — re-export
+)
+from app.legal_docs import router as legal_docs_router
+from app.movies.router import router as movies_router
+from app.news.router import router as news_router
 from app.photos.routes import router as photos_router
 from app.photos.sweep import run_stuck_photo_sweep
+from app.portal.media_routes import router as creative_media_router
 from app.portal.router import router as portal_router
 from app.programs.router import router as programs_router
 from app.providers.router import router as providers_router
 from app.search.routes import router as search_router
+
+# robots.txt + sitemap.xml routes live in app/seo/site_routes.py. The sitemap
+# builders + cache are re-exported below under their historical private names so
+# app.main._build_sitemap_pages_xml / the sitemap tests' _sitemap_cache reset
+# resolve unchanged.
+from app.seo.site_routes import (
+    _SITEMAP_BUILDERS,  # noqa: F401 — re-export
+    _build_sitemap_events_xml,  # noqa: F401 — re-export
+    _build_sitemap_pages_xml,  # noqa: F401 — re-export
+    _build_sitemap_providers_xml,  # noqa: F401 — re-export
+    _sitemap_cache,  # noqa: F401 — re-export
+)
+from app.seo.site_routes import router as seo_router
 from app.v1.routes import router as v1_master_spec_router
 
 
@@ -129,21 +163,11 @@ def _configure_logging() -> None:
 _configure_logging()
 logger = logging.getLogger(__name__)
 
-_DOCS_DIR = Path(__file__).resolve().parents[1] / "docs"
-_PRIVACY_MD_PATH = _DOCS_DIR / "privacy.md"
-_TOS_MD_PATH = _DOCS_DIR / "tos.md"
-_TEMPLATES_DIR = Path(__file__).resolve().parent / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-# CLUSTER-08 name hygiene: ``clean_name`` strips vendor marketing tails
-# (everything from the first ``|`` onward) at render time so dirty Google
-# Places names never reach the page. The codebase has ~10 ``Jinja2Templates``
-# instances (one per router module); each must call the shared registrar so
-# the filter resolves regardless of which router rendered the template.
-_register_template_filters(templates)
-# Q5 Plausible analytics: ``plausible_domain`` Jinja global gates the
-# ``_partials/plausible.html`` include in every page <head>. Unset env var
-# → global is ``None`` → script tag never renders (local dev no-op).
-_register_template_globals(templates)
+# make_templates() runs both registrars (CLUSTER-08 clean_name filter + the Q5
+# Plausible ``plausible_domain`` global that gates _partials/plausible.html), so
+# every render resolves them regardless of which router built the instance.
+# (Legal-doc paths moved to app/legal_docs.py, re-exported in the import block.)
+templates = make_templates()
 _SENSITIVE_EVENT_KEYS = frozenset({"query", "message", "normalized_query"})
 
 
@@ -192,133 +216,6 @@ def scrub_sentry_breadcrumb(crumb: dict[str, Any], hint: dict[str, Any]) -> dict
             if k in data:
                 data[k] = "<scrubbed>"
     return crumb
-
-
-def _privacy_inline_formats(text: str) -> str:
-    parts = re.split(r"(\*\*.+?\*\*)", text)
-    chunks: list[str] = []
-    for p in parts:
-        if len(p) >= 4 and p.startswith("**") and p.endswith("**"):
-            inner = html.escape(p[2:-2])
-            chunks.append(f"<strong>{inner}</strong>")
-        else:
-            chunks.append(html.escape(p))
-    s = "".join(chunks)
-
-    def _link(m: re.Match[str]) -> str:
-        u = m.group(1)
-        safe = html.escape(u, quote=True)
-        return f'<a href="{safe}" rel="noopener noreferrer">{html.escape(u)}</a>'
-
-    s = re.sub(r"(https?://[^\s<>]+)", _link, s)
-
-    def _path_link(m: re.Match[str]) -> str:
-        label, path = m.group(1), m.group(2)
-        p = html.escape(path, quote=True)
-        return f'<a href="{p}">{html.escape(label)}</a>'
-
-    return re.sub(r"\[([^\]]+)\]\((/[^)]+)\)", _path_link, s)
-
-
-def _render_doc_markdown_to_html(md: str) -> str:
-    out: list[str] = []
-    lines = md.splitlines()
-    i = 0
-    in_ul = False
-    while i < len(lines):
-        raw = lines[i]
-        stripped = raw.strip()
-        if stripped.startswith("<!--") and "-->" in stripped:
-            # Source comments are for editors, not the public page source —
-            # the live /terms shipped its "Drafted by AI … needs attorney
-            # review" note to anyone who hit View Source. Drop them.
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            i += 1
-            continue
-        if stripped.startswith("# ") and not stripped.startswith("## "):
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            out.append(f"<h1>{html.escape(stripped[2:].strip())}</h1>")
-            i += 1
-            continue
-        if stripped.startswith("## "):
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            out.append(f"<h2>{html.escape(stripped[3:].strip())}</h2>")
-            i += 1
-            continue
-        if stripped.startswith("- "):
-            if not in_ul:
-                out.append("<ul>")
-                in_ul = True
-            # A markdown bullet hard-wraps across source lines; the
-            # continuation lines are indented and belong to the SAME <li>.
-            # The old line-by-line pass closed the list and emitted each
-            # continuation as an orphan <p>, splitting every wrapped bullet
-            # mid-sentence on the live /privacy page.
-            item_parts = [stripped[2:].lstrip()]
-            i += 1
-            while i < len(lines):
-                cont_raw = lines[i]
-                cont = cont_raw.strip()
-                if (
-                    not cont
-                    or not cont_raw[:1].isspace()
-                    or cont.startswith("- ")
-                    or cont.startswith("#")
-                    or cont.startswith("<!--")
-                ):
-                    break
-                item_parts.append(cont)
-                i += 1
-            out.append(f"<li>{_privacy_inline_formats(' '.join(item_parts))}</li>")
-            continue
-        if not stripped:
-            if in_ul:
-                out.append("</ul>")
-                in_ul = False
-            i += 1
-            continue
-        if in_ul:
-            out.append("</ul>")
-            in_ul = False
-        para_parts: list[str] = [stripped]
-        i += 1
-        while i < len(lines):
-            nxt = lines[i].strip()
-            if not nxt:
-                i += 1
-                break
-            if lines[i].lstrip().startswith("- ") or lines[i].lstrip().startswith("##"):
-                break
-            if lines[i].strip().startswith("<!--"):
-                break
-            para_parts.append(nxt)
-            i += 1
-        out.append(f"<p>{_privacy_inline_formats(' '.join(para_parts))}</p>")
-    if in_ul:
-        out.append("</ul>")
-    return "\n".join(out)
-
-
-def _render_static_doc(
-    request: Request, *, path: Path, head_title: str, meta_description: str | None = None
-) -> HTMLResponse:
-    md = path.read_text(encoding="utf-8")
-    body = _render_doc_markdown_to_html(md)
-    return templates.TemplateResponse(
-        request=request,
-        name="privacy_doc.html",
-        context={
-            "head_title": head_title,
-            "body": body,
-            "meta_description": meta_description,
-        },
-    )
 
 
 def _init_sentry() -> None:
@@ -406,6 +303,22 @@ def run_stale_job_requeue() -> int:
         return len(requeued)
 
 
+def run_news_pull() -> None:
+    """Refresh the local-news cache (home ticker + /news) so it stays fresh
+    without an external cron (Casey 2026-06-30). Best-effort: a failure is logged
+    and retried the next hour. pull_local_news already isolates per-source feed
+    failures internally, so this only catches a hard DB/transport error."""
+    from app.news.store import pull_local_news
+
+    try:
+        with SessionLocal() as db:
+            count = pull_local_news(db)
+            db.commit()
+        logger.info("news pull refreshed %s headline(s)", count)
+    except Exception:
+        logger.warning("news pull failed; retrying next hour", exc_info=True)
+
+
 async def _hourly_cleanup_loop() -> None:
     # OPS-3: one transient failure (DB blip, etc.) must not kill the janitor
     # for the process lifetime — run_stuck_photo_sweep is the safety net for
@@ -414,6 +327,7 @@ async def _hourly_cleanup_loop() -> None:
     while True:
         await asyncio.sleep(3600)
         try:
+            await asyncio.to_thread(run_news_pull)
             await asyncio.to_thread(run_expired_review_cleanup)
             await asyncio.to_thread(run_stuck_photo_sweep)
             await asyncio.to_thread(run_stale_job_requeue)
@@ -461,6 +375,138 @@ app = FastAPI(title="Havasu Chat", lifespan=lifespan)
 app.add_middleware(SessionMiddleware)
 
 
+# ThemeMiddleware was deleted 2026-07-02 (audit flag-collapse): lake has been
+# the only theme since the desert lineage was deleted 2026-06-24, so the
+# per-request ?theme=/cookie/THEME_DEFAULT resolution could only ever produce
+# "lake". Templates hardcode data-theme="lake" in the two base layouts.
+
+
+class AdminLakeSkinMiddleware(BaseHTTPMiddleware):
+    """Skin the admin/portal pages. The admin surface is three rendering families
+    (inline-HTML _nav_shell pages, the Jinja .d-admin templates, and the CSS-var-
+    driven admin_portal) — each builds its own <head>+<style>, so this is the
+    single uniform injection point: for an /admin HTML response, append the
+    self-contained lake_admin.css link (which overrides those styles) + noindex
+    before </head>.
+
+    This is the LAST body-rewriting middleware: it survives the 2026-07-02
+    flag-collapse only because the admin shells are ~15 separate hand-built
+    <head>s; the planned admin-shell consolidation bakes this link into the one
+    shared shell and deletes this class. (v4.6 PR-2: the .d-admin Jinja templates
+    now extend base_plain.html, so the old base_lake reskin injection —
+    lake_redesign_site.css + data-redesign — was dropped; lake_admin.css is
+    self-contained with its own --la-* tokens.)
+    """
+
+    _INJECT = (
+        '<link rel="stylesheet" href="/static/styles/lake_admin.css">'
+        '<meta name="robots" content="noindex">'
+    )
+
+    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+        response = await call_next(request)
+        if not (
+            request.url.path.startswith("/admin")
+            and "text/html" in (response.headers.get("content-type") or "")
+        ):
+            return response
+        body = b"".join([section async for section in response.body_iterator])
+        text = body.decode("utf-8", "replace")
+        if "</head>" in text:
+            text = text.replace("</head>", self._INJECT + "</head>", 1)
+        data = text.encode("utf-8")
+        keep = {k: v for k, v in response.headers.items() if k.lower() != "content-length"}
+        return Response(
+            content=data,
+            status_code=response.status_code,
+            headers=keep,
+            background=response.background,
+        )
+
+
+# HomeRedesignSkinMiddleware was deleted 2026-07-02 (audit flag-collapse) and the
+# base_lake reskin path was deleted 2026-07-04 (v4.6 PR-2): every page is now on
+# the standalone v4 shell (base_redesign / base_plain → lake_redesign.css), so no
+# response-body reskinning remains except the admin lake_admin.css injection above.
+app.add_middleware(AdminLakeSkinMiddleware)
+
+
+# ---------------------------------------------------------------------------
+# Business-tier route gate — claim (free, default on) + ads (paid, default off).
+# ---------------------------------------------------------------------------
+#
+# Owner routes are split so the free claim flow can be live while paid ads stay
+# hidden. Each route belongs to exactly one tier; when that tier's flag is off the
+# route is intercepted here and answered with a friendly "coming soon" stub (200,
+# noindex, contact) instead of its real content — never a 404/login wall. The tier
+# on → the request passes straight through to the real handler.
+#
+# CLAIM tier (``/portal``, ``/portal/claim``, ``/claim/*``): the free claim flow.
+# ADS tier (``/sponsor``, ``/advertise``, ``/merchant/*``, and the paid PORTAL
+# subpaths ``/portal/placements*`` + ``/portal/creatives*``): paid advertising.
+#
+# The paid ``/portal/...`` subpaths are matched BEFORE the general ``/portal``
+# claim rule so the buy flow stays gated by ADS even while claim is live. Prefix
+# match is boundary-safe (``== p`` or ``startswith(p + "/")``) so an unrelated path
+# like ``/sponsorships-guide`` can't be swept in. ``/billing`` is intentionally NOT
+# listed — it is separately dormant behind STRIPE_BILLING_ENABLED (Stripe on hold).
+_ADS_ROUTE_PREFIXES = (
+    "/portal/placements",
+    "/portal/creatives",
+    "/sponsor",
+    "/advertise",
+    "/merchant",
+)
+_CLAIM_ROUTE_PREFIXES = ("/portal", "/claim")
+
+
+def _matches(path: str, prefixes: tuple[str, ...]) -> bool:
+    return any(path == p or path.startswith(p + "/") for p in prefixes)
+
+
+def _route_tier(path: str) -> str | None:
+    """Which tier gates this path: ``"ads"``, ``"claim"``, or None (ungated).
+
+    ADS is checked first so the paid ``/portal/...`` subpaths win over the general
+    ``/portal`` claim rule."""
+    if _matches(path, _ADS_ROUTE_PREFIXES):
+        return "ads"
+    if _matches(path, _CLAIM_ROUTE_PREFIXES):
+        return "claim"
+    return None
+
+
+class BusinessSurfacesGateMiddleware(BaseHTTPMiddleware):
+    """Serve a "coming soon" stub on any owner route whose tier is off.
+
+    Sits INSIDE ``SecurityHeadersMiddleware`` (added just before it) so the stub
+    still gets the standard no-store + security headers on the way out. Any method
+    is answered with the same 200 stub — a stray POST from a bookmarked buy/claim
+    form lands softly rather than erroring. The ADS stub carries advertising-
+    specific copy (and points owners to the free claim flow when claim is live)."""
+
+    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+        tier = _route_tier(request.url.path)
+        if tier == "ads" and not ads_enabled():
+            kind = "ads"
+        elif tier == "claim" and not claim_surfaces_enabled():
+            kind = "business"
+        else:
+            return await call_next(request)
+        response = templates.TemplateResponse(
+            request=request,
+            name="business_coming_soon_lake.html",
+            context={"active_tab": "", "cs_kind": kind},
+        )
+        # Belt-and-suspenders with the <meta robots> in the template: a header
+        # keeps the stub out of the index even for non-HTML crawlers.
+        response.headers["X-Robots-Tag"] = "noindex, follow"
+        return response
+
+
+app.add_middleware(BusinessSurfacesGateMiddleware)
+
+
 # Launch hardening (v48): minimal security headers on HTML responses. CSP is
 # deliberately deferred — it requires a full audit of inline scripts/styles
 # and image sources, and is tracked in a separate PR. /health and /api/*
@@ -502,9 +548,24 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         )
         content_type = (response.headers.get("content-type") or "").lower()
         if content_type.startswith("text/html"):
+            # ``no-store`` (not just ``no-cache``) — the 2026-07-07 stale-day-view
+            # AND the 2026-07-09 frozen bare /categories/{dept}/{leaf} renders were
+            # Cloudflare edge copies frozen at a PoP. no-store tells every cache to
+            # never STORE the HTML.
             response.headers.setdefault(
-                "Cache-Control", "no-cache, max-age=0, must-revalidate"
+                "Cache-Control", "no-store, no-cache, max-age=0, must-revalidate"
             )
+            # CDN-tier cache-control (RFC 9213 ``CDN-Cache-Control`` + Cloudflare's
+            # vendor override ``Cloudflare-CDN-Cache-Control``). These bind the CDN
+            # SPECIFICALLY and take precedence over ``Cache-Control`` at the edge —
+            # crucially, Cloudflare honors ``Cloudflare-CDN-Cache-Control`` even
+            # under a "Cache Everything" Cache Rule, which is exactly the gap that
+            # let a per-PoP copy freeze while the origin said no-store. With this a
+            # PoP can no longer STORE an HTML render, so the class can't recur by
+            # construction. (Lingering PRE-existing frozen entries still need a
+            # one-time zone purge — see scripts/purge_cdn_cache.py, needs CF creds.)
+            response.headers.setdefault("CDN-Cache-Control", "no-store")
+            response.headers.setdefault("Cloudflare-CDN-Cache-Control", "no-store")
             # Launch hardening (audit M1): start CSP in Report-Only to inventory
             # inline scripts/styles + image sources, then rename the header to
             # "Content-Security-Policy" to enforce. Report-Only blocks nothing.
@@ -570,11 +631,14 @@ class CanonicalHostRedirectMiddleware(BaseHTTPMiddleware):
 # session or header work happens.
 app.add_middleware(CanonicalHostRedirectMiddleware)
 
-# Host-header allowlist (audit L9) — defense-in-depth alongside the Starlette
-# 1.0.1 BadHost fix. OFF by default (no behavior change on deploy); enable by
-# setting TRUSTED_HOSTS (comma-separated) once confirmed, e.g.
-# "askhava.com,*.askhava.com,*.up.railway.app" — include the Railway host so
-# health probes and the legacy-host redirect still pass.
+# Host-header allowlist (audit L9; A1 Cloudflare-readiness) — defense-in-depth
+# alongside the Starlette 1.0.1 BadHost fix. OFF by default (no behavior change
+# on deploy); enable by setting TRUSTED_HOSTS (comma-separated) once confirmed,
+# e.g. "askhava.com,*.askhava.com,*.up.railway.app" — include the Railway host
+# so health probes and the legacy-host redirect still pass. With Cloudflare in
+# front (Track A1) the Host header is preserved end to end, so the same origin
+# hostnames apply; recommended to enable alongside the CF cutover so only
+# Cloudflare-proxied hostnames are accepted at the origin.
 _trusted_hosts_env = (os.getenv("TRUSTED_HOSTS") or "").strip()
 if _trusted_hosts_env:
     app.add_middleware(
@@ -595,6 +659,7 @@ async def rate_limit_handler(_: Request, __: RateLimitExceeded) -> JSONResponse:
 app.include_router(v1_master_spec_router)
 app.include_router(concierge_chat_router)
 app.include_router(contribute_router)
+app.include_router(feedback_router)
 app.include_router(auth_router)
 app.include_router(photos_router)
 app.include_router(search_router)
@@ -609,6 +674,10 @@ app.include_router(conditions_router)
 app.include_router(today_router)
 app.include_router(gas_router)
 app.include_router(static_pages_router)
+app.include_router(legal_docs_router)
+app.include_router(seo_router)
+app.include_router(events_permalink_router)
+app.include_router(news_router)
 app.include_router(calendar_feed_router)
 app.include_router(ingest_router)
 app.include_router(ingest_jobs_router)
@@ -629,6 +698,10 @@ app.include_router(programs_router)
 # BUILD.md step 1: new /home page lives alongside the existing static / chat
 # UI during dogfooding. Cuts over to / once we're confident.
 app.include_router(home_router)
+app.include_router(movies_router)
+# Lake Ink & Brass redesign (Phase 2b): the /calendar discovery page — the
+# concierge intent-router's destination for discovery queries.
+app.include_router(calendar_page_router)
 app.include_router(account_alerts_router)
 app.include_router(digest_router)
 # Directory pivot V1 (2026-05-13): per-provider profile page at
@@ -643,6 +716,70 @@ app.include_router(new_chat_ui_router)
 app.include_router(micro_ad_router)
 app.include_router(merchant_upgrade_router)
 app.include_router(portal_router)
+# C10: serve uploaded ad-creative images from the Railway volume.
+app.include_router(creative_media_router)
+# F4 billing (Stripe). Dormant: every /billing/* route 404s until the operator
+# sets STRIPE_BILLING_ENABLED + keys and adds `stripe` to requirements.
+app.include_router(billing_router)
+
+
+class CachedStaticFiles(StaticFiles):
+    """``StaticFiles`` that emits an explicit ``Cache-Control`` (UI plan 1.9).
+
+    Starlette's ``StaticFiles`` already sends ``ETag`` + ``Last-Modified``
+    validators, so correctness was never at risk — but it sent *no* ``max-age``,
+    so browsers issued a conditional request for every asset on every
+    navigation (a round-trip each, even though the answer is almost always a
+    304). The ``/static`` mount therefore shipped with no freshness lifetime at
+    all. This subclass adds one:
+
+    * **Fingerprinted** requests (any ``?v=`` query, e.g.
+      ``/static/styles/desert.css?v=ab12cd``) → ``max-age`` of one year +
+      ``immutable``. The URL changes whenever the bytes change, so a pinned
+      copy can never go stale. Templates do not fingerprint their asset URLs
+      yet — threading a ``static_url()`` helper through the shared Jinja
+      registrar is the 1.9b follow-up — and when they do, **no change here is
+      needed**: the immutable branch simply starts applying.
+    * **Bare** requests (no ``?v=``) → a short ``max-age`` so an
+      un-fingerprinted asset still skips most revalidations yet self-heals
+      within minutes of a deploy (the ``ETag`` keeps it correct on the next
+      conditional request after expiry).
+
+    HTML is unaffected: it is served by routes, not this mount, and
+    ``SecurityHeadersMiddleware`` keeps every ``text/html`` response
+    ``no-cache``.
+    """
+
+    def __init__(
+        self,
+        *args: Any,
+        versioned_max_age: int = 31_536_000,  # 1 year
+        default_max_age: int = 300,  # 5 minutes
+        **kwargs: Any,
+    ) -> None:
+        self._versioned_max_age = versioned_max_age
+        self._default_max_age = default_max_age
+        super().__init__(*args, **kwargs)
+
+    async def get_response(self, path: str, scope: Any) -> Response:
+        response = await super().get_response(path, scope)
+        # Stamp cacheable bodies (200/206) and validator replies (304); leave
+        # 404/405 alone so a cache never pins a miss.
+        if response.status_code in (200, 206, 304):
+            query = scope.get("query_string", b"") or b""
+            fingerprinted = any(
+                part.split(b"=", 1)[0] == b"v" for part in query.split(b"&") if part
+            )
+            if fingerprinted:
+                response.headers["Cache-Control"] = (
+                    f"public, max-age={self._versioned_max_age}, immutable"
+                )
+            else:
+                response.headers["Cache-Control"] = (
+                    f"public, max-age={self._default_max_age}"
+                )
+        return response
+
 
 _STATIC_DIR = Path(__file__).resolve().parent / "static"
 # Mount the more-specific /static/biz-photos BEFORE the broad /static mount.
@@ -652,213 +789,22 @@ _BIZ_PHOTOS_DIR = Path("/data/biz-photos")
 if _BIZ_PHOTOS_DIR.is_dir():
     app.mount(
         "/static/biz-photos",
-        StaticFiles(directory=str(_BIZ_PHOTOS_DIR)),
+        CachedStaticFiles(directory=str(_BIZ_PHOTOS_DIR)),
         name="biz_photos",
     )
-app.mount("/static", StaticFiles(directory=_STATIC_DIR), name="static")
+app.mount("/static", CachedStaticFiles(directory=_STATIC_DIR), name="static")
 
 _CONTRIB_UPLOADS = Path(__file__).resolve().parents[1] / "data" / "contrib_uploads"
 if _CONTRIB_UPLOADS.is_dir():
     app.mount(
         "/data/contrib_uploads",
-        StaticFiles(directory=str(_CONTRIB_UPLOADS)),
+        CachedStaticFiles(directory=str(_CONTRIB_UPLOADS)),
         name="contrib_uploads",
     )
 
 
-def _format_event_datetime(event: Event) -> str:
-    weekday = event.date.strftime("%A")
-    month = event.date.strftime("%B")
-    day = event.date.day
-    if is_time_tbd(event.start_time, event.end_time):
-        # WP-4 allows NULL times at ingest (never fabricate noon), and a bare
-        # 00:00 start with no real end is the aggregator-ingest "no time given"
-        # fallback, not a real midnight event — show the date only. The single
-        # definition of that contract lives in app/events/time_labels.py.
-        return f"{weekday}, {month} {day}"
-    hour_24 = event.start_time.hour
-    minute = event.start_time.minute
-    suffix = "AM" if hour_24 < 12 else "PM"
-    hour_12 = hour_24 % 12 or 12
-    return f"{weekday}, {month} {day}, {hour_12}:{minute:02d} {suffix}"
-
-
-def _event_is_past(event: Event) -> bool:
-    # Drives the "This event has passed" banner on the detail page. A recurring
-    # series (rdate) is never "passed" while it still recurs, so only flag genuine
-    # one-offs. Compare against Lake Havasu local time. A date-only event (NULL
-    # time) is past only once the whole day is over -- never mid-day -- so a
-    # same-day all-day event is not prematurely buried.
-    if event.rdate:
-        return False
-    now = now_lake_havasu()
-    end_d = event.end_date or event.date
-    if end_d < now.date():
-        return True
-    if end_d > now.date():
-        return False
-    if event.end_time is not None:
-        return event.end_time < now.time()
-    if event.start_time is None:
-        return False  # date-only event: past only once the day is over
-    # No end time on file: don't bury an event the minute it begins (live
-    # bug: the 9:00 AM Board of Adjustment meeting wore "This event has
-    # passed" at 9:07 AM). Assume a 3-hour run; anything spilling past
-    # midnight is handled by the next-day date check above.
-    start_min = event.start_time.hour * 60 + event.start_time.minute
-    cutoff_min = start_min + 180
-    if cutoff_min >= 24 * 60:
-        return False
-    return (now.hour * 60 + now.minute) >= cutoff_min
-
-
-def _truncate_for_og(value: str, limit: int = 160) -> str:
-    # og:description should never cut a word in half ("...Lake Hav"). Collapse
-    # whitespace, then if we're over the limit trim back to the last word
-    # boundary inside the budget and append an ellipsis. Falls back to a hard
-    # slice only when a single token is longer than the limit.
-    clean = " ".join(value.split()).strip()
-    if len(clean) <= limit:
-        return clean
-    head = clean[:limit].rstrip()
-    cut = head.rfind(" ")
-    if cut > 0:
-        head = head[:cut].rstrip()
-    return head + "..."
-
-
-def _render_not_found_response(request: Request) -> HTMLResponse:
-    return templates.TemplateResponse(
-        request=request,
-        name="event_not_found.html",
-        context={},
-        status_code=404,
-    )
-
-
-def _render_permalink_response(
-    request: Request, *, event: Event, permalink_url: str
-) -> HTMLResponse:
-    contact_html = ""
-    if event.contact_name or event.contact_phone:
-        parts = [html.escape(p) for p in [event.contact_name, event.contact_phone] if p]
-        contact_html = f"<p><strong>Contact:</strong> {' | '.join(parts)}</p>"
-
-    event_link_html = ""
-    if event.event_url:
-        escaped_url = html.escape(event.event_url)
-        # safe_href filters dangerous schemes (javascript:, data:) that html.escape
-        # alone allows through; event_url is scraped/unvalidated and this is a public
-        # page (audit M2, public extension).
-        safe_url = html.escape(safe_href(event.event_url))
-        event_link_html = (
-            f"<p><strong>Event Link:</strong> "
-            f'<a href="{safe_url}" target="_blank" rel="noopener noreferrer">{escaped_url}</a></p>'
-        )
-
-    tags_html = ""
-    if event.tags:
-        tag_nodes = "".join(f'<span class="tag">{html.escape(tag)}</span>' for tag in event.tags)
-        tags_html = f'<div class="tags"><h2>Tags</h2><div class="tag-wrap">{tag_nodes}</div></div>'
-
-    # Event JSON-LD (SEO audit §2.7: zero Event schema on a hyperlocal events
-    # product — a free rich-results win). Built as a dict here so missing
-    # fields are OMITTED, never emitted as ``"key": null``. Arizona ignores
-    # DST: the offset is -07:00 year-round.
-    if is_time_tbd(event.start_time, event.end_time):
-        start_iso = event.date.isoformat()
-    else:
-        start_iso = (
-            f"{event.date.isoformat()}T{event.start_time.strftime('%H:%M')}:00-07:00"
-        )
-    event_jsonld: dict[str, Any] = {
-        "@context": "https://schema.org",
-        "@type": "Event",
-        "name": event.title,
-        "startDate": start_iso,
-        "url": permalink_url,
-        "eventStatus": "https://schema.org/EventScheduled",
-        "location": {
-            "@type": "Place",
-            "name": event.location_name or "Lake Havasu City",
-            "address": {
-                "@type": "PostalAddress",
-                "addressLocality": "Lake Havasu City",
-                "addressRegion": "AZ",
-                "addressCountry": "US",
-            },
-        },
-    }
-    if event.end_time is not None and not is_time_tbd(event.start_time, event.end_time):
-        end_d = event.end_date or event.date
-        event_jsonld["endDate"] = (
-            f"{end_d.isoformat()}T{event.end_time.strftime('%H:%M')}:00-07:00"
-        )
-    if event.description:
-        event_jsonld["description"] = _truncate_for_og(event.description, limit=300)
-    if event.image_url and str(event.image_url).startswith("http"):
-        event_jsonld["image"] = [event.image_url]
-
-    return templates.TemplateResponse(
-        request=request,
-        name="event_permalink.html",
-        context={
-            "event_title": clean_event_title(event.title, location_name=event.location_name),
-            "og_description": _truncate_for_og(event.description),
-            "og_url": permalink_url,
-            "image_url": event.image_url,
-            "formatted_datetime": _format_event_datetime(event),
-            "is_past": _event_is_past(event),
-            "location_name": event.location_name,
-            "description": event.description,
-            "contact_html": contact_html,
-            "event_link_html": event_link_html,
-            "tags_html": tags_html,
-            "event_jsonld": event_jsonld,
-            "ics_url": f"/events/{event.id}.ics",
-        },
-    )
-
-
-# --------------------------------------------------------------------------
-# robots.txt + sitemap.xml (launch hardening v48)
-# --------------------------------------------------------------------------
-#
-# robots.txt is fully static. sitemap.xml enumerates the home page, static
-# legal/contribute pages, every taxonomy department + gate-clearing leaf, every
-# active non-draft provider profile, and every live event. The XML is
-# cached in-process for one hour because regeneration walks providers +
-# events tables (thousands of rows). The cache is a simple
-# (timestamp, xml) tuple rather than functools.lru_cache so it correctly
-# expires by wall-clock time and is easy to reason about under tests.
-# Canonical base-URL helpers live in app/seo/urls.py (P1.0 — single source of
-# truth, shared with templates via the canonical_url Jinja global). Re-exported
-# here under their historical private names so existing callers/tests resolve
-# ``app.main._base_url`` / ``app.main._coerce_https`` unchanged.
 from app.seo.urls import _coerce_https  # noqa: F401 — re-export for back-compat/tests
 from app.seo.urls import base_url as _base_url
-
-_SITEMAP_TTL_SECONDS = 3600
-# P1.6 — /sitemap.xml is a sitemap *index* referencing per-section child
-# sitemaps (pages / providers / events) so each section can scale and carry
-# honest <lastmod> values:
-#   - pages: static surfaces carry no lastmod (they rarely change; advertising
-#     "today" every day told crawlers everything churned daily). Category pages
-#     use the max Provider.updated_at of their member categories.
-#   - providers: Provider.updated_at (as before).
-#   - events: Event.created_at (no updated_at column).
-# Each section is cached independently for one hour (same TTL/shape rationale
-# as the original single-document cache). ``_sitemap_cache`` keys are section
-# names; tests reset the whole dict between cases.
-_sitemap_cache: dict[str, tuple[float, str]] = {}
-
-_SITEMAP_SECTIONS = ("pages", "providers", "events")
-
-
-@app.get("/robots.txt", response_class=PlainTextResponse)
-def robots_txt() -> PlainTextResponse:
-    body = f"User-agent: *\nAllow: /\n\nSitemap: {_base_url()}/sitemap.xml\n"
-    return PlainTextResponse(body)
 
 
 @app.get("/favicon.ico", include_in_schema=False)
@@ -871,253 +817,25 @@ def favicon_ico() -> FileResponse:
     )
 
 
-def _sitemap_url_entry(loc: str, lastmod: str | None = None) -> str:
-    lastmod_line = f"    <lastmod>{lastmod}</lastmod>\n" if lastmod else ""
-    return (
-        "  <url>\n"
-        f"    <loc>{html.escape(loc, quote=False)}</loc>\n"
-        f"{lastmod_line}"
-        "  </url>\n"
-    )
-
-
-def _format_lastmod(value: datetime | None, *, today_iso: str) -> str:
-    if value is None:
-        return today_iso
-    try:
-        return value.date().isoformat()
-    except Exception:
-        return today_iso
-
-
-def _iso_or_none(value: datetime | None) -> str | None:
-    if value is None:
-        return None
-    try:
-        return value.date().isoformat()
-    except Exception:
-        return None
-
-
-def _wrap_urlset(entries: list[str]) -> str:
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        + "".join(entries)
-        + "</urlset>\n"
-    )
-
-
-def _build_sitemap_pages_xml() -> str:
-    base = _base_url()
-    entries: list[str] = []
-
-    # Static surfaces. /home is the canonical editorial home; bare / 301s to it
-    # and so is intentionally NOT listed. No <lastmod>: these are stable pages
-    # and the element is optional — omitting beats fabricating daily churn.
-    static_paths = (
-        "/home",
-        "/chat",
-        "/map",
-        "/gas",
-        "/events-ui",
-        "/categories",
-        "/privacy",
-        "/terms",
-        "/contribute",
-        "/about",
-        "/help",
-        "/contact",
-    )
-    for path in static_paths:
-        entries.append(_sitemap_url_entry(f"{base}{path}"))
-
-    # The retired flat /categories/{slug} bucket routes 301 to taxonomy
-    # departments (A.3 nav rewire) and are deliberately NOT listed — a sitemap
-    # should never advertise a redirect. Departments + leaves are enumerated
-    # below.
-
-    # P2.1 dedicated trade pages — only trades clearing the thin-page gate
-    # (TRADE_PAGE_MIN_PROVIDERS) are listed; under-minimum trades 404 and are
-    # excluded here so near-empty templated pages are never exposed to crawlers.
-    # lastmod: max updated_at of the trade's matching providers.
-    try:
-        from app.categories.leaf_pages import (
-            LEAF_PAGE_MIN_PROVIDERS,
-            leaf_renderable_count,
-            resolve_leaf,
-        )
-        from app.categories.trades import (
-            LEAF_TWINS,
-            TRADE_LEAF_DEPARTMENT_SLUG,
-            TRADE_PARENT_SLUG,
-            _trade_provider_rows,
-        )
-        from app.categories.trades import qualifying_trades as _qualifying_trades
-
-        with SessionLocal() as db:
-            for trade_obj, _count in _qualifying_trades(db):
-                # PR-B consolidation: a trade whose taxonomy-leaf twin ships
-                # 301s to it, so the sitemap lists only the leaf (below).
-                twin_slug = LEAF_TWINS.get(trade_obj.slug)
-                if twin_slug:
-                    twin = resolve_leaf(db, TRADE_LEAF_DEPARTMENT_SLUG, twin_slug)
-                    if (
-                        twin is not None
-                        and leaf_renderable_count(db, twin)
-                        >= LEAF_PAGE_MIN_PROVIDERS
-                    ):
-                        continue
-                rows = _trade_provider_rows(db, trade_obj)
-                stamps2 = [r.updated_at for r in rows if r.updated_at is not None]
-                lastmod = _iso_or_none(max(stamps2)) if stamps2 else None
-                entries.append(
-                    _sitemap_url_entry(
-                        f"{base}/categories/{TRADE_PARENT_SLUG}/{trade_obj.slug}",
-                        lastmod,
-                    )
-                )
-    except Exception as exc:  # pragma: no cover — defensive
-        logger.warning("sitemap: trade page enumeration failed: %s", exc)
-
-    # B.2 taxonomy leaf pages + department landings — only gate-clearing leaves
-    # (sub-gate leaves 404), and only departments that own at least one such
-    # leaf (so a listed landing is never empty). No <lastmod> — the counts move
-    # on the order of days and a per-leaf max(updated_at) would be N queries.
-    try:
-        from app.categories.leaf_pages import qualifying_leaves
-
-        with SessionLocal() as db:
-            seen_departments: set[str] = set()
-            for leaf, _count in qualifying_leaves(db):
-                entries.append(
-                    _sitemap_url_entry(
-                        f"{base}/categories/{leaf.department_slug}/{leaf.slug}"
-                    )
-                )
-                if leaf.department_slug not in seen_departments:
-                    seen_departments.add(leaf.department_slug)
-                    entries.append(
-                        _sitemap_url_entry(f"{base}/categories/{leaf.department_slug}")
-                    )
-    except Exception as exc:  # pragma: no cover — defensive
-        logger.warning("sitemap: leaf page enumeration failed: %s", exc)
-
-    return _wrap_urlset(entries)
-
-
-def _build_sitemap_providers_xml() -> str:
-    base = _base_url()
-    today_iso = datetime.now(timezone.utc).date().isoformat()
-    entries: list[str] = []
-    try:
-        with SessionLocal() as db:
-            providers = (
-                db.query(Provider.slug, Provider.updated_at)
-                .filter(
-                    Provider.is_active.is_(True),
-                    Provider.draft.is_(False),
-                    Provider.slug.isnot(None),
-                )
-                .all()
-            )
-        for slug, updated_at in providers:
-            if not slug:
-                continue
-            entries.append(
-                _sitemap_url_entry(
-                    f"{base}/provider/{slug}",
-                    _format_lastmod(updated_at, today_iso=today_iso),
-                )
-            )
-    except Exception as exc:  # pragma: no cover — defensive
-        logger.warning("sitemap: provider enumeration failed: %s", exc)
-    return _wrap_urlset(entries)
-
-
-def _build_sitemap_events_xml() -> str:
-    base = _base_url()
-    today_iso = datetime.now(timezone.utc).date().isoformat()
-    entries: list[str] = []
-    try:
-        with SessionLocal() as db:
-            events = db.query(Event.id, Event.created_at).filter(Event.status == "live").all()
-        for event_id, created_at in events:
-            entries.append(
-                _sitemap_url_entry(
-                    f"{base}/events/{event_id}",
-                    _format_lastmod(created_at, today_iso=today_iso),
-                )
-            )
-    except Exception as exc:  # pragma: no cover — defensive
-        logger.warning("sitemap: event enumeration failed: %s", exc)
-    return _wrap_urlset(entries)
-
-
-_SITEMAP_BUILDERS = {
-    "pages": _build_sitemap_pages_xml,
-    "providers": _build_sitemap_providers_xml,
-    "events": _build_sitemap_events_xml,
-}
-
-
-def _build_sitemap_index_xml() -> str:
-    base = _base_url()
-    refs = "".join(
-        f"  <sitemap>\n    <loc>{base}/sitemap-{section}.xml</loc>\n  </sitemap>\n"
-        for section in _SITEMAP_SECTIONS
-    )
-    return (
-        '<?xml version="1.0" encoding="UTF-8"?>\n'
-        '<sitemapindex xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">\n'
-        + refs
-        + "</sitemapindex>\n"
-    )
-
-
-def _get_cached_sitemap_xml(section: str) -> str:
-    now = datetime.now(timezone.utc).timestamp()
-    cache = _sitemap_cache.get(section)
-    if cache is not None and (now - cache[0]) < _SITEMAP_TTL_SECONDS:
-        return cache[1]
-    if section == "index":
-        xml = _build_sitemap_index_xml()
-    else:
-        xml = _SITEMAP_BUILDERS[section]()
-    _sitemap_cache[section] = (now, xml)
-    return xml
-
-
-@app.get("/sitemap.xml")
-def sitemap_xml() -> Response:
-    return Response(
-        content=_get_cached_sitemap_xml("index"),
-        media_type="application/xml",
-    )
-
-
-@app.get("/sitemap-{section}.xml")
-def sitemap_section_xml(section: str) -> Response:
-    if section not in _SITEMAP_SECTIONS:
-        raise HTTPException(status_code=404, detail="unknown_sitemap")
-    return Response(
-        content=_get_cached_sitemap_xml(section),
-        media_type="application/xml",
-    )
-
-
 @app.get("/")
 def serve_chat_ui() -> RedirectResponse:
-    # 301 (permanent) so search engines fold link equity into /home and stop
-    # re-crawling the bare root. Was 307 (temporary) which kept / canonical.
-    return RedirectResponse(url="/home", status_code=301)
+    # 307 (temporary) so browsers do NOT permanently cache the bare-root
+    # redirect. The previous 301 (permanent) was cached indefinitely by
+    # browsers; once a stale/broken target got cached, the bare root appeared
+    # to "not load" for that visitor even after the server was fixed, while
+    # /home and www.* kept working. SEO consolidation is handled by the
+    # self-canonical <link> on /home, so we don't need a permanent redirect
+    # here. (Bare / is already excluded from the sitemap.)
+    return RedirectResponse(url="/home", status_code=307)
 
 
 @app.get("/advertise")
 def advertise_redirect() -> RedirectResponse:
     # DL-13: /advertise is the colloquial entry point advertisers type; the
-    # actual sponsor landing lives at /sponsor. 301 so the canonical URL is the
-    # one that ranks. (The ad *catalog* is a separate page at /portal/advertise.)
+    # actual sponsor landing (the public rate card) lives at /sponsor. 301 so the
+    # canonical URL is the one that ranks. (There is no /portal/advertise route —
+    # the merchant dashboard is /portal/placements, behind login; WS3 will make
+    # /advertise itself the canonical rate card and 301 /sponsor onto it.)
     return RedirectResponse(url="/sponsor", status_code=301)
 
 
@@ -1142,32 +860,6 @@ def logout_get(request: Request, db: Session = Depends(get_db)) -> RedirectRespo
         samesite="lax",
     )
     return response
-
-
-@app.get("/privacy", response_class=HTMLResponse)
-def privacy_page(request: Request) -> HTMLResponse:
-    return _render_static_doc(
-        request,
-        path=_PRIVACY_MD_PATH,
-        head_title="Privacy — Ask Hava",
-        meta_description=(
-            "How Hava handles your data: what we store, who processes it, "
-            "and the choices you have. No ads, no profiles, no data sales."
-        ),
-    )
-
-
-@app.get("/terms", response_class=HTMLResponse)
-def terms_page(request: Request) -> HTMLResponse:
-    return _render_static_doc(
-        request,
-        path=_TOS_MD_PATH,
-        head_title="Terms — Ask Hava",
-        meta_description=(
-            "The terms for using Ask Hava — Lake Havasu City's free local "
-            "guide, directory, and AI concierge."
-        ),
-    )
 
 
 @app.exception_handler(RequestValidationError)
@@ -1200,7 +892,7 @@ async def http_exception_handler(
         )
     return templates.TemplateResponse(
         request=request,
-        name="not_found.html",
+        name="not_found_lake.html",
         context={},
         status_code=404,
     )
@@ -1210,7 +902,6 @@ async def http_exception_handler(
 def health_check(db: Session = Depends(get_db)) -> JSONResponse:
     try:
         count = db.query(Event).count()
-        return JSONResponse({"status": "ok", "db_connected": True, "event_count": count})
     except Exception:
         # OPS-1: a process that can't reach the database must FAIL the
         # healthcheck (Railway healthcheckPath gates deploys on this), not
@@ -1219,41 +910,46 @@ def health_check(db: Session = Depends(get_db)) -> JSONResponse:
             status_code=503,
             content={"status": "error", "db_connected": False, "event_count": 0},
         )
-
-
-@app.get("/events")
-def events_redirect() -> RedirectResponse:
-    # /events used to serve the raw EventRead JSON dump (leaking embedding,
-    # source, and internal columns to any caller). The public JSON contract now
-    # lives at /api/events (app/v1/routes/events.py, scrubbed serializer); the
-    # human-facing list is /events-ui. 301 so the old JSON path folds into the
-    # browsable UI for crawlers.
-    return RedirectResponse(url="/events-ui", status_code=301)
-
-
-@app.get("/events/{event_id}.ics", include_in_schema=False)
-def event_ics(event_id: str, db: Session = Depends(get_db)) -> Response:
-    """Per-event iCalendar download (UX-4 "Add to calendar"). Registered before
-    the HTML permalink so ``/events/{id}.ics`` matches this route, not the
-    ``{event_id}`` catch-all."""
-    from app.api.routes.calendar_feed import build_single_event_ics
-
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if event is None or event.status == "pending_review":
-        raise HTTPException(status_code=404, detail="event_not_found")
-    return Response(
-        content=build_single_event_ics(event),
-        media_type="text/calendar; charset=utf-8",
-        headers={"Content-Disposition": f'attachment; filename="event-{event.id}.ics"'},
+    return JSONResponse(
+        {
+            "status": "ok",
+            "db_connected": True,
+            "event_count": count,
+            # The running build's commit SHA — the cold-cache canary compares this
+            # (the ACTUAL running app) against each page's <meta name="build-sha">,
+            # so a stale/edge render from an older build is caught.
+            "build_sha": build_sha(),
+            # Cluster fingerprint so the web-app/internal-host path can be proven
+            # the SAME Postgres as the Actions/public-proxy path (scripts/
+            # db_identity_probe.py). system_identifier is initdb-unique per cluster
+            # and non-sensitive. Best-effort: a failure here never affects the
+            # deploy healthcheck gate above.
+            "db_identity": _db_identity(db),
+        }
     )
 
 
-@app.get("/events/{event_id}", response_class=HTMLResponse)
-def event_permalink(event_id: str, request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
-    event = db.query(Event).filter(Event.id == event_id).first()
-    if event is None or event.status == "pending_review":
-        return _render_not_found_response(request)
-    # ED-5: build a canonical https URL from the configured base (request.url is
-    # http behind Railway's proxy when X-Forwarded-Proto isn't honored).
-    permalink_url = f"{_base_url()}/events/{event.id}"
-    return _render_permalink_response(request, event=event, permalink_url=permalink_url)
+def _db_identity(db: Session) -> dict[str, object | None]:
+    """Read-only cluster fingerprint for the /health identity check. Never raises;
+    an unreadable probe yields a null field, not a 503. Each probe rolls back on
+    failure so a permission-denied ``pg_control_system()`` (which aborts the
+    transaction) doesn't poison the ``inet_server_*`` fallbacks after it."""
+    from sqlalchemy import text as _sql_text
+
+    identity: dict[str, object | None] = {}
+    for label, sql in (
+        ("system_identifier", "SELECT system_identifier FROM pg_control_system()"),
+        ("database", "SELECT current_database()"),
+        ("server_port", "SELECT inet_server_port()"),
+        ("server_version", "SELECT current_setting('server_version')"),
+    ):
+        try:
+            value = db.execute(_sql_text(sql)).scalar()
+            identity[label] = str(value) if label == "system_identifier" and value is not None else value
+        except Exception:
+            identity[label] = None
+            try:
+                db.rollback()
+            except Exception:
+                pass
+    return identity

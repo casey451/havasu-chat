@@ -26,7 +26,7 @@ def test_category_url_routes_church_to_community_not_explore() -> None:
     # retired flat slug resolves on through ROUTE_SLUG_ALIASES to the canonical
     # taxonomy department, so the crumb never bounces through a 301.
     church = SimpleNamespace(category="religion_community")
-    assert _category_url_for(church) == "/categories/community-and-civic"
+    assert _category_url_for(church) == "/categories/worship-and-nonprofits"
 
 
 def test_category_url_routes_restaurant_to_eat_and_drink() -> None:

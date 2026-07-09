@@ -3,10 +3,10 @@
 Covers:
 - Route status matrix: / and /events are permanent (301) redirects; /advertise
   301s to /sponsor; GET /logout redirects instead of 405ing.
-- The public /api/events + /api/businesses JSON never leaks internal scraper
+- The public /api/events JSON never leaks internal scraper
   provenance (``source``) or an ``embedding`` field.
 - Sitemap gains /map, /events-ui, /categories and the WP-1 trust pages while
-  dropping the bare / (which now 301s to /home).
+  dropping the bare / (which now 307s to /home).
 - og:url is https-coerced and og:description truncates on a word boundary.
 """
 
@@ -43,9 +43,13 @@ def _clear_sitemap_cache():
 # ---------------------------------------------------------------------------
 
 
-def test_root_permanent_redirects_to_home(client: TestClient) -> None:
+def test_root_temporary_redirects_to_home(client: TestClient) -> None:
+    # 307 (not 301): the bare root must NOT be permanently cached by browsers.
+    # A cached permanent redirect made the bare root appear to "not load" for
+    # visitors even when the server was healthy. SEO consolidation is handled
+    # by /home's self-canonical link, not by a permanent redirect here.
     r = client.get("/", follow_redirects=False)
-    assert r.status_code == 301
+    assert r.status_code == 307
     assert r.headers["location"] == "/home"
 
 
@@ -130,12 +134,8 @@ def test_api_events_omits_internal_fields(client: TestClient) -> None:
         _cleanup_wp7_rows()
 
 
-def test_api_businesses_omits_internal_fields(client: TestClient) -> None:
-    r = client.get("/api/businesses", params={"limit": 25})
-    assert r.status_code == 200
-    for item in r.json()["items"]:
-        leaked = _INTERNAL_KEYS.intersection(item.keys())
-        assert not leaked, f"/api/businesses leaked internal fields: {leaked}"
+# /api/businesses was removed 2026-07-02 (no consumers); its scrubbed-serializer
+# test went with it. /api/events keeps the same guard above.
 
 
 # ---------------------------------------------------------------------------

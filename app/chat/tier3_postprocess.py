@@ -169,6 +169,27 @@ _USEFUL_CONTENT_RE = re.compile(
     r"@\w+",
 )
 
+# Grounding-scaffold leak: the LLM referring to its retrieval input ("the
+# provided rows do not include...", "based on the provided data/context"). The
+# dead giveaway is the word "rows" (the SQL result set) or "provided/given
+# data/context". High precision — legitimate copy never names the retrieval
+# substrate. (QA diagnostic 2026-06-12, P2-1)
+_SCAFFOLDING_LEAK_RE = re.compile(
+    r"(provided\s+rows?|"
+    r"the\s+rows?\s+(?:provided|above|listed|below|do\s+not|don'?t|do\b)|"
+    r"rows?\s+(?:provided|given|listed|available)|"
+    r"based\s+on\s+the\s+(?:provided\s+)?(?:rows?|data|context)|"
+    r"the\s+(?:data|context)\s+provided|"
+    r"don'?t\s+have\s+access\s+to\s+(?:the\s+)?(?:rows?|data|context)|"
+    r"in\s+the\s+provided\s+(?:rows?|data|context))",
+    re.IGNORECASE,
+)
+
+# Clean honest-gap fallback when the entire response was a scaffold leak.
+_SCAFFOLDING_FALLBACK = (
+    "I don't have that detail in the catalog yet. Add it at /contribute or share a link."
+)
+
 
 def _is_sentence_useful(sentence: str) -> bool:
     s = sentence.strip()
@@ -221,11 +242,113 @@ def strip_soft_suggest(text: str) -> str:
         out = pattern.sub(replacement, out)
     out = _normalize_whitespace(out)
 
-    # Pass 2: sentence-level drop for fragments left empty / contentless.
     sentences = _split_sentences(out)
+
+    # Pass 1.5: drop grounding-scaffold leak sentences ("the provided rows do
+    # not include ..."). If that empties the response, the whole thing was a
+    # leak -> return a clean honest gap rather than exposing the substrate.
+    non_leak = [s for s in sentences if not _SCAFFOLDING_LEAK_RE.search(s)]
+    leak_dropped = len(non_leak) != len(sentences)
+    if leak_dropped and not non_leak:
+        return _SCAFFOLDING_FALLBACK
+    sentences = non_leak
+
+    # Pass 2: sentence-level drop for fragments left empty / contentless.
     kept = [s for s in sentences if _is_sentence_useful(s)]
     if not kept:
-        # Don't strip the whole response to nothing — fall back to the
-        # phrase-stripped form even if no sentence passed the useful check.
-        return out
+        # Nothing useful remains. If we dropped a scaffold leak, return the
+        # clean gap; otherwise fall back to the phrase-stripped form unchanged.
+        return _SCAFFOLDING_FALLBACK if leak_dropped else out
     return _join_sentences(kept)
+
+
+# ---------------------------------------------------------------------------
+# Ungrounded contact-info guard (F1) — the audit caught Tier 3 emitting a
+# fabricated phone number ("(775) 848-5418", a Nevada area code) for a business
+# that wasn't even in Context. The system prompt bans this, but gpt-4.1-mini
+# still confabulates contact details on some queries. This is the deterministic
+# backstop: any phone/address in the answer whose value is NOT present in the
+# Context block we handed the model gets its whole sentence dropped. Better to
+# omit a number than to send a caller a fake one.
+#
+# Regexes mirror app.chat.halt3_validator (the CI eval-set validator) but are
+# duplicated locally to avoid an import cycle (halt3_validator imports
+# unified_router, which transitively imports this module).
+_CONTACT_PHONE_RE = re.compile(r"\(?\d{3}\)?[\s.\-]?\d{3}[\s.\-]?\d{4}")
+_CONTACT_ADDRESS_RE = re.compile(
+    r"\b\d{1,6}\s+(?:[NSEW]\.?\s+)?[A-Z][\w.]*"
+    r"(?:\s+[A-Z][\w.]*){0,4}\s+(?:Blvd|Ave|St|Rd|Dr|Ln|Way|Hwy|Pl)\b"
+)
+
+_UNGROUNDED_CONTACT_FALLBACK = (
+    "I don't have that contact info in the catalog yet — the venue's own site or "
+    "/contribute is the move."
+)
+
+
+def _phone_digits(s: str) -> str:
+    return re.sub(r"\D", "", s or "")
+
+
+def redact_ungrounded_contact(text: str, context_text: str | None) -> str:
+    """Drop any sentence whose phone/address is not grounded in ``context_text``.
+
+    ``context_text`` is the Context block injected into the Tier-3 user message
+    (see ``app.chat.context_builder``); it carries the only facts the model was
+    given, on ``phone:`` / ``address:`` lines. A phone is grounded when its
+    digits appear in Context; an address is grounded when it is a substring of
+    (or contains) a Context address, case-insensitively. Idempotent; returns the
+    input unchanged when every contact mention is grounded (the common case).
+
+    When *every* sentence carried an ungrounded contact detail (the whole answer
+    was confabulated contact info), returns a clean honest-gap line instead of
+    an empty string.
+    """
+    if not text:
+        return text
+    ctx = context_text or ""
+    grounded_phones = {_phone_digits(m) for m in _CONTACT_PHONE_RE.findall(ctx)}
+    grounded_addrs = [a.lower() for a in _CONTACT_ADDRESS_RE.findall(ctx)]
+
+    sentences = _split_sentences(text)
+    if not sentences:
+        return text
+
+    def _sentence_grounded(s: str) -> bool:
+        for ph in _CONTACT_PHONE_RE.findall(s):
+            if _phone_digits(ph) not in grounded_phones:
+                return False
+        for ad in _CONTACT_ADDRESS_RE.findall(s):
+            al = ad.lower()
+            if not any(al in g or g in al for g in grounded_addrs):
+                return False
+        return True
+
+    kept = [s for s in sentences if _sentence_grounded(s)]
+    if len(kept) == len(sentences):
+        return text
+    if not kept:
+        return _UNGROUNDED_CONTACT_FALLBACK
+    return _join_sentences(kept)
+
+
+def scrub_scaffold_leak(text: str) -> str:
+    """Drop only grounding-scaffold-leak sentences from ``text``.
+
+    Lighter than :func:`strip_soft_suggest` — it does NOT do the leading-phrase
+    rewrites or the sentence-usefulness filtering tuned for Tier-3 prose. It only
+    removes sentences that name the retrieval substrate ("...aren't listed in the
+    provided rows"), so it is safe to run on Tier-2 formatter output (LLM voices
+    can leak the scaffold there too, e.g. a grocery lookup). If the leak was the
+    whole response, returns the clean honest-gap fallback. Idempotent; returns the
+    input unchanged when nothing matched.
+    """
+    if not text:
+        return text
+    sentences = _split_sentences(text)
+    non_leak = [s for s in sentences if not _SCAFFOLDING_LEAK_RE.search(s)]
+    if len(non_leak) == len(sentences):
+        return text
+    if not non_leak:
+        return _SCAFFOLDING_FALLBACK
+    return _join_sentences(non_leak)

@@ -1,0 +1,85 @@
+name: parks-rec-webtrac-reconcile
+
+# GATED, MANUAL-ONLY. Reconciles live Parks & Rec FLYER events against the WebTrac
+# registration authority (WebTrac wins on conflict) — the generalization of the
+# earlier same-date cross-source dedup (#756). Retires flyer copies a WebTrac twin
+# supersedes, quarantines flyer-only rows that fail the lint, and LEAVES
+# needs-human-confirmation time conflicts (e.g. Glow in the Dark Family Painting)
+# untouched (report only). DRY-RUN unless confirm=APPLY. Both runs upload the full
+# review CSV; an apply also uploads the undo CSV. Runs where the DB secret resolves.
+#
+# (Filename kept as parks-rec-crosssource-dedup.yml so it stays dispatchable; the
+# script it runs is now the superseding reconciler.)
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "APPLY = supersede + quarantine · SUPERSEDE = supersede only · else dry-run."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parks-rec-webtrac-reconcile
+  cancel-in-progress: false
+
+jobs:
+  reconcile:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Reconcile flyer vs WebTrac (dry-run unless confirm=APPLY)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is empty — refusing to run."
+            exit 1
+          fi
+          if [ "${CONFIRM}" = "APPLY" ]; then
+            echo "CONFIRM=APPLY -> writing supersede + quarantine (gated, reversible)."
+            python scripts/parks_rec_webtrac_reconcile_2026_07_08.py --apply
+          elif [ "${CONFIRM}" = "SUPERSEDE" ]; then
+            echo "CONFIRM=SUPERSEDE -> writing supersede ONLY (skip quarantine)."
+            python scripts/parks_rec_webtrac_reconcile_2026_07_08.py --apply --supersede-only
+          elif [ "${CONFIRM}" = "RESTORE-APPLY" ]; then
+            echo "CONFIRM=RESTORE-APPLY -> restoring self-matched WebTrac events to live."
+            python scripts/parks_rec_webtrac_reconcile_2026_07_08.py --restore --apply
+          elif [ "${CONFIRM}" = "RESTORE" ]; then
+            echo "CONFIRM=RESTORE -> DRY-RUN restore (no writes)."
+            python scripts/parks_rec_webtrac_reconcile_2026_07_08.py --restore
+          else
+            echo "confirm not APPLY/SUPERSEDE/RESTORE -> DRY-RUN reconcile (no writes)."
+            python scripts/parks_rec_webtrac_reconcile_2026_07_08.py
+          fi
+
+      - name: Purge CDN cache after a write (no-op on dry-run / without CF creds)
+        if: ${{ contains(fromJSON('["APPLY","SUPERSEDE","RESTORE-APPLY"]'), github.event.inputs.confirm) }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
+
+      - name: Upload review + undo CSVs
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: parks-rec-webtrac-reconcile
+          path: |
+            parks_rec_webtrac_reconcile_review_2026-07-08.csv
+            parks_rec_webtrac_reconcile_undo_2026-07-08.csv
+          if-no-files-found: ignore

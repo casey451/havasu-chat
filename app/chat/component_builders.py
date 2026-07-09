@@ -34,6 +34,8 @@ from app.chat.tier2_schema import Tier2Filters
 from app.core.provider_name import clean_name as _clean_provider_name
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
+from app.events.tag_display import public_event_tags
+from app.events.time_labels import format_short_time_hhmm
 from app.home.queries import _format_phone
 from app.providers.queries import is_open_status_from_structured_hours
 
@@ -108,7 +110,7 @@ class DayAgendaPayload(TypedDict):
 
 
 class WeekDayCell(TypedDict):
-    """One day bucket in the ``week_strip`` 7-day picker."""
+    """One day bucket in the ``week_strip`` day picker (≤7 cells)."""
 
     date: str
     dow: str
@@ -295,6 +297,15 @@ def resolve_target_date(f: Tier2Filters) -> date:
         return today
     if f.time_window == "tomorrow":
         return today + timedelta(days=1)
+    # Multi-day windows: anchor the day-agenda label to the window's START day
+    # (e.g. "this weekend" -> Friday) instead of falling through to today. Without
+    # this, a weekend query renders a day-agenda labeled with *today* — e.g. a
+    # Thursday "this weekend with kids" showed "Thursday's busy ...".
+    if f.time_window in ("this_weekend", "this_week"):
+        from app.events.queries import event_window_for_chip
+
+        chip = "this-weekend" if f.time_window == "this_weekend" else "this-week"
+        return event_window_for_chip(chip, today=today)[0]
 
     if f.day_of_week and len(f.day_of_week) == 1:
         target = _DOW_INDEX.get(f.day_of_week[0].lower())
@@ -346,14 +357,39 @@ def build_business_list(
     """Build the ``data`` dict for a ``business_list`` chat component.
 
     Maps tier-2 provider rows into the schema expected by ``renderBusinessList``
-    in ``chat-new.js``. Items are capped at ``limit`` (default five), sorted by
-    rating (highest first) to match the listing shortcut's prior prose ordering
-    intent.
+    in ``chat-new.js``. Items are capped at ``limit`` (default five), ranked by
+    within-category relevance to ``intent_query`` first (P1-1.1), then by rating
+    (highest first), then name.
     """
-    del intent_query  # reserved for future foot_link / query-aware copy
+    # P1-1.1: within-category relevance ranking for the Tier-2 shortcut path.
+    # The business-listing shortcut (tier2_db_query -> here) bypasses run_query,
+    # so it never received P1-1's ranking and sorted purely by rating — leaving
+    # "rent a kayak" ordered by rating/name, not relevance. Mirror run_query:
+    # count the query's distinctive terms in each row's searchable text as the
+    # PRIMARY sort key, breaking ties with the prior rating-then-name sort. Empty
+    # rank_terms (no query, or only stop/locality words) -> score 0 for every row
+    # -> byte-identical to the legacy rating sort (zero regression for callers
+    # that pass no intent_query, e.g. the run_query path and existing tests).
+    from app.chat.intents.queries import _derive_rank_terms, relevance
+
+    rank_terms = _derive_rank_terms(intent_query)
     provider_rows = [r for r in rows if r.get("type") == "provider"]
+
+    def _relevance_score(r: dict[str, Any]) -> int:
+        if not rank_terms:
+            return 0
+        searchable = " ".join(
+            str(r.get(k) or "")
+            for k in (
+                "name", "category", "google_primary_category",
+                "slug", "category_slugs", "description",
+            )
+        ).lower()
+        return relevance(searchable, rank_terms)
+
     provider_rows.sort(
         key=lambda r: (
+            -_relevance_score(r),
             -(float(r["google_rating"]) if r.get("google_rating") is not None else -1.0),
             str(r.get("name") or ""),
         )
@@ -393,9 +429,9 @@ def build_business_list(
 
 
 def _pretty_category_label(category: str) -> str:
-    from app.chat.tier2_business_shortcut import _pluralize_for_header
+    from app.chat.tier2_business_shortcut import pluralize_for_header
 
-    plural = _pluralize_for_header(category or "businesses")
+    plural = pluralize_for_header(category or "businesses")
     return plural.title() if plural.islower() else plural
 
 
@@ -462,6 +498,13 @@ def _maps_directions_url(address: str) -> str:
 
 
 def _trade_category_label(row: dict[str, Any]) -> str:
+    # 2026-06-30 search audit 3B: prefer the authoritative primary-leaf category
+    # (from entity_categories) over Google's freeform google_primary_category
+    # ("Rv Park", "Indoor Playground") or the legacy category string — both are
+    # unreliable and produced the wrong card tags the audit flagged.
+    leaf = str(row.get("primary_category_label") or "").strip()
+    if leaf:
+        return leaf
     gpc = str(row.get("google_primary_category") or row.get("category") or "")
     gpc = re.sub(r"_+", " ", gpc).strip()
     if gpc:
@@ -595,6 +638,9 @@ def _pretty_category_from_tags(tags: list[str]) -> str | None:
     (BUILD.md mentions arts/sports/aquatics/food/fitness/recreation) when
     available. Otherwise return the first capitalized tag, or None.
     """
+    # Drop internal taxonomy keys (``activity:golf``, ``facet:special``) so they
+    # never surface as a chat category label (site review §5).
+    tags = public_event_tags(tags)
     if not tags:
         return None
     known = {
@@ -654,9 +700,12 @@ def fallback_day_agenda_voice(rows: list[dict[str, Any]], target: date) -> str:
     word = _spell_count(n)
     location_clause = _top_location_clause(rows)
 
+    # "one things" -> "one thing" (singular n) — same fix week_strip carries.
+    thing_word = "thing" if n == 1 else "things"
+
     if location_clause:
-        return f"{target.strftime('%A')}'s {descriptor} — {word} things, {location_clause}."
-    return f"{target.strftime('%A')}'s {descriptor} — {word} things on the calendar."
+        return f"{target.strftime('%A')}'s {descriptor} — {word} {thing_word}, {location_clause}."
+    return f"{target.strftime('%A')}'s {descriptor} — {word} {thing_word} on the calendar."
 
 
 def _busy_descriptor(n: int) -> str:
@@ -726,8 +775,13 @@ def is_week_strip_query(filters: Tier2Filters, rows: list[dict[str, Any]]) -> bo
 
 
 def _filters_scope_week_window(f: Tier2Filters) -> bool:
-    """The filter set scopes to a multi-day week-shaped window."""
-    if f.time_window in ("this_week", "next_week"):
+    """The filter set scopes to a multi-day week-shaped window.
+
+    ``this_weekend`` is a multi-day window (Fri–Sun) and belongs here too —
+    without it a "this weekend" query never reached the week_strip path and
+    rendered a single-day agenda labeled with the window's start day.
+    """
+    if f.time_window in ("this_week", "next_week", "this_weekend"):
         return True
     if f.date_start is not None and f.date_end is not None:
         return f.date_end >= f.date_start + timedelta(days=2)
@@ -743,6 +797,10 @@ def resolve_week_window(f: Tier2Filters) -> tuple[date, date]:
     * fallback                    → today..today+6 (best-effort)
     """
     today = now_lake_havasu().date()
+    if f.time_window == "this_weekend":
+        from app.events.queries import event_window_for_chip
+
+        return event_window_for_chip("this-weekend", today=today)
     if f.time_window == "this_week":
         start = today
         return start, start + timedelta(days=6)
@@ -782,8 +840,12 @@ def build_week_strip(filters: Tier2Filters, rows: list[dict[str, Any]]) -> WeekS
                                                # for the selected_date only
       }
     """
-    window_start, _window_end = resolve_week_window(filters)
+    window_start, window_end = resolve_week_window(filters)
     today = now_lake_havasu().date()
+
+    # Render exactly the days the window spans (clamped to a 7-day max).
+    num_days = (window_end - window_start).days + 1
+    num_days = max(1, min(num_days, 7))
 
     buckets: dict[date, list[dict[str, Any]]] = {}
     for r in rows:
@@ -800,7 +862,7 @@ def build_week_strip(filters: Tier2Filters, rows: list[dict[str, Any]]) -> WeekS
 
     days_out: list[WeekDayCell] = []
     total_count = 0
-    for i in range(7):
+    for i in range(num_days):
         d = window_start + timedelta(days=i)
         day_rows = buckets.get(d, [])
         count = len(day_rows)
@@ -825,7 +887,7 @@ def build_week_strip(filters: Tier2Filters, rows: list[dict[str, Any]]) -> WeekS
     agenda_rows.sort(key=lambda r: (r.get("start_time") or "99:99", r.get("name") or ""))
     agenda = [_event_to_agenda_item(r) for r in agenda_rows]
 
-    last_day = window_start + timedelta(days=6)
+    last_day = window_start + timedelta(days=num_days - 1)
     title = (
         f"{window_start.strftime('%b ')}{window_start.day}"
         f" – {last_day.strftime('%b ')}{last_day.day}"
@@ -1135,20 +1197,8 @@ def is_single_business_card_query(intent_result: IntentResult, rows: list[dict[s
 
 
 def _format_time_display(hhmm: str) -> str:
-    raw = hhmm.strip()
-    if not raw:
-        return ""
-    try:
-        hour_str, minute_str = raw.split(":", 1)
-        hour = int(hour_str)
-        minute = int(minute_str)
-    except (ValueError, AttributeError):
-        return raw
-    suffix = "AM" if hour < 12 else "PM"
-    display_hour = hour % 12 or 12
-    if minute:
-        return f"{display_hour}:{minute:02d} {suffix}"
-    return f"{display_hour} {suffix}"
+    """Delegates to the shared time_labels compact formatter (consolidated 2026-07-02)."""
+    return format_short_time_hhmm(hhmm)
 
 
 def _format_event_when(row: dict[str, Any]) -> str | None:

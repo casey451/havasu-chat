@@ -52,6 +52,7 @@ from app.contrib.approval_service import (
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
 from app.db.models import Contribution, Event
+from app.events.activity_taxonomy import event_activity_tags
 from app.schemas.contribution import (
     ContributionCreate,
     EventApprovalFields,
@@ -206,8 +207,17 @@ def _audience_tags(text: str) -> list[str]:
 def _all_tags(text: str) -> list[str]:
     """Combined content-category + audience tags for the Event/Program
     ``tags`` field. The first entry is always the content category so
-    callers using ``tags[0]`` as a primary classification still work."""
-    return [_content_category(text), *_audience_tags(text)]
+    callers using ``tags[0]`` as a primary classification still work.
+
+    Calendar reorg Phase 1 (2026-06-25): parks-rec Event/Program payloads are
+    built here (not via ``event_ingest._tags``), so stamp the same canonical
+    namespaced ``activity:<slug>`` + facet/audience tags here too — one
+    classifier, both ingest paths."""
+    base = [_content_category(text), *_audience_tags(text)]
+    for t in event_activity_tags(text, tags=base):
+        if t not in base:
+            base.append(t)
+    return base
 
 
 def _has_existing_source_url(db: Session, normalized_url: str | None) -> bool:

@@ -101,3 +101,46 @@ check_prod_env.ps1
 '%I'
 %I
 tatus
+
+# ---------------------------------------------------------------------------
+# Session scratch swept into a commit by a stray `git add -A` (2026-06-19).
+# Machine-generated data dumps and dated working notes that live on disk but
+# are never meant to be tracked. Source (app/**, scripts/*.py, and docs you
+# author intentionally) is deliberately NOT covered — every pattern is
+# root-anchored (leading /) so it only catches the repo-root scratch.
+# ---------------------------------------------------------------------------
+
+# Knowledge-graph cache (rebuilt by the graphify hook on every branch switch)
+/graphify-out/
+
+# Timestamped data snapshots / audit & dedup exports dropped at the repo root
+/*_snapshot_*.json
+/*_snapshot_*.csv
+/*_flagged_*.csv
+/*_flagged_*.json
+/*_audit_*.csv
+/recategorize_*.csv
+/hotels_audit_*.json
+/*_backfill_*.json
+/*_backfill_*.csv
+/dedup_plan.csv
+/event_dedup_plan.csv
+/near_dups.csv
+/undo.csv
+/undo_*.csv
+/placement_prices_snapshot_*.json
+/marine_cross_listing_candidates_*.csv
+/recreation_facebook_orgs_*.csv
+
+# Dated working notes / handoffs / plans dropped at the repo root
+# (SCREAMING_SNAKE_CASE + date; tracked docs live under docs/ or are lowercase
+# like README.md / CLAUDE.md, which these patterns do not touch).
+/*_2026-[0-9][0-9]-[0-9][0-9].md
+/NEXT_SESSION_KICKOFF*.md
+/SEARCH_DEMAND_*.md
+/HAVA_AUDIT_AND_TAXONOMY_REBUILD.md
+
+# home-redesign visual gate: per-environment baselines (refs/ IS committed)
+tests/visual/baseline/
+tests/visual/diff/
+tests/visual/_cur_*.png

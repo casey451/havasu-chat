@@ -4,6 +4,10 @@ from __future__ import annotations
 
 import re
 
+# Shared canonical open-now category vocab (single source of truth for this
+# detector, the bare-listing shortcut, and the capture→canonical map).
+from app.chat.open_now_vocab import CATEGORY_OPEN_NOW_RE as _CATEGORY_OPEN_NOW_RE
+
 # Nouns that imply a Tier-1 category slug (subset used in cross-entity tests).
 _NOUN_TO_CATEGORY_SLUGS: dict[str, tuple[str, ...]] = {
     "pizza": ("eat-drink",),
@@ -80,11 +84,10 @@ _FACTUAL_LOOKUP_RE = re.compile(
     re.IGNORECASE,
 )
 
-_CATEGORY_OPEN_NOW_RE = re.compile(
-    r"\b(?:restaurants?|cafes?|coffee\s+shops?|bars?|veterinarians?|"
-    r"pharmacies|groceries|stores?|shops?)\b",
-    re.IGNORECASE,
-)
+# _CATEGORY_OPEN_NOW_RE is imported above from app.chat.open_now_vocab. A bare
+# "plumber open now" is a category listing, not a single-entity lookup — without
+# the trades it fell through to a Tier 1 single-entity OPEN_NOW answer (one
+# provider, no cards).
 
 _FAKE_ENTITY_MARKER_RE = re.compile(
     # P1-5: dropped the bare numeric markers 555/777/888 and "missing" — they
@@ -171,6 +174,51 @@ _CATEGORY_TOKENS: frozenset[str] = frozenset(
         "city",
         "arizona",
         "az",
+    }
+)
+
+# Generic, non-identifying words that appear inside business names but do not
+# pin down a specific entity (unlike a real name token such as "mudshark" or
+# "heat"). Used by ``near_match_subject_overlaps`` so that a descriptive query
+# sharing only one of these with a catalog row ("leave my truck" -> "A Toe
+# Truck", "watch sunset" -> "Sunset Plaza", "biting right now" -> "Done Right
+# Auto") does NOT surface that unrelated business. Kept deliberately tight:
+# the guard only bites when this is the *sole* overlap AND the query carries its
+# own distinctive subject token, so real lookups ("sunset" -> "Sunset Plaza")
+# are unaffected.
+_GENERIC_NAME_TOKENS: frozenset[str] = frozenset(
+    {
+        "right",
+        "left",
+        "done",
+        "local",
+        "sunset",
+        "sunrise",
+        "best",
+        "good",
+        "great",
+        "first",
+        "new",
+        "old",
+        "fun",
+        "truck",
+    }
+)
+
+# Function-word stopwords that can appear in both a query and a business name
+# ("... and Alignment", "biting right now ... and where") but never identify an
+# entity. Stripped from both sides before the near-match overlap test so a
+# shared "and"/"now" can't make a descriptive clause pair with an unrelated row.
+_STOPWORD_TOKENS: frozenset[str] = frozenset(
+    {
+        "and", "or", "but", "nor", "with", "without", "for", "from", "of", "to",
+        "in", "on", "at", "by", "as", "my", "we", "us", "me", "you", "your",
+        "our", "their", "it", "its", "this", "that", "these", "those", "what",
+        "which", "who", "when", "where", "why", "how", "do", "does", "did",
+        "can", "could", "should", "would", "will", "shall", "may", "might",
+        "must", "is", "are", "was", "were", "be", "been", "being", "am", "all",
+        "any", "some", "no", "not", "now", "then", "today", "tonight", "here",
+        "there",
     }
 )
 
@@ -319,6 +367,13 @@ def near_match_subject_overlaps(query: str, canonical_name: str) -> bool:
       4. Typo escape hatch: a single long query token (>= 6 chars) is
          partial-ratio-fuzzed against name tokens >= 5 chars at threshold 80
          to preserve severe-typo near-matches (e.g. 'mdshrkbrwry' ~ 'mudshark').
+      5. Keyword-artifact guard (QA diagnostic 2026-06-12): function-word
+         stopwords are dropped from both sides, and when the *only* overlap is a
+         generic name word (_GENERIC_NAME_TOKENS: right/local/sunset/truck/…) the
+         match is accepted only for a short entity-shaped lookup, not for a
+         descriptive clause that carries its own distinctive subject token. This
+         stops 'leave my truck' -> 'A Toe Truck' and 'biting right now' -> 'Done
+         Right Auto' from surfacing an unrelated business.
 
     When the query has no content tokens at all (all category words), require
     shared raw-token overlap with the canonical name before returning True.
@@ -344,16 +399,32 @@ def near_match_subject_overlaps(query: str, canonical_name: str) -> bool:
         raw_name_tokens = frozenset(re.findall(r"[a-z0-9]+", (canonical_name or "").lower()))
         return bool(q_subjects & raw_name_tokens)
 
-    if q_subjects & name_tokens:
+    # Drop function-word stopwords before the overlap test so a shared "and" /
+    # "now" can't pair a descriptive clause with an unrelated catalog row.
+    q_content = q_subjects - _STOPWORD_TOKENS
+    name_content = name_tokens - _STOPWORD_TOKENS
+    shared = q_content & name_content
+    if shared:
+        # A distinctive (non-generic) shared token identifies the entity -> accept.
+        if shared - _GENERIC_NAME_TOKENS:
+            return True
+        # Only a generic word overlaps. A genuine short lookup ("sunset" ->
+        # "Sunset Plaza") has nothing else to disambiguate and is kept. But a
+        # descriptive clause that merely happens to share a common word
+        # ("leave my truck" -> "A Toe Truck") carries its own distinctive
+        # subject token the name lacks -- reject so it falls through to the
+        # honest gap template instead of surfacing an unrelated business.
+        if q_content - name_content - _GENERIC_NAME_TOKENS:
+            return False
         return True
 
     try:
         from rapidfuzz import fuzz
 
-        for qt in q_subjects:
+        for qt in q_content:
             if len(qt) < 6:
                 continue
-            for nt in name_tokens:
+            for nt in name_content:
                 if len(nt) < 5:
                     continue
                 if fuzz.partial_ratio(qt, nt) >= 80:

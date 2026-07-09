@@ -115,6 +115,23 @@ _EXCLUDE_NAME_TOKENS: tuple[str, ...] = (
 _MAX_ITEMS = 8
 
 
+# Word-boundary patterns for the name keywords above. Substring ILIKE in the SQL
+# prefilter is intentionally broad; this re-validation keeps a keyword from
+# matching inside an unrelated token — e.g. a realtor's "ABR/CMOE" credential
+# string must NOT satisfy the "r/c" RC-venue keyword (prod bug: a Realty broker
+# topped "fun with kids"). Matched case-insensitively on token boundaries.
+_FAMILY_NAME_PATTERNS: tuple[re.Pattern[str], ...] = tuple(
+    re.compile(rf"(?<!\w){re.escape(kw.strip())}(?!\w)", re.IGNORECASE)
+    for kw in _FAMILY_NAME_KEYWORDS
+)
+
+
+def _name_has_family_keyword(name: str | None) -> bool:
+    """True when a family name-keyword appears as a whole token (not a substring)."""
+    n = name or ""
+    return any(pat.search(n) for pat in _FAMILY_NAME_PATTERNS)
+
+
 def is_family_browse_query(query: str) -> bool:
     """True when the query asks for kid/family activity options."""
     q = (query or "").strip()
@@ -135,7 +152,7 @@ def _is_excluded(p: Provider) -> bool:
 
 def family_fun_rows(db: Session, *, limit: int = _MAX_ITEMS) -> list[dict[str, Any]]:
     """Live family-fun provider rows, best-rated first. Never raises."""
-    from app.chat.tier2_db_query import _provider_dict
+    from app.chat.tier2_db_query import provider_dict
 
     try:
         name_clauses = [
@@ -157,14 +174,23 @@ def family_fun_rows(db: Session, *, limit: int = _MAX_ITEMS) -> list[dict[str, A
         logger.exception("family_fun: provider query failed")
         return []
 
-    keep = [p for p in candidates if not _is_excluded(p)]
+    fam_cats = set(_FAMILY_GOOGLE_CATEGORIES)
+    keep = [
+        p
+        for p in candidates
+        if not _is_excluded(p)
+        and (
+            (p.google_primary_category or "") in fam_cats
+            or _name_has_family_keyword(p.provider_name)
+        )
+    ]
     keep.sort(
         key=lambda p: (
             -(float(p.google_rating) if p.google_rating is not None else -1.0),
             str(p.provider_name or ""),
         )
     )
-    return [_provider_dict(p) for p in keep[:limit]]
+    return [provider_dict(p) for p in keep[:limit]]
 
 
 def try_family_fun(
@@ -190,6 +216,7 @@ def try_family_fun(
         category="family fun spot",
         total_count=len(rows),
         limit=_MAX_ITEMS,
+        intent_query=query,
     )
     payload["foot_link"] = "/categories/things-to-do-and-attractions"
     payload["foot_label"] = "All things to do →"

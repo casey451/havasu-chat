@@ -11,8 +11,12 @@ import os
 import tempfile
 from collections.abc import Generator
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 import pytest
+
+if TYPE_CHECKING:
+    from fastapi.testclient import TestClient
 
 # Populated in pytest_configure when using the temp DB; used for teardown cleanup.
 _TEST_SQLITE_FILE: str | None = None
@@ -39,6 +43,14 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ.setdefault("R2_ENDPOINT_URL", "https://test.r2.cloudflarestorage.com")
     os.environ.setdefault("R2_BUCKET_NAME", "test-bucket")
     os.environ.setdefault("R2_PUBLIC_URL_BASE", "https://pub-test.r2.dev")
+    # The business side is two tiers: claim (free, default ON) and ads (paid,
+    # default OFF in prod). The bulk of the suite asserts the FULL behavior — For
+    # Business nav, /portal, the homepage claim card, the sponsor storefront, the
+    # ad funnel, category sponsor cards — so default BOTH tiers ON for tests and
+    # that suite keeps passing unchanged. test_business_surfaces_flag.py flips them
+    # per test with monkeypatch to cover the launch (claim-on/ads-off) state.
+    os.environ.setdefault("CLAIM_SURFACES_ENABLED", "true")
+    os.environ.setdefault("ADS_ENABLED", "true")
     if os.environ.get("HAVASU_USE_DEV_DB_FOR_TESTS") == "1":
         return
     fd, path = tempfile.mkstemp(suffix=".sqlite", prefix="havasu_pytest_")
@@ -306,3 +318,21 @@ def seeded_nav_departments() -> Generator[dict[str, str], None, None]:
                     db.delete(cat)
             db.commit()
         cat_router.reset_index_cache()
+
+
+@pytest.fixture(scope="module")
+def client() -> Generator["TestClient", None, None]:
+    """Shared module-scoped ``TestClient`` for the FastAPI app.
+
+    A single client per test module instead of the ~196 per-file
+    ``TestClient(app)`` constructions the audit (2026-07-01) flagged. Imported
+    lazily so pytest_configure applies the temp-DB ``DATABASE_URL`` before
+    ``app.main`` first loads (see the module docstring). Migrate read-only
+    request tests to request this fixture; tests that mutate client cookies or
+    need a pristine per-test client should keep constructing their own.
+    """
+    from fastapi.testclient import TestClient
+
+    from app.main import app
+
+    yield TestClient(app)

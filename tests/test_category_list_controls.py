@@ -50,6 +50,69 @@ def test_az_sort_orders_by_name():
     assert [c["name"] for c in visible] == ["apple", "Mango", "Zebra"]
 
 
+def test_favorites_sort_accepted_and_preserves_order():
+    # P4: "Top rated" (?sort=favorites) keeps the dampened-rating order the cards
+    # arrive in (the daily Featured shuffle is suppressed upstream) — no re-sort.
+    cards = _cards(5)
+    visible, ctrl = _apply_list_controls({"sort": "favorites"}, cards, base_path=BASE)
+    assert ctrl["sort"] == "favorites"
+    assert visible == cards
+
+
+def test_featured_default_and_favorites_have_distinct_urls():
+    _, ctrl = _apply_list_controls({}, _cards(3), base_path=BASE)
+    # Featured (the daily-shuffle default) = the bare route; "Top rated" carries
+    # ?sort=favorites — the bug was the "Top rated" chip pointing at the bare URL.
+    assert ctrl["url_top"] == BASE
+    assert ctrl["url_favorites"] == f"{BASE}?sort=favorites"
+
+
+def test_favorites_preserves_rating_order_while_featured_demotes_closed():
+    # Cards arrive in dampened-rating order: a top-rated-but-closed place first.
+    cards = [
+        {"name": "Top but closed", "is_open": False, "has_reviews": True},
+        {"name": "Open lower", "is_open": True, "has_reviews": True},
+    ]
+    fav, _ = _apply_list_controls({"sort": "favorites"}, list(cards), base_path=BASE)
+    assert [c["name"] for c in fav] == ["Top but closed", "Open lower"]  # preserved
+    feat, _ = _apply_list_controls({}, list(cards), base_path=BASE)
+    assert [c["name"] for c in feat] == ["Open lower", "Top but closed"]  # open lifted
+
+
+def test_cuisine_facet_filters_cards_by_derived_token():
+    # WS9a: cards carry a derived ``cuisine`` token; ?cuisine=mexican keeps only
+    # those, and shown_total reflects the narrowed set.
+    cards = [
+        {"name": "Taqueria", "is_open": True, "cuisine": "mexican"},
+        {"name": "Trattoria", "is_open": True, "cuisine": "italian"},
+        {"name": "Cantina", "is_open": True, "cuisine": "mexican"},
+        {"name": "Place card", "is_open": None, "cuisine": ""},
+    ]
+    visible, ctrl = _apply_list_controls({"cuisine": "mexican"}, cards, base_path=BASE)
+    assert ctrl["cuisine"] == "mexican"
+    assert ctrl["shown_total"] == 2
+    assert [c["name"] for c in visible] == ["Taqueria", "Cantina"]
+
+
+def test_cuisine_absent_is_noop_and_preserves_urls():
+    # No cuisine param -> cuisine is None and the control URLs are byte-identical
+    # to the pre-WS9a contract (no ?cuisine= leaks in).
+    _, ctrl = _apply_list_controls({}, _cards(3), base_path=BASE)
+    assert ctrl["cuisine"] is None
+    assert ctrl["url_top"] == BASE
+    assert ctrl["url_favorites"] == f"{BASE}?sort=favorites"
+    assert ctrl["url_open_on"] == f"{BASE}?open=1"
+
+
+def test_cuisine_preserved_across_sort_and_open_and_pager_urls():
+    # Every sort/open/pager link keeps the active cuisine narrowing.
+    cards = [{"name": f"M{i}", "is_open": True, "cuisine": "mexican"} for i in range(70)]
+    _, ctrl = _apply_list_controls({"cuisine": "mexican"}, cards, base_path=BASE)
+    assert ctrl["url_favorites"] == f"{BASE}?cuisine=mexican&sort=favorites"
+    assert ctrl["url_open_on"] == f"{BASE}?cuisine=mexican&open=1"
+    assert ctrl["url_next"] == f"{BASE}?cuisine=mexican&page=2"
+
+
 def test_pagination_slices_and_links():
     cards = _cards(130)
     visible, ctrl = _apply_list_controls({"page": "2"}, cards, base_path=BASE)
@@ -84,3 +147,31 @@ def test_url_builders_combine_sort_and_open():
     assert ctrl["url_top"] == f"{BASE}?open=1"
     assert ctrl["url_open_off"] == f"{BASE}?sort=az"
     assert "open=1" in ctrl["url_open_on"]
+
+
+def test_featured_sort_keeps_query_match_above_open_reviewed():
+    # #666 regression: the ?q= relevance float marks matched cards
+    # is_query_match; the Featured re-sort must keep them ahead of the
+    # open/has_reviews demotion (a closed, not-yet-reviewed on-topic shop
+    # used to sink under every generic open/reviewed row).
+    cards = [
+        {"name": "Generic Open Reviewed", "is_open": True, "has_reviews": True},
+        {
+            "name": "On-topic But Closed",
+            "is_open": False,
+            "has_reviews": False,
+            "is_query_match": True,
+        },
+        {"name": "Another Generic", "is_open": True, "has_reviews": True},
+    ]
+    visible, _ = _apply_list_controls({}, cards, base_path=BASE)
+    assert visible[0]["name"] == "On-topic But Closed"
+
+
+def test_featured_sort_sponsored_still_outranks_query_match():
+    cards = [
+        {"name": "Match", "is_open": True, "has_reviews": True, "is_query_match": True},
+        {"name": "Paid Pin", "is_open": False, "has_reviews": False, "is_sponsored": True},
+    ]
+    visible, _ = _apply_list_controls({}, cards, base_path=BASE)
+    assert visible[0]["name"] == "Paid Pin"

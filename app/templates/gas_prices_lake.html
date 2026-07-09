@@ -1,0 +1,113 @@
+{% extends "base_redesign.html" %}
+{#- /gas in the v4 language (v4.5 PR-2). Same GasBoard context; the v4 cond strip
+   (its gas tile is a plain span here — cond_gas_plain) + serif heads + the PR-6
+   grade segment, all-grade matrix table, Cheapest chip and honest clock. -#}
+{% from "components/redesign_icons.html" import icon %}
+{% block title %}Gas prices — Ask Hava{% endblock %}
+{% block meta_description %}Today's cheapest gas stations in Lake Havasu City, with regular, mid, premium and diesel prices updated daily. Always confirm at the pump.{% endblock %}
+
+{% block main %}
+<div class="gaswrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Gas</span></nav>
+  <div class="pagehead">
+    <h1 class="serif">Gas prices in Lake Havasu City</h1>
+    {% if has_data %}
+    <p class="sub">{{ data.station_count }} stations tracked.</p>
+    <div class="gas-fresh{% if is_stale %} is-stale{% endif %}">
+      <span class="dot" aria-hidden="true"></span>
+      {% if fetched_at_label %}Updated {{ fetched_at_label }}{% else %}{{ staleness_label }}{% endif %}{% if is_stale %} — prices may be out of date{% endif %}
+    </div>
+    {% endif %}
+  </div>
+
+  {% if has_data %}
+  {% if city_avg and city_avg.regular %}
+  <div class="card gas-avg" aria-label="Typical price">
+    <div class="gas-avg-main">
+      <p class="eyebrow">Typical price · regular</p>
+      <div class="price tnum">${{ '%.2f'|format(city_avg.regular) }}</div>
+      <div class="gas-avg-sub">Median across all {{ data.station_count }} tracked stations</div>
+    </div>
+    <div class="gas-avg-grades">
+      {% for g in grades %}{% if city_avg[g] %}
+      <div class="gas-avg-grade"><span class="l">{{ grade_labels[g] }}</span><span class="v tnum">${{ '%.2f'|format(city_avg[g]) }}</span></div>
+      {% endif %}{% endfor %}
+    </div>
+  </div>
+  {% endif %}
+
+  {# M12 (2026-07-08 re-audit): the "Cheapest today" card strip was removed — it
+     duplicated the top rows of the price-sorted "All stations" table below. #}
+  <div class="sec-head"><h2 class="serif">All stations</h2></div>
+  {% if not single_grade %}
+  <div class="gsegwrap">
+    <div class="gseg lg" id="gasSeg" role="group" aria-label="Sort by fuel grade">
+      {% for g in grades_available %}
+      <button type="button" data-grade="{{ g }}" aria-pressed="{{ 'true' if g == 'regular' else 'false' }}"{% if g == 'regular' %} class="on"{% endif %}>{{ grade_seg_labels[g] }}</button>
+      {% endfor %}
+    </div>
+  </div>
+  {% endif %}
+  <div class="card gas-table-wrap">
+    <table class="gas-table" id="gasTable">
+      <thead><tr><th scope="col">Station</th>{% for g in grades %}<th scope="col" class="num">{{ grade_labels[g] }}</th>{% endfor %}</tr></thead>
+      <tbody aria-live="polite">
+        {% for s in stations %}
+        <tr{% for g in grades %} data-{{ g[:3] }}="{% if s.prices and s.prices[g] %}{{ '%.3f'|format(s.prices[g]) }}{% endif %}"{% endfor %}>
+          <td>{% if s.provider_slug %}<a href="/provider/{{ s.provider_slug }}">{{ s.name }}</a>{% else %}{{ s.name }}{% endif %}{% if s.address %}<div class="addr">{{ s.address }}</div>{% endif %}</td>
+          {% for g in grades %}<td class="num tnum">{% if s.prices and s.prices[g] %}${{ '%.2f'|format(s.prices[g]) }}{% else %}&mdash;{% endif %}</td>{% endfor %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% if not single_grade %}
+  <p class="gas-note">Prices refresh through the day — the clock above is honest. Stations without a grade simply drop off that view.</p>
+  {% endif %}
+  {% else %}
+  <div class="card gas-empty" aria-label="No gas data">
+    <h2 class="serif">No gas prices yet</h2>
+    <p>The daily price pull hasn't returned data yet. Check back soon. We never show a guessed price.</p>
+  </div>
+  {% endif %}
+
+  <p class="gas-note">Prices update once daily. Always confirm at the pump.</p>
+</div>
+{% if not single_grade %}
+<script>
+/* v4.4 PR-6: sort the station table by the selected grade; stations without that
+   grade drop off (no dashes). Progressive enhancement — the server ships a
+   regular-sorted, all-columns table that works with no JS. */
+(function () {
+  "use strict";
+  var seg = document.getElementById("gasSeg");
+  var table = document.getElementById("gasTable");
+  if (!seg || !table || !table.tBodies.length) return;
+  var tbody = table.tBodies[0];
+  var origRows = Array.prototype.slice.call(tbody.rows);
+  var abbr = { regular: "reg", midgrade: "mid", premium: "pre", diesel: "die" };
+  seg.addEventListener("click", function (e) {
+    var btn = e.target.closest("button[data-grade]");
+    if (!btn) return;
+    var grade = btn.getAttribute("data-grade");
+    var btns = seg.querySelectorAll("button");
+    for (var i = 0; i < btns.length; i++) {
+      var on = btns[i] === btn;
+      btns[i].classList.toggle("on", on);
+      btns[i].setAttribute("aria-pressed", on ? "true" : "false");
+    }
+    var key = abbr[grade] || "reg";
+    var withG = [], without = [];
+    origRows.forEach(function (r) {
+      var v = r.getAttribute("data-" + key);
+      if (v) withG.push([parseFloat(v), r]);
+      else without.push(r);
+    });
+    withG.sort(function (a, b) { return a[0] - b[0]; });
+    withG.forEach(function (p) { p[1].style.display = ""; tbody.appendChild(p[1]); });
+    without.forEach(function (r) { r.style.display = "none"; });
+  });
+})();
+</script>
+{% endif %}
+{% endblock %}

@@ -1,0 +1,176 @@
+{% extends "base_redesign.html" %}
+{#- Home redesign (v4 reskin) — flag-gated (home_redesign). Same live serve_home
+   data, re-templated to the v4 layout. See app/home/redesign.py. -#}
+{% from "components/redesign_icons.html" import icon, cicon %}
+{# v4.5 PR-1: the feed row/tree/section macros moved to a shared partial so
+   /events-ui renders the SAME tree (parity Rule 0) without forking them. #}
+{% from "components/feed_macros.html" import ev_row, sub_tree, sec_preview, tags, section %}
+
+{% block title %}Ask Hava · The local directory for Lake Havasu City{% endblock %}
+{% block meta_description %}What's happening today in Lake Havasu City — events, the lake, live conditions, and the local directory.{% endblock %}
+{% block og_image %}{{ absolute_url('/static/img/og-home.png') }}{% endblock %}
+
+{# F18: site-level structured data on the home page. Organization (knowledge
+   panel) + WebSite with a SearchAction sitelinks searchbox pointing at the same
+   /chat?q= the hero search submits to. The v4 home previously emitted none. #}
+{% block head_extra %}
+{% if canonical_url is defined %}
+<script type="application/ld+json">{{ {
+  "@context": "https://schema.org",
+  "@type": "Organization",
+  "name": "Ask Hava",
+  "url": absolute_url('/'),
+  "logo": absolute_url('/static/img/lake/icon-512.png'),
+  "description": "Ask Hava is the local concierge and directory for Lake Havasu City, Arizona.",
+  "areaServed": "Lake Havasu City, Arizona"
+} | tojson }}</script>
+<script type="application/ld+json">{{ {
+  "@context": "https://schema.org",
+  "@type": "WebSite",
+  "name": "Ask Hava",
+  "url": absolute_url('/'),
+  "potentialAction": {
+    "@type": "SearchAction",
+    "target": {
+      "@type": "EntryPoint",
+      "urlTemplate": absolute_url('/chat') ~ "?q={search_term_string}"
+    },
+    "query-input": "required name=search_term_string"
+  }
+} | tojson }}</script>
+{% endif %}
+{% endblock %}
+
+{% block main %}
+
+{# ── Local news ticker — cycles recent headlines, links out, honest-omit when
+   the pull has nothing stored yet. Casey 2026-06-29. ────────────────────────── #}
+{% include "_partials/news_ticker.html" %}
+
+{# ── Top marquee: a SOLD sponsor creative (paid — ADS_ENABLED) takes the slot;
+   otherwise the FREE "claim your listing" card (CLAIM_SURFACES_ENABLED). Never a
+   fake business. The "premium placement" advertise line only shows with ads on. ─ #}
+{% if ads_enabled() and marquee %}
+<a class="feature-marquee sold rise" href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}">
+  <span class="glow"></span>
+  <div class="inner"><div class="txt">
+    <span class="spon-eyebrow">Sponsored</span>
+    <h3 class="serif">{{ marquee.headline or marquee.name }}</h3>
+    {% if marquee.pitch %}<p>{{ marquee.pitch }}</p>{% endif %}
+    {% if marquee.cta_url %}<span class="cta">{{ marquee.cta_label or 'Visit' }} {{ icon('arrow', 15) }}</span>{% endif %}
+  </div></div>
+</a>
+{% else %}
+{% if claim_surfaces_enabled() %}
+{# P3 (WS3.4): the free listing claim — useful to every local business owner. #}
+<a class="feature-marquee rise" href="/portal/claim" aria-label="Claim your free business listing">
+  <span class="glow"></span>
+  <div class="inner">
+    <div class="txt">
+      <span class="badge">{{ icon('spark', 12) }}For local businesses</span>
+      <h3 class="serif">Own a Havasu business? Claim your listing — free.</h3>
+      <p>Add your hours, photos, menu and links and earn the verified mark. A real person reviews every claim — always free.</p>
+      <span class="cta">Claim your listing {{ icon('arrow', 15) }}</span>
+    </div>
+    <div class="frame only-d"><span>{{ icon('plus', 20) }}</span><span class="pl">Free listing</span></div>
+  </div>
+</a>
+{% endif %}
+{% if ads_enabled() %}
+<p class="marquee-alt">Want premium placement? <a href="/sponsor">Advertise on Ask&nbsp;Hava →</a></p>
+{% endif %}
+{% endif %}
+
+{# ── Hero search ─────────────────────────────────────────────────────── #}
+<div class="searchwrap rise" style="animation-delay:40ms">
+  <form class="search" role="search" action="/chat" method="get">
+    <span class="mag">{{ icon('search', 18) }}</span>
+    <input id="rd-search" name="q" type="search" aria-label="Search events, places, food, or the lake" placeholder="Search Lake Havasu listings" autocomplete="off" data-rotating-placeholder>
+    <button class="go" type="submit" aria-label="Search">{{ icon('arrow', 18) }}</button>
+  </form>
+</div>
+
+{# ── Date strip — one week + Calendar button ─────────────────────────── #}
+<div class="daystrip rise" style="animation-delay:80ms">
+  <a class="calbtn" href="/calendar" aria-label="Open the calendar">{{ icon('cal', 18) }}<span>Calendar</span></a>
+  {% if not week.includes_today %}
+  <a class="calbtn" href="/home?date={{ week.today_iso }}#today" aria-label="Jump back to today">{{ icon('spark', 16) }}<span>Today</span></a>
+  {% endif %}
+  <div class="days">
+    {% for day in week.days %}
+    {% set is_sel = day.iso == selected_iso %}
+    <a class="dcard{% if is_sel %} on{% endif %}{% if day.is_today %} td{% endif %}{% if day.is_weekend %} wknd{% endif %}" href="/home?date={{ day.iso }}#today"{% if is_sel %} aria-current="date"{% endif %}
+       aria-label="{{ day.happenings or 0 }} event{{ '' if day.happenings == 1 else 's' }} on {{ day.dow }} {{ day.iso.split('-')[2]|int }}{% if day.is_today %} (today){% endif %}{% if day.act.spark %} — {{ day.act.title }}{% elif day.act.dots >= 2 %} — busy day{% elif day.act.dots == 1 %} — quiet day{% endif %}">
+      <span class="dw">{% if day.is_today %}Today{% else %}{{ day.dow }}{% endif %}</span>
+      <span class="dn num">{{ day.iso.split('-')[2]|int }}</span>
+      <span class="act" aria-hidden="true">{% if day.act.spark %}<span class="ic" title="{{ day.act.title }}">{{ icon('spark', 10) }}</span>{% else %}{% for _n in range(day.act.dots) %}<i></i>{% endfor %}{% endif %}</span>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+
+{# ── Feed heading + jump-to-category ─────────────────────────────────── #}
+<div class="calbar">
+  {#- Session 1 declutter (2026-07-04): dropped the "· N going on" count and the
+      "Jump to" dropdown. The collapsed sections below are the scan target now,
+      so both were redundant chrome. -#}
+  <h1 class="serif" id="feedTitle">Happening {{ 'today' if is_today else feed_day_label }}</h1>
+</div>
+
+{#- Session 1 declutter (2026-07-04): removed the repeating category-count pill
+   rail — it duplicated the sections directly below. For Kids / For Seniors stay
+   reachable in the hamburger menu (_nav_full). The count-filter JS in
+   lake_redesign.js is now inert (its #counts element is gone) and is harmless;
+   re-add a compact rail here if a filter is wanted later. -#}
+
+{# ── Sections (accordion; only Events open) + ad placements ───────────── #}
+<div class="main">
+  <div class="sections" id="sections">
+    {% if not feed.sections %}
+    <div class="sec open"><div class="sechd"><span class="sl serif">Nothing posted for this day yet</span></div></div>
+    {% endif %}
+    {% for s in feed.sections %}{{ section(s, loop.index0) }}{% endfor %}
+  </div>
+
+  {# v4.4 rail: a working directory launcher + local-news card. No ad units here —
+     the marquee is the one paid slot on the page (§3/§4). #}
+  <aside class="rail" aria-label="Local directory and news">
+    <div class="railcard">
+      <div class="rc-hd">
+        <div class="rt serif">Find any business</div>
+        {% if directory.total %}<div class="rs">{{ directory.total }} real local listings · open-now first</div>{% endif %}
+      </div>
+      <form class="minisearch" role="search" action="/categories" method="get">
+        <span class="mag">{{ icon('search', 14) }}</span>
+        <input type="search" name="q" placeholder="Plumber, tacos, boat detail…" aria-label="Search the directory">
+        <button type="submit" class="visually-hidden">Search</button>
+      </form>
+      <div class="dirgrid">
+        {% for t in directory.tiles %}
+        <a class="dirit" href="{{ t.url }}"><span class="ic">{{ icon(t.icon, 15) }}</span><span class="dl">{{ t.label }}</span><span class="dc num">{{ t.count }}</span></a>
+        {% endfor %}
+      </div>
+      <a class="rc-ft" href="/categories">All 16 categories {{ icon('arrow', 14) }}</a>
+    </div>
+    {% if news and news.items %}
+    <div class="railcard newscard">
+      <div class="rc-hd"><div class="rt serif">Local news</div></div>
+      {% for it in news.items[:3] %}
+      <a class="newsit" href="{{ it.url }}" target="_blank" rel="noopener nofollow">
+        <span class="nh">{% if it.region_label %}<span class="nr-region">{{ it.region_label }}</span> {% endif %}{{ it.title }}</span>
+        <span class="nm">{{ it.source_label }}{% if it.published_label %} · {{ it.published_label }}{% endif %}</span>
+      </a>
+      {% endfor %}
+      <a class="rc-ft" href="/news">All news {{ icon('arrow', 14) }}</a>
+    </div>
+    {% endif %}
+  </aside>
+</div>
+
+{% endblock %}
+
+{% block scripts %}
+{# Rotating example searches in the hero box (data-rotating-placeholder);
+   placeholder-only, clears + stops on focus. See rotating_placeholder.js. #}
+<script src="{{ static_url('/static/js/rotating_placeholder.js') }}" defer></script>
+{% endblock %}

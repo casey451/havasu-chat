@@ -48,10 +48,16 @@ from app.contrib.google_places_scraper import (  # noqa: E402
 from app.contrib.google_types_mapping import (  # noqa: E402
     map_google_types_to_slug_and_place_type,
 )
+from app.contrib.hours_helper import places_hours_to_structured  # noqa: E402
 from app.contrib.ingest_reconciler import (  # noqa: E402
     log_ambiguous_reconcile,
     reconcile_hit,
 )
+from app.contrib.ingest_suppression import is_suppressed_business  # noqa: E402
+from app.contrib.leaf_type_mapping import (  # noqa: E402
+    map_google_types_to_leaf_slug,
+)
+from app.contrib.name_leaf_rules import leaf_for_name  # noqa: E402
 from app.contrib.scraper_ingest import decide_ingest  # noqa: E402
 from app.core.liveness import compute_liveness  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
@@ -207,6 +213,11 @@ def row_to_provider_kwargs(row: dict[str, Any], *, ref_now: datetime | None = No
         "google_photo_refs": row.get("photo_refs") or None,
         "google_photo_urls": _local_photo_urls(row.get("photo_urls")),
         "google_hours": row.get("regular_opening_hours") or None,
+        # Also populate the structured column so future loads keep the
+        # ``hours_structured`` / ``Hours`` table consistent with ``google_hours``
+        # (the dual-write materializes ``Hours`` rows from it). NULL when Google
+        # returned no parseable hours.
+        "hours_structured": places_hours_to_structured(row.get("regular_opening_hours") or {}) or None,
         "lat": row.get("lat"),
         "lng": row.get("lng"),
         "zip": row.get("zip"),
@@ -486,7 +497,13 @@ def _resolve_category_id(row: dict[str, Any], category_id_by_slug: dict[str, int
          contains a boat keyword, route to on-the-water. Catches Havasu
          boat dealers Google tags as ``car_dealer``.
 
-      2. **Types-map** (the existing layer) — ``map_google_types_to_slug_
+      1.5 **Leaf-map** — ``map_google_types_to_leaf_slug`` (single source of
+         truth, ``app/contrib/leaf_type_mapping.py``) routes a google type
+         straight to an A.3 *leaf* so a fresh scrape lands on the correct leaf
+         page. Its non-directory guardrail returns ``None`` for calendar-event
+         venue types (``event_venue`` …) so they never hit a directory leaf.
+
+      2. **Types-map** (legacy fallback) — ``map_google_types_to_slug_
          and_place_type`` consults the operator-maintained
          ``app/contrib/google_types_mapping.py`` table.
 
@@ -518,10 +535,41 @@ def _resolve_category_id(row: dict[str, Any], category_id_by_slug: dict[str, int
         if cat_id is not None:
             return cat_id
 
-    # Layer 2 — Google types[] -> Tier-1 slug (existing behavior).
+    # Layer 1a — name override for martial-arts / dance. Google has no precise
+    # primary type for dojos or dance studios (they carry gym / school /
+    # point_of_interest), so a confident NAME signal routes the leaf and must beat
+    # the generic-type leaf map below — otherwise a dojo typed ``gym`` would file
+    # under gyms-and-fitness-centers (the 2026-06-17 Phase 4 misfile class). The
+    # matcher (``name_leaf_rules``) is conservative; an unmatched name falls
+    # through untouched.
+    name_leaf = leaf_for_name(name)
+    if name_leaf is not None:
+        cat_id = category_id_by_slug.get(name_leaf)
+        if cat_id is not None:
+            return cat_id
+
     types = row.get("types") or []
     if not types and primary_type:
         types = [primary_type]
+
+    # Layer 1.5 — direct google-type -> A.3 leaf (app/contrib/leaf_type_mapping).
+    # Preferred over the legacy 13-category map (Layer 2) so a fresh scrape
+    # auto-files onto the correct *leaf* page, single-sourced and consistent.
+    # The non-directory guardrail keeps calendar-event venue types
+    # (``event_venue`` etc.) OFF every directory leaf — they belong to the
+    # events feed (entity_type='event'). This is the fix for the 2026-06-11
+    # ``event_venue`` -> Family Fun & Arcades misfile: returning ``None`` here
+    # leaves the row unmapped (operator-queue) instead of dropping an annual
+    # event onto an arcade leaf.
+    leaf_slug, non_directory = map_google_types_to_leaf_slug(list(types))
+    if non_directory:
+        return None
+    if leaf_slug is not None:
+        cat_id = category_id_by_slug.get(leaf_slug)
+        if cat_id is not None:
+            return cat_id
+
+    # Layer 2 — Google types[] -> Tier-1 slug (legacy fallback).
     slug, _ = map_google_types_to_slug_and_place_type(list(types))
     if slug is not None:
         return category_id_by_slug.get(slug)
@@ -638,6 +686,14 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
         for row in valid_rows:
             pid = row["place_id"]
             kwargs = row_to_provider_kwargs(row, ref_now=now)
+            # Durable blocklist check covers BOTH branches: the place_id-match
+            # update branch below sets is_active=True and never runs the
+            # decide_ingest funnel, so without this a suppressed identity would
+            # be reactivated by the next Places re-pull (the exact failure
+            # ingest_suppression exists to stop).
+            if is_suppressed_business(kwargs.get("provider_name")):
+                counts["suppressed"] = counts.get("suppressed", 0) + 1
+                continue
             cat_id = _resolve_category_id(row, category_id_by_slug)
             kwargs["category_id"] = cat_id
             if cat_id is not None:
@@ -686,6 +742,9 @@ def upsert(rows: list[dict[str, Any]]) -> dict[str, int]:
                 # uncertain Google row is captured rather than silently lost.
                 decision = decide_ingest(session, payload)
                 rec = decision.reconcile
+                if decision.action == "skip":
+                    counts["suppressed"] = counts.get("suppressed", 0) + 1
+                    continue
                 if decision.should_hide:
                     log_ambiguous_reconcile(
                         rec, context=f"places_load insert branch place_id={pid}"

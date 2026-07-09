@@ -102,9 +102,11 @@ def test_partner_to_entity_payload_source_and_category() -> None:
     payload = partner_to_entity_payload(listing, category_slug="things-to-do")
     assert payload.source == "go_lake_havasu"
     assert payload.entity_type == "place"
-    # Lobster 3 Ways is data-dms-category-name="Restaurant/Bar" -> eat-drink,
-    # which overrides the passed default of things-to-do (Task C).
-    assert payload.category_slug == "eat-drink"
+    # Lobster 3 Ways is data-dms-category-name="Restaurant/Bar". Source-parity
+    # (2026-07-03): the crosswalk now resolves the precise LEAF ("restaurants")
+    # rather than the coarse Tier-1 "eat-drink", overriding the things-to-do
+    # default. The legacy Provider.category string stays "restaurant" (below).
+    assert payload.category_slug == "restaurants"
     # Dual-write: the legacy Provider.category string is also set, and it is a
     # value the legacy CATEGORY_FILTERS["eat-drink"] tuple contains.
     assert payload.legacy_category == "restaurant"
@@ -516,3 +518,462 @@ def test_ingest_partners_dedupes_same_name_within_one_run(monkeypatch) -> None:
             assert len(rows) == 1
     finally:
         _cleanup()
+
+
+# --- reactivate-or-skip: heal hidden CVB rows still present in the sitemap ----
+# Isolated coords (no other rows near them) so the heal path is exercised via the
+# CVB name/website idempotency match, never an incidental geo reconcile.
+_REACT_LAT = 34.9512
+_REACT_LNG = -114.9123
+
+
+def _seed_cvb_provider(
+    name: str,
+    *,
+    website: str | None,
+    is_active: bool,
+    draft: bool,
+    description: str | None = None,
+    category: str = "uncategorized",
+    pending_review: bool = False,
+    lat: float = _REACT_LAT,
+    lng: float = _REACT_LNG,
+) -> str:
+    """Commit a ``go_lake_havasu`` Provider (+ Entity via dual-write), then drop
+    it into the requested hidden state.
+
+    Created active-then-hidden so the Entity always exists -- exactly how the
+    real Cabana/Captain-Bob rows became inactive after a prior deactivation,
+    rather than never having been promoted.
+    """
+    with SessionLocal() as session:
+        prov = Provider(
+            provider_name=name,
+            category=category,
+            slug=derive_provider_slug(session, name),
+            source="go_lake_havasu",
+            website=website,
+            description=description,
+            lat=lat,
+            lng=lng,
+            is_active=True,
+            draft=False,
+        )
+        session.add(prov)
+        create_provider_and_entity(session, prov)
+        session.flush()
+        prov.is_active = is_active
+        prov.draft = draft
+        prov.pending_review = pending_review
+        session.commit()
+        return prov.id
+
+
+def _cleanup_providers_named(name: str) -> None:
+    """Remove every Provider (and its Entity) with this name -- ingest_partners
+    commits internally, so clean explicitly before and after each run."""
+    from app.db.models import Entity
+
+    with SessionLocal() as session:
+        provs = session.scalars(select(Provider).where(Provider.provider_name == name)).all()
+        ent_ids = [p.entity_id for p in provs if p.entity_id]
+        for p in provs:
+            session.delete(p)
+        session.flush()
+        for ent in session.scalars(select(Entity).where(Entity.id.in_(ent_ids))).all():
+            session.delete(ent)
+        session.commit()
+
+
+def _mock_single_listing(monkeypatch, *, name: str, website: str | None, category: str) -> None:
+    import scripts.golakehavasu_partners_load as loader
+    from app.contrib.golakehavasu_partners import PartnerListing
+
+    listing = PartnerListing(
+        name=name,
+        url="https://www.golakehavasu.com/directory/heal-test/",
+        address="1 Pier Rd, Lake Havasu City, AZ 86403",
+        lat=_REACT_LAT,
+        lng=_REACT_LNG,
+        phone=None,
+        website=website,
+        description="desc",
+        category=category,
+    )
+    monkeypatch.setattr(loader, "fetch_partner_sitemap_urls", lambda **k: ["u1"])
+    monkeypatch.setattr(loader, "fetch_and_parse_partner", lambda url, **k: listing)
+
+
+def test_ingest_partners_reactivates_hidden_partner_without_live_twin(monkeypatch) -> None:
+    """A still-listed partner whose only CVB row is hidden gets SURFACED.
+
+    Regression for the Cabana Boat Rentals no-op: the idempotency snapshot keys
+    on name/website regardless of is_active/draft, so the loader matched the
+    inactive row, filled gaps, and left it invisible (counted as
+    idempotent_updated, "work done"). With no live twin, the heal reactivates the
+    surviving canonical instead of silently skipping it.
+    """
+    import scripts.golakehavasu_partners_load as loader
+
+    name = "Hidden Reactivate NoTwin ZZZ"
+    _cleanup_providers_named(name)
+    pid = _seed_cvb_provider(
+        name, website="http://hidden-notwin.example", is_active=False, draft=False
+    )
+    try:
+        _mock_single_listing(
+            monkeypatch, name=name, website="http://hidden-notwin.example", category="Boating"
+        )
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=False, limit=None)
+
+        assert counts["reactivated"] == 1
+        assert counts["skipped_reactivate_live_twin"] == 0
+        assert counts["idempotent_updated"] == 1
+        assert counts["inserted"] == 0
+
+        with SessionLocal() as session:
+            prov = session.get(Provider, pid)
+            assert prov is not None
+            assert prov.is_active is True
+            assert prov.draft is False
+    finally:
+        _cleanup_providers_named(name)
+
+
+def test_ingest_partners_skips_reactivation_when_live_twin_exists(monkeypatch) -> None:
+    """A hidden CVB row is NOT resurrected when a live twin already represents it.
+
+    The 16 'dormant duplicate' partners (a hidden CVB row beside an active Google
+    Places row) must stay as-is: reactivating the CVB row would mint a visible
+    duplicate next to the Google listing. Heal must detect the live twin and skip.
+    """
+    import scripts.golakehavasu_partners_load as loader
+
+    name = "Hidden With Twin ZZZ"
+    _cleanup_providers_named(name)
+    cvb_pid = _seed_cvb_provider(name, website=None, is_active=False, draft=False)
+    with SessionLocal() as session:
+        twin = _google_provider(session, name)  # active, non-draft, google_places
+        session.commit()
+        twin_id = twin.id
+    try:
+        _mock_single_listing(monkeypatch, name=name, website=None, category="Boating")
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=False, limit=None)
+
+        assert counts["skipped_reactivate_live_twin"] == 1
+        assert counts["reactivated"] == 0
+        assert counts["idempotent_updated"] == 1
+
+        with SessionLocal() as session:
+            cvb = session.get(Provider, cvb_pid)
+            twin = session.get(Provider, twin_id)
+            assert cvb is not None and cvb.is_active is False  # stayed hidden
+            assert twin is not None and twin.is_active is True
+            # no new duplicate row minted: still exactly the seeded CVB + twin
+            rows = session.scalars(select(Provider).where(Provider.provider_name == name)).all()
+            assert len(rows) == 2
+    finally:
+        _cleanup_providers_named(name)
+
+
+# --- category re-bucket: never downgrade a more-specific tag on re-run ---------
+def test_ingest_partners_keeps_specific_category_when_scrape_unmapped(monkeypatch) -> None:
+    """A re-run must NOT downgrade a manually-set category to "uncategorized".
+
+    Regression for the Cabana clobber: the idempotent-match branch re-bucketed
+    ``category`` on every run, and when the scraped CVB category had no confident
+    legacy mapping (``legacy_category=None``) it wrote "uncategorized" -- erasing
+    a hand-set tag. With the fix, a falsy scrape mapping leaves the existing
+    category untouched.
+    """
+    import scripts.golakehavasu_partners_load as loader
+
+    name = "Manual Category Keep ZZZ"
+    _cleanup_providers_named(name)
+    pid = _seed_cvb_provider(
+        name,
+        website="http://manual-cat-keep.example",
+        is_active=True,
+        draft=False,
+        category="boat_rental",
+    )
+    try:
+        # "Rentals" is deliberately unmapped -> legacy_category is None.
+        _mock_single_listing(
+            monkeypatch, name=name, website="http://manual-cat-keep.example", category="Rentals"
+        )
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=False, limit=None)
+
+        assert counts["idempotent_updated"] == 1
+        with SessionLocal() as session:
+            prov = session.get(Provider, pid)
+            assert prov is not None
+            assert prov.category == "boat_rental"  # NOT downgraded to uncategorized
+    finally:
+        _cleanup_providers_named(name)
+
+
+def test_ingest_partners_override_pins_category_against_wrong_scrape(monkeypatch) -> None:
+    """The CATEGORY_OVERRIDES map re-asserts the correct bucket every run.
+
+    Cabana Boat Rentals is tagged "Activities" on golakehavasu, which maps to a
+    truthy-but-wrong legacy ``entertainment_attractions`` -- so guard-(a) alone
+    (skip on falsy mapping) would still let it clobber boat_rental. The override
+    pins ``boat_rental`` + the on-the-water ``category_id`` regardless of what the
+    scrape says, even restoring a row that had already been clobbered.
+    """
+    import scripts.golakehavasu_partners_load as loader
+    from app.db.models import Category
+
+    name = "Cabana Boat Rentals"  # slugifies to the override key
+    _cleanup_providers_named(name)
+    # Seed in the already-clobbered state to prove the override RESTORES it.
+    pid = _seed_cvb_provider(
+        name,
+        website="http://cabana-override.example",
+        is_active=True,
+        draft=False,
+        category="uncategorized",
+    )
+    try:
+        _mock_single_listing(
+            monkeypatch,
+            name=name,
+            website="http://cabana-override.example",
+            category="Activities",  # -> entertainment_attractions (truthy, wrong)
+        )
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=False, limit=None)
+
+        assert counts["idempotent_updated"] == 1
+        with SessionLocal() as session:
+            otw_id = session.scalars(
+                select(Category.id).where(Category.slug == "on-the-water")
+            ).first()
+            prov = session.get(Provider, pid)
+            assert prov is not None
+            assert prov.category == "boat_rental"
+            assert prov.category_id == otw_id
+    finally:
+        _cleanup_providers_named(name)
+
+
+def test_ingest_partners_does_not_promote_pending_review_row(monkeypatch) -> None:
+    """A hidden, still-pending-review row is NOT auto-promoted by the heal pass.
+
+    Regression for the Guy's New Age Galley bug: the heal block surfaced ANY
+    hidden in-sitemap row, including one just inserted as draft+pending for human
+    review -- flipping it straight to live and clearing pending_review, bypassing
+    review. The fix leaves genuinely-held (pending_review=True) rows held.
+    """
+    import scripts.golakehavasu_partners_load as loader
+
+    name = "Pending Hold NoPromote ZZZ"
+    _cleanup_providers_named(name)
+    # The state a freshly-inserted ambiguous-pending row carries.
+    pid = _seed_cvb_provider(
+        name,
+        website="http://pending-hold.example",
+        is_active=True,
+        draft=True,
+        pending_review=True,
+    )
+    try:
+        _mock_single_listing(
+            monkeypatch, name=name, website="http://pending-hold.example", category="Boating"
+        )
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=False, limit=None)
+
+        assert counts["skipped_reactivate_pending_review"] == 1
+        assert counts["reactivated"] == 0
+        assert counts["idempotent_updated"] == 1
+
+        with SessionLocal() as session:
+            prov = session.get(Provider, pid)
+            assert prov is not None
+            # still held for review -- not promoted to live/approved
+            assert prov.draft is True
+            assert prov.pending_review is True
+    finally:
+        _cleanup_providers_named(name)
+
+
+# --- reconcile-dormant: fold hidden CVB rows onto their confident live twin ----
+def test_reconcile_dormant_merges_inactive_row_onto_contact_twin() -> None:
+    """A hidden CVB row with a confident (shared-website) Google twin folds: its
+    enrichment lifts onto the twin, CVB provenance is recorded, and the dormant
+    row is left retired. This is the cleanup for the 16 'dormant duplicate'
+    partners the audit found.
+    """
+    import scripts.golakehavasu_partners_load as loader
+    from app.db.models import Entity
+
+    cvb_name = "Dormant CVB Contact ZZZ"
+    twin_name = "Dormant Twin Google ZZZ"
+    shared_web = "http://dormant-twin.example"
+    _cleanup_providers_named(cvb_name)
+    _cleanup_providers_named(twin_name)
+    cvb_pid = _seed_cvb_provider(
+        cvb_name, website=shared_web, is_active=False, draft=False, description="CVB blurb"
+    )
+    with SessionLocal() as session:
+        twin = _google_provider(session, twin_name, website=shared_web)
+        session.commit()
+        twin_id = twin.id
+        twin_ent_id = twin.entity_id
+    try:
+        counts = loader.reconcile_dormant(dry_run=False, limit=None)
+
+        assert counts["merged"] == 1
+        assert counts["merged_contact"] == 1
+        assert counts["retired"] == 0  # already inactive -> not re-retired
+        assert counts["left_alone"] == 0
+
+        with SessionLocal() as session:
+            cvb = session.get(Provider, cvb_pid)
+            twin = session.get(Provider, twin_id)
+            assert cvb is not None and cvb.is_active is False  # stays retired
+            assert cvb.pending_review is False
+            assert twin is not None and twin.is_active is True
+            assert twin.description == "CVB blurb"  # gap lifted from the CVB row
+            ent = session.get(Entity, twin_ent_id)
+            assert ent is not None and "go_lake_havasu" in (ent.source or "")
+    finally:
+        _cleanup_providers_named(cvb_name)
+        _cleanup_providers_named(twin_name)
+
+
+def test_reconcile_dormant_leaves_twinless_row_untouched() -> None:
+    """A hidden CVB row with NO confident twin is left alone -- those are the
+    genuinely-invisible partners the ingest reactivation path surfaces instead;
+    reconcile-dormant must not retire-merge them into nothing.
+    """
+    import scripts.golakehavasu_partners_load as loader
+
+    name = "Dormant NoTwin ZZZ"
+    _cleanup_providers_named(name)
+    pid = _seed_cvb_provider(
+        name,
+        website="http://dormant-notwin-unique.example",
+        is_active=False,
+        draft=False,
+        lat=35.5012,  # far from any seeded Google row -> no fuzzy-geo twin either
+        lng=-115.5012,
+    )
+    try:
+        counts = loader.reconcile_dormant(dry_run=False, limit=None)
+
+        assert counts["merged"] == 0
+        assert counts["left_alone"] == 1
+
+        with SessionLocal() as session:
+            prov = session.get(Provider, pid)
+            assert prov is not None and prov.is_active is False
+    finally:
+        _cleanup_providers_named(name)
+
+
+# --- dry-run honesty: report would_* counts, write nothing -------------------
+def test_ingest_partners_dry_run_reports_would_reactivate_without_writing(monkeypatch) -> None:
+    """A ``--dry-run`` now runs the full resolution loop and reports what a real
+    apply WOULD do, then rolls back so nothing persists.
+
+    Regression for the misleading all-zeros dry-run (the original "no-op" that
+    hid the Cabana gap): the same hidden-no-live-twin partner that
+    ``test_..._reactivates_hidden_partner_without_live_twin`` heals must show as
+    ``would_reactivate`` in dry-run -- WITHOUT actually flipping the row.
+    """
+    import scripts.golakehavasu_partners_load as loader
+
+    name = "DryRun Would Reactivate ZZZ"
+    _cleanup_providers_named(name)
+    pid = _seed_cvb_provider(
+        name, website="http://dryrun-would-react.example", is_active=False, draft=False
+    )
+    try:
+        _mock_single_listing(
+            monkeypatch, name=name, website="http://dryrun-would-react.example", category="Boating"
+        )
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=True, limit=None)
+
+        # would_* labels, populated from the real decision the loop made
+        assert counts["would_reactivate"] == 1
+        assert counts["would_idempotent_update"] == 1
+        assert counts["would_insert"] == 0
+        assert counts["would_skip_reactivate_live_twin"] == 0
+        # the legacy real-run keys are gone on a dry-run (relabelled)
+        assert "reactivated" not in counts
+
+        # and CRUCIALLY: nothing was written -- the row is still hidden
+        with SessionLocal() as session:
+            prov = session.get(Provider, pid)
+            assert prov is not None
+            assert prov.is_active is False
+            assert prov.draft is False
+    finally:
+        _cleanup_providers_named(name)
+
+
+def test_reconcile_dormant_dry_run_does_not_write() -> None:
+    """--dry-run computes the fold plan but persists nothing (the gate Casey runs
+    before the real prod pass)."""
+    import scripts.golakehavasu_partners_load as loader
+
+    cvb_name = "Dormant DryRun CVB ZZZ"
+    twin_name = "Dormant DryRun Twin ZZZ"
+    shared_web = "http://dormant-dryrun.example"
+    _cleanup_providers_named(cvb_name)
+    _cleanup_providers_named(twin_name)
+    _seed_cvb_provider(
+        cvb_name, website=shared_web, is_active=False, draft=False, description="CVB blurb"
+    )
+    with SessionLocal() as session:
+        twin = _google_provider(session, twin_name, website=shared_web)
+        session.commit()
+        twin_id = twin.id
+    try:
+        counts = loader.reconcile_dormant(dry_run=True, limit=None)
+
+        assert counts["merged"] == 1  # planned...
+        with SessionLocal() as session:
+            twin = session.get(Provider, twin_id)
+            assert twin is not None and twin.description is None  # ...but not written
+    finally:
+        _cleanup_providers_named(cvb_name)
+        _cleanup_providers_named(twin_name)
+
+
+def test_ingest_partners_dry_run_reports_would_insert_without_writing(monkeypatch) -> None:
+    """A brand-new partner (no existing row, no coords -> no geo reconcile match)
+    shows as ``would_insert`` on dry-run and creates NO provider row."""
+    import scripts.golakehavasu_partners_load as loader
+    from app.contrib.golakehavasu_partners import PartnerListing
+
+    name = "DryRun Would Insert ZZZ"
+    _cleanup_providers_named(name)
+    try:
+        # No lat/lng + a unique name/website -> reconcile_hit finds no neighbour
+        # and returns a clean insert (not the geo-ambiguous pending path).
+        listing = PartnerListing(
+            name=name,
+            url="https://www.golakehavasu.com/directory/dryrun-would-insert/",
+            address="1 Nowhere Rd, Lake Havasu City, AZ 86403",
+            lat=None,
+            lng=None,
+            phone=None,
+            website="http://dryrun-would-insert.example",
+            description="desc",
+            category="Boating",
+        )
+        monkeypatch.setattr(loader, "fetch_partner_sitemap_urls", lambda **k: ["u1"])
+        monkeypatch.setattr(loader, "fetch_and_parse_partner", lambda url, **k: listing)
+        counts = loader.ingest_partners(category_slug="things-to-do", dry_run=True, limit=None)
+
+        assert counts["would_insert"] == 1
+        assert counts["would_idempotent_update"] == 0
+        assert counts["would_reactivate"] == 0
+
+        with SessionLocal() as session:
+            rows = session.scalars(select(Provider).where(Provider.provider_name == name)).all()
+            assert rows == []  # dry-run wrote nothing
+    finally:
+        _cleanup_providers_named(name)

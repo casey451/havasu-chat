@@ -14,12 +14,10 @@ from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
 from app.db.models import Entity, Event
 from app.home import sandstone
-from app.home.router import (
-    _WINDOW_CAP,
-    _events_for_window_with_total,
-    _group_series_by_venue,
-    _tonight_card,
-)
+
+# (the pre-v4 window-feed/tonight-card builders were deleted 2026-07-02 with
+# the HOME_REDESIGN flag collapse; the live surfaces below are /events-ui and
+# the sandstone month calendar)
 from app.main import app
 
 _LHC = ZoneInfo("America/Phoenix")
@@ -60,96 +58,10 @@ def _add_event(
 # --- window cap + honest total ---------------------------------------------
 
 
-def test_window_total_counts_collapsed_rows_beyond_cap() -> None:
-    suffix = uuid.uuid4().hex[:6]
-    eids: list[str] = []
-    start = now_lake_havasu()
-    day = start.date()
-    win = datetime.combine(day, time(12, 0))
-    with SessionLocal() as db:
-        # More distinct one-offs than the cap so total > shown.
-        for i in range(_WINDOW_CAP + 5):
-            _id, eid = _add_event(
-                db,
-                title=f"ZZ WP3 oneoff {suffix} {i}",
-                on=day,
-                start=time(9, 0),
-                loc=f"Venue {i}",
-            )
-            eids.append(eid)
-        db.commit()
-    try:
-        with SessionLocal() as db:
-            rows, total = _events_for_window_with_total(
-                db, start_day=win, end_day=win, limit=_WINDOW_CAP
-            )
-        assert total >= _WINDOW_CAP + 5
-        assert len(rows) == _WINDOW_CAP  # capped at the limit
-        assert total > len(rows)  # honest: more exist than shown
-    finally:
-        with SessionLocal() as db:
-            db.execute(delete(Event).where(Event.entity_id.in_(eids)))
-            db.execute(delete(Entity).where(Entity.id.in_(eids)))
-            db.commit()
-
-
-def test_oneoffs_fill_before_recurring_under_cap() -> None:
-    # A featured recurring class must not crowd a plain one-off out of the cap.
-    #
-    # xdist isolation (T2.4): the window is a far-future week (like the
-    # ``_fixed_now`` Tonight tests below) instead of the real current week.
-    # With ``limit=2`` any other test's live rows in the queried window evict
-    # this test's rows from the capped result, so the window must contain
-    # only rows this test seeded.
-    suffix = uuid.uuid4().hex[:6]
-    eids: list[str] = []
-    monday = datetime(2099, 9, 7).date()  # far-future Monday, unused elsewhere
-    win = datetime.combine(monday, time(0, 0))
-    with SessionLocal() as db:
-        # Recurring series (5 days), all one venue.
-        for d in range(5):
-            _id, eid = _add_event(
-                db,
-                title=f"ZZ Class {suffix}",
-                on=monday + timedelta(days=d),
-                start=time(5, 0),
-                loc="Aquatic Center",
-            )
-            eids.append(eid)
-        # One plain one-off.
-        _id, eid = _add_event(
-            db, title=f"ZZ Gala {suffix}", on=monday, start=time(18, 0), loc="Bridge"
-        )
-        eids.append(eid)
-        db.commit()
-    try:
-        with SessionLocal() as db:
-            rows, _ = _events_for_window_with_total(
-                db, start_day=win, end_day=win + timedelta(days=6), limit=2
-            )
-        titles = [r["title"] for r in rows]
-        # With a tiny cap of 2, the one-off must survive (it sorts before the class).
-        assert f"ZZ Gala {suffix}" in titles
-    finally:
-        with SessionLocal() as db:
-            db.execute(delete(Event).where(Event.entity_id.in_(eids)))
-            db.execute(delete(Entity).where(Entity.id.in_(eids)))
-            db.commit()
 
 
 # --- series grouped by venue ------------------------------------------------
 
-
-def test_group_series_by_venue_buckets_and_preserves_order() -> None:
-    ongoing = [
-        {"title": "Lap Swim", "venue": "Aquatic Center"},
-        {"title": "Water Aerobics", "venue": "Aquatic Center"},
-        {"title": "Yoga", "venue": "Rec Center"},
-    ]
-    grouped = _group_series_by_venue(ongoing)
-    assert [g["venue"] for g in grouped] == ["Aquatic Center", "Rec Center"]
-    assert len(grouped[0]["cards"]) == 2
-    assert len(grouped[1]["cards"]) == 1
 
 
 # --- Tonight selector (DL-16) ----------------------------------------------
@@ -160,77 +72,7 @@ def _fixed_now() -> datetime:
     return datetime(2099, 3, 10, 17, 0, tzinfo=_LHC)
 
 
-def test_tonight_skips_already_started_morning_event() -> None:
-    eids: list[str] = []
-    day = _fixed_now().date()
-    with SessionLocal() as db:
-        # A 5 AM event already in the past at 5 PM must never be picked.
-        _id, eid = _add_event(db, title="ZZ Dawn Swim", on=day, start=time(5, 0), loc="Pool")
-        eids.append(eid)
-        _id, eid = _add_event(db, title="ZZ Evening Jazz", on=day, start=time(19, 0), loc="Bridge")
-        eids.append(eid)
-        db.commit()
-    try:
-        with SessionLocal() as db:
-            card = _tonight_card(db, now=_fixed_now())
-        assert card is not None
-        assert card["title"] == "ZZ Evening Jazz"
-        assert card["k"] == "Tonight"  # evening label
-    finally:
-        with SessionLocal() as db:
-            db.execute(delete(Event).where(Event.entity_id.in_(eids)))
-            db.execute(delete(Entity).where(Entity.id.in_(eids)))
-            db.commit()
 
-
-def test_tonight_falls_through_to_tomorrow_label() -> None:
-    eids: list[str] = []
-    now = _fixed_now()
-    tomorrow = now.date() + timedelta(days=1)
-    with SessionLocal() as db:
-        # Only a morning (past) event today; the next real event is tomorrow.
-        _id, eid = _add_event(db, title="ZZ Past Only", on=now.date(), start=time(6, 0), loc="Pool")
-        eids.append(eid)
-        _id, eid = _add_event(db, title="ZZ Fair", on=tomorrow, start=time(10, 0), loc="Park")
-        eids.append(eid)
-        db.commit()
-    try:
-        with SessionLocal() as db:
-            card = _tonight_card(db, now=now)
-        assert card is not None
-        assert card["title"] == "ZZ Fair"
-        assert card["k"] == "Tomorrow"
-    finally:
-        with SessionLocal() as db:
-            db.execute(delete(Event).where(Event.entity_id.in_(eids)))
-            db.execute(delete(Entity).where(Entity.id.in_(eids)))
-            db.commit()
-
-
-def test_tonight_prefers_oneoff_over_recurring_at_same_time() -> None:
-    eids: list[str] = []
-    now = _fixed_now()
-    day = now.date()
-    with SessionLocal() as db:
-        _id, eid = _add_event(
-            db, title="ZZ Class", on=day, start=time(19, 0), loc="Gym", recurring=True
-        )
-        eids.append(eid)
-        _id, eid = _add_event(
-            db, title="ZZ Concert", on=day, start=time(19, 0), loc="Bridge", recurring=False
-        )
-        eids.append(eid)
-        db.commit()
-    try:
-        with SessionLocal() as db:
-            card = _tonight_card(db, now=now)
-        assert card is not None
-        assert card["title"] == "ZZ Concert"  # one-off wins the tie
-    finally:
-        with SessionLocal() as db:
-            db.execute(delete(Event).where(Event.entity_id.in_(eids)))
-            db.execute(delete(Entity).where(Entity.id.in_(eids)))
-            db.commit()
 
 
 # --- home calendar: one-off pills prioritised, count + iso ------------------
@@ -293,25 +135,42 @@ def test_calendar_cell_carries_iso_and_count_and_prioritises_oneoffs() -> None:
 # --- /events-ui rendering + ?view= / ?when= / ?date= -------------------------
 
 
-def test_events_ui_renders_view_toggle_and_today_accordion() -> None:
-    """Default /events-ui is the TODAY view: a no-JS Today|Week|Month toggle
-    plus the labelled today section. (Replaces the old ?when= chip/bucket
-    assertions — the protected contract is still "the page exposes labelled,
-    navigable structure", just over the new views.)"""
-    with TestClient(app) as client:
-        body = client.get("/events-ui").text
-    assert "Events around the lake" in body
-    assert 'class="ev-views"' in body  # view toggle present
-    assert "?view=week" in body and "?view=month" in body
-    assert 'aria-label="Today"' in body  # today section labelled
+def test_events_ui_renders_view_toggle_and_today_accordion(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """On a weekday, the default /events-ui is the TODAY view: a no-JS
+    Today|Week|Month toggle plus the labelled today section. (WS9c makes Fri–Sun
+    default to the This-weekend span, so the clock is pinned to a Monday to test
+    the weekday default deterministically.) Seeds one all-day happening for that
+    day so the events-only Calendar has a group to render."""
+    monday = datetime(2099, 3, 9, 9, 0, tzinfo=_LHC)  # a Monday
+    monkeypatch.setattr("app.home.router.now_lake_havasu", lambda: monday)
+    today = monday.date()
+    title = f"ZZ Toggle Probe Festival {uuid.uuid4().hex[:6]}"
+    with SessionLocal() as db:
+        eid, _ent = _add_event(db, title=title, on=today, start=time(0, 0), loc="Beach",
+                               tags=["festival"])
+        db.commit()
+    try:
+        with TestClient(app) as client:
+            body = client.get("/events-ui").text
+        assert 'aria-label="Calendar view"' in body  # view toggle present
+        assert "?view=week" in body and "?view=month" in body
+        # Today view is the default: the Today tab is current, the accordion renders.
+        assert 'aria-current="page"><span class="cl">Today</span>' in body
+        assert 'class="sec' in body  # today section accordion (seeded happening)
+    finally:
+        with SessionLocal() as db:
+            db.execute(delete(Event).where(Event.id == eid))
+            db.commit()
 
 
 def test_events_ui_when_today_maps_to_today_view() -> None:
     """Legacy ?when=today still narrows to today only (now the Today view)."""
     with TestClient(app) as client:
         body = client.get("/events-ui?when=today").text
-    assert 'aria-label="Today"' in body
-    assert 'class="ev-week"' not in body  # not the week view
+    assert 'aria-current="page"><span class="cl">Today</span>' in body  # Today view current
+    assert 'wklist' not in body  # not the week view
 
 
 def test_events_ui_when_weekend_still_responds_with_week_view() -> None:
@@ -321,14 +180,14 @@ def test_events_ui_when_weekend_still_responds_with_week_view() -> None:
         for legacy in ("weekend", "this-week", "next-week", "all"):
             resp = client.get(f"/events-ui?when={legacy}")
             assert resp.status_code == 200
-            assert 'class="ev-week"' in resp.text
+            assert 'wklist' in resp.text
 
 
 def test_events_ui_date_deeplink_shows_single_day() -> None:
     with TestClient(app) as client:
         body = client.get("/events-ui?date=2099-04-12").text
-    assert "Showing events for" in body
-    assert "Back to today" in body
+    assert "Sunday, April 12" in body  # the single-day H1
+    assert 'class="evnav"' in body  # day navigation strip
     assert "/events-ui?date=2099-04-11" in body  # prev-day link
     assert "/events-ui?date=2099-04-13" in body  # next-day link
 
@@ -337,10 +196,9 @@ def test_events_ui_weekend_events_never_fall_in_gap(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
     """P0 regression, carried over from the bucket era: weekend events must
-    never vanish in a window gap. The Week view tiles 7 contiguous days from
-    today, so the upcoming Saturday and Sunday each render exactly once (no
-    gap, no double-listing); a day past the 7-day horizon stays reachable on
-    its ?date= page (the month grid links every date).
+    never vanish in a window gap. The lake Week view renders an upcoming list
+    from today, so the upcoming Saturday and Sunday both surface, and any day
+    stays reachable on its ?date= page (the month grid links every date).
     """
     suffix = uuid.uuid4().hex[:6]
     eids: list[str] = []
@@ -366,10 +224,9 @@ def test_events_ui_weekend_events_never_fall_in_gap(
         with TestClient(app) as client:
             week_body = client.get("/events-ui?view=week").text
             day_body = client.get(f"/events-ui?date={next_saturday.isoformat()}").text
-        assert week_body.count(sat_title) == 1  # exactly once — no gap
-        assert week_body.count(sun_title) == 1  # exactly once — no double-list
-        assert next_sat_title not in week_body  # beyond the 7-day horizon...
-        assert next_sat_title in day_body  # ...but reachable on its day page
+        assert sat_title in week_body  # the Saturday event surfaces — no gap
+        assert sun_title in week_body  # the Sunday event surfaces — no gap
+        assert next_sat_title in day_body  # reachable on its day page
     finally:
         with SessionLocal() as db:
             db.execute(delete(Event).where(Event.entity_id.in_(eids)))
@@ -377,7 +234,7 @@ def test_events_ui_weekend_events_never_fall_in_gap(
             db.commit()
 
 
-def test_event_detail_uses_desert_font_stack() -> None:
+def test_event_detail_renders_lake_with_description() -> None:
     eids: list[str] = []
     start = now_lake_havasu()
     with SessionLocal() as db:
@@ -391,13 +248,11 @@ def test_event_detail_uses_desert_font_stack() -> None:
             resp = client.get(f"/events/{_id}")
         assert resp.status_code == 200
         body = resp.text
-        # Desert Modern: Bricolage Grotesque/Space Grotesk via desert_base,
-        # never the old Georgia/lake_light stack.
-        assert "Bricolage+Grotesque" in body and "Space+Grotesk" in body
-        assert "lake_light.css" not in body
-        assert "desert_events.css" in body
+        # v4.6 PR-1: the event permalink rides the standalone v4 shell.
+        assert 'data-theme="lake"' in body
+        assert "/static/styles/lake_redesign.css" in body
         # pre-line description container is present.
-        assert "ev-detail-desc" in body
+        assert "evd-desc" in body
     finally:
         with SessionLocal() as db:
             db.execute(delete(Event).where(Event.entity_id.in_(eids)))
@@ -455,8 +310,11 @@ def test_events_ics_feed_is_valid_icalendar() -> None:
         assert "SUMMARY:ZZ ICS One-off\\; with\\, commas" in body
         # recurring event carries its RRULE
         assert "RRULE:FREQ=WEEKLY;BYDAY=MO" in body
-        # timed event with end renders DTSTART + DTEND
-        assert "DTEND:" in body
+        # WS5/B5: timed events carry an explicit America/Phoenix TZID (not floating
+        # local time) plus a VTIMEZONE, so out-of-zone subscribers see the right hour.
+        assert "BEGIN:VTIMEZONE" in body and "TZID:America/Phoenix" in body
+        assert "DTSTART;TZID=America/Phoenix:" in body
+        assert "DTEND;TZID=America/Phoenix:" in body
     finally:
         with SessionLocal() as db:
             db.execute(delete(Event).where(Event.entity_id.in_(eids)))

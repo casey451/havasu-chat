@@ -1,0 +1,35 @@
+action,id,keep_id,provider_name,old_is_active,old_draft
+parent_provider_id,35005de5-5881-4295-9c4c-8ee639a21a09,def3389b-e583-4f35-9017-4cdd051fa12a,Bradley Ford of Lake Havasu City Parts,,
+parent_provider_id,d07ed830-4599-40a0-94ea-374fa06b05e3,def3389b-e583-4f35-9017-4cdd051fa12a,Bradley Ford of Lake Havasu City Collision,,
+parent_provider_id,fa5881d6-8f1d-472f-8057-d69947d08305,def3389b-e583-4f35-9017-4cdd051fa12a,Bradley Ford of Lake Havasu City Service,,
+parent_provider_id,c349c689-0f67-4d1d-b0df-cb82c7356a40,89fee1b1-d3b2-43d6-b05d-4983bf7bf58c,HEAT Bar,,
+parent_provider_id,dcf29203-209a-45d8-88da-f61873d8289e,89fee1b1-d3b2-43d6-b05d-4983bf7bf58c,HEAT Bar @ The HEAT Hotel,,
+parent_provider_id,eaf99e3e-28d5-4f69-8e7e-26f7175e8d6c,0f706cb9-5eb8-4f04-ab3e-eb6795008268,Lions Dog Park @ London Bridge Beach,,
+parent_provider_id,8633d846-b0ab-469f-8bd9-69972133aa7d,0f706cb9-5eb8-4f04-ab3e-eb6795008268,Lions Dog Park,,
+parent_provider_id,db1c3c9c-2cf3-4721-b5bb-f049b36dcd84,81434a97-d874-4d96-9079-d98beefe8612,Albertsons Deli,,
+location_group_id,245f6a43-112f-48ae-a5da-ba320da53c8d,,Beautiful Beards Pet Spaw,,
+location_group_id,bca96d16-e57a-4a1b-9439-1f2fcca0c279,,Beautiful Beards Pet Spaw,,
+parent_provider_id,905816c4-2e00-4de9-aaa6-be86dfdb6c21,dcedad15-d9c0-4b80-ad46-e118bdc5778f,Bridgewater Links Golf Course at the London Bridge Resort,,
+retire,385afc1e-ccfc-4039-93a7-800e0b95c57b,9c9f9ce8-0969-4b4b-b71a-dc2adb1c3323,Circle K | Gas Station,True,False
+retire,f6cb4dbd-3457-41ed-91fd-933b820c717c,b0820e2a-d48b-491b-ae14-543eccb0952f,Circle K | Gas Station,True,False
+retire,e8e8949a-0eb8-4d4a-bf3c-c3e787d353db,2f89e946-1b06-4a50-be50-f06e24979825,Dairy Queen,True,False
+retire,2265966f-9e44-42b0-9068-dbda94c3d428,529c8a53-49bd-4ff8-aeab-732fb499d5ff,Denny's,True,False
+retire,0d7d7828-7186-4a78-969e-2f45702b96f0,cf251fd5-2c9d-4016-9e4a-66cff0945940,The Foundry Plates & Spirits,True,False
+parent_provider_id,fb658c08-8784-4d3f-b5a7-269aadf3350d,223138cd-ef79-4dfe-afe8-0273adf02ae0,Kegler's Pub at Havasu Lanes,,
+parent_provider_id,e5ec2eab-422b-4e01-95df-ecfbaefaec43,cc5e58a1-f9ba-443b-a01c-e4ad710e4a46,Reflections Steakhouse at Iron Wolf Golf and Country Club,,
+parent_provider_id,db79bd0f-8149-42e9-ae36-03aa9328f158,6c7a1fc9-835d-4197-bc1e-501b71cf9267,JCPenney Salon,,
+retire,9678e7b9-f5f6-4adb-8761-eeb9496ba6d8,6edb08a8-a57a-4128-98bb-e20b0172ee59,Kelsey Little,True,False
+parent_provider_id,5a225ab3-0bb6-4b1c-99b5-337cbc116f9d,ceff879f-cfd7-4e19-b670-b7d8da4bea67,The Eye Spa at Lake Havasu Family Eyecare,,
+location_group_id,17966ba4-b772-43b6-a780-beaf94967fa3,,Lakeside Appliances,,
+location_group_id,a1da7512-7111-47f2-91eb-aef3fce63886,,Lakeside Appliances,,
+parent_provider_id,1379e7e4-f588-4af2-bea8-afce19f4221f,56f01cd3-9608-42e8-8b9c-24e157b42130,London Bridge Resort Queen's Tea,,
+retire,65e328bd-dbf7-4678-865d-e47603c8c5dd,9d969381-db96-4308-a655-3f950134fade,Love's,True,False
+retire,70136352-2403-4bd4-bf42-497886c00460,5a5363bd-06f4-428c-970c-b497787d117e,Megan & Erik's Water and Ice,True,False
+retire,98f6f203-4397-491e-b368-2c9a2d940f52,a15f92cc-ec08-469b-a2be-d6a2ff3a691a,Mr. Lucky's Billiards & Pub,True,False
+retire,ea81db2b-654e-42fa-8f01-fc9a3ced9d82,a913cd43-7c99-4646-b379-ee4986ad8c27,Rosati's Pizza & Pasta,True,False
+parent_provider_id,4127d604-4745-4dc7-8a87-d7423456e051,239282b9-180f-4b72-9b4a-eb72ece0214e,Safeway Bakery,,
+retire,6e11f1ca-1dca-4baf-90a4-795dd7160579,ca6030e0-ea1c-4fbd-83c5-0352b05cf709,Sam's Beachcomber Resort,True,False
+retire,f562e01a-2f2b-4ca1-8f0e-f5dd58050a34,1d22f692-d585-403e-b9db-409686050784,Serrano's Nursery & Landscaping,True,False
+retire,30edc6a5-63b6-41d5-8bac-c9748dfa4239,1c81d1a7-965e-4697-a63a-befa185efbf2,Star Nursery,True,False
+parent_provider_id,e2e3cc9f-3cb9-444a-8d98-9fe2728fce7a,c4fc12f7-54f8-4bb4-b85c-71acbf96fc31,Subway at Southside Basha's Plaza,,
+parent_provider_id,3cd34b99-3308-4157-be15-11aeb4a5fe15,aae93377-9073-4895-99d8-d3a7ca920a73,Garden Center at The Home Depot,,

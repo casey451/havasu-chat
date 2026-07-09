@@ -11,19 +11,20 @@ from __future__ import annotations
 import base64
 import json
 import re
-from pathlib import Path
 from typing import Any
+from urllib.parse import quote
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
-from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
+from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import Float, and_, case, cast, exists, false, func, literal, or_, select
 from sqlalchemy.orm import Session, aliased, joinedload
 
 from app.chat import tier2_db_query
+from app.chat.normalizer import spell_correct
+from app.chat.query_intent import INTENT_AI, classify_query_intent
 from app.chat.tier2_schema import Tier2Filters
 from app.chat.tier2_synonyms import _category_needle_set
-from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.templates import make_templates
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.entity_types import (
@@ -33,7 +34,7 @@ from app.db.entity_types import (
     ENTITY_TYPE_PROGRAM,
     is_valid_entity_type,
 )
-from app.db.models import Entity, Event, Location, Program, Provider
+from app.db.models import Entity, EntityCategory, Event, Location, Program, Provider
 from app.providers import queries as provider_queries
 from app.search import fts as search_fts
 from app.search import ranking as search_ranking
@@ -41,10 +42,7 @@ from app.search.ranking import _verification_bonus_sql
 
 router = APIRouter(tags=["search"])
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 _CURSOR_RE = re.compile(r"^[A-Za-z0-9_-]+$")
 
@@ -79,6 +77,15 @@ def _encode_offset(offset: int) -> str:
     return base64.urlsafe_b64encode(raw).decode("ascii").rstrip("=")
 
 
+def _like_escape(s: str) -> str:
+    """Escape LIKE/ILIKE wildcards so the query matches as literal text.
+
+    Used with an explicit ``escape='\\'`` so a name like "In-N-Out" or a query
+    such as "50% off" can't behave as a wildcard pattern.
+    """
+    return s.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_")
+
+
 def _tier2_filters_for_search(
     *,
     q: str,
@@ -90,6 +97,26 @@ def _tier2_filters_for_search(
         parser_confidence=1.0,
         fallback_to_tier3=False,
     )
+
+
+def _search_needles(q_raw: str) -> tuple[str, ...]:
+    """Category needles for a search query, with domain spell-correction.
+
+    Expands the raw query AND its spell-corrected form (``spell_correct`` —
+    the same domain typo layer the chat concierge uses, whose vocab is built
+    from the leaf/synonym dicts) so a misspelled or loosely-phrased category
+    query ("pool cleaining", "golf coarse") still reaches the right providers.
+    Union of both needle sets, deduped + sorted.
+    """
+    q_norm = (q_raw or "").strip().lower()
+    if not q_norm:
+        return ()
+    needles: set[str] = set(_category_needle_set(q_norm))
+    corrected = spell_correct(q_norm)
+    if corrected and corrected != q_norm:
+        needles |= set(_category_needle_set(corrected))
+    needles.discard("")
+    return tuple(sorted(needles))
 
 
 def _provider_synonym_exists_predicate(
@@ -105,7 +132,7 @@ def _provider_synonym_exists_predicate(
     """
     if entity_type_filter is not None and entity_type_filter != ENTITY_TYPE_COMMERCIAL:
         return None
-    needles = _category_needle_set(q_raw.strip().lower())
+    needles = _search_needles(q_raw)
     if not needles:
         return None
     P = aliased(Provider)
@@ -126,7 +153,48 @@ def _provider_synonym_exists_predicate(
             P.entity_id == Entity.id,
             P.is_active.is_(True),
             P.draft.is_(False),
+            P.is_local.isnot(False),  # Lake Havasu-local only (drop out-of-area)
             or_(*conds),
+        )
+    )
+
+
+def _leaf_link_exists_predicate(
+    db: Session,
+    *,
+    q_raw: str,
+    entity_type_filter: str | None,
+) -> Any | None:
+    """OR-branch: entities whose canonical taxonomy leaf matches the query's intent.
+
+    The legacy ``Provider.category`` / ``google_primary_category`` columns are
+    generic for trades ("home_services" / "general_contractor"), so a category
+    query like "ac repair", "roofer", or "nursing home" cannot reach the right
+    providers through the synonym needles alone — the specific trade lives only in
+    the entity name and the canonical ``EntityCategory`` leaf link (what the leaf
+    pages render). This branch resolves the query to its leaf via the existing
+    query→leaf routing (:mod:`app.categories.leaf_query`) and matches providers
+    whose PRIMARY ``EntityCategory`` is that leaf, closing the intent gap.
+
+    Commercial entities only; returns ``None`` when the query resolves to no leaf
+    (so non-category queries are unaffected).
+    """
+    if entity_type_filter is not None and entity_type_filter != ENTITY_TYPE_COMMERCIAL:
+        return None
+    from app.categories import leaf_query  # lazy: avoid an import cycle
+
+    leaf = leaf_query.match_leaf_query(db, q_raw) or leaf_query.match_leaf_service_intent(
+        db, q_raw
+    )
+    if leaf is None:
+        return None
+    return exists(
+        select(literal(1))
+        .select_from(EntityCategory)
+        .where(
+            EntityCategory.entity_id == Entity.id,
+            EntityCategory.category_id == leaf.id,
+            EntityCategory.is_primary.is_(True),
         )
     )
 
@@ -222,9 +290,17 @@ def api_search_suggestions(
 
     out: list[dict[str, Any]] = []
     for row in db.execute(stmt).all():
+        claim_url: str | None = None
         if row.entity_type == ENTITY_TYPE_COMMERCIAL:
             slug_out = row.provider_slug or row.slug
             url = f"/provider/{slug_out}"
+            # Direct one-step claim link (Phase 3.1): the claim flow resolves by
+            # ENTITY slug (auth.claims.get_entity_by_slug → Entity.slug, mirrored
+            # by the provider page's claim CTA), so build it from row.slug — NOT
+            # the provider slug used for the profile URL. Lets /portal/claim send
+            # a search hit straight to /claim/<slug> instead of via the listing.
+            if row.slug:
+                claim_url = f"/claim/{row.slug}"
         elif row.entity_type == ENTITY_TYPE_EVENT:
             url = f"/events/{row.id}"
         elif row.entity_type == ENTITY_TYPE_PROGRAM:
@@ -238,6 +314,9 @@ def api_search_suggestions(
                 "type": row.entity_type,
                 "subcategory": subcat,
                 "url": url,
+                # Only commercial rows are claimable; None for events/programs so
+                # the claim page can fall back to the profile URL.
+                "claim_url": claim_url,
             }
         )
     return out
@@ -303,6 +382,10 @@ def api_search(
     if prov_syn is not None:
         text_parts.append(prov_syn)
 
+    leaf_link = _leaf_link_exists_predicate(db, q_raw=q_clean, entity_type_filter=entity_type_f)
+    if leaf_link is not None:
+        text_parts.append(leaf_link)
+
     if not text_parts:
         return {"results": [], "next_cursor": None}
 
@@ -322,17 +405,32 @@ def api_search(
         )
     )
 
+    # Locality (2026-06-19, Casey): Lake Havasu-local only. Drop out-of-area
+    # commercial listings; non-commercial entity types are unaffected.
+    q_stmt = q_stmt.where(
+        or_(
+            Entity.entity_type != ENTITY_TYPE_COMMERCIAL,
+            Provider.is_local.isnot(False),
+        )
+    )
+
     ref_now = now_lake_havasu()
 
     feat = _featured_case_expr()
     order_cols: list[Any] = []
     if is_pg:
+        # Ranking v2 (flag-gated, default off): boost a listing FILED under the
+        # query's resolved leaf (reuse the same EXISTS the WHERE used) and add a
+        # bounded review-count lift. Off → the v1 order is byte-for-byte unchanged.
+        v2 = search_ranking.search_ranking_v2_enabled()
         rank_expr = search_ranking.build_rank_score_expr_for_filters(
             filters,
             last_verified_col=Entity.last_verified_at,
             featured_col=feat,  # type: ignore[arg-type]
             ref_now=ref_now,
             liveness_col=Entity.liveness_score,
+            category_match_cond=(leaf_link if v2 else None),
+            review_count_col=(Provider.google_review_count if v2 else None),
         )
         if rank_expr is not None:
             order_cols.append(rank_expr.desc())
@@ -459,6 +557,14 @@ def _keyword_provider_rows(db: Session, *, q_clean: str, limit: int) -> list[Pro
         tsq = search_fts.build_tsquery_string(filters)
         if tsq:
             text_parts.append(search_fts.entities_search_vector_match(tsq))
+        # F13: a proper noun or punctuated name ("In-N-Out") tokenizes away in
+        # to_tsquery (hyphens are dropped, then "in"/"out" are stopwords), so an
+        # FTS-only path returns nothing for it. Add a direct name substring so
+        # named businesses stay findable; the SQLite branch already does this.
+        if q_clean.strip():
+            text_parts.append(
+                Entity.name.ilike(f"%{_like_escape(q_clean.strip())}%", escape="\\")
+            )
     else:
         text_parts.append(_sqlite_entity_text_and(filters, entity_type=ENTITY_TYPE_COMMERCIAL))
 
@@ -468,6 +574,12 @@ def _keyword_provider_rows(db: Session, *, q_clean: str, limit: int) -> list[Pro
     )
     if prov_syn is not None:
         text_parts.append(prov_syn)
+
+    leaf_link = _leaf_link_exists_predicate(
+        db, q_raw=q_clean, entity_type_filter=ENTITY_TYPE_COMMERCIAL
+    )
+    if leaf_link is not None:
+        text_parts.append(leaf_link)
 
     if not text_parts:
         return []
@@ -483,6 +595,7 @@ def _keyword_provider_rows(db: Session, *, q_clean: str, limit: int) -> list[Pro
             Provider.entity_id.in_(entity_ids),
             Provider.is_active.is_(True),
             Provider.draft.is_(False),
+            Provider.is_local.isnot(False),  # Lake Havasu-local only
         )
         .order_by(func.lower(Provider.provider_name).asc(), Provider.id.asc())
         .limit(limit)
@@ -495,19 +608,115 @@ def _keyword_event_rows(db: Session, *, q_clean: str, limit: int) -> list[Event]
 
     A deliberately plain keyword query (ILIKE on title/description); the event
     corpus has no FTS search_vector, so we keep this simple and dialect-neutral.
-    Soonest dates first.
+    Soonest UPCOMING dates first — passed one-off events never retract, so
+    without a date floor the crawlable results list led with the oldest past
+    events. Recurring rows keep matching regardless of their (past) anchor
+    date since their occurrences are ongoing.
     """
     needle = f"%{q_clean}%"
+    today = now_lake_havasu().date()
     ev_stmt = (
         select(Event)
         .where(
             Event.status == "live",
             or_(Event.title.ilike(needle), Event.description.ilike(needle)),
+            or_(
+                Event.date >= today,
+                Event.is_recurring.is_(True),
+                Event.rrule.isnot(None),
+            ),
         )
         .order_by(Event.date.asc(), Event.start_time.asc(), Event.id.asc())
         .limit(limit)
     )
     return list(db.scalars(ev_stmt).unique().all())
+
+
+def _keyword_category_results(
+    db: Session, *, q_clean: str, limit: int = 4
+) -> list[dict[str, Any]]:
+    """Category / cuisine landing pages matching the query (WS9b 'categories').
+
+    A structured SERP answers with more than individual providers: a query like
+    "boat rental" or "mexican" also surfaces the *category page* itself as a
+    direct destination. Resolves the query to its taxonomy leaf (the same
+    matcher the provider recall branch uses) and, for a food query, its cuisine
+    landing. Deduped by URL, capped, and never raises."""
+    from app.categories import cuisine_pages, leaf_query, leaf_seo
+    from app.categories.subcategories import cuisine_label, cuisine_query_slug
+
+    out: list[dict[str, Any]] = []
+    seen: set[str] = set()
+
+    # Leaf match is gate-checked inside match_leaf_query (_resolve_gated), so it
+    # only ever returns a leaf whose page actually renders — never a dead link.
+    try:
+        leaf = leaf_query.match_leaf_query(db, q_clean) or leaf_query.match_leaf_service_intent(
+            db, q_clean
+        )
+    except Exception:
+        leaf = None
+    if leaf is not None:
+        url = f"/categories/{leaf.department_slug}/{leaf.slug}"
+        if url not in seen:
+            out.append(
+                {
+                    "name": leaf_seo.display_noun(leaf.slug, leaf.name),
+                    "url": url,
+                    "kind": "Category",
+                }
+            )
+            seen.add(url)
+
+    # Cuisine landing is only linked when it clears its own render gate — the
+    # /lake-havasu/{cuisine} route 404s below CUISINE_PAGE_MIN_PROVIDERS, so an
+    # ungated card would be a dead link.
+    try:
+        cuisine = cuisine_query_slug(q_clean)
+        cuisine_ok = bool(cuisine) and (
+            cuisine_pages.cuisine_provider_count(db, cuisine)
+            >= cuisine_pages.CUISINE_PAGE_MIN_PROVIDERS
+        )
+    except Exception:
+        cuisine, cuisine_ok = None, False
+    if cuisine and cuisine_ok:
+        url = f"/lake-havasu/{cuisine}"
+        if url not in seen:
+            out.append(
+                {
+                    "name": f"{cuisine_label(cuisine)} restaurants",
+                    "url": url,
+                    "kind": "Cuisine",
+                }
+            )
+            seen.add(url)
+
+    return out[:limit]
+
+
+def _log_search_query(db: Session, *, q_clean: str, result_count: int) -> None:
+    """Best-effort QueryLog write for a rendered SERP (WS9b).
+
+    Feeds the existing admin demand dashboard (``app.admin.demand``): rows with
+    ``result_count == 0`` are the coverage backlog — the misses a searcher hit
+    that we have nothing to serve (this is how "batting cages" gets caught).
+    Never raises; a logging hiccup must not break the results page."""
+    from app.v1.query_log import log_query_intent
+
+    normalized = re.sub(r"\s+", " ", (q_clean or "").strip().lower())[:128]
+    if not normalized:
+        return
+    try:
+        log_query_intent(
+            db,
+            normalized_intent=normalized,
+            sub_intent=None,
+            mode="search",
+            min_layer="search",
+            result_count=result_count,
+        )
+    except Exception:  # pragma: no cover - logging is best-effort
+        pass
 
 
 @router.get("/search", response_class=HTMLResponse)
@@ -523,8 +732,16 @@ def search_results_page(
     """
     q_clean = (q or "").strip()
 
+    # F13: a question / natural-language ask ("is In-N-Out open right now")
+    # can't be answered by keyword lookup — route it straight to the AI
+    # concierge (which the chat scaffold fires on load). Plain noun lookups
+    # ("pizza", "plumber") fall through to keyword search unchanged.
+    if q_clean and classify_query_intent(q_clean) == INTENT_AI:
+        return RedirectResponse(url=f"/chat?q={quote(q_clean)}", status_code=302)
+
     providers: list[dict[str, Any]] = []
     events: list[dict[str, Any]] = []
+    categories: list[dict[str, Any]] = []
     if q_clean:
         for p in _keyword_provider_rows(db, q_clean=q_clean, limit=_PAGE_RESULT_LIMIT):
             # Raw Google type tokens ("mexican_restaurant", "bar_and_grill")
@@ -559,13 +776,29 @@ def search_results_page(
                 }
             )
 
+        categories = _keyword_category_results(db, q_clean=q_clean)
+
+        # WS9b: log the query (feeds the demand dashboard's coverage backlog).
+        # result_count == 0 is a miss — the acquisition list, e.g. "batting cages"
+        # until WS12 adds Split Finger.
+        _log_search_query(
+            db, q_clean=q_clean, result_count=len(providers) + len(events) + len(categories)
+        )
+
+    # WS9b: a keyword query that matches nothing no longer 302s to /chat (the
+    # audit's "No exact matches" dead end). It renders the SERP with an "Ask
+    # Hava" escalation card; the query is captured above for the coverage feed.
+    # Only genuine natural-language questions (INTENT_AI, handled above) go to
+    # chat directly. Lake Ink & Brass: /search follows the active theme.
+    template = "search_lake.html"
     return templates.TemplateResponse(
         request=request,
-        name="search.html",
+        name=template,
         context={
             "q": q_clean,
             "providers": providers,
             "events": events,
-            "has_results": bool(providers or events),
+            "categories": categories,
+            "has_results": bool(providers or events or categories),
         },
     )

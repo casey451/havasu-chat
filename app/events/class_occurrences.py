@@ -23,15 +23,66 @@ from datetime import date, time, timedelta
 
 from sqlalchemy.orm import Session
 
-from app.db.models import Entity, Provider, Schedule
+from app.db.models import Category, Entity, EntityCategory, Provider, Schedule
+from app.events.activity_taxonomy import provider_activity_label
+from app.events.dedup_match import (
+    DEFAULT_DEDUP_TIME_WINDOW_MINUTES,
+    times_within_window,
+    tokens_subset_match,
+)
 
 _DAY_TO_INT = {
     "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
     "friday": 4, "saturday": 5, "sunday": 6,
 }
 
+# Curated website links for page-less class venues — real businesses with class
+# schedules on the calendar but NO directory Provider row, so their rows had no
+# link. Per Casey's 2026-06-23 call: don't unpublish a venue that has a legit web
+# presence — point users to its real site instead. Keyed by Entity.slug; used
+# ONLY as a fallback when the venue has no provider website (a future real
+# Provider listing wins automatically, so this self-deactivates). Verified live
+# 2026-06-23. The durable fix is a directory listing; this is the render-time
+# bridge the brief prefers (fixes current + future scrapes from these venues).
+_PAGELESS_VENUE_WEBSITES: dict[str, str] = {
+    "havasu-pilates-studio": "https://havasupilates.com/",
+    "desert-bloom-learning-center": "https://www.desertbloomlearningcenter.com/",
+    # "havasu-horseback-rides" removed (two-surface spec §6, Casey 2026-06-25):
+    # the Pony / Lead Line Rides occurrences carry no usable info, so they are
+    # pulled off both calendar surfaces. The Entity's Schedule rows are
+    # deactivated at the data layer (gated prod-data op) so the occurrences stop
+    # expanding entirely.
+}
+
+_ANCHOR_SLUG_RE = re.compile(r"[^a-z0-9]+")
+
+
+def program_anchor(title: str, venue: str | None) -> str:
+    """Stable ``#program-…`` anchor id for a permalink-less recurring program.
+
+    A class series with no published provider page (e.g. the "Pony / Lead Line
+    Rides" horseback program) has no permalink, so the home feed used to fall
+    back to ``/events-ui?date=…`` — the whole day's list, not the row the user
+    tapped. This gives that exact row an id on /events-ui so the feed can
+    deep-link straight to it (``#program-…``). Deterministic from title+venue so
+    the link and the row id always agree.
+    """
+    base = _ANCHOR_SLUG_RE.sub("-", f"{title} {venue or ''}".lower()).strip("-")
+    return f"program-{base}" if base else "program"
+
 # Safety valve: the calendar asks for at most a month; never expand more.
 _MAX_WINDOW_DAYS = 62
+
+# F6/F9 (2026-06-30): how far past *today* a captured recurring class roster is
+# trusted to still hold. The Schedule rows carry no end date, so without a cap
+# "Mon BJJ" projects onto every Monday forever — making a day eight months out
+# read ~90 "happenings" that are really the same speculative roster. Beyond this
+# horizon the calendar shows only real dated events; within it, classes render as
+# today. Six weeks balances "browsing next month still shows classes" against
+# "don't claim a gym schedule we can't vouch for." Tunable. Callers opt in by
+# passing ``horizon_today`` (the real current date); a None anchor disables the
+# cap (used by the Places & Ongoing roster view and by tests).
+CLASS_PROJECTION_HORIZON_DAYS = 42
 
 
 @dataclass(frozen=True)
@@ -43,28 +94,61 @@ class ClassOccurrence:
     venue: str
     provider_slug: str | None
     weekdays: frozenset[int]  # Mon=0 .. Sun=6 -- the series' full pattern
+    # Provider-derived activity label (Yoga / Dance / Gymnastics / …) for classes
+    # whose title carries no activity keyword, so they leave "Other classes" by
+    # inheriting their studio's discipline. None when no provider signal exists.
+    provider_activity: str | None = None
+    # The venue provider's external website, used as the link fallback when there
+    # is no published directory page (no slug). None when the venue has neither.
+    provider_website: str | None = None
 
     @property
     def url(self) -> str:
-        """Class series have no event permalink; link to the venue's page.
+        """The row's link target, preferring the internal directory page.
 
-        No provider page → empty string, and the template renders a non-link
-        row. The old fallback ("/events-ui") made every slugless class a
-        self-link dead end (live: all Havasu Pilates rows linked back to the
-        page they were on).
+        Resolution order (brief 2026-06-23 "every program row must resolve to a
+        working link"): (1) the venue's ``/provider/<slug>`` directory page;
+        (2) the provider's external website when there is no directory page;
+        (3) empty string, and the template renders an honest non-link row (the
+        old ``/events-ui`` fallback made every slugless class a self-link dead
+        end — live: all Havasu Pilates rows linked back to the page they were on).
         """
         if self.provider_slug:
             return f"/provider/{self.provider_slug}"
+        if self.provider_website:
+            return self.provider_website
         return ""
+
+    @property
+    def anchor(self) -> str:
+        """``#program-…`` row id for the permalink-less case (see
+        :func:`program_anchor`). Used by the home feed to deep-link this exact
+        program on /events-ui instead of the whole-day list."""
+        return program_anchor(self.title, self.venue)
 
 
 def class_occurrences_in_window(
-    db: Session, *, window_start: date, window_end: date
+    db: Session,
+    *,
+    window_start: date,
+    window_end: date,
+    horizon_today: date | None = None,
 ) -> list[ClassOccurrence]:
-    """All recurring-Schedule class occurrences in the inclusive date window."""
+    """All recurring-Schedule class occurrences in the inclusive date window.
+
+    ``horizon_today`` (the real current date) caps the projection at
+    ``today + CLASS_PROJECTION_HORIZON_DAYS`` so the calendar surfaces stop
+    showing the indefinitely-recurring class roster on far-future days (F6/F9).
+    Pass None to disable the cap (the Places & Ongoing roster view, tests)."""
     if window_end < window_start:
         return []
     window_end = min(window_end, window_start + timedelta(days=_MAX_WINDOW_DAYS))
+    if horizon_today is not None:
+        window_end = min(
+            window_end, horizon_today + timedelta(days=CLASS_PROJECTION_HORIZON_DAYS)
+        )
+    if window_end < window_start:
+        return []
 
     rows = (
         db.query(Schedule, Entity, Provider)
@@ -77,6 +161,20 @@ def class_occurrences_in_window(
         )
         .all()
     )
+
+    # Bulk-load each venue Entity's directory category slugs once, so a class
+    # whose title has no activity keyword can inherit its provider's discipline
+    # (e.g. "Elementary B" at a 'dance-studios' entity → Dance) without an N+1.
+    entity_ids = {ent.id for _s, ent, _p in rows if ent is not None}
+    cats_by_entity: dict[str, list[str]] = {}
+    if entity_ids:
+        for ent_id, slug in (
+            db.query(EntityCategory.entity_id, Category.slug)
+            .join(Category, Category.id == EntityCategory.category_id)
+            .filter(EntityCategory.entity_id.in_(entity_ids))
+            .all()
+        ):
+            cats_by_entity.setdefault(ent_id, []).append(slug)
 
     out: list[ClassOccurrence] = []
     for sched, ent, prov in rows:
@@ -94,8 +192,30 @@ def class_occurrences_in_window(
             prov = None
         venue = (ent.name or "").strip()
         slug = prov.slug if prov is not None else None
-        d = window_start
-        while d <= window_end:
+        website = prov.website if prov is not None else None
+        if not website:
+            # Page-less venue with a known real site → link there (curated).
+            website = _PAGELESS_VENUE_WEBSITES.get(ent.slug)
+        # Provider-derived activity + youth signal (drains "Other classes" and
+        # routes youth programs to Kids & Family). The provider's NAME + its
+        # directory subcategory/EntityCategory slugs feed the classifier.
+        cat_slugs = list(cats_by_entity.get(ent.id, []))
+        if prov is not None:
+            for extra in (prov.subcategory, prov.primary_category, prov.category):
+                if extra:
+                    cat_slugs.append(extra)
+        prov_activity = provider_activity_label(
+            prov.provider_name if prov is not None else ent.name, cat_slugs
+        )
+        # Seasonal window (2026-07-03): honour an explicit start_date/end_date so a
+        # season-limited schedule (e.g. summer "Open Swim", June–July) stops
+        # rendering once it ends instead of projecting forever. Both are nullable;
+        # a NULL bound means "unbounded" (every existing class row is NULL/NULL,
+        # so this is inert for them). Clamp the iteration to the season.
+        lo = max(window_start, sched.start_date) if sched.start_date else window_start
+        hi = min(window_end, sched.end_date) if sched.end_date else window_end
+        d = lo
+        while d <= hi:
             if d.weekday() in weekdays:
                 out.append(
                     ClassOccurrence(
@@ -106,6 +226,8 @@ def class_occurrences_in_window(
                         venue=venue,
                         provider_slug=slug,
                         weekdays=weekdays,
+                        provider_activity=prov_activity,
+                        provider_website=website,
                     )
                 )
             d += timedelta(days=1)
@@ -129,8 +251,8 @@ def class_occurrences_in_window(
 # --------------------------------------------------------------------------- #
 
 #: Start-time tolerance for treating same-titled rows as one occurrence.
-#: Mirrors app.events.dedup.DEDUP_DATETIME_WINDOW_MINUTES' default.
-DEDUP_TIME_WINDOW_MINUTES = 30
+#: The shared default (also backs app.events.dedup's env-tunable ingest window).
+DEDUP_TIME_WINDOW_MINUTES = DEFAULT_DEDUP_TIME_WINDOW_MINUTES
 
 _PAREN_RE = re.compile(r"\([^)]*\)")
 _TIME_TOKEN_RE = re.compile(
@@ -167,15 +289,11 @@ def _times_compatible(
     title+date alone, and TBD-time Event rows must still suppress their
     Schedule twin).
     """
-    if a is None or b is None:
-        return True
-    am = a.hour * 60 + a.minute
-    bm = b.hour * 60 + b.minute
-    return abs(am - bm) <= window_minutes
+    return times_within_window(a, b, window_minutes=window_minutes, missing_is_wildcard=True)
 
 
 def _tokens_match(a: frozenset[str], b: frozenset[str]) -> bool:
-    return bool(a) and bool(b) and (a <= b or b <= a)
+    return tokens_subset_match(a, b)
 
 
 def drop_event_duplicates(
@@ -208,6 +326,26 @@ def drop_event_duplicates(
     return kept
 
 
+def _leading_words(title: str) -> list[str]:
+    return [w for w in _NON_ALNUM_RE.split((title or "").lower()) if w]
+
+
+def _shares_leading_stem(a: str, b: str, *, min_words: int = 2) -> bool:
+    """True when two titles share a >= ``min_words`` leading word stem.
+
+    The WS5 §14.2 series/instance signal: "Afternoon Enrichment Workshops" and
+    "Afternoon Enrichment: Creative Arts Studio" share the stem "afternoon
+    enrichment" but diverge after it, so neither is a token-subset of the other.
+    A one-word coincidence ("Yoga Beginner" vs "Yoga Advanced") does NOT pair."""
+    wa, wb = _leading_words(a), _leading_words(b)
+    shared = 0
+    for x, y in zip(wa, wb):
+        if x != y:
+            break
+        shared += 1
+    return shared >= min_words
+
+
 def _drop_schedule_twins(occurrences: list[ClassOccurrence]) -> list[ClassOccurrence]:
     """Collapse duplicate Schedule rows for the same venue/slot.
 
@@ -227,12 +365,32 @@ def _drop_schedule_twins(occurrences: list[ClassOccurrence]) -> list[ClassOccurr
         tokens = _dedup_title_tokens(o.title)
         replaced = False
         for i, (k_tokens, k_occ, k_idx) in enumerate(group):
-            if not _tokens_match(tokens, k_tokens):
+            # Exact-slot over-capture: identical start+end+weekdays is one class
+            # no matter how the title is worded (a venue can't run two DIFFERENT
+            # classes in the same room at the same time). Collapse as long as the
+            # titles share an activity word, so a genuine two-room "Yoga"+"Spin"
+            # at the same time (no shared token) is NOT merged. This catches the
+            # Havasu Pilates capture stored 4-5x per slot under title variants.
+            same_slot = (
+                o.start_time == k_occ.start_time
+                and o.end_time == k_occ.end_time
+                and frozenset(o.weekdays) == frozenset(k_occ.weekdays)
+            )
+            if same_slot and (tokens & k_tokens):
+                pass  # exact-slot twin
+            elif not (
+                _tokens_match(tokens, k_tokens)
+                # Series + its own instance share a title STEM (WS5 §14.2):
+                # "Afternoon Enrichment Workshops" vs "Afternoon Enrichment:
+                # Creative Arts Studio" — neither is a token-subset, but the shared
+                # 2-word stem plus the time-window check below make them one row.
+                or _shares_leading_stem(o.title, k_occ.title)
+            ):
                 continue
             # Within-venue twins must agree on a REAL time window (no
             # wildcard): "Adult No-Gi (Morning)" and "(Night)" share tokens
             # and may only differ by clock.
-            if o.start_time is None or k_occ.start_time is None:
+            elif o.start_time is None or k_occ.start_time is None:
                 if o.start_time is not k_occ.start_time:
                     continue
                 if frozenset(o.weekdays) != frozenset(k_occ.weekdays):

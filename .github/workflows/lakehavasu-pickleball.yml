@@ -1,0 +1,51 @@
+name: lakehavasu-pickleball
+
+# Lake Havasu City Pickleball Association (lakehavasupickleball.com) scrape.
+# Loads three targets through the established idempotent paths:
+#   * Facilities  -> Providers via decide_ingest (racquet-sports / classes-sports-recreation)
+#   * Activities + open-play schedule -> recurring Programs (contribution + auto-approve)
+#   * PickleFest  -> a dated Event (contribution + auto-approve)
+# Re-runs are idempotent: providers reconcile (insert/merge/hold), programs/events
+# dedup on a synthesized source_url. Open play is published as all-day events per
+# venue on a rolling forward window and pruned as it ages -- derived from the
+# facility list, so no headless browser is needed.
+#
+# NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT branch.
+# Merging this file is what enables the writes; until then use "Run workflow"
+# (workflow_dispatch).
+
+on:
+  schedule:
+    # Unified scraper cadence: every other day (odd days of the month), staggered
+    # 10 min apart across the fleet. This slot = 7:40 AM Arizona (MST/UTC-7, no
+    # DST), right after provider-scrapes (7:10). Month boundary (31st -> 1st)
+    # doubles up once; all ingests are idempotent so the extra run is harmless.
+    - cron: "40 14 1-31/2 * *"
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Dry run (no DB writes); prints would-change counts"
+        type: boolean
+        default: true
+
+jobs:
+  pull-pickleball:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Load LHCPBA facilities, activities, open-play, and PickleFest
+        env:
+          # Same Railway Postgres secret the other scrape crons use. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m scripts.lakehavasu_pickleball_load ${{ inputs.dry_run && '--dry-run' || '' }}

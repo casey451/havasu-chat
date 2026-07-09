@@ -101,7 +101,12 @@ def _cheapest_gas(db: Session, *, now: datetime) -> TodayField:
         return _field("cheapest_gas", "Cheapest gas", None, staleness_label=label)
     name = station.get("name") or "Station"
     brand = station.get("brand")
-    secondary = f"{brand} · {name}" if brand else str(name)
+    # GasBuddy often repeats the brand as the name ("Love's Travel Stop"); only
+    # prefix the brand when it adds something (site review §4b).
+    if brand and brand.strip().casefold() != str(name).strip().casefold():
+        secondary = f"{brand} · {name}"
+    else:
+        secondary = str(name)
     return _field(
         "cheapest_gas",
         "Cheapest gas",
@@ -139,14 +144,18 @@ def build_today_payload(db: Session, *, now: datetime | None = None) -> dict[str
         )
     )
 
-    # Water temperature (USGS 09426630, feature-gated upstream).
+    # Water temperature. The source is chosen upstream (RISE Parker Dam
+    # preferred, USGS gage fallback — api_payload.py), so echo ITS attribution
+    # instead of hardcoding the dead gage: a Parker Dam reading labeled
+    # "USGS 09426630" violates the honest-spatial-attribution rule the
+    # conditions tile chip already follows.
     water_temp_f = api.get("water_temp_f")
     fields.append(
         _field(
             "water_temp",
             "Water temp",
             f"{float(water_temp_f):.0f}°F" if water_temp_f is not None else None,
-            attribution="USGS 09426630",
+            attribution=api.get("water_temp_attribution") or "USGS 09426630",
             is_stale=bool(api.get("water_temp_is_stale")),
             staleness_label=api.get("water_temp_staleness_label"),
         )
@@ -189,14 +198,14 @@ def build_today_payload(db: Session, *, now: datetime | None = None) -> dict[str
         )
     )
 
-    # Sunset (NWS, approximated from the evening forecast period).
+    # Sunset (Open-UV's true sunset when fresh, else computed astronomically).
     sunset_local = api.get("sunset_local")
     fields.append(
         _field(
             "sunset",
             "Sunset",
             str(sunset_local) if isinstance(sunset_local, str) and sunset_local.strip() else None,
-            attribution="NWS forecast",
+            attribution="Astronomical",
             is_stale=bool(api.get("sunset_is_stale")),
             staleness_label=api.get("sunset_staleness_label"),
         )

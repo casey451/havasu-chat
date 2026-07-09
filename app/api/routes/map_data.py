@@ -5,7 +5,7 @@ from __future__ import annotations
 import time as _time
 from typing import Any
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy import select
 from sqlalchemy.orm import Session, joinedload
 
@@ -13,6 +13,7 @@ from app.api.routes import category_pages as cat_pages
 from app.categories.queries import primary_listing_filter
 from app.core.conditions_temperature import read_current_temperature_f
 from app.core.ranking import compute_card_rank
+from app.core.rate_limit import limiter, public_api_rate_limit
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import get_db
 from app.db.models import Entity, EntityCategory, Provider
@@ -34,7 +35,9 @@ MAP_MARKER_CAP = 500
 # ``reset_map_cache()`` is the canonical test seam. 600s (not 3600) because
 # marker status lines ("Open now") are time-sensitive.
 _MAP_TTL_SECONDS = 600
-_map_cache: dict[tuple[str, bool], tuple[float, dict[str, Any]]] = {}
+# Key carries the running build_sha (first tuple slot) so a deploy invalidates
+# every cached payload by construction, in addition to the 600s TTL.
+_map_cache: dict[tuple[str, str, bool], tuple[float, dict[str, Any]]] = {}
 
 
 def reset_map_cache() -> None:
@@ -111,7 +114,9 @@ def _select_provider_entities(
 
 
 @router.get("/api/map_data/{scope_slug}")
+@limiter.limit(public_api_rate_limit)
 def map_data(
+    request: Request,
     scope_slug: str,
     db: Session = Depends(get_db),
     boat: str | None = Query(None),
@@ -126,7 +131,9 @@ def map_data(
 
     boat_only = boat is not None and str(boat).strip() in {"1", "true", "yes"}
 
-    cache_key = (scope_slug.strip().lower(), boat_only)
+    from app.core.build_info import build_sha
+
+    cache_key = (build_sha(), scope_slug.strip().lower(), boat_only)
     cached = _map_cache.get(cache_key)
     if cached is not None and (_time.time() - cached[0]) < _MAP_TTL_SECONDS:
         return cached[1]

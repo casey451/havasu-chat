@@ -1,0 +1,66 @@
+{% extends "base_redesign.html" %}
+{#- Lake feedback form (GET/POST /feedback, public). DB-backed: a submission is
+   saved (source of truth) and forwarded to the operator. Replaces the old mailto
+   and the phantom "feedback button" privacy/terms referenced. -#}
+{% block title %}Send feedback — Ask Hava{% endblock %}
+{% block meta_description %}Tell Ask Hava about wrong or missing info on a Lake Havasu listing, event, or page. We read everything and fix what's off.{% endblock %}
+{% block head_extra %}
+{% endblock %}
+{% block main %}
+<div class="artx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Home</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Feedback</span></nav>
+  <div class="ah">
+    <span class="eyebrow">We read everything</span>
+    <h1>Send <em>feedback.</em></h1>
+  </div>
+  <article class="article">
+    {% if submitted %}
+    <p class="lead" role="status">Thanks — we got it. If you left an email we'll follow up; otherwise we'll just fix what's off.</p>
+    <p><a href="/home">Back to home</a></p>
+    {% else %}
+    <p class="lead">See something wrong or missing on a listing, event, or page? Tell us here and we'll sort it out.</p>
+    {% if error %}<p class="lead" role="alert" style="color:var(--bad)">{{ error }}</p>{% endif %}
+    <form method="post" action="/feedback">
+      <input type="hidden" name="target_type" value="{{ target_type }}">
+      <input type="hidden" name="target_ref" value="{{ target_ref }}">
+      <p>
+        <label for="fb-kind">What's this about?</label><br>
+        <select id="fb-kind" name="kind">
+          <option value="wrong_info"{% if kind == 'wrong_info' %} selected{% endif %}>Something is wrong</option>
+          <option value="missing_info"{% if kind == 'missing_info' %} selected{% endif %}>Something is missing</option>
+          <option value="bug"{% if kind == 'bug' %} selected{% endif %}>Something is broken</option>
+          <option value="general"{% if kind not in ['wrong_info','missing_info','bug'] %} selected{% endif %}>General feedback</option>
+        </select>
+      </p>
+      {% if subject_name %}<p class="note">About: <strong>{{ subject_name }}</strong></p>{% endif %}
+      <p>
+        <label for="fb-message">Details</label><br>
+        <textarea id="fb-message" name="message" rows="6" required maxlength="4000"
+                  style="width:100%;max-width:40em"
+                  placeholder="Tell us what's off, and where, so we can fix it."></textarea>
+      </p>
+      <p>
+        <label for="fb-email">Your email <span class="note">(optional, only if you'd like a reply)</span></label><br>
+        <input id="fb-email" name="email" type="email" autocomplete="email" style="width:100%;max-width:24em">
+      </p>
+      <p><button type="submit">Send feedback</button></p>
+    </form>
+    {% endif %}
+  </article>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+  // Stamp the page the report came from (helps the operator find it). No-op if
+  // the field was already prefilled server-side.
+  (function () {
+    var f = document.querySelector('form[action="/feedback"]');
+    if (!f) return;
+    var hidden = document.createElement('input');
+    hidden.type = 'hidden';
+    hidden.name = 'page_url';
+    hidden.value = document.referrer || '';
+    f.appendChild(hidden);
+  })();
+</script>
+{% endblock %}

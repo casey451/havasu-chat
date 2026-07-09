@@ -1,0 +1,15 @@
+{% extends "base_redesign.html" %}
+{#- Lake legal docs (GET /privacy from docs/privacy.md, GET /terms from
+   docs/tos.md). The markdown pipeline injects pre-rendered HTML (incl. its own
+   <h1>) into `body`; we restyle only — no extra header (one h1 from the body). -#}
+{% block title %}{{ head_title }}{% endblock %}
+{% block meta_description %}{% if meta_description %}{{ meta_description }}{% else %}{{ super() }}{% endif %}{% endblock %}
+{% block head_extra %}
+{% endblock %}
+{% block main %}
+<div class="artx">
+  <article class="article">
+    {{ body | safe }}
+  </article>
+</div>
+{% endblock %}

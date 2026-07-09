@@ -13,12 +13,21 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 from rapidfuzz import fuzz, process
 from sqlalchemy import false, or_, select
 from sqlalchemy.orm import Session
+from sqlalchemy.orm.attributes import set_committed_value
 
 from app.db.models import Entity, Event, Provider
+from app.events.dedup_match import (
+    DEFAULT_DEDUP_TIME_WINDOW_MINUTES,
+    start_minutes,
+    times_within_window,
+    tokens_subset_match,
+)
 from app.events.scrapers.base import EventPayload, normalize_event_title
 from app.events.time_labels import is_time_tbd
 
-DEDUP_DATETIME_WINDOW_MINUTES = int(os.environ.get("EVENT_DEDUP_DATETIME_WINDOW_MINUTES", "30"))
+DEDUP_DATETIME_WINDOW_MINUTES = int(
+    os.environ.get("EVENT_DEDUP_DATETIME_WINDOW_MINUTES", str(DEFAULT_DEDUP_TIME_WINDOW_MINUTES))
+)
 DEDUP_TITLE_FUZZY_THRESHOLD = int(os.environ.get("EVENT_DEDUP_TITLE_THRESHOLD", "85"))
 
 # Catalog-scan normalization cache. resolve_venue_entity_id re-normalizes the
@@ -89,33 +98,6 @@ def canonical_event_identity(url: str | None) -> str | None:
     return f"url:{cleaned.lower()}" if cleaned else None
 
 
-def find_duplicate_by_canonical_url(
-    db: Session,
-    *,
-    candidate_urls: list[str | None],
-) -> Event | None:
-    """Return an existing Event sharing a canonical-URL identity, else ``None``.
-
-    ``candidate_urls`` are the incoming event's click-through URLs (event_url,
-    source_stable_url, organizer URL, etc.). Each is reduced to a canonical
-    identity via :func:`canonical_event_identity`; if any existing Event's own
-    URLs reduce to the same key, that Event is the cross-source duplicate.
-
-    Scans live events only. ``O(events)``; acceptable at the current catalog size
-    and only invoked on the at-ingest reconcile path.
-    """
-    wanted: set[str] = {
-        key for u in candidate_urls if (key := canonical_event_identity(u)) is not None
-    }
-    if not wanted:
-        return None
-    for ev in db.scalars(select(Event).where(Event.status == "live")).all():
-        for existing_url in (ev.event_url, getattr(ev, "source_url", None)):
-            key = canonical_event_identity(existing_url)
-            if key is not None and key in wanted:
-                return ev
-    return None
-
 
 # --------------------------------------------------------------------------- #
 # Recurring-series instance dedupe (venue + title + weekday)
@@ -138,32 +120,6 @@ def recurring_series_key(
     return (v, t, weekday)
 
 
-def find_recurring_series_instance(
-    db: Session,
-    *,
-    venue_name: str | None,
-    title: str | None,
-    start_date: date,
-) -> Event | None:
-    """Return an existing same-weekday instance of this recurring series, if any.
-
-    Recurring scrapes re-emit every weekly occurrence; a re-import of the same
-    series for the *same calendar date* must collapse onto the existing row rather
-    than minting a second "Saturday Farmers Market" for that day. Match key is
-    ``(venue, title, weekday)`` constrained to the same date (so distinct weeks
-    stay distinct occurrences -- this is instance dedupe, not series collapse).
-    """
-    key = recurring_series_key(venue_name, title, start_date.weekday())
-    if key is None:
-        return None
-    for ev in db.scalars(select(Event).where(Event.date == start_date)).all():
-        cand_key = recurring_series_key(
-            ev.location_name, ev.normalized_title or ev.title, ev.date.weekday()
-        )
-        if cand_key == key:
-            return ev
-    return None
-
 
 def find_duplicate(
     db: Session,
@@ -184,16 +140,28 @@ def find_duplicate(
             clauses.append(Event.provider_id.in_(prov_ids))
         stmt = stmt.where(or_(*clauses) if clauses else false())
     candidates = list(db.scalars(stmt).all())
-    target_dt = datetime.combine(start_date, start_time_obj) if start_time_obj else None
     norm = normalize_event_title(normalized_title)
 
+    # A bare-noon (12:00, no end) placeholder some aggregators emit is really a
+    # "time unknown", so it must merge onto a really-timed twin regardless of the
+    # ±window — otherwise the noon placeholder and the real 9 PM event (Jul 4
+    # fireworks) both survive ingest. Treat either side being TBD/bare-noon as
+    # time-agnostic.
+    incoming_tbd = _start_is_tbd_for_dedup(start_time_obj, None)
+
     def _within_window(cand: Event) -> bool:
-        if target_dt and cand.start_time:
-            cand_dt = datetime.combine(cand.date, cand.start_time)
-            return abs((target_dt - cand_dt).total_seconds()) <= (
-                DEDUP_DATETIME_WINDOW_MINUTES * 60
-            )
-        return True
+        # Either side TBD/bare-noon is time-agnostic → always in window. Candidates
+        # all share ``start_date`` (query filter), so the ±window on the start
+        # times is the same test the old datetime-seconds diff computed; a missing
+        # time on either side is a wildcard (the pre-shared-matcher contract).
+        if incoming_tbd or _start_is_tbd_for_dedup(cand.start_time, cand.end_time):
+            return True
+        return times_within_window(
+            start_time_obj,
+            cand.start_time,
+            window_minutes=DEDUP_DATETIME_WINDOW_MINUTES,
+            missing_is_wildcard=True,
+        )
 
     # T3.1 fast path: most duplicates are *exact* normalized-title matches
     # (same scraper, same source). One dict build replaces a token_sort_ratio
@@ -217,12 +185,8 @@ def find_duplicate(
             < DEDUP_TITLE_FUZZY_THRESHOLD
         ):
             continue
-        if target_dt and cand.start_time:
-            cand_dt = datetime.combine(cand.date, cand.start_time)
-            delta = abs((target_dt - cand_dt).total_seconds())
-            if delta > DEDUP_DATETIME_WINDOW_MINUTES * 60:
-                continue
-        return cand
+        if _within_window(cand):
+            return cand
     return None
 
 
@@ -306,12 +270,19 @@ def _start_is_tbd_for_dedup(start_time: time | None, end_time: time | None) -> b
     group, where a bare-noon twin should lose to its really-timed sibling."""
     if is_time_tbd(start_time, end_time):
         return True
-    return (
-        start_time is not None
-        and start_time.hour == 12
-        and start_time.minute == 0
-        and end_time is None
-    )
+    if start_time is None:
+        return False
+    # Bare-noon fabrication: a noon start with no end time.
+    if start_time.hour == 12 and start_time.minute == 0 and end_time is None:
+        return True
+    # Deep pre-dawn (01:00–04:59) with no end time is almost always an aggregator
+    # AM/PM parse error (the live "Troy's Alligator Feed" parsed a 3 PM event as
+    # 3 AM), so it reads as TBD and loses to a real daytime twin inside its
+    # duplicate group. 05:00+ is left alone — early classes (5 AM Lap Swim) are
+    # real. Guarded on no-end-time so a genuine timed pre-dawn block is untouched.
+    if 1 <= start_time.hour <= 4 and end_time is None:
+        return True
+    return False
 
 
 def _venue_is_named_place(venue: str | None) -> bool:
@@ -320,6 +291,22 @@ def _venue_is_named_place(venue: str | None) -> bool:
     digit. Heuristic, used only to rank survivors inside a duplicate group."""
     v = (venue or "").strip()
     return bool(v) and any(c.isalpha() for c in v) and not v[0].isdigit()
+
+
+def location_has_street_address(name: str | None) -> bool:
+    """The location string begins with a street number ("3100 Sweetwater Ave")."""
+    return bool(re.match(r"\s*\d+\s+\S", name or ""))
+
+
+def is_bare_venue(name: str | None) -> bool:
+    """A low-information venue: a single bare word like "Calvary" with no street
+    address — the organizer/campus name stood in for a real location. A multi-word
+    named place ("Go Lake Havasu Visitor Center") is NOT bare, so it is never
+    downgraded to a raw address."""
+    s = (name or "").strip()
+    if not s or location_has_street_address(s):
+        return False
+    return len(re.findall(r"[A-Za-z]+", s)) <= 1
 
 
 def _source_priority(source: str | None) -> int:
@@ -336,52 +323,330 @@ def _source_priority(source: str | None) -> int:
     return min(EVENT_SOURCE_PRIORITY.get(p, 99) for p in parts)
 
 
-def _survivor_rank(event: Event) -> tuple[bool, bool, int, int, str]:
+def _has_flyer(event: Event) -> bool:
+    """The row carries a flyer/poster image URL."""
+    return bool((getattr(event, "image_url", None) or "").strip())
+
+
+def _survivor_rank(event: Event) -> tuple[bool, bool, int, bool, int, str]:
     """Sort key for picking ONE survivor in a duplicate cluster (lowest wins):
-    real start time > named venue > longer description > source priority > id."""
+    real start time > named venue > source priority > has flyer > longer
+    description > id.
+
+    Source priority outranks the flyer/description tiebreaks so an authoritative
+    row (e.g. a curated ``admin`` entry) wins over a longer aggregator blurb,
+    even when the aggregator carries the richer text. Among rows of equal source
+    priority a flyer-bearing twin wins so the poster survives; the survivor also
+    ABSORBS a dropped twin's flyer/richer text/real time (see
+    ``_absorb_display_fields``), so the tiebreak only decides which row's *other*
+    fields (venue, url) anchor the merged display. See ``EVENT_SOURCE_PRIORITY``.
+    """
     return (
         _start_is_tbd_for_dedup(event.start_time, event.end_time),
         not _venue_is_named_place(event.location_name),
-        -len((event.description or "").strip()),
         _source_priority(event.source),
+        not _has_flyer(event),
+        -len((event.description or "").strip()),
         str(event.id),
     )
 
 
-def _start_minutes(t: time) -> int:
-    return t.hour * 60 + t.minute
+def _absorb_longest_description(survivor: Event, losers: list[Event]) -> None:
+    """Graft the longest description among the cluster onto the survivor — unless
+    the survivor is an authoritative (operator / source-priority-0) row that
+    already carries its own curated text, which must never be replaced by a
+    longer aggregator blurb (the swim-card rule)."""
+    current = (survivor.description or "").strip()
+    authoritative = bool(getattr(survivor, "operator_override", False)) or _source_priority(
+        survivor.source
+    ) == 0
+    if authoritative and current:
+        return
+    best = survivor.description or ""
+    best_len = len(current)
+    for lo in losers:
+        d = lo.description or ""
+        if len(d.strip()) > best_len:
+            best, best_len = d, len(d.strip())
+    if best != (survivor.description or ""):
+        set_committed_value(survivor, "description", best)
 
 
-def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
-    """Positions (into the caller's occurrence list) that survive one group.
+def _absorb_display_fields(survivor: Event, losers: list[Event]) -> None:
+    """Make the render survivor ABSORB the best display fields from its dropped
+    twin(s): a flyer image, the longest description, and a real start time over a
+    TBD/fabricated one — so the single rendered row carries them even when they
+    lived on a twin that lost the survivor sort (§3B).
+
+    Uses :func:`sqlalchemy.orm.attributes.set_committed_value`, which sets the
+    value as if freshly loaded from the DB (no dirty flag), so this stays purely
+    read-only: the render paths that call the dedup never write these grafts back
+    to the database (autoflush won't emit an UPDATE for a committed value)."""
+    # Flyer: gap-fill only (a survivor that already has an image keeps its own).
+    if not _has_flyer(survivor):
+        for lo in losers:
+            if _has_flyer(lo):
+                set_committed_value(survivor, "image_url", lo.image_url)
+                break
+    # Real start time over a TBD/fake one: only when the survivor itself is TBD
+    # (the sort already prefers a real-timed survivor, so this is a safety net for
+    # clusters where the survivor was chosen on another axis).
+    if _start_is_tbd_for_dedup(survivor.start_time, survivor.end_time):
+        for lo in losers:
+            if not _start_is_tbd_for_dedup(lo.start_time, lo.end_time):
+                set_committed_value(survivor, "start_time", lo.start_time)
+                set_committed_value(survivor, "end_time", lo.end_time)
+                break
+    # More-specific LOCATION: a bare one-word venue ("Calvary") absorbs a twin's
+    # street address ("3100 Sweetwater Ave"), which is more useful for directions.
+    # Guarded to a bare survivor so a real named venue ("Go Lake Havasu Visitor
+    # Center") is never downgraded to a raw address twin (§3.1).
+    if is_bare_venue(survivor.location_name):
+        for lo in losers:
+            if location_has_street_address(lo.location_name):
+                set_committed_value(survivor, "location_name", lo.location_name)
+                lo_norm = getattr(lo, "location_normalized", None)
+                if lo_norm:
+                    set_committed_value(survivor, "location_normalized", lo_norm)
+                break
+    _absorb_longest_description(survivor, losers)
+
+
+def _cluster_survivor_and_losers(
+    cluster: list[tuple[int, Event]],
+) -> tuple[int, list[int]]:
+    """(survivor position, [loser positions]) for one already-formed cluster."""
+    survivor = min(cluster, key=lambda m: _survivor_rank(m[1]))[0]
+    losers = [idx for idx, _ev in cluster if idx != survivor]
+    return survivor, losers
+
+
+def _group_clusters(members: list[tuple[int, Event]]) -> list[tuple[int, list[int]]]:
+    """One group's clusters as (survivor position, [loser positions]) pairs.
 
     Timed (non-TBD) members are clustered by start-time proximity: starts within
     :data:`_SEPARATE_SESSION_GAP_MINUTES` of the previous one chain into the same
     cluster; a bigger gap means a genuinely separate session, so each cluster
     keeps its own survivor (the matinee/evening guard). Time-TBD members are
     duplicates of a timed sibling when one exists (the fake-noon twin loses);
-    with no timed sibling they all collapse onto a single TBD survivor.
+    with no timed sibling they all collapse onto a single TBD survivor. The
+    caller drops the losers and grafts their best fields onto the survivor.
     """
     timed = [
         m for m in members if not _start_is_tbd_for_dedup(m[1].start_time, m[1].end_time)
     ]
     if not timed:
-        return {min(members, key=lambda m: _survivor_rank(m[1]))[0]}
-    timed.sort(key=lambda m: _start_minutes(m[1].start_time))
+        # All TBD → one survivor absorbs the whole group.
+        return [_cluster_survivor_and_losers(members)]
+    timed.sort(key=lambda m: start_minutes(m[1].start_time))
     clusters: list[list[tuple[int, Event]]] = [[timed[0]]]
     for member in timed[1:]:
-        gap = _start_minutes(member[1].start_time) - _start_minutes(clusters[-1][-1][1].start_time)
+        gap = start_minutes(member[1].start_time) - start_minutes(clusters[-1][-1][1].start_time)
         if gap <= _SEPARATE_SESSION_GAP_MINUTES:
             clusters[-1].append(member)
         else:
             clusters.append([member])
-    return {min(cluster, key=lambda m: _survivor_rank(m[1]))[0] for cluster in clusters}
+    # TBD members are twins of the nearest timed cluster's survivor when one
+    # exists — fold them into the first cluster so their fields can be absorbed
+    # (and they drop) rather than surviving as a separate timeless row.
+    tbd = [m for m in members if _start_is_tbd_for_dedup(m[1].start_time, m[1].end_time)]
+    clusters[0].extend(tbd)
+    return [_cluster_survivor_and_losers(c) for c in clusters]
+
+
+def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
+    """Positions that survive one group (survivors only). Thin wrapper over
+    :func:`_group_clusters` for callers/tests that need just the survivor set, not
+    the survivor→losers mapping used by the field-absorb."""
+    return {survivor for survivor, _losers in _group_clusters(members)}
+
+
+# --------------------------------------------------------------------------- #
+# Second pass: cross-source SAME-SESSION twins under DIFFERENT titles
+# --------------------------------------------------------------------------- #
+# The title-keyed pass groups by (title, date), so one real session surfaced by
+# multiple sources under DIFFERENT titles -- the Aquatic Center "Free Family Swim"
+# (admin) / "Free Swim Day!" (go_lake_havasu) / "Open Swim" (allevents) triple --
+# never collapses. This tight second pass merges two events ONLY when ALL hold:
+#   1. DIFFERENT sources (same-source distinct sessions never merge),
+#   2. both at a SPECIFIC venue (not the bare-city fallback) that token-set match,
+#   3. one title's significant words are a SUBSET of the other's, AND
+#   4. their time windows overlap (or, when an end time is missing, starts within
+#      _CROSS_SOURCE_START_GAP_MINUTES).
+# Guards (2)+(3) were added after a live run of the bare "overlap + different
+# source" rule over-merged DISTINCT events that merely share a container venue
+# ("Mini Bakers" vs "Sports Camp" at Parks & Rec) or an activity word at an
+# activity venue ("Cosmic Bowling" vs a charity "… Bowl" night at Havasu Lanes).
+# With all four guards, exactly the swim triple collapses across the live set;
+# the 63-cluster prevalence run (dominated by same-source clusters) is untouched.
+# Venue ENTITY resolution does NOT converge for the real variants ("Aquatic
+# Center" vs "Lake Havasu City Aquatic Center" resolve to different entities), so
+# the venue check is a token-set match on the names rather than a resolved id.
+_CROSS_SOURCE_START_GAP_MINUTES = 90
+_VENUE_MATCH_RATIO = 92
+
+# A bare-city venue ("Lake Havasu City") is the no-real-venue fallback and is NOT
+# a session, so it must never anchor a same-session merge. (Generic *container*
+# venues like "Lake Havasu City Parks & Recreation" pass the venue check but are
+# held apart by the title-token guard below — distinct programs share the building
+# but not a significant title word.)
+_BARE_CITY_VENUES: frozenset[str] = frozenset({"lake havasu city", "lake havasu", "havasu"})
+# Title words too generic to imply "same session" — the merge needs a SHARED word
+# OUTSIDE this set (so "Free Family Swim"/"Open Swim"/"Free Swim Day!" share
+# "swim", but "Mini Bakers" and "Sports Camp" at one Parks&Rec venue share nothing).
+_TITLE_STOPWORDS: frozenset[str] = frozenset({
+    "the", "and", "for", "with", "free", "day", "days", "night", "nights",
+    "family", "kids", "open", "lake", "havasu", "city", "event", "events",
+    "class", "classes", "series", "summer", "winter", "spring", "fall", "live",
+    "music", "party", "sponsored", "annual", "session", "sessions", "community",
+    "public", "all", "ages", "adult", "adults", "youth", "senior", "seniors",
+})
+
+
+def _significant_title_tokens(ev: Event) -> set[str]:
+    """Title tokens >= 4 chars that are not generic stopwords — the words that
+    actually name the activity ("swim", "yoga", "bingo")."""
+    norm = _norm_cached(ev.normalized_title or ev.title or "")
+    return {w for w in norm.split() if len(w) >= 4 and w not in _TITLE_STOPWORDS}
+
+
+def _titles_share_activity(a: Event, b: Event) -> bool:
+    """One title's significant words are a SUBSET of the other's (both non-empty).
+
+    A subset — not a mere intersection — is the tight signal for "same session,
+    different title": "Open Swim" {swim} ⊆ "Free Family Swim …" {swim, …}, and
+    "Free Swim Day!" {swim} ⊆ it too, so the cross-source swim triple collapses.
+    But two DISTINCTLY-named events that merely share the venue's activity word —
+    "Cosmic Bowling" {cosmic, bowling} vs "… Humane Society … Bowl" — are neither a
+    subset of the other, so they stay separate (the over-merge the bare-token rule
+    produced)."""
+    return tokens_subset_match(_significant_title_tokens(a), _significant_title_tokens(b))
+
+
+def _is_specific_venue(ev: Event) -> bool:
+    """The venue is a real named place, not the bare-city no-venue fallback."""
+    norm = _norm_cached(ev.location_name or "")
+    return bool(norm) and norm not in _BARE_CITY_VENUES
+
+
+def _venue_match(a: Event, b: Event) -> bool:
+    """Two events read as the SAME venue: equal normalized names, or a token-set
+    ratio >= _VENUE_MATCH_RATIO ("aquatic center" ⊆ "lake havasu city aquatic
+    center" → 100). Tiny names must match exactly (no fuzzy on <5 chars)."""
+    na = _norm_cached(a.location_name or "")
+    nb = _norm_cached(b.location_name or "")
+    if not na or not nb:
+        return False
+    if na == nb:
+        return True
+    if len(na) < 5 or len(nb) < 5:
+        return False
+    return fuzz.token_set_ratio(na, nb) >= _VENUE_MATCH_RATIO
+
+
+def _times_overlap_for_merge(a: Event, b: Event) -> bool:
+    """Time windows overlap; or, when EITHER end time is missing, the starts are
+    within _CROSS_SOURCE_START_GAP_MINUTES. A missing start never overlaps."""
+    sa, sb = a.start_time, b.start_time
+    if sa is None or sb is None:
+        return False
+    if a.end_time is not None and b.end_time is not None:
+        return (
+            start_minutes(sa) < start_minutes(b.end_time)
+            and start_minutes(sb) < start_minutes(a.end_time)
+        )
+    return abs(start_minutes(sa) - start_minutes(sb)) <= _CROSS_SOURCE_START_GAP_MINUTES
+
+
+def _different_source(a: Event, b: Event) -> bool:
+    """The two rows carry different (non-empty) source strings."""
+    sa = (a.source or "").strip().lower()
+    sb = (b.source or "").strip().lower()
+    return bool(sa) and bool(sb) and sa != sb
+
+
+def _exact_same_start(a: Event, b: Event) -> bool:
+    """Both rows carry a real start time and it is the SAME clock time."""
+    return a.start_time is not None and b.start_time is not None and a.start_time == b.start_time
+
+
+def _cross_source_same_session(a: Event, b: Event) -> bool:
+    """Two rows are the SAME real cross-source session under different titles.
+
+    The strict shape (all four guards): different sources, both a specific venue
+    that token-match, one title's significant words subset the other's, and their
+    time windows overlap.
+
+    Calvary relaxation (§3B, 2026-07-04): the strict venue *name* match is too
+    strict when two feeds describe one event with unrelated venue strings — the
+    river_scene "Calvary Baptist Church (Sweetwater Campus)" at the street address
+    vs the go_lake "Family Water Night at Calvary" at "Calvary". So we ALSO merge
+    when the titles subset-match AND both start at the EXACT same clock time AND
+    the sources differ, dropping only the ``_venue_match`` requirement. Both venues
+    must still be specific (the bare-city fallback never anchors a merge), and the
+    exact-time + subset-title agreement keeps this tight against the over-merge the
+    venue guard was added to prevent."""
+    if not (_different_source(a, b) and _is_specific_venue(a) and _is_specific_venue(b)):
+        return False
+    if not _titles_share_activity(a, b):
+        return False
+    strict = _venue_match(a, b) and _times_overlap_for_merge(a, b)
+    relaxed = _exact_same_start(a, b)
+    return strict or relaxed
+
+
+def _uf_find(parent: dict[int, int], x: int) -> int:
+    while parent[x] != x:
+        parent[x] = parent[parent[x]]
+        x = parent[x]
+    return x
+
+
+def _cross_source_session_clusters(
+    occurrences: Sequence[tuple[Event, date]], already_dropped: set[int]
+) -> list[tuple[int, list[int]]]:
+    """Cross-source same-session second pass as (survivor, [loser]) clusters.
+
+    Union-find over each date's still-surviving rows; an edge is drawn by
+    :func:`_cross_source_same_session`. Each multi-row component yields one
+    survivor and its losers so the caller can drop the losers and absorb their
+    best display fields onto the survivor."""
+    by_date: dict[date, list[tuple[int, Event]]] = {}
+    for idx, (ev, occ_date) in enumerate(occurrences):
+        if idx in already_dropped:
+            continue
+        by_date.setdefault(occ_date, []).append((idx, ev))
+
+    clusters: list[tuple[int, list[int]]] = []
+    for members in by_date.values():
+        if len(members) < 2:
+            continue
+        parent: dict[int, int] = {idx: idx for idx, _ev in members}
+        for i in range(len(members)):
+            ia, ea = members[i]
+            for j in range(i + 1, len(members)):
+                ib, eb = members[j]
+                if _cross_source_same_session(ea, eb):
+                    parent[_uf_find(parent, ia)] = _uf_find(parent, ib)
+        comps: dict[int, list[tuple[int, Event]]] = {}
+        for idx, ev in members:
+            comps.setdefault(_uf_find(parent, idx), []).append((idx, ev))
+        for comp in comps.values():
+            if len(comp) < 2:
+                continue
+            clusters.append(_cluster_survivor_and_losers(comp))
+    return clusters
 
 
 def dedup_cross_source_occurrences(
     occurrences: Sequence[tuple[Event, date]],
 ) -> list[tuple[Event, date]]:
-    """Collapse cross-source duplicates of the same (title, date) occurrence.
+    """Collapse cross-source duplicates of the same occurrence.
+
+    Two passes: (1) the title-keyed pass groups by (normalized title, date) and
+    keeps one survivor per group; (2) the cross-source same-session pass collapses
+    DIFFERENT-titled twins of one real session at the same venue/date/time from
+    different sources (see ``_cross_source_session_drops``).
 
     Input/output are ``(event, occurrence_date)`` pairs; survivors keep their
     input order. Untitled rows never group. Pure + read-only: callers on the
@@ -394,11 +659,25 @@ def dedup_cross_source_occurrences(
             groups.setdefault((key, occ_date), []).append((idx, ev))
 
     dropped: set[int] = set()
+
+    def _collapse(survivor: int, losers: list[int]) -> None:
+        # Drop the losers and graft their best display fields onto the survivor
+        # so the one rendered row carries the flyer / richest text / real time.
+        if not losers:
+            return
+        dropped.update(losers)
+        _absorb_display_fields(occurrences[survivor][0], [occurrences[i][0] for i in losers])
+
+    # Pass 1: same (normalized title, date) groups. Grafts first so a pass-1
+    # survivor that pass 2 then merges carries its absorbed fields forward.
     for members in groups.values():
         if len(members) < 2:
             continue
-        survivors = _group_survivor_positions(members)
-        dropped.update(idx for idx, _ev in members if idx not in survivors)
+        for survivor, losers in _group_clusters(members):
+            _collapse(survivor, losers)
+    # Pass 2: cross-source same-session twins under different titles.
+    for survivor, losers in _cross_source_session_clusters(occurrences, dropped):
+        _collapse(survivor, losers)
     return [pair for idx, pair in enumerate(occurrences) if idx not in dropped]
 
 

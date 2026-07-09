@@ -11,7 +11,7 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, verify_admin_cookie
+from app.admin.auth import admin_guard as _guard
 from app.admin.nav_html import admin_phase5_nav_html
 from app.conditions.cache import read_source
 from app.conditions.constants import SOURCE_GAS, SOURCE_KEYS
@@ -23,16 +23,13 @@ from app.core.timezone import now_lake_havasu
 from app.db.contribution_store import count_contributions
 from app.db.database import get_db
 from app.db.models import Event, Provider, QueryLog
+from app.monitoring.freshness import evaluate as evaluate_freshness
+from app.monitoring.freshness import fmt_age
 
 logger = logging.getLogger(__name__)
 
 router = APIRouter(prefix="/admin", tags=["admin"])
 
-
-def _guard(request: Request) -> RedirectResponse | None:
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    return RedirectResponse(url="/admin/login", status_code=302)
 
 
 def _esc(s: str | None) -> str:
@@ -94,8 +91,21 @@ def admin_v1_overview(request: Request, db: Session = Depends(get_db)) -> HTMLRe
         for k, st, at in sources_rows
     )
 
+    # P6: unified feed-freshness health — the same grading the staleness cron
+    # (scripts/data_freshness_monitor.py) pages on. A STALE/MISSING row here
+    # means a scraper silently froze (the P0 date-desync class of bug).
+    feed_statuses = evaluate_freshness(db, now=now)
+    any_stale = any(not s.ok for s in feed_statuses)
+    feed_rows = "".join(
+        f"<tr><td>{_esc(s.label)}</td>"
+        f"<td>{'OK' if s.ok else _esc(s.status)}</td>"
+        f"<td>{_esc(fmt_age(s.age_hours))}</td>"
+        f"<td>budget {s.max_age_hours / 24:.0f}d</td></tr>"
+        for s in feed_statuses
+    )
+
     body = f"""<!DOCTYPE html>
-<html lang="en"><head><meta charset="utf-8"><title>Admin overview — Hava</title>
+<html lang="en"><head><meta charset="utf-8"><title>Admin overview — Ask Hava</title>
 <style>
 body {{ font-family: system-ui, sans-serif; margin: 24px; max-width: 960px; }}
 table {{ border-collapse: collapse; width: 100%; margin: 12px 0 24px; }}
@@ -117,6 +127,12 @@ th, td {{ border: 1px solid #ccc; padding: 8px; text-align: left; font-size: 14p
 <h2>Recent searches (query_log)</h2>
 <table><thead><tr><th>Intent</th><th>Category</th><th>Results</th><th>At</th></tr></thead>
 <tbody>{q_rows}</tbody></table>
+<h2>Feed freshness (system health){"" if not any_stale else " — ⚠ STALE FEED"}</h2>
+<p style="font-size:13px;color:#555">A STALE/MISSING row means a scraper silently stopped landing rows — the P0
+date-desync class of bug. The daily <code>data-freshness-check</code> workflow
+pages on the same grading.</p>
+<table><thead><tr><th>Feed</th><th>Status</th><th>Freshest row</th><th>Budget</th></tr></thead>
+<tbody>{feed_rows}</tbody></table>
 <h2>Data sources</h2>
 <table><thead><tr><th>Source</th><th>Staleness</th><th>Last fetch</th></tr></thead>
 <tbody>{src_rows}</tbody></table>

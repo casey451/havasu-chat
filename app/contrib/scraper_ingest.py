@@ -31,8 +31,10 @@ from dataclasses import dataclass, replace
 
 from sqlalchemy.orm import Session
 
+from app.contrib.address_clean import strip_garbage_address
 from app.contrib.ingest_base import EntityPayload
 from app.contrib.ingest_reconciler import ReconcileResult, reconcile_hit
+from app.contrib.ingest_suppression import is_placeholder_name, is_suppressed_business
 
 
 def _clean(value: str | None) -> str | None:
@@ -51,6 +53,11 @@ def normalize_payload(payload: EntityPayload) -> EntityPayload:
     Stored values stay human-readable -- domain/phone canonicalization for
     MATCHING happens inside the reconciler's contact tier, not here, so we do not
     mangle what gets displayed.
+
+    The address also runs through :func:`strip_garbage_address` (S2): a plus-code /
+    PO box / leading placeholder / entity-suffix string is dropped to ``None`` so
+    ingest never stores a misleading pin. A real-but-partial address (bare city, or
+    a street with no house number) is preserved.
     """
     name = _clean(payload.name)
     if name:
@@ -58,7 +65,7 @@ def normalize_payload(payload: EntityPayload) -> EntityPayload:
     return replace(
         payload,
         name=name or "",
-        address=_clean(payload.address),
+        address=strip_garbage_address(payload.address),
         phone=_clean(payload.phone),
         website=_clean(payload.website),
         description=_clean(payload.description),
@@ -70,7 +77,7 @@ def normalize_payload(payload: EntityPayload) -> EntityPayload:
 class IngestDecision:
     """What a scraper should do with one payload, after normalization + reconcile."""
 
-    action: str  # "update" | "ambiguous" | "insert"
+    action: str  # "update" | "ambiguous" | "insert" | "skip"
     existing_id: str | None
     should_hide: bool  # True -> write draft=True + pending_review=True (hidden)
     reason: str | None
@@ -85,10 +92,64 @@ def decide_ingest(db: Session, payload: EntityPayload) -> IngestDecision:
     -- the caller MUST honour it (draft=True + pending_review=True) so an
     uncertain row is captured for the admin review queue rather than shown to a
     user. ``update`` means merge onto ``existing_id`` (no new row); ``insert``
-    means a genuinely new provider.
+    means a genuinely new provider. ``skip`` means the identity is on the durable
+    ingest_suppression blocklist -- write NOTHING (no insert, no merge, no
+    reactivation of a deactivated row); the caller just counts and moves on.
     """
     clean = normalize_payload(payload)
+    # Blocklist check FIRST -- before reconcile -- so a suppressed identity can
+    # neither insert a fresh row nor match-and-reactivate a deactivated one.
+    # ingest_suppression's module doc calls itself "the blocklist the loaders
+    # check FIRST"; enforcing it here means every decide_ingest source inherits
+    # it instead of each loader having to remember (golakehavasu_partners_load
+    # checks it on its own separate path).
+    if is_suppressed_business(clean.name):
+        return IngestDecision(
+            action="skip",
+            existing_id=None,
+            should_hide=False,
+            reason="suppressed: durable do-not-import blocklist (ingest_suppression)",
+            payload=clean,
+            reconcile=ReconcileResult(action="skip", reason="suppressed"),
+        )
+    # Placeholder-name guard: a bare geography / lead-gen funnel / CMS stub is not
+    # a real business — skip it (no insert, no reactivation) so a re-scrape can't
+    # keep minting junk rows (T1.3). Same skip contract as the blocklist above.
+    if is_placeholder_name(clean.name):
+        return IngestDecision(
+            action="skip",
+            existing_id=None,
+            should_hide=False,
+            reason="placeholder: non-business name (bare geography / lead-gen / CMS stub)",
+            payload=clean,
+            reconcile=ReconcileResult(action="skip", reason="placeholder_name"),
+        )
     result = reconcile_hit(db, clean)
+    # Dedupe-on-ingest guard (T2.2): the reconciler resolves google_place_id / geo
+    # / name tiers, but a bare name match lands ``ambiguous`` (hidden for review)
+    # and a name the geo/name tiers miss lands ``insert`` (a second slug). When the
+    # SAME name also shares a street address or phone, it is a confident duplicate —
+    # upgrade it to ``update`` so the re-scrape merges onto the existing entity
+    # instead of hiding a review row or minting a clone. Unique-match only.
+    if result.action in ("insert", "ambiguous"):
+        from app.dedupe.ingest_guard import find_ingest_duplicate
+
+        dup_entity_id = find_ingest_duplicate(
+            db, name=clean.name, address=clean.address, phone=clean.phone
+        )
+        if dup_entity_id is not None:
+            return IngestDecision(
+                action="update",
+                existing_id=dup_entity_id,
+                should_hide=False,
+                reason="dedupe guard: name+address/phone match (T2.2)",
+                payload=clean,
+                reconcile=ReconcileResult(
+                    action="update",
+                    existing_id=dup_entity_id,
+                    reason="dedupe guard: name+address/phone match",
+                ),
+            )
     return IngestDecision(
         action=result.action,
         existing_id=result.existing_id,

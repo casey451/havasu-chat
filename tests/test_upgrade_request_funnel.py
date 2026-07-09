@@ -106,16 +106,39 @@ def test_verified_owner_can_submit_upgrade_request(
     eid, _ = _seed_entity_with_owner(slug, email, verified=True)
     try:
         _login_email(client, monkeypatch, email)
+        # "promoted" is a sellable slot (has a v4 render surface). "spotlight"
+        # was retired from sellable inventory 2026-07-03 — see the rejection test.
         r = client.post(
             f"/merchant/upgrade/{slug}",
-            data={"requested_slot": "spotlight", "message": "summer promo"},
+            data={"requested_slot": "promoted", "message": "summer promo"},
         )
         assert r.status_code == 200
         with SessionLocal() as db:
             req = db.query(UpgradeRequest).filter_by(entity_id=eid).one()
             assert req.status == UpgradeRequestStatus.PENDING.value
-            assert req.requested_slot == "spotlight"
+            assert req.requested_slot == "promoted"
             assert req.message == "summer promo"
+    finally:
+        _cleanup(eid, email)
+
+
+def test_retired_spotlight_slot_is_rejected(
+    client: TestClient, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """The Featured/spotlight tier is retired from sellable inventory (no v4
+    render surface), so an owner can no longer request it — 400 invalid_slot."""
+    suf = uuid4().hex[:8]
+    slug, email = f"up-{suf}", f"owner-{suf}@example.com"
+    eid, _ = _seed_entity_with_owner(slug, email, verified=True)
+    try:
+        _login_email(client, monkeypatch, email)
+        r = client.post(
+            f"/merchant/upgrade/{slug}",
+            data={"requested_slot": "spotlight", "message": "summer promo"},
+        )
+        assert r.status_code == 400
+        with SessionLocal() as db:
+            assert db.query(UpgradeRequest).filter_by(entity_id=eid).first() is None
     finally:
         _cleanup(eid, email)
 

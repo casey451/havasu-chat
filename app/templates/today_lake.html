@@ -1,0 +1,35 @@
+{% extends "base_redesign.html" %}
+{#- v4 "Today in Havasu" lake report (GET /today, public) — v4.6 PR-1. Full v4
+   shell + live-conditions strip. Same context as before: {fields, any_available,
+   local_time_label}. Honest live-or-omit: each field renders its real value or an
+   "Unavailable" state; no fabricated imagery (DESIGN_SPEC §0). -#}
+{% block title %}Today in Havasu — Ask Hava{% endblock %}
+{% block meta_description %}Today in Lake Havasu City: lake level and water temp, wind, air quality, sunset, and the cheapest gas — updated from live local sources.{% endblock %}
+{% block main %}
+<div class="todayx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Today</span></nav>
+  <div class="pagehead">
+    <h1 class="serif">Today in Lake Havasu</h1>
+    <p class="sub">Live conditions &middot; as of {{ local_time_label }}</p>
+  </div>
+  {% if not any_available %}
+  <p class="today-warning" role="status">Live conditions are unavailable right now. The data sources have not refreshed yet — check back shortly.</p>
+  {% endif %}
+  <section class="cgrid" aria-label="Today's conditions">
+    {% for f in fields %}
+    <div class="card cstat">
+      <p class="l">{{ f.label }}</p>
+      {% if f.available %}
+      <p class="v num">{{ f.primary }}</p>
+      {% if f.secondary %}<p class="sub">{{ f.secondary }}</p>{% endif %}
+      {% if f.attribution %}<p class="attr">{{ f.attribution }}{% if f.staleness_label %} &middot; {{ f.staleness_label }}{% endif %}</p>{% endif %}
+      {% else %}
+      <p class="v unavail">{{ f.primary }}</p>
+      {% if f.is_stale and f.staleness_label %}<p class="attr">{{ f.staleness_label }}</p>{% endif %}
+      {% endif %}
+    </div>
+    {% endfor %}
+  </section>
+  <p class="today-note">Conditions are assembled from live local sources (USGS, NWS, AirNow, crowd-sourced gas) and cached. We show &ldquo;Unavailable&rdquo; rather than guess when a source is missing or out of date. Always confirm before you head out.</p>
+</div>
+{% endblock %}

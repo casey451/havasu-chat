@@ -1,0 +1,80 @@
+{% extends "base_redesign.html" %}
+{#- Directory index (/categories) in the v4 language (v4.5 PR-4) — every
+   department as a tile, over the SAME real serve_categories_index context. -#}
+
+{% block title %}The Lake Havasu City directory — Ask Hava{% endblock %}
+{% block meta_description %}Browse every category in Lake Havasu City — restaurants, the lake, home services, health, shopping and more. Real local listings, open-now first.{% endblock %}
+
+{% block head_extra %}
+{% if canonical_url is defined %}
+<script type="application/ld+json">
+{
+  "@context": "https://schema.org",
+  "@type": "CollectionPage",
+  "name": "Lake Havasu City directory",
+  "description": "The local business directory for Lake Havasu City, Arizona — restaurants, the lake, home services, health, shopping and more, with real listings and live open-now status.",
+  "url": "{{ absolute_url('/categories') }}",
+  "isPartOf": { "@type": "WebSite", "name": "Ask Hava", "url": "{{ absolute_url('/home') }}" },
+  "about": {
+    "@type": "City",
+    "name": "Lake Havasu City",
+    "address": { "@type": "PostalAddress", "addressLocality": "Lake Havasu City", "addressRegion": "AZ", "addressCountry": "US" }
+  },
+  "breadcrumb": {
+    "@type": "BreadcrumbList",
+    "itemListElement": [
+      { "@type": "ListItem", "position": 1, "name": "Ask Hava", "item": "{{ absolute_url('/home') }}" },
+      { "@type": "ListItem", "position": 2, "name": "Directory", "item": "{{ absolute_url('/categories') }}" }
+    ]
+  },
+  "mainEntity": {
+    "@type": "ItemList",
+    "name": "Lake Havasu City business categories",
+    "numberOfItems": {{ categories|length }},
+    "itemListElement": [{% for cat in categories %}{ "@type": "ListItem", "position": {{ loop.index }}, "name": {{ cat.label|tojson }}, "url": {{ absolute_url('/categories/' ~ cat.slug)|tojson }} }{% if not loop.last %}, {% endif %}{% endfor %}]
+  }
+}
+</script>
+{% endif %}
+{% endblock %}
+
+{% block main %}
+<div class="dirx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">Directory</span></nav>
+  <div class="pagehead">
+    <h1>The Lake Havasu City directory</h1>
+    <p class="dsub">The local directory for Lake Havasu City, Arizona — where to eat, who to call, and what to do. Browse every category below, each with real local listings and live open-now status, updated daily.</p>
+  </div>
+
+  {# P3: the directory's keyword search. "Explore" in the nav links here with
+     #search so the field is focused on arrival (see the inline script below). #}
+  <form class="dirsearch" id="dirsearch" role="search" action="/search" method="get">
+    <svg class="ds-ic" width="18" height="18" viewBox="0 0 24 24" fill="none" aria-hidden="true"><circle cx="11" cy="11" r="7" stroke="currentColor" stroke-width="1.8"/><path d="M21 21l-4-4" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"/></svg>
+    <input id="dir-q" name="q" type="search" aria-label="Search the Lake Havasu directory" placeholder="Search Lake Havasu listings" autocomplete="off" data-rotating-placeholder>
+    <button class="ds-go" type="submit">Search</button>
+  </form>
+
+  <div class="exgrid">
+    {% for cat in categories %}
+    <a class="extile" href="/categories/{{ cat.slug }}">
+      <h3 class="serif">{{ cat.label }}{% if cat.count %}<span class="c">{{ cat.count }}</span>{% endif %}</h3>
+      <p>{{ cat.blurb or cat.empty_blurb }}</p>
+    </a>
+    {% endfor %}
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+{# "Explore" links to /categories#search; focus the field when arriving that way,
+   so browse stays the default on a plain /categories visit (no focus-steal). #}
+<script>
+(function () {
+  if (location.hash !== "#search") return;
+  var el = document.getElementById("dir-q");
+  if (el) { el.focus(); el.scrollIntoView({ block: "center" }); }
+})();
+</script>
+{# Rotating example searches in the directory search box (data-rotating-placeholder). #}
+<script src="{{ static_url('/static/js/rotating_placeholder.js') }}" defer></script>
+{% endblock %}

@@ -104,7 +104,8 @@ def test_jsonld_has_geo_when_coords_present(client: TestClient, nap_provider: st
 def test_visible_nap_block_renders(client: TestClient, nap_provider: str) -> None:
     r = client.get(f"/provider/{nap_provider}")
     assert "<address" in r.text
-    assert "2014 McCulloch Blvd N, Lake Havasu City, AZ 86403" in r.text
+    # Lake renders the NAP block as street<br>city, state zip inside <address>.
+    assert "2014 McCulloch Blvd N<br>Lake Havasu City, AZ 86403" in r.text
 
 
 def test_derive_postal_address_defaults_city_state() -> None:

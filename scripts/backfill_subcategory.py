@@ -39,6 +39,7 @@ def run(*, dry_run: bool = False, include_all: bool = False) -> Counter:
         for provider in q.yield_per(500):
             derived = derive_subcategory(
                 category=provider.category,
+                name=provider.provider_name,
                 google_primary_category=provider.google_primary_category,
                 google_categories=provider.google_categories,
                 attributes=provider.attributes,

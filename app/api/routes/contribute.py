@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import hashlib
-import html
 from datetime import UTC, date, datetime, time, timedelta
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, Request
@@ -15,6 +14,7 @@ from sqlalchemy.orm import Session
 from app.contrib.enrichment import enrich_contribution
 from app.core.background import with_retry
 from app.core.rate_limit import is_rate_limit_disabled
+from app.core.templates import make_templates
 from app.db.contribution_store import (
     count_submissions_since_by_ip_hash,
     create_contribution,
@@ -26,6 +26,8 @@ from app.schemas.contribution import ContributionCreate
 
 router = APIRouter(tags=["contribute"])
 
+templates = make_templates()
+
 _MAX_NOTES = 2000
 
 _RATE_MSG = "Thanks for your enthusiasm — please wait an hour between submissions."
@@ -35,10 +37,6 @@ _SUCCESS_INTRO = (
     "Thanks! Your contribution is in our review queue. If you added an email, we'll come back to you "
     "if we have questions. Otherwise it'll show up in the catalog once approved."
 )
-
-
-def _esc(s: str | None) -> str:
-    return html.escape(s or "", quote=True)
 
 
 def _ip_hash(request: Request) -> str:
@@ -70,6 +68,7 @@ def _parse_optional_time(raw: str | None) -> time | None:
 
 
 def _render_contribute_page(
+    request: Request,
     *,
     submitted: bool = False,
     error_banner: str | None = None,
@@ -77,148 +76,26 @@ def _render_contribute_page(
     preserve: dict[str, str] | None = None,
     status_code: int = 200,
 ) -> HTMLResponse:
+    """Render the "Add to Hava" form on the v4 shell (v4.6: base_redesign, Jinja).
+
+    Field ids/names, the ``/contribute`` action, and the entity-type toggle JS are
+    preserved verbatim from the prior standalone page; Jinja autoescapes the
+    preserved values. All call sites thread ``request`` for the shell globals.
+    """
     p = preserve or {}
-    fe = field_errors or {}
-    err_html = ""
-    if error_banner:
-        err_html = f'<div class="banner err" role="alert">{_esc(error_banner)}</div>'
-    if fe:
-        ul = "".join(f"<li><strong>{_esc(k)}</strong>: {_esc(v)}</li>" for k, v in fe.items())
-        err_html += f'<div class="banner err" role="alert"><ul class="err-list">{ul}</ul></div>'
-    ok_html = ""
-    if submitted:
-        ok_html = f'<div class="banner ok" role="status">{_esc(_SUCCESS_INTRO)}</div>'
-    ent = p.get("entity_type", "provider")
-    event_css_display = "block" if ent == "event" else "none"
-    url_val = _esc(p.get("submission_url", ""))
-    # BUILD.md step 1.5: visual restyle to match /home design system. Form
-    # behavior, field IDs/names, and JS are unchanged from the prior version
-    # — only markup wrapping and CSS were touched.
-    return HTMLResponse(
+    return templates.TemplateResponse(
+        request=request,
+        name="contribute_redesign.html",
+        context={
+            "submitted": submitted,
+            "error_banner": error_banner,
+            "field_errors": field_errors or None,
+            "ent": p.get("entity_type", "provider"),
+            "p": p,
+            "success_intro": _SUCCESS_INTRO,
+            "max_notes": _MAX_NOTES,
+        },
         status_code=status_code,
-        content=f"""<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="utf-8"/>
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover"/>
-  <title>Add to Hava — Ask Hava</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com"/>
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin/>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Fraunces:ital,opsz,wght@0,9..144,300;0,9..144,400;1,9..144,400&display=swap" rel="stylesheet"/>
-  <link rel="stylesheet" href="/static/styles/contribute.css"/>
-</head>
-<body>
-  <a class="skip-link" href="#main">Skip to content</a>
-  <div class="page">
-    <header class="topbar">
-      <a class="wordmark" href="/home">
-        <span class="mark"></span>
-        <span>Hava</span>
-      </a>
-      <div class="topbar-meta">
-        <a href="/home">Back to Hava</a>
-      </div>
-    </header>
-
-    <main id="main">
-    <section class="head">
-      <p class="eyebrow">Add to Hava</p>
-      <h1>Tell me what <em>belongs</em>.</h1>
-      <p class="lede">Hava grows from what locals share. Suggest a business, program, event, or tip — I'll review and add it if it fits.</p>
-    </section>
-
-    {ok_html}
-    {err_html}
-
-    <form class="form-card" method="post" action="/contribute" id="contrib-form">
-      <fieldset class="type-fieldset">
-      <legend>What are you submitting?</legend>
-      <div class="row-radio">
-        <label><input type="radio" name="entity_type" value="provider" {"checked" if ent == "provider" else ""}/> Business</label>
-        <label><input type="radio" name="entity_type" value="program" {"checked" if ent == "program" else ""}/> Program</label>
-        <label><input type="radio" name="entity_type" value="event" {"checked" if ent == "event" else ""}/> Event</label>
-        <label><input type="radio" name="entity_type" value="tip" {"checked" if ent == "tip" else ""}/> Tip</label>
-      </div>
-      </fieldset>
-
-      <label for="submission_name">Name <span class="req" aria-hidden="true">*</span></label>
-      <input type="text" name="submission_name" id="submission_name" maxlength="200" required aria-required="true" value="{_esc(p.get("submission_name", ""))}"/>
-
-      <label for="submission_url">Website or listing URL <span class="req" id="url-req" aria-hidden="true" {"" if ent in ("provider", "program") else "hidden"}>*</span></label>
-      <input type="url" name="submission_url" id="submission_url" value="{url_val}" placeholder="https://…" data-url-required-for="provider program"/>
-
-      <label for="category_hint">Category hint (optional)</label>
-      <input type="text" name="category_hint" id="category_hint" maxlength="200" placeholder="BMX, gymnastics, dance studio, restaurant" value="{_esc(p.get("category_hint", ""))}"/>
-
-      <label for="description">Description / notes (optional)</label>
-      <textarea name="description" id="description" maxlength="{_MAX_NOTES}" placeholder="What should we know about this?">{_esc(p.get("description", ""))}</textarea>
-
-      <div id="event-fields" style="display: {event_css_display};">
-        <label for="event_date">Event date <span class="req" id="event-date-req" aria-hidden="true" {"" if ent == "event" else "hidden"}>*</span></label>
-        <input type="date" name="event_date" id="event_date" value="{_esc(p.get("event_date", ""))}"/>
-
-        <label for="event_start_time">Start time <span class="req" id="event-start-req" aria-hidden="true" {"" if ent == "event" else "hidden"}>*</span></label>
-        <input type="time" name="event_start_time" id="event_start_time" value="{_esc(p.get("event_start_time", ""))}"/>
-
-        <label for="event_end_time">End time (optional)</label>
-        <input type="time" name="event_end_time" id="event_end_time" value="{_esc(p.get("event_end_time", ""))}"/>
-      </div>
-
-      <label for="submitter_email">Email (optional)</label>
-      <input type="email" name="submitter_email" id="submitter_email" autocomplete="email" placeholder="So we can reach you if we have questions" value="{_esc(p.get("submitter_email", ""))}"/>
-      <p class="field-note">We only use your email to follow up on this submission -- never for marketing.</p>
-
-      <p class="req-legend"><span class="req" aria-hidden="true">*</span> Required</p>
-      <button type="submit" class="submit">Submit for review</button>
-      <p class="review-note">We review most submissions within a few days.</p>
-    </form>
-
-    <p class="foot"><a href="/home">← Back to Hava</a></p>
-    </main>
-  </div>
-
-  <script>
-(function () {{
-  var form = document.getElementById("contrib-form");
-  var eventBlock = document.getElementById("event-fields");
-  var urlInput = document.getElementById("submission_url");
-  var urlReq = document.getElementById("url-req");
-  var eventDate = document.getElementById("event_date");
-  var eventStart = document.getElementById("event_start_time");
-  var eventDateReq = document.getElementById("event-date-req");
-  var eventStartReq = document.getElementById("event-start-req");
-  function entityType() {{
-    var r = form.querySelector('input[name="entity_type"]:checked');
-    return r ? r.value : "provider";
-  }}
-  function setRequired(el, badge, on) {{
-    if (el) {{
-      if (on) {{ el.setAttribute("required", "required"); }}
-      else {{ el.removeAttribute("required"); }}
-    }}
-    if (badge) {{ badge.hidden = !on; }}
-  }}
-  function sync() {{
-    var et = entityType();
-    var isEvent = et === "event";
-    eventBlock.style.display = isEvent ? "block" : "none";
-    var urlRequired = et === "provider" || et === "program";
-    if (urlRequired) {{ urlInput.setAttribute("required", "required"); }}
-    else {{ urlInput.removeAttribute("required"); }}
-    if (urlReq) {{ urlReq.hidden = !urlRequired; }}
-    // Event date + start time are required only while "Event" is selected.
-    // Hidden, non-required fields can't block submission of the other types.
-    setRequired(eventDate, eventDateReq, isEvent);
-    setRequired(eventStart, eventStartReq, isEvent);
-  }}
-  form.querySelectorAll('input[name="entity_type"]').forEach(function (el) {{
-    el.addEventListener("change", sync);
-  }});
-  sync();
-}})();
-  </script>
-</body>
-</html>""",
     )
 
 
@@ -227,6 +104,7 @@ _PREFILL_KINDS = frozenset({"provider", "program", "event", "tip"})
 
 @router.get("/contribute", response_class=HTMLResponse, response_model=None)
 def get_contribute(
+    request: Request,
     submitted: int | None = None,
     name: str | None = None,
     url: str | None = None,
@@ -249,7 +127,7 @@ def get_contribute(
         preserve["category_hint"] = category.strip()[:200]
     if note:
         preserve["description"] = note.strip()[:_MAX_NOTES]
-    return _render_contribute_page(submitted=bool(submitted), preserve=preserve or None)
+    return _render_contribute_page(request, submitted=bool(submitted), preserve=preserve or None)
 
 
 @router.post("/contribute", response_class=HTMLResponse, response_model=None)
@@ -279,11 +157,11 @@ def post_contribute(
         "submitter_email": submitter_email or "",
     }
     if _rate_limited(request, db):
-        return _render_contribute_page(error_banner=_RATE_MSG, preserve=preserve, status_code=429)
+        return _render_contribute_page(request, error_banner=_RATE_MSG, preserve=preserve, status_code=429)
 
     notes = (description or "").strip()
     if len(notes) > _MAX_NOTES:
-        return _render_contribute_page(
+        return _render_contribute_page(request,
             field_errors={"description": f"Please keep notes to {_MAX_NOTES} characters or fewer."},
             preserve=preserve,
         )
@@ -291,22 +169,22 @@ def post_contribute(
     url_s = (submission_url or "").strip()
     et = entity_type.strip().lower()
     if et not in ("provider", "program", "event", "tip"):
-        return _render_contribute_page(
+        return _render_contribute_page(request,
             field_errors={"entity_type": "Choose a valid submission type."},
             preserve=preserve,
         )
     if et in ("provider", "program") and not url_s:
-        return _render_contribute_page(
+        return _render_contribute_page(request,
             field_errors={"submission_url": "A URL is required for businesses and programs."},
             preserve=preserve,
         )
 
     if not url_s and not notes:
-        return _render_contribute_page(error_banner=_THIN_MSG, preserve=preserve)
+        return _render_contribute_page(request, error_banner=_THIN_MSG, preserve=preserve)
 
     norm_dup = normalize_submission_url(url_s if url_s else None)
     if norm_dup and has_pending_or_approved_duplicate_url(db, norm_dup):
-        return _render_contribute_page(error_banner=_DUP_MSG, preserve=preserve)
+        return _render_contribute_page(request, error_banner=_DUP_MSG, preserve=preserve)
 
     ev_d: date | None = None
     ev_st: time | None = None
@@ -317,7 +195,7 @@ def post_contribute(
             ev_st = _parse_optional_time(event_start_time)
             ev_en = _parse_optional_time(event_end_time)
         except ValueError:
-            return _render_contribute_page(
+            return _render_contribute_page(request,
                 field_errors={"event_date": "Use a valid date and times."},
                 preserve=preserve,
             )
@@ -329,7 +207,7 @@ def post_contribute(
         if ev_st is None:
             ev_field_errors["event_start_time"] = "An event needs a start time."
         if ev_field_errors:
-            return _render_contribute_page(field_errors=ev_field_errors, preserve=preserve)
+            return _render_contribute_page(request, field_errors=ev_field_errors, preserve=preserve)
 
     url_for_model: str | None = url_s if url_s else None
     try:
@@ -350,7 +228,7 @@ def post_contribute(
         for err in e.errors():
             loc = ".".join(str(x) for x in err.get("loc", ()))
             fe[loc or "form"] = err.get("msg", "Invalid value")
-        return _render_contribute_page(field_errors=fe, preserve=preserve)
+        return _render_contribute_page(request, field_errors=fe, preserve=preserve)
 
     row = create_contribution(db, body, submitter_ip_hash=_ip_hash(request))
     background_tasks.add_task(with_retry, enrich_contribution, row.id, SessionLocal)

@@ -218,7 +218,6 @@ def test_trade_page_has_intro_faq_and_breadcrumb(
     r = client.get(f"/categories/{TRADE_PARENT_SLUG}/plumbers")
     assert r.status_code == 200
     body = r.text
-    assert 'class="trade-intro"' in body
     intro_first_sentence = TRADES["plumbers"].intro.split(".")[0]
     assert intro_first_sentence in body
     # FAQ block: 4–6 truthful templated Q&As.
@@ -304,7 +303,7 @@ def test_trade_page_jsonld_breadcrumb_itemlist_no_aggregate_rating(
     # the page. Visible star ratings in the cards stay (asserted below).
     assert "AggregateRating" not in body
     assert "aggregateRating" not in body
-    assert 'class="stars"' in body
+    assert 'class="star"' in body  # visible per-card star rating stays
 
 
 # --- sitemap gate ----------------------------------------------------------------

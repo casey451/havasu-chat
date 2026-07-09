@@ -20,33 +20,80 @@ def is_rate_limit_disabled() -> bool:
     return v in ("1", "true", "yes", "on")
 
 
+# ── public-surface limits (A2: anti-scrape) ─────────────────────────────────
+# slowapi accepts a zero-arg callable as a limit value and re-evaluates it per
+# request (see slowapi/wrappers.py), so these read the env each call and are
+# tunable at deploy time without a code change. Defaults are deliberately
+# generous for humans but cap bulk pulls: HTML listing/profile pages are heavier
+# to render, JSON/feed endpoints are the cheapest bulk-scrape targets so they get
+# a tighter bucket.
+PUBLIC_HTML_RATE_LIMIT_DEFAULT = "90/minute"
+PUBLIC_API_RATE_LIMIT_DEFAULT = "30/minute"
+
+
+def public_html_rate_limit() -> str:
+    """Per-IP limit for public HTML listing/profile pages (env: ``PUBLIC_HTML_RATE_LIMIT``)."""
+    return (
+        os.environ.get("PUBLIC_HTML_RATE_LIMIT") or PUBLIC_HTML_RATE_LIMIT_DEFAULT
+    ).strip()
+
+
+def public_api_rate_limit() -> str:
+    """Per-IP limit for public JSON/feed endpoints (env: ``PUBLIC_API_RATE_LIMIT``)."""
+    return (
+        os.environ.get("PUBLIC_API_RATE_LIMIT") or PUBLIC_API_RATE_LIMIT_DEFAULT
+    ).strip()
+
+
+def _valid_ip(value: str | None) -> str | None:
+    """Return ``value`` stripped iff it parses as an IP address, else ``None``.
+
+    Guards every header-derived key: a malformed / garbage value can never become
+    a shared rate-limit bucket that collapses many clients into one.
+    """
+    if not value:
+        return None
+    candidate = value.strip()
+    if not candidate:
+        return None
+    try:
+        ipaddress.ip_address(candidate)
+    except ValueError:
+        return None
+    return candidate
+
+
 def client_ip_key(request) -> str:
     """Rate-limit key = the real client IP.
 
-    Behind Railway's edge proxy, ``request.client.host`` (what
-    ``get_remote_address`` returns) is the *proxy's* IP, so every user shares one
-    120/min bucket. Railway sets ``X-Forwarded-For`` at the edge and its leftmost
-    entry is the real client IP (Railway controls the header and appends, so a
-    client-spoofed value is pushed rightward) — safe to key on for rate limiting
-    on Railway. Falls back to the peer address when the header is absent (local
-    dev / non-proxied). (P1-10)
+    Precedence, in order of how authoritative the proxy in front is:
 
-    Ref: Railway help — "Which header should I rely on for real client IP?"
+    1. **``CF-Connecting-IP``** — set by Cloudflare to the original client IP
+       (a single value, not a list). When Cloudflare fronts the origin (Track
+       A1), *every* request reaches us through Cloudflare's IPs, so without this
+       the whole site would collapse into one rate-limit bucket. Cloudflare
+       overwrites this header on the way in, so a client-spoofed value can't
+       survive — safe to trust as the top key when present.
+    2. **``X-Forwarded-For`` leftmost** — Railway's single-edge case (no
+       Cloudflare). Railway controls the header and appends, so the leftmost
+       entry is the real client and a spoofed value is pushed rightward.
+    3. **Peer address** — local dev / non-proxied.
 
-    Hardening: the leftmost entry is only used when it parses as a valid IP, so a
-    malformed / garbage ``X-Forwarded-For`` can't become a shared rate-limit key.
-    There is a single edge proxy (Railway); multi-proxy hop-trust is not needed
-    until another proxy (e.g. Cloudflare) is put in front.
+    Each header value is used only when it parses as a valid IP, so malformed
+    input falls through to the next source instead of becoming a shared key.
+    (P1-10; A1 Cloudflare-readiness.)
+
+    Ref: Cloudflare — "Restoring original visitor IPs" (``CF-Connecting-IP``);
+    Railway help — "Which header should I rely on for real client IP?"
     """
+    cf_ip = _valid_ip(request.headers.get("cf-connecting-ip"))
+    if cf_ip:
+        return cf_ip
     xff = request.headers.get("x-forwarded-for")
     if xff:
-        first = xff.split(",")[0].strip()
+        first = _valid_ip(xff.split(",")[0])
         if first:
-            try:
-                ipaddress.ip_address(first)
-                return first
-            except ValueError:
-                pass  # malformed header — fall back to the peer address
+            return first
     return get_remote_address(request)
 
 

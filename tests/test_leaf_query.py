@@ -139,7 +139,8 @@ def test_chat_route_redirects_exact_category(client: TestClient) -> None:
     try:
         r = client.get("/chat", params={"q": "plumbers"}, follow_redirects=False)
         assert r.status_code == 302
-        assert r.headers["location"] == "/categories/hps-b3/plumbing"
+        # The search term is carried onto the leaf (?q=) for query-aware ranking.
+        assert r.headers["location"] == "/categories/hps-b3/plumbing?q=plumbers"
         # A descriptive query stays on the conversational chat page.
         r2 = client.get("/chat", params={"q": "what's a good plumber for a slab leak"})
         assert r2.status_code == 200
@@ -209,3 +210,57 @@ def test_hunt_2026_06_10_vocabulary_routes(mem_db: Session, query: str, leaf_slu
                n=leaf_pages.LEAF_PAGE_MIN_PROVIDERS)
     leaf = leaf_query.match_leaf_query(mem_db, query)
     assert leaf is not None and leaf.slug == leaf_slug, query
+
+
+# --- service-intent routing: need-shaped asks ("hvac needs repair") ----------
+# The exact matcher only routes a bare category noun; these descriptive service
+# asks (a category keyword + service/function filler) route via the secondary
+# match_leaf_service_intent pass, while anything with a content word or two
+# categories stays conservative.
+
+
+def test_service_intent_slug_routes_category_plus_filler() -> None:
+    slug = leaf_query._service_intent_slug
+    norm = leaf_query._normalize
+    assert slug(norm("hvac needs repair")) == "hvac"
+    assert slug(norm("hvac repair")) == "hvac"
+    assert slug(norm("my hvac is broken")) == "hvac"
+    assert slug(norm("pool service repair")) == "pools-and-spas"
+    assert slug(norm("auto repair shop")) == "auto-repair"
+    assert slug(norm("coffee shop")) == "cafes-and-coffee"
+    assert slug(norm("i need a plumber")) == "plumbing"
+
+
+def test_service_intent_slug_rejects_descriptive_or_ambiguous() -> None:
+    slug = leaf_query._service_intent_slug
+    norm = leaf_query._normalize
+    assert slug(norm("wifi password at the coffee shop")) is None  # content leftover
+    assert slug(norm("best plumber for a slab leak")) is None      # content leftover
+    assert slug(norm("plumber and electrician")) is None           # two leaves
+    assert slug(norm("hvac")) is None                              # single token
+    assert slug(norm("coffee with my friends")) is None            # content leftover
+
+
+def test_service_intent_conversational_payload_guard() -> None:
+    # Factual/temporal asks must NOT service-route even with a category keyword.
+    # The guard reads the RAW query because _normalize strips e.g. "open now".
+    assert leaf_query._has_conversational_payload("hvac repair open now") is True
+    assert leaf_query._has_conversational_payload("plumber phone number") is True
+    assert leaf_query._has_conversational_payload("hvac needs repair") is False
+
+
+def test_service_intent_routes_to_seeded_leaf(mem_db: Session) -> None:
+    _seed_leaf(mem_db, dept_slug="home-and-property-services", leaf_slug="hvac",
+               n=leaf_pages.LEAF_PAGE_MIN_PROVIDERS)
+    for query in ("hvac needs repair", "hvac repair", "my hvac is broken"):
+        leaf = leaf_query.match_leaf_service_intent(mem_db, query)
+        assert leaf is not None and leaf.slug == "hvac", query
+    # conversational + descriptive still fall through
+    assert leaf_query.match_leaf_service_intent(mem_db, "hvac repair open now") is None
+    assert leaf_query.match_leaf_service_intent(mem_db, "wifi at the hvac place") is None
+
+
+def test_service_intent_below_gate_does_not_route(mem_db: Session) -> None:
+    _seed_leaf(mem_db, dept_slug="home-and-property-services", leaf_slug="hvac",
+               n=leaf_pages.LEAF_PAGE_MIN_PROVIDERS - 1)
+    assert leaf_query.match_leaf_service_intent(mem_db, "hvac needs repair") is None

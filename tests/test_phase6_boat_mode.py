@@ -160,9 +160,8 @@ def test_profile_boat_access_region_markup(client: TestClient) -> None:
         r = client.get(f"/provider/{slug}")
         assert r.status_code == 200
         assert f"Boat Profile {suf}" in r.text
-        # Desert Modern reskin: the profile now renders on the desert shell
-        # (was /static/styles/sandstone.css).
-        assert "/static/styles/desert_profile.css" in r.text
+        # Lake Ink & Brass: the profile renders on the lake shell.
+        assert "/static/styles/lake_redesign.css" in r.text
     finally:
         with SessionLocal() as db:
             db.execute(delete(Provider).where(Provider.slug == slug))

@@ -21,10 +21,11 @@ from app.chat import (
 )
 from app.chat.chat_request_context import ChatRequestContext
 from app.chat.intent_classifier import IntentResult
-from app.chat.tier2_db_query import _event_dict
+from app.chat.tier2_db_query import event_dict
 from app.chat.tier2_schema import Tier2Filters
 from app.core.timezone import now_lake_havasu
 from app.db.database import SessionLocal
+from app.events.family_filter import is_family_event
 from app.events.queries import events_in_window, intent_window_for_when
 
 # Parser scores below this threshold skip Tier 2 and defer to Tier 3 (tunable in a later phase).
@@ -45,12 +46,19 @@ _OPEN_NOW_EMPTY_LISTING_TEMPLATE = (
 def _open_now_empty_listing(category: str) -> str:
     """Render the honest empty listing for a single ``category`` (e.g. "restaurant").
 
-    Pluralizes via :func:`tier2_business_shortcut._pluralize_for_header` so the
+    Pluralizes via :func:`tier2_business_shortcut.pluralize_for_header` so the
     label reads naturally for one-word ("restaurants") and two-word ("coffee
     shops") categories alike.
     """
-    label = tier2_business_shortcut._pluralize_for_header(category or "places")
+    label = tier2_business_shortcut.pluralize_for_header(category or "places")
     return _OPEN_NOW_EMPTY_LISTING_TEMPLATE.format(category_label=label)
+
+
+# Event-intent "when" values that span more than one calendar day. These
+# render a multi-day ``week_strip`` (Fri–Sun for a weekend) rather than a
+# single ``day_agenda``; everything else (today/tomorrow/tonight) stays a
+# day_agenda.
+_MULTI_DAY_EVENT_WHENS = frozenset({"this_weekend", "this_week"})
 
 
 def _event_intent_has_time_bounds(intent: dict[str, str]) -> bool:
@@ -58,7 +66,7 @@ def _event_intent_has_time_bounds(intent: dict[str, str]) -> bool:
 
 
 def _filters_for_event_intent(intent: dict[str, str]) -> Tier2Filters:
-    """Minimal Tier2Filters for day_agenda rendering from event-intent rows."""
+    """Minimal Tier2Filters for day_agenda / week_strip rendering from event rows."""
     when = intent.get("when", "")
     if when == "tonight":
         return Tier2Filters(time_window="today", parser_confidence=1.0)
@@ -68,6 +76,8 @@ def _filters_for_event_intent(intent: dict[str, str]) -> Tier2Filters:
         return Tier2Filters(time_window="tomorrow", parser_confidence=1.0)
     if when == "this_weekend":
         return Tier2Filters(time_window="this_weekend", parser_confidence=1.0)
+    if when == "this_week":
+        return Tier2Filters(time_window="this_week", parser_confidence=1.0)
     return Tier2Filters(parser_confidence=1.0)
 
 
@@ -98,16 +108,29 @@ def _respond_event_intent(
     from app.chat import tier2_catalog_render
     from app.chat.component_builders import (
         build_day_agenda,
+        build_week_strip,
         fallback_day_agenda_voice,
+        fallback_week_strip_voice,
         resolve_target_date,
+        resolve_week_window,
     )
 
     filters = _filters_for_event_intent(intent)
+    multi_day = intent.get("when", "") in _MULTI_DAY_EVENT_WHENS
+
     if not rows:
         voice = _event_intent_empty_voice(intent)
         if component_meta is not None:
-            component_meta["type"] = "day_agenda"
-            component_meta["data"] = build_day_agenda(filters, [])
+            if multi_day:
+                component_meta["type"] = "week_strip"
+                component_meta["data"] = build_week_strip(filters, [])
+            else:
+                component_meta["type"] = "day_agenda"
+                component_meta["data"] = build_day_agenda(filters, [])
+    elif component_meta is not None and multi_day:
+        component_meta["type"] = "week_strip"
+        component_meta["data"] = build_week_strip(filters, rows)
+        voice = fallback_week_strip_voice(rows, resolve_week_window(filters))
     elif component_meta is not None and (len(rows) >= 2 or _event_intent_has_time_bounds(intent)):
         component_meta["type"] = "day_agenda"
         component_meta["data"] = build_day_agenda(filters, rows)
@@ -185,6 +208,16 @@ _CATEGORY_PROGRAM_RE = re.compile(
 )
 
 
+# Kid/family audience signal for event queries ("things to do this weekend with
+# kids"). When present, the event agenda is filtered to family-tagged events so a
+# kids query doesn't surface adult-only classes (aqua aerobics, arthritis class).
+_KIDS_FAMILY_EVENT_RE = re.compile(
+    r"\b(kids?|child(?:ren)?|toddlers?|teens?|teenagers?|family|families|"
+    r"kid[- ]friendly|family[- ]friendly)\b",
+    re.IGNORECASE,
+)
+
+
 def detect_event_intent(query: str) -> dict[str, str] | None:
     """Return intent dict when the query is event-flavored.
 
@@ -230,12 +263,17 @@ def detect_event_intent(query: str) -> dict[str, str] | None:
     return None
 
 
-def _event_rows_for_intent(intent: dict[str, str]) -> list[dict[str, Any]]:
+def _event_rows_for_intent(
+    intent: dict[str, str], *, family_only: bool = False
+) -> list[dict[str, Any]]:
     when = intent["when"]
     time_start = intent.get("time_start")
     time_end = intent.get("time_end")
     today = now_lake_havasu().date()
     win_start, win_end = intent_window_for_when(when, today=today)
+    # When filtering to family events, pull a wider slice so enough survive the
+    # audience filter before the 8-row cap below.
+    fetch_limit = 50 if family_only else 8
     with SessionLocal() as db:
         flat = events_in_window(
             db,
@@ -243,8 +281,10 @@ def _event_rows_for_intent(intent: dict[str, str]) -> list[dict[str, Any]]:
             window_end=win_end,
             time_start=time_start,
             time_end=time_end,
-            limit=8,
+            limit=fetch_limit,
         )
+    if family_only:
+        flat = [(e, d) for (e, d) in flat if is_family_event(e.title, e.tags)]
     rows: list[dict[str, Any]] = []
     seen: set[tuple[Any, ...]] = set()
     for event, occ_date in flat:
@@ -252,9 +292,11 @@ def _event_rows_for_intent(intent: dict[str, str]) -> list[dict[str, Any]]:
         if key in seen:
             continue
         seen.add(key)
-        row = _event_dict(event)
+        row = event_dict(event)
         row["date"] = occ_date.isoformat()
         rows.append(row)
+        if len(rows) >= 8:
+            break
     return rows
 
 
@@ -309,6 +351,125 @@ def _normalize_tier2_filters_from_query(query: str, filters: Tier2Filters) -> Ti
     return filters.model_copy(update=updates)
 
 
+def _try_components(
+    q: str,
+    filters: Tier2Filters,
+    rows: list[dict[str, Any]],
+    component_meta: Optional[dict[str, Any]],
+    intent_result: IntentResult | None,
+    *,
+    parser_in: int,
+    parser_out: int,
+    telemetry: dict | None,
+) -> Optional[tuple[str, int, int, int]]:
+    """Run the day_agenda → week_strip → card_row → single_card cascade.
+
+    Returns the ``(voice, total, in_sum, out_sum)`` tuple for the first
+    component that matches, or ``None`` to signal "no structured component —
+    fall through to the prose formatter" (also the case when ``component_meta``
+    is ``None``). ``parser_in``/``parser_out`` are the parser-stage token counts
+    folded into each component's totals; they are ``0`` for the
+    precomputed-filters entry point, which skips the parser.
+
+    Shared by both Tier-2 entry points so the four-way cascade and its
+    per-component token-summing can't drift again (audit 2026-07-01).
+    """
+    if component_meta is None:
+        return None
+
+    def _finish(
+        voice: str, comp_type: str, comp_data: Any, v_in: int | None, v_out: int | None
+    ) -> tuple[str, int, int, int]:
+        component_meta["type"] = comp_type
+        component_meta["data"] = comp_data
+        in_sum = parser_in + (v_in or 0)
+        out_sum = parser_out + (v_out or 0)
+        if telemetry is not None:
+            telemetry["cache_status"] = "bypass"
+        return voice, in_sum + out_sum, in_sum, out_sum
+
+    agenda = tier2_day_agenda.try_build_day_agenda(q, filters, rows)
+    if agenda is not None:
+        voice, comp_data, v_in, v_out = agenda
+        return _finish(voice, "day_agenda", comp_data, v_in, v_out)
+
+    strip = tier2_week_strip.try_build_week_strip(q, filters, rows)
+    if strip is not None:
+        voice, comp_data, v_in, v_out = strip
+        return _finish(voice, "week_strip", comp_data, v_in, v_out)
+
+    card_row = tier2_card_row.try_build_card_row(q, filters, rows)
+    if card_row is not None:
+        voice, comp_data, v_in, v_out = card_row
+        return _finish(voice, "card_row", comp_data, v_in, v_out)
+
+    if intent_result is not None:
+        card = tier2_single_card.try_build_single_card(q, intent_result, filters, rows)
+        if card is not None:
+            comp_type, voice, comp_data, v_in, v_out = card
+            return _finish(voice, comp_type, comp_data, v_in, v_out)
+
+    return None
+
+
+def _run_formatter_with_cache(
+    q: str,
+    rows: list[dict[str, Any]],
+    *,
+    parser_in: int,
+    parser_out: int,
+    parser_cache_hit: bool,
+    telemetry: dict | None,
+) -> tuple[Optional[str], Optional[int], Optional[int], Optional[int]]:
+    """Prose-formatter path with the raw-text formatter cache (Backlog #49).
+
+    Stores/loads the *raw* LLM text and re-runs ``postprocess`` on every hit so
+    post-processor edits and confidence-tier flips take effect immediately.
+    Returns the final ``(text, total, in_sum, out_sum)``.
+
+    ``parser_in``/``parser_out`` fold in the parser-stage tokens (``0`` when the
+    parser was skipped). ``parser_cache_hit`` participates in the composite
+    ``cache_status``: a ``"hit_exact"`` requires BOTH the parser and formatter
+    caches to hit — the precomputed-filters caller passes ``True`` because it
+    has no parser stage to miss, which reproduces its prior formatter-only
+    ``cache_status`` exactly.
+
+    Shared by both Tier-2 entry points (audit 2026-07-01).
+    """
+    fmt_cache_hit = False
+    t_fmt_start = time.perf_counter()
+    with SessionLocal() as db:
+        cached_raw = tier2_cache.lookup_formatter(db, q, rows)
+        if cached_raw is not None:
+            # Backlog #49: cache stores raw LLM text. Re-run post-processors on
+            # every hit so confidence-tier flag flips and edits to
+            # ``_inject_event_url_links`` / ``_enforce_low_tier_phone`` take
+            # effect immediately instead of waiting for the 1-day TTL.
+            text, f_in, f_out = tier2_formatter.postprocess(cached_raw, rows), 0, 0
+            fmt_cache_hit = True
+        else:
+            raw_text, f_in, f_out = tier2_formatter.format(q, rows)
+            # Store the *raw* LLM output so post-processors can re-run on cache
+            # hits (see Backlog #49 / tier3_handler.py:332-334).
+            if raw_text:
+                tier2_cache.store_formatter(db, q, rows, raw_text)
+            text = tier2_formatter.postprocess(raw_text, rows)
+            fmt_cache_hit = False
+    if telemetry is not None:
+        telemetry["tier2_fmt_ms"] = int((time.perf_counter() - t_fmt_start) * 1000)
+        telemetry["tier2_fmt_cache"] = "hit_exact" if fmt_cache_hit else "miss"
+        telemetry["cache_status"] = (
+            "hit_exact" if (parser_cache_hit and fmt_cache_hit) else "miss"
+        )
+    if text is None:
+        logging.info("tier2_handler: fallback: formatter error")
+        return None, None, None, None
+
+    in_sum = parser_in + (f_in or 0)
+    out_sum = parser_out + (f_out or 0)
+    return text, in_sum + out_sum, in_sum, out_sum
+
+
 def try_tier2_with_usage(
     query: str,
     *,
@@ -340,7 +501,8 @@ def try_tier2_with_usage(
 
     event_intent = detect_event_intent(q)
     if event_intent is not None:
-        rows = _event_rows_for_intent(event_intent)
+        family_only = bool(_KIDS_FAMILY_EVENT_RE.search(q))
+        rows = _event_rows_for_intent(event_intent, family_only=family_only)
         if rows or _event_intent_has_time_bounds(event_intent):
             logging.info(
                 "tier2_handler: event-intent path when=%s rows=%d",
@@ -443,100 +605,29 @@ def try_tier2_with_usage(
 
     # BUILD.md task #12: day-shape branch. When the query asks "what's
     # happening on <day>" with multiple events, skip the long-prose
-    # formatter and emit a structured day_agenda component + a short
-    # voice line via component_meta. Existing behavior is unchanged for
-    # all other shapes.
-    if component_meta is not None:
-        agenda = tier2_day_agenda.try_build_day_agenda(q, filters, rows)
-        if agenda is not None:
-            voice, comp_data, v_in, v_out = agenda
-            component_meta["type"] = "day_agenda"
-            component_meta["data"] = comp_data
-            pi, po = (p_in or 0), (p_out or 0)
-            in_sum = pi + (v_in or 0)
-            out_sum = po + (v_out or 0)
-            total = in_sum + out_sum
-            if telemetry is not None:
-                telemetry["cache_status"] = "bypass"
-            return voice, total, in_sum, out_sum
+    # formatter and emit a structured component + a short voice line via
+    # component_meta. Existing behavior is unchanged for all other shapes.
+    components = _try_components(
+        q,
+        filters,
+        rows,
+        component_meta,
+        intent_result,
+        parser_in=(p_in or 0),
+        parser_out=(p_out or 0),
+        telemetry=telemetry,
+    )
+    if components is not None:
+        return components
 
-        strip = tier2_week_strip.try_build_week_strip(q, filters, rows)
-        if strip is not None:
-            voice, comp_data, v_in, v_out = strip
-            component_meta["type"] = "week_strip"
-            component_meta["data"] = comp_data
-            pi, po = (p_in or 0), (p_out or 0)
-            in_sum = pi + (v_in or 0)
-            out_sum = po + (v_out or 0)
-            total = in_sum + out_sum
-            if telemetry is not None:
-                telemetry["cache_status"] = "bypass"
-            return voice, total, in_sum, out_sum
-
-        card_row = tier2_card_row.try_build_card_row(q, filters, rows)
-        if card_row is not None:
-            voice, comp_data, v_in, v_out = card_row
-            component_meta["type"] = "card_row"
-            component_meta["data"] = comp_data
-            pi, po = (p_in or 0), (p_out or 0)
-            in_sum = pi + (v_in or 0)
-            out_sum = po + (v_out or 0)
-            total = in_sum + out_sum
-            if telemetry is not None:
-                telemetry["cache_status"] = "bypass"
-            return voice, total, in_sum, out_sum
-
-        if intent_result is not None:
-            card = tier2_single_card.try_build_single_card(q, intent_result, filters, rows)
-            if card is not None:
-                comp_type, voice, comp_data, v_in, v_out = card
-                component_meta["type"] = comp_type
-                component_meta["data"] = comp_data
-                pi, po = (p_in or 0), (p_out or 0)
-                in_sum = pi + (v_in or 0)
-                out_sum = po + (v_out or 0)
-                total = in_sum + out_sum
-                if telemetry is not None:
-                    telemetry["cache_status"] = "bypass"
-                return voice, total, in_sum, out_sum
-
-    fmt_cache_hit = False
-    t_fmt_start = time.perf_counter()
-    with SessionLocal() as db:
-        cached_raw = tier2_cache.lookup_formatter(db, q, rows)
-        if cached_raw is not None:
-            # Backlog #49: cache stores raw LLM text. Re-run post-processors
-            # on every hit so confidence-tier flag flips and edits to
-            # ``_inject_event_url_links`` / ``_enforce_low_tier_phone`` take
-            # effect immediately instead of waiting for the 1-day TTL.
-            text, f_in, f_out = tier2_formatter.postprocess(cached_raw, rows), 0, 0
-            fmt_cache_hit = True
-        else:
-            raw_text, f_in, f_out = tier2_formatter.format(q, rows)
-            # Store the *raw* LLM output so post-processors can re-run on
-            # cache hits (see Backlog #49 / tier3_handler.py:332-334).
-            if raw_text:
-                tier2_cache.store_formatter(db, q, rows, raw_text)
-            text = tier2_formatter.postprocess(raw_text, rows)
-            fmt_cache_hit = False
-    fmt_ms = int((time.perf_counter() - t_fmt_start) * 1000)
-    if telemetry is not None:
-        telemetry["tier2_fmt_ms"] = fmt_ms
-        telemetry["tier2_fmt_cache"] = "hit_exact" if fmt_cache_hit else "miss"
-        if parser_cache_hit and fmt_cache_hit:
-            telemetry["cache_status"] = "hit_exact"
-        else:
-            telemetry["cache_status"] = "miss"
-    if text is None:
-        logging.info("tier2_handler: fallback: formatter error")
-        return None, None, None, None
-
-    pi, po = (p_in or 0), (p_out or 0)
-    fi, fo = (f_in or 0), (f_out or 0)
-    in_sum = pi + fi
-    out_sum = po + fo
-    total = in_sum + out_sum
-    return text, total, in_sum, out_sum
+    return _run_formatter_with_cache(
+        q,
+        rows,
+        parser_in=(p_in or 0),
+        parser_out=(p_out or 0),
+        parser_cache_hit=parser_cache_hit,
+        telemetry=telemetry,
+    )
 
 
 def answer_with_tier2(query: str) -> Optional[str]:
@@ -581,81 +672,27 @@ def try_tier2_with_filters_with_usage(
         logging.info("tier2_handler: fallback: no matches")
         return None, None, None, None
 
-    if component_meta is not None:
-        agenda = tier2_day_agenda.try_build_day_agenda(q, filters, rows)
-        if agenda is not None:
-            voice, comp_data, v_in, v_out = agenda
-            component_meta["type"] = "day_agenda"
-            component_meta["data"] = comp_data
-            in_sum = v_in or 0
-            out_sum = v_out or 0
-            total = in_sum + out_sum
-            if telemetry is not None:
-                telemetry["cache_status"] = "bypass"
-            return voice, total, in_sum, out_sum
+    # The precomputed-filters entry point skips the parser, so parser-stage
+    # tokens are 0 and ``parser_cache_hit=True`` makes the composite
+    # ``cache_status`` collapse to formatter-only (its prior behavior).
+    components = _try_components(
+        q,
+        filters,
+        rows,
+        component_meta,
+        intent_result,
+        parser_in=0,
+        parser_out=0,
+        telemetry=telemetry,
+    )
+    if components is not None:
+        return components
 
-        strip = tier2_week_strip.try_build_week_strip(q, filters, rows)
-        if strip is not None:
-            voice, comp_data, v_in, v_out = strip
-            component_meta["type"] = "week_strip"
-            component_meta["data"] = comp_data
-            in_sum = v_in or 0
-            out_sum = v_out or 0
-            total = in_sum + out_sum
-            if telemetry is not None:
-                telemetry["cache_status"] = "bypass"
-            return voice, total, in_sum, out_sum
-
-        card_row = tier2_card_row.try_build_card_row(q, filters, rows)
-        if card_row is not None:
-            voice, comp_data, v_in, v_out = card_row
-            component_meta["type"] = "card_row"
-            component_meta["data"] = comp_data
-            in_sum = v_in or 0
-            out_sum = v_out or 0
-            total = in_sum + out_sum
-            if telemetry is not None:
-                telemetry["cache_status"] = "bypass"
-            return voice, total, in_sum, out_sum
-
-        if intent_result is not None:
-            card = tier2_single_card.try_build_single_card(q, intent_result, filters, rows)
-            if card is not None:
-                comp_type, voice, comp_data, v_in, v_out = card
-                component_meta["type"] = comp_type
-                component_meta["data"] = comp_data
-                in_sum = v_in or 0
-                out_sum = v_out or 0
-                total = in_sum + out_sum
-                if telemetry is not None:
-                    telemetry["cache_status"] = "bypass"
-                return voice, total, in_sum, out_sum
-
-    fmt_cache_hit = False
-    t_fmt_start = time.perf_counter()
-    with SessionLocal() as db:
-        cached_raw = tier2_cache.lookup_formatter(db, q, rows)
-        if cached_raw is not None:
-            # Backlog #49: cache stores raw LLM text -- post-process on hit so
-            # confidence-tier flag flips apply without waiting for TTL.
-            text, f_in, f_out = tier2_formatter.postprocess(cached_raw, rows), 0, 0
-            fmt_cache_hit = True
-        else:
-            raw_text, f_in, f_out = tier2_formatter.format(q, rows)
-            # Store the *raw* LLM output (see Backlog #49 / tier3_handler.py).
-            if raw_text:
-                tier2_cache.store_formatter(db, q, rows, raw_text)
-            text = tier2_formatter.postprocess(raw_text, rows)
-            fmt_cache_hit = False
-    if telemetry is not None:
-        telemetry["tier2_fmt_ms"] = int((time.perf_counter() - t_fmt_start) * 1000)
-        telemetry["tier2_fmt_cache"] = "hit_exact" if fmt_cache_hit else "miss"
-        telemetry["cache_status"] = "hit_exact" if fmt_cache_hit else "miss"
-    if text is None:
-        logging.info("tier2_handler: fallback: formatter error")
-        return None, None, None, None
-
-    in_sum = f_in or 0
-    out_sum = f_out or 0
-    total = in_sum + out_sum
-    return text, total, in_sum, out_sum
+    return _run_formatter_with_cache(
+        q,
+        rows,
+        parser_in=0,
+        parser_out=0,
+        parser_cache_hit=True,
+        telemetry=telemetry,
+    )

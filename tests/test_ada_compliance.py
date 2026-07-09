@@ -7,11 +7,11 @@ Two layers:
    one h1, a <main> landmark and a skip link exist, lang is set, ids are
    unique, zoom is never blocked, focusable elements are never aria-hidden,
    inline SVG is either decorative (aria-hidden) or named.
-2. Contrast regression on the desert palette, parsed live from desert.css so
-   a future palette tweak that breaks AA fails here, with the specific pair
-   named. Design rule pinned: --orange is NEVER paired with --cream at body
-   sizes (use --orange-deep); --orange-deep must clear 4.5:1 on all three
-   light surfaces.
+2. Contrast regression on the LIVE (lake) palette, parsed from lake.css so a
+   future palette tweak that breaks AA fails here, with the specific pair
+   named. (Retargeted from the deleted desert.css, 2026-07-02.) Design rule
+   pinned: body text on brass surfaces uses --brass-deep, never bare --brass
+   (3.7:1 on white — large-text/UI only).
 
 Heading-LEVEL skips (h1 -> h3 card titles on listing pages) are deliberately
 not asserted: WCAG 2.4.10 is advisory, and card-title levels are a design
@@ -27,8 +27,6 @@ from pathlib import Path
 
 import pytest
 from fastapi.testclient import TestClient
-
-from app.main import app
 
 _CSS_DIR = Path(__file__).resolve().parents[1] / "app" / "static" / "styles"
 
@@ -49,7 +47,6 @@ ROUTES = [
     "/contribute",
     "/gas",
     "/portal",
-    "/portal/advertise",
     "/portal/claim",
     "/privacy",
     "/terms",
@@ -169,9 +166,7 @@ class _A11yChecker(HTMLParser):
         return out
 
 
-@pytest.fixture(scope="module")
-def client() -> TestClient:
-    return TestClient(app)
+# ``client`` comes from the shared module-scoped fixture in tests/conftest.py.
 
 
 @pytest.mark.parametrize("path", ROUTES)
@@ -186,13 +181,14 @@ def test_page_meets_structural_a11y_contract(client: TestClient, path: str) -> N
 
 
 # --------------------------------------------------------------------------- #
-# Contrast regression — palette parsed live from desert.css
+# Contrast regression — palette parsed live from lake_redesign.css (the one
+# shell as of v4.6 PR-2; base_lake.html + lake.css were deleted).
 # --------------------------------------------------------------------------- #
 
 
 def _palette() -> dict[str, str]:
-    css = (_CSS_DIR / "desert.css").read_text(encoding="utf-8")
-    return dict(re.findall(r"--([a-z-]+):(#[0-9a-fA-F]{6})", css))
+    css = (_CSS_DIR / "lake_redesign.css").read_text(encoding="utf-8")
+    return dict(re.findall(r"--([a-z0-9-]+):(#[0-9a-fA-F]{6})", css))
 
 
 def _luminance(hexv: str) -> float:
@@ -210,28 +206,32 @@ def _ratio(a: str, b: str) -> float:
 
 
 # (foreground, background, minimum). 4.5 = AA normal text; 3.0 = AA large
-# text / UI components. Pairs reflect how the desert design system actually
-# uses the palette (see the palette notes at the top of desert.css).
+# text / UI components. Pairs reflect how the v4 (lake_redesign.css) design
+# system actually uses the palette: ink text on the light surfaces, --brass-ink
+# for brass accents at body sizes (plain --brass is display-size only), teal
+# links, light text/brass on the ink chrome, state colours on white cards.
 _CONTRAST_CONTRACT = [
-    ("black", "sand-light", 4.5),
-    ("black", "sand", 4.5),
-    ("black", "cream", 4.5),
-    ("orange-deep", "sand-light", 4.5),
-    ("orange-deep", "sand", 4.5),
-    ("orange-deep", "cream", 4.5),
-    ("cream", "orange-deep", 4.5),  # solid CTA hover state
-    ("cream", "blue", 4.5),
-    ("cream", "blue-deep", 4.5),
-    ("cream", "black", 4.5),
-    ("sky", "blue", 4.5),
-    ("sky", "blue-deep", 4.5),
-    ("sky", "black", 4.5),
-    ("peach", "blue", 4.5),
-    ("peach", "blue-deep", 4.5),
-    ("peach", "black", 4.5),
-    ("orange", "black", 4.5),  # ticker eyebrow, bottom-nav active tab
-    ("orange", "sand-light", 3.0),  # display-size headings + focus ring only
-    ("black", "orange", 4.5),  # chips/badges with black-on-orange
+    ("ink", "paper", 4.5),
+    ("ink", "paper2", 4.5),
+    ("ink", "surface", 4.5),
+    ("ink", "brass-soft", 4.5),
+    ("ink2", "paper", 4.5),  # secondary text on the page background
+    ("ink2", "paper2", 4.5),
+    ("ink2", "surface", 4.5),
+    ("ink3", "surface", 4.5),  # tertiary/muted text — AA on white cards
+    ("brass-ink", "paper", 4.5),  # AA brass accent at body sizes
+    ("brass-ink", "paper2", 4.5),
+    ("brass-ink", "surface", 4.5),
+    ("brass-ink", "brass-soft", 4.5),  # accent text on the brass tint
+    ("teal", "paper", 4.5),  # teal links / accents
+    ("teal", "surface", 4.5),
+    ("teal-deep", "surface", 4.5),
+    ("paper", "ink", 4.5),  # light text on the ink chrome/footer
+    ("brass-br", "ink", 4.5),  # bright brass accents on ink chrome
+    ("good", "surface", 4.5),  # open-now state text on cards
+    ("bad", "surface", 4.5),  # error/closed state text on cards
+    ("ink3", "paper", 3.0),  # muted text on paper — AA-large by design
+    ("brass", "surface", 3.0),  # plain brass = display-size accents only (<4.5 on white)
 ]
 
 

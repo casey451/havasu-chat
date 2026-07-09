@@ -17,10 +17,11 @@ from app.main import app
 _MOCK_NUMBERS = ("12 happy hours", "6 kid events", "4 live music", "448.7", "280 places")
 
 
+# C11: /lake no longer renders a mode landing — it 301-redirects to the Lake
+# Life category (covered by tests/test_lake_redirect.py). Night/Family stay.
 @pytest.mark.parametrize(
     ("path", "mode", "heading"),
     [
-        ("/lake", "lake", "Everything for a day on the water"),
         ("/night", "night", "Where the night goes"),
         ("/family", "family", "Plenty to do with the kids"),
     ],
@@ -30,13 +31,12 @@ def test_mode_landing_renders_pretheme_and_real_links(path: str, mode: str, head
         r = client.get(path)
     assert r.status_code == 200
     body = r.text
-    # Pre-themed server-side (Night fires its dark transformation here).
-    assert f'data-mode="{mode}"' in body
+    # v4.5 PR-5: the Family/Night landings wear the standalone v4 shell — the
+    # desert in-page mode-switcher + data-mode dark transformation are retired
+    # (the v4 six-link header is the navigation; v4 has a single lake theme).
     assert heading in body
-    assert "/static/styles/desert.css" in body  # Desert Modern reskin
-    # Active mode control is stamped (now the in-page mode switcher pills).
-    assert f'href="/{mode}" data-mode="{mode}"' in body
-    assert "aria-current=\"page\"" in body
+    assert 'data-theme="lake"' in body  # Lake Ink & Brass is the only theme now
+    assert "/static/styles/lake_redesign.css" in body
     # Sub-tiles are navigation to real destinations only.
     assert "/categories/" in body or "/chat?q=" in body
     # Anti-confabulation: none of the prototype's mock counters.
@@ -44,24 +44,33 @@ def test_mode_landing_renders_pretheme_and_real_links(path: str, mode: str, head
         assert mock not in body, f"{path} leaked mock counter: {mock}"
 
 
-def test_night_landing_has_no_lime_and_real_dark_palette() -> None:
-    """Night landing loads in the hot-pink/teal/black party palette (data-mode)."""
+def test_night_landing_on_v4_shell_single_theme() -> None:
+    """v4.5 PR-5: /night is on the v4 shell — one lake theme, no desert dark
+    transformation (data-mode is gone)."""
     with TestClient(app) as client:
         r = client.get("/night")
-    assert 'data-mode="night"' in r.text
+    assert 'data-theme="lake"' in r.text
+    assert 'data-mode="night"' not in r.text
+    assert "/static/styles/desert_home.css" not in r.text
 
 
 def test_mode_landing_data_contract() -> None:
+    # /night is the ONLY remaining mode landing: WS10 gave /lake, /family and
+    # /seniors their own routes/templates, so their _MODE_CONFIG entries were
+    # removed as dead. (/lake had also 301'd since IA v2 before WS10.)
     with SessionLocal() as db:
-        lake = sandstone.mode_landing(db, "lake")
         night = sandstone.mode_landing(db, "night")
-    # Every landing ships exactly six navigation sub-tiles, each with a real url.
-    assert len(lake["tiles"]) == 6
-    for tile in lake["tiles"]:
-        assert tile["url"].startswith(("/categories/", "/chat?q="))
-    # Lake hero may carry live mini-conditions; Night never shows a fake counter.
-    assert isinstance(lake["mini_conditions"], list)
+    # Every landing ships navigation sub-tiles, each with a real url.
+    assert night["tiles"]
+    for tile in night["tiles"]:
+        assert tile["url"].startswith(("/categories/", "/chat?q=", "/events-ui", "/calendar"))
+    # Night never shows a fake counter (anti-confabulation §4.10).
     assert night["mini_conditions"] == []
+    # The de-configured modes now raise (no landing behind them).
+    with SessionLocal() as db, pytest.raises(KeyError):
+        sandstone.mode_landing(db, "lake")
+    with SessionLocal() as db, pytest.raises(KeyError):
+        sandstone.mode_landing(db, "family")
 
 
 def test_unknown_mode_raises() -> None:
@@ -81,19 +90,12 @@ def test_night_and_family_link_to_events() -> None:
         assert 'href="/events-ui"' in body
 
 
-def test_lake_conditions_block_links_to_today() -> None:
-    """The Lake hero conditions strip deep-links to the full /today board.
-
-    Skips cleanly if no live mini-conditions are available in the test DB (the
-    strip -- and therefore the link -- is omitted when there's no live data).
-    """
-    with SessionLocal() as db:
-        has_conditions = bool(sandstone.mode_landing(db, "lake")["mini_conditions"])
-    with TestClient(app) as client:
-        body = client.get("/lake").text
-    if has_conditions:
-        assert 'class="mini-cond mini-cond--link" href="/today"' in body
-    # /night has no mini-conditions, so it must NOT carry the conditions link.
+def test_night_has_no_conditions_link() -> None:
+    """C11 removed the served /lake hero (it now redirects to the Lake Life
+    category), so the only remaining assertion here is the negative one: /night
+    has no live mini-conditions and therefore must NOT carry the conditions
+    deep-link. The lake mini-conditions DATA is still exercised by
+    test_mode_landing_data_contract."""
     with TestClient(app) as client:
         night = client.get("/night").text
     assert "mini-cond--link" not in night

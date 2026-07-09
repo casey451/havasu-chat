@@ -1,0 +1,25 @@
+{% extends "base_redesign.html" %}
+{#- Lake Contact page (GET /contact, public, indexable). Ports the page-editorial
+   layout, bound to the real contact copy. -#}
+{% block title %}Contact — Ask Hava{% endblock %}
+{% block meta_description %}Contact Ask Hava — reach our team, report wrong info, or get your Lake Havasu business listed.{% endblock %}
+{% block head_extra %}
+{% endblock %}
+{% block main %}
+<div class="artx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Home</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Contact</span></nav>
+  <div class="ah">
+    <span class="eyebrow">Get in touch</span>
+    <h1>Contact <em>us.</em></h1>
+  </div>
+  <article class="article">
+    <p class="lead">We read everything. The fastest way to reach a human is email.</p>
+    <h2>Email</h2>
+    <p><a href="mailto:hello@askhava.com">hello@askhava.com</a></p>
+    <h2>Report wrong info</h2>
+    <p>See an error on a listing or event? Email <a href="mailto:hello@askhava.com?subject=Report%20wrong%20info">hello@askhava.com</a> with the page and what's off, and we'll fix it.</p>
+    <h2>Add {% if claim_surfaces_enabled() %}or claim {% endif %}a business</h2>
+    <p>Want your business on Ask Hava? <a href="/contribute">Add it to Hava</a>{% if claim_surfaces_enabled() %}, or sign in to <a href="/account">your account</a> to claim an existing listing{% endif %}.</p>
+  </article>
+</div>
+{% endblock %}

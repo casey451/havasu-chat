@@ -213,6 +213,52 @@ def test_is_sponsored_pill_data() -> None:
         db.commit()
 
 
+def test_paid_placement_sets_is_sponsored_honesty_gate() -> None:
+    """A provider with an active paid placement carries the Sponsored label even
+    when its legacy ``tier`` is not ``"sponsored"`` — and only when its id is in
+    the surface's placement-paid set."""
+    suf = uuid.uuid4().hex[:8]
+    now = datetime(2026, 1, 5, 12, 0, 0, tzinfo=LAKE_HAVASU_TZ)
+    with SessionLocal() as db:
+        p = Provider(
+            provider_name=f"Paid Placement {suf}",
+            category="home_services",
+            verified=True,
+            tier="free",  # NOT the legacy sponsored tier
+            draft=False,
+            is_active=True,
+            pending_review=False,
+            source="test-phase6",
+            hours_structured={"monday": [{"open": "09:00", "close": "17:00"}]},
+        )
+        db.add(p)
+        db.commit()
+        eid = p.entity_id
+
+        # Without the paid set: legacy tier rules, so not sponsored.
+        vm_off = queries.build_card_view_model(db, eid, now=now)
+        assert vm_off is not None
+        assert vm_off.is_sponsored is False
+
+        # With the provider id in the paid set: badge shows (honesty gate).
+        vm_on = queries.build_card_view_model(
+            db, eid, now=now, sponsored_provider_ids={p.id}
+        )
+        assert vm_on is not None
+        assert vm_on.is_sponsored is True
+
+        # Unrelated id in the set leaves this card unlabeled.
+        vm_other = queries.build_card_view_model(
+            db, eid, now=now, sponsored_provider_ids={"some-other-provider-id"}
+        )
+        assert vm_other is not None
+        assert vm_other.is_sponsored is False
+
+        db.execute(delete(Provider).where(Provider.id == p.id))
+        db.execute(delete(Entity).where(Entity.id == eid))
+        db.commit()
+
+
 def test_heat_exposure_pill_and_boat_badge() -> None:
     suf = uuid.uuid4().hex[:8]
     now = datetime(2026, 1, 5, 12, 0, 0, tzinfo=LAKE_HAVASU_TZ)

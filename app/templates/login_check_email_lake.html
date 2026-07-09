@@ -1,0 +1,26 @@
+{% extends "base_redesign.html" %}
+{#- Lake "check your email" confirmation. Reached after POST /api/auth/request-link
+   (link sent or rate-limited). Resend re-POSTs the known email to the same,
+   server-rate-limited endpoint; "different email" is a plain GET back to /login. -#}
+{% block title %}Check your email — Ask Hava{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+{% endblock %}
+{% block main %}
+<div class="authx">
+  <div class="authwrap">
+    <p class="eyebrow">Sign-in email sent</p>
+    <h1>Check your <em>inbox.</em></h1>
+    <p class="lede">If <strong>{{ email }}</strong> can receive mail from us, a link is on its way.</p>
+    <p class="lede">It expires in 15 minutes. Didn't get it? Check your spam or promotions folder, then resend below.</p>
+    <div class="row">
+      <form action="/api/auth/request-link" method="post">
+        <input type="hidden" name="email" value="{{ email }}">
+        {% if next_path %}<input type="hidden" name="next" value="{{ next_path }}">{% endif %}
+        <button class="btn btn-primary" type="submit">Resend the link</button>
+      </form>
+      <a class="btn btn-ghost" href="/login">Use a different email</a>
+    </div>
+  </div>
+</div>
+{% endblock %}

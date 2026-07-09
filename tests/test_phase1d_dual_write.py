@@ -17,6 +17,7 @@ from app.db.models import (
     ContactPoint,
     Entity,
     Event,
+    Hours,
     Location,
     Program,
     Provider,
@@ -56,6 +57,66 @@ def test_create_provider_and_entity_writes_entity_and_extensions() -> None:
             db.scalars(select(SourceEvidence).where(SourceEvidence.entity_id == ent.id)).first()
             is not None
         )
+
+
+def test_dual_write_materializes_hours_from_google_hours() -> None:
+    # A Google-loaded provider carries google_hours but NULL hours_structured;
+    # the dual-write should still materialize Entity Hours rows from google_hours.
+    with SessionLocal() as db:
+        p = Provider(
+            id="p1d-hours-gh",
+            provider_name="Google Hours Provider",
+            category="food_drink",
+            source="google_places",
+            slug="google-hours-provider",
+            hours_structured=None,
+            google_hours={
+                "periods": [
+                    {"open": {"day": 1, "hour": 9, "minute": 0},
+                     "close": {"day": 1, "hour": 17, "minute": 30}},
+                    {"open": {"day": 2, "hour": 8, "minute": 0},
+                     "close": {"day": 2, "hour": 16, "minute": 0}},
+                ]
+            },
+        )
+        db.add(p)
+        create_provider_and_entity(db, p)
+        db.commit()
+
+    with SessionLocal() as db:
+        p2 = db.get(Provider, "p1d-hours-gh")
+        rows = db.scalars(select(Hours).where(Hours.entity_id == p2.entity_id)).all()
+        by_day = {h.day_of_week: (h.opens_at, h.closes_at) for h in rows}
+        assert by_day[0] == (time(9, 0), time(17, 30))  # Monday
+        assert by_day[1] == (time(8, 0), time(16, 0))    # Tuesday
+
+
+def test_dual_write_prefers_curated_hours_structured_over_google_hours() -> None:
+    # When hours_structured is present it wins; google_hours is not consulted.
+    with SessionLocal() as db:
+        p = Provider(
+            id="p1d-hours-curated",
+            provider_name="Curated Hours Provider",
+            category="food_drink",
+            source="admin",
+            slug="curated-hours-provider",
+            hours_structured={"monday": [{"open": "10:00", "close": "14:00"}]},
+            google_hours={
+                "periods": [
+                    {"open": {"day": 1, "hour": 9, "minute": 0},
+                     "close": {"day": 1, "hour": 17, "minute": 0}},
+                ]
+            },
+        )
+        db.add(p)
+        create_provider_and_entity(db, p)
+        db.commit()
+
+    with SessionLocal() as db:
+        p2 = db.get(Provider, "p1d-hours-curated")
+        rows = db.scalars(select(Hours).where(Hours.entity_id == p2.entity_id)).all()
+        assert len(rows) == 1
+        assert (rows[0].day_of_week, rows[0].opens_at, rows[0].closes_at) == (0, time(10, 0), time(14, 0))
 
 
 def test_create_event_and_entity_writes_schedule_and_evidence() -> None:

@@ -1,0 +1,57 @@
+{% extends "portal_base.html" %}
+{% block title %}Search intelligence{% endblock %}
+{% block content %}
+<h1>Search intelligence</h1>
+<p class="sub">Anonymized search intent from <span class="mono">query_log</span> — what people look for, what comes up empty, and where it routes.</p>
+
+<div class="filters">
+  <span class="muted">Window:</span>
+  {% for w in windows %}<a href="?window={{ w }}" {% if window == w %}class="chip accent"{% endif %}>{{ w }}</a>{% endfor %}
+  <span class="muted">· {{ total_queries }} queries logged</span>
+</div>
+
+<div class="cols2">
+  <div>
+    <h2>Top queries</h2>
+    <table>
+      <tr><th>Query</th><th>Count</th><th>Avg results</th><th>Empty</th></tr>
+      {% for q, n, avg, zero in top_queries %}
+      <tr><td>{{ q }}</td><td>{{ n }}</td><td>{{ avg }}</td><td>{% if zero %}<span class="chip warn">{{ zero }}</span>{% else %}0{% endif %}</td></tr>
+      {% else %}<tr><td colspan="4" class="muted">No queries in this window.</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div>
+    <h2>Zero-result queries</h2>
+    <p class="muted" style="margin-top:-4px;font-size:13px">Demand you don't yet cover — candidates for new listings/categories.</p>
+    <table>
+      <tr><th>Query</th><th>Count</th></tr>
+      {% for q, n in zero_result_queries %}
+      <tr><td>{{ q }}</td><td>{{ n }}</td></tr>
+      {% else %}<tr><td colspan="2" class="muted">No empty searches — nice.</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+
+<div class="cols2">
+  <div>
+    <h2>Query → category flow</h2>
+    <p class="muted" style="margin-top:-4px;font-size:13px">Which directory category each search resolved into. (Listing-grain click flows need a session join key the schema doesn't carry yet — see follow-ups.)</p>
+    <table>
+      <tr><th>Category</th><th>Searches</th></tr>
+      {% for cat, n in category_flow %}
+      <tr><td>{{ cat }}</td><td>{{ n }}</td></tr>
+      {% else %}<tr><td colspan="2" class="muted">No categorized searches yet.</td></tr>{% endfor %}
+    </table>
+  </div>
+  <div>
+    <h2>Answer-layer mix</h2>
+    <p class="muted" style="margin-top:-4px;font-size:13px">Which matcher layer resolved each turn.</p>
+    <table>
+      <tr><th>Layer</th><th>Turns</th></tr>
+      {% for layer, n in layer_mix %}
+      <tr><td class="mono">{{ layer }}</td><td>{{ n }}</td></tr>
+      {% else %}<tr><td colspan="2" class="muted">No layer telemetry yet.</td></tr>{% endfor %}
+    </table>
+  </div>
+</div>
+{% endblock %}

@@ -1,0 +1,92 @@
+{% extends "base_redesign.html" %}
+{#- WS10 /family hub (v4 language). Real, server-rendered content only — no /chat
+   deep-link tiles. Sections (each honest-omit when empty):
+     * subcategory tiles → real /categories/... leaf lists (camps, classes, parks, arcades)
+     * Today for kids → the ?family=1 narrow for today (family_hub.kids_today_rows)
+     * Open now → indoor/family-fun venues open today (family_venues.open_today_rows)
+     * Summer camps → preview of the /family/camps index
+   Zero-emoji (§0). -#}
+{% from "components/redesign_icons.html" import icon %}
+{% block title %}Ask Hava — {{ heading }}{% endblock %}
+{% block meta_description %}{{ blurb }}{% endblock %}
+
+{% block main %}
+<div class="famx">
+  <div class="pagehead">
+    <span class="eyebrow">{{ eyebrow }}</span>
+    <h1 class="serif">{{ heading }}</h1>
+    <p class="dsub">{{ blurb }}</p>
+  </div>
+
+  <div class="sec-head famhd">
+    <h2 class="serif">For the kids</h2>
+    <a class="showall" href="/events-ui">This week's events {{ icon('arrow', 14) }}</a>
+  </div>
+  <div class="famgrid">
+    {% for t in tiles %}
+    <a class="famtile" href="{{ t.url }}">
+      <div class="ft serif">{{ t.label }}</div>
+      {% if t.blurb %}<div class="fn">{{ t.blurb }}</div>{% endif %}
+      <span class="fgo" aria-hidden="true">{{ icon('arrow', 14) }}</span>
+    </a>
+    {% endfor %}
+  </div>
+
+  {# Today's kid-friendly events — the same ?family=1 narrow the calendar uses.
+     Hidden when nothing's on (never a fabricated row). #}
+  {% if kids_today %}
+  <div class="sec-head famhd">
+    <h2 class="serif">Today for kids</h2>
+    <a class="showall" href="/events-ui?family=1">All kids events {{ icon('arrow', 14) }}</a>
+  </div>
+  <div class="famgrid">
+    {% for k in kids_today %}
+    <a class="famtile" href="{{ k.url }}">
+      <div class="ft serif">{{ k.title }}</div>
+      {% set meta = [k.time_label, k.venue]|select|join(' · ') %}
+      {% if meta %}<div class="fn">{{ meta }}</div>{% endif %}
+      <span class="fgo" aria-hidden="true">{{ icon('arrow', 14) }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# Beat the heat — indoor / family-fun venues open today (real curated hours). #}
+  {% if open_today %}
+  <div class="sec-head famhd">
+    <h2 class="serif">Open now — beat the heat</h2>
+  </div>
+  <p class="dsub">Indoor play, arcades and bowling open today.</p>
+  <div class="famgrid">
+    {% for v in open_today %}
+    <a class="famtile" href="{{ v.url }}" target="_blank" rel="noopener nofollow">
+      <div class="ft serif">{{ v.title }}</div>
+      {% set meta = [v.time_label, v.venue]|select|join(' · ') %}
+      {% if meta %}<div class="fn">{{ meta }}</div>{% endif %}
+      <span class="fgo" aria-hidden="true">{{ icon('arrow', 14) }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {# Summer camps — a preview of the full /family/camps index. #}
+  <div class="sec-head famhd">
+    <h2 class="serif">Summer camps</h2>
+    <a class="showall" href="{{ camps_url }}">All camps {{ icon('arrow', 14) }}</a>
+  </div>
+  {% if camps %}
+  <div class="famgrid">
+    {% for c in camps %}
+    <a class="famtile" href="{{ c.url }}">
+      <div class="ft serif">{{ c.title }}</div>
+      {% set meta = [c.when, c.venue]|select|join(' · ') %}
+      {% if meta %}<div class="fn">{{ meta }}</div>{% endif %}
+      <span class="fgo" aria-hidden="true">{{ icon('arrow', 14) }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="dsub">No camps posted yet — the <a href="{{ camps_url }}">camps page</a> fills in as summer programs are announced.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -1,0 +1,44 @@
+{% extends "base_redesign.html" %}
+{% set account_active = "favorites" %}
+{#- Lake saved-listings page (/account/favorites, auth-gated). Same context as
+   account_favorites.html: {user, favorites:[{name, href}]}. Live-or-omit —
+   provider-backed rows link out; non-favouritable rows render as plain text. -#}
+{% block title %}Saved listings — Ask Hava{% endblock %}
+{% block meta_description %}Your saved Lake Havasu City listings on Ask Hava — the local places you've kept for later.{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+{% endblock %}
+{% block main %}
+<div class="acctx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/account">My account</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Saved listings</span></nav>
+  <div class="pagehead">
+    <h1>Saved listings</h1>
+    <p class="sub">Signed in as <strong>{{ user.email }}</strong>.</p>
+  </div>
+  <div class="acct">
+    {% include "_partials/lake_account_nav.html" %}
+    <div>
+      {% if not favorites %}
+      <div class="empty"><p>No saved listings yet. Tap the heart on any listing to keep it here.</p></div>
+      {% else %}
+      <div class="card">
+        {% for f in favorites %}
+        {% if f.href %}
+        <a class="srow" href="{{ f.href }}">
+          <span class="mono" aria-hidden="true">{{ (f.name or '?')[:2] | upper }}</span>
+          <span class="bb"><span class="t">{{ f.name | clean_name }}</span></span>
+          <span class="chev" aria-hidden="true">&rsaquo;</span>
+        </a>
+        {% else %}
+        <div class="srow">
+          <span class="mono" aria-hidden="true">{{ (f.name or '?')[:2] | upper }}</span>
+          <span class="bb"><span class="t">{{ f.name | clean_name }}</span></span>
+        </div>
+        {% endif %}
+        {% endfor %}
+      </div>
+      {% endif %}
+    </div>
+  </div>
+</div>
+{% endblock %}

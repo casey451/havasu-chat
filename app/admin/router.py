@@ -17,15 +17,17 @@ from app.admin.auth import (
     MAX_AGE_SECONDS,
     admin_password_ok,
     sign_admin_cookie,
-    verify_admin_cookie,
 )
+from app.admin.auth import admin_guard as _guard
 from app.admin.categories_html import register_categories_html_routes
 from app.admin.category_flags_html import register_category_flags_html_routes
 from app.admin.contributions_html import register_contribution_html_routes
 from app.admin.events_html import register_events_html_routes
 from app.admin.feedback_html import register_feedback_html_routes
 from app.admin.jobs_html import register_jobs_html_routes
+from app.admin.link_health_html import register_link_health_html_routes
 from app.admin.mentions_html import register_mentions_html_routes
+from app.admin.placement_analytics_html import register_placement_analytics_html_routes
 from app.admin.provider_approval import pending_provider_count
 from app.admin.provider_merge_review import duplicate_pair_count
 from app.admin.sponsor_surface import register_sponsor_admin_routes
@@ -57,16 +59,6 @@ _CLAIM_VERIFICATION_METHODS: frozenset[str] = frozenset(
     }
 )
 
-
-def _guard(request: Request) -> RedirectResponse | None:
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    current_user = getattr(request.state, "current_user", None)
-    if current_user is not None and getattr(current_user, "role", None) == "admin":
-        return None
-    if current_user is not None:
-        raise HTTPException(status_code=403, detail="admin_only")
-    return RedirectResponse(url="/admin/login", status_code=302)
 
 
 def _utc_now() -> datetime:
@@ -724,22 +716,20 @@ def admin_dashboard(
 
     sort_eff = _effective_sort(tab, sort)
 
-    pending_q = db.query(Event).filter(Event.status == "pending_review")
+    # Only the ACTIVE tab's rows are rendered (audit 2026-07-01): both tabs
+    # used to be fully materialized on every dashboard hit — including each
+    # event's 1536-float embedding JSON — with one list discarded unrendered.
+    status = "live" if tab == "live" else "pending_review"
+    q = db.query(Event).filter(Event.status == status)
     if sort_eff == "newest":
-        pending = pending_q.order_by(desc(Event.created_at)).all()
+        rows = q.order_by(desc(Event.created_at)).all()
     elif sort_eff == "oldest":
-        pending = pending_q.order_by(asc(Event.created_at)).all()
+        rows = q.order_by(asc(Event.created_at)).all()
     else:
-        pending = pending_q.order_by(asc(Event.date), asc(Event.start_time)).all()
+        rows = q.order_by(asc(Event.date), asc(Event.start_time)).all()
 
-    live_q = db.query(Event).filter(Event.status == "live")
-    if sort_eff == "newest":
-        live = live_q.order_by(desc(Event.created_at)).all()
-    elif sort_eff == "oldest":
-        live = live_q.order_by(asc(Event.created_at)).all()
-    else:
-        live = live_q.order_by(asc(Event.date), asc(Event.start_time)).all()
-
+    pending = [] if tab == "live" else rows
+    live = rows if tab == "live" else []
     return HTMLResponse(_dashboard_html_simple(pending, live, tab, sort_eff))
 
 
@@ -2258,7 +2248,9 @@ register_contribution_html_routes(router)
 register_events_html_routes(router)
 register_jobs_html_routes(router)
 register_mentions_html_routes(router)
+register_placement_analytics_html_routes(router)
 register_categories_html_routes(router)
 register_category_flags_html_routes(router)
+register_link_health_html_routes(router)
 register_feedback_html_routes(router)
 register_sponsor_admin_routes(router)

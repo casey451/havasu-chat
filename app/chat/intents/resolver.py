@@ -103,6 +103,30 @@ _EVENT_WORDS = (
 # fall through to the service dict ("event planner" is a SERVICE_DICT key).
 _EVENT_SERVICE_SKIP = ("planner", "planners", "planning", "rentals", "rental")
 
+# 2026-06-13 (P1-2 / P2-2 root cause): weather-coping asks ("what should I do when
+# it's too hot", "things to do to beat the heat") wear a generic event word
+# ("what should i do" / "to do") but are how-do-I-cope questions, not an events
+# browse. Without this guard the events branch claimed them and answered with a
+# swim-heavy events list (the Aquatic Center over-reliance). With it they fall
+# through to Tier 3 for a real "beat the heat" answer.
+_EVENT_WEATHER_SKIP = (
+    "too hot",
+    "beat the heat",
+    "beat heat",
+    "escape the heat",
+    "in the heat",
+    "when it's hot",
+    "when it is hot",
+    "when its hot",
+    "stay cool",
+    "keep cool",
+    "cool off",
+    "cool down",
+    "when it rains",
+    "when it's raining",
+    "when it is raining",
+)
+
 _OPEN_NOW_RE = re.compile(
     r"\bopen\s+(now|right now|late|tonight)\b"
     r"|\bopen\s*\?"
@@ -403,7 +427,11 @@ def _event_intent_for(t: str, *, extra_slots: dict[str, object] | None = None,
     """
     window = _event_window(t)
     slots: dict[str, object] = {"window": window}
-    if _has_any(t, ("live music", "concert")):
+    # 2026-06-30 audit A2: catch the live-music phrasings the fuzzy "_events"
+    # exemplars reach on too ("live bands", "live entertainment") so they filter
+    # to real music, not the whole day's calendar.
+    if _has_any(t, ("live music", "live band", "live bands", "live entertainment",
+                    "concert", "concerts")):
         slots["activity"] = "live_music"
     if extra_slots:
         slots.update(extra_slots)
@@ -549,7 +577,11 @@ def resolve(query: str) -> ResolvedIntent | None:
     # 2. Events -- explicit event signal, optionally with a date window.
     # 2026-06-11: service asks wearing an event word ("event planner") skip
     # this branch and reach the service dict below.
-    if _has_any(t, _EVENT_WORDS) and not _has_any(t, _EVENT_SERVICE_SKIP):
+    if (
+        _has_any(t, _EVENT_WORDS)
+        and not _has_any(t, _EVENT_SERVICE_SKIP)
+        and not _has_any(t, _EVENT_WEATHER_SKIP)
+    ):
         if _VENUE_AT_RE.search(t):
             return None  # venue-specific ("event at X") -> entity-aware path owns it
         return _event_intent_for(t)
@@ -654,7 +686,9 @@ def resolve(query: str) -> ResolvedIntent | None:
             return ResolvedIntent("classes_find", slots, L2 if topic else L1)
 
     # 8. Lodging / stay.
-    if _has_any(t, _LODGING_WORDS):
+    # "stay cool" / "keep cool" are weather-coping asks, not lodging — the "stay"
+    # token must not route them to hotels (P2-2, 2026-06-13).
+    if _has_any(t, _LODGING_WORDS) and not _has_any(t, _EVENT_WEATHER_SKIP):
         slots = {}
         area = _match_area(t)
         if area:

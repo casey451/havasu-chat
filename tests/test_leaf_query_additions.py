@@ -62,10 +62,10 @@ def test_new_navigational_terms_normalize_to_dict_keys():
         "smoke shops": "smoke-vape-and-cannabis",
         "computer repair": "computer-and-it-repair",
         "boat storage": "boat-and-rv-storage-service",
-        "auto detailing": "auto-detailing",
-        "detailers": "auto-detailing",
-        "auto detailers": "auto-detailing",
-        "mobile detailing": "auto-detailing",
+        "auto detailing": "auto-marine-detailing",
+        "detailers": "auto-marine-detailing",
+        "auto detailers": "auto-marine-detailing",
+        "mobile detailing": "auto-marine-detailing",
         "boat detailing": "auto-marine-detailing",
         "boat detailers": "auto-marine-detailing",
         "boat detailer": "auto-marine-detailing",
@@ -78,6 +78,11 @@ def test_new_navigational_terms_normalize_to_dict_keys():
         "notary": "notary",
         "tutoring": "tutoring-and-test-prep",
         "casinos": "casinos-and-gaming",
+        # 2026-07-07 (WS9): the natural term for the Hair Salons & Barbers leaf.
+        "haircut": "hair-salons-and-barbers",
+        "haircuts": "hair-salons-and-barbers",
+        "hair cut": "hair-salons-and-barbers",
+        "haircut near me": "hair-salons-and-barbers",  # filler-strip + route
     }
     for raw, slug in cases.items():
         norm = _normalize(raw)

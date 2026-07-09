@@ -154,22 +154,61 @@ def _text_list(result: QueryResult) -> str:
     return "\n".join(lines)
 
 
-def _build_providers(result: QueryResult) -> tuple[str, str, dict]:
+
+# #2 follow-up: build_business_list re-sorts provider rows by relevance/rating,
+# which undoes the upstream run_query._marine_first reorder. So we re-apply the
+# marine-first ordering on the FINAL component items for boat_repair, where it
+# survives. A bare entity name never reaches here (boat_repair is a category
+# intent), so this only reorders genuine boat-repair listings.
+_MARINE_ITEM_RE = re.compile(
+    r"\b(marine|boat|watercraft|outboard|pontoon|jet[\s-]?ski)\b",
+    re.IGNORECASE,
+)
+
+
+def _marine_first_items(items: list[dict]) -> list[dict]:
+    """Stable: items with a marine signal (name/category) lead, others after."""
+    def _has(it: dict) -> bool:
+        hay = f"{it.get('name', '')} {it.get('category', '')}"
+        return bool(_MARINE_ITEM_RE.search(hay))
+
+    marine = [it for it in items if _has(it)]
+    rest = [it for it in items if not _has(it)]
+    return marine + rest
+
+
+def _build_providers(
+    result: QueryResult, query: str | None = None
+) -> tuple[str, str, dict]:
     from app.chat.component_builders import build_business_list
 
+    # P1-1.1: thread the raw query so build_business_list applies within-category
+    # relevance ranking on THIS path too. The Tier-2 business-listing shortcut
+    # (tier2_handler) already passes intent_query; the resolve()->run_query path
+    # (e.g. "where can I rent a kayak?" -> Rentals bucket) reached here without it,
+    # so build_business_list scored every row 0 and fell back to rating-then-name,
+    # discarding ranking. None/empty query keeps the legacy rating sort.
     data = build_business_list(
         result.rows,
         category=result.label or "businesses",
         total_count=result.result_count,
+        intent_query=query,
     )
+    if result.intent_key == "boat_repair" and isinstance(data.get("items"), list):
+        # Float genuine marine shops above auto/RV "Car Repair" yards, after
+        # build_business_list's relevance/rating sort has run.
+        data["items"] = _marine_first_items(data["items"])
     voice = result.lead_in.rstrip(":") + "." if result.lead_in else "Here are a few picks."
     return voice, "business_list", data
 
 
-def _build_events(result: QueryResult, *, today: date) -> tuple[str, str, dict]:
+def _build_events(
+    result: QueryResult, *, today: date, query: str | None = None
+) -> tuple[str, str, dict]:
     from app.chat import component_builders as cb
     from app.chat.intents.queries import _event_window_dates
     from app.chat.tier2_schema import Tier2Filters
+    from app.chat.tier2_week_strip import _query_has_event_intent
 
     window = result.window or "upcoming"
     start, end = _event_window_dates(window, today)
@@ -178,17 +217,25 @@ def _build_events(result: QueryResult, *, today: date) -> tuple[str, str, dict]:
         data = cb.build_day_agenda(filters, result.rows)
         voice = cb.fallback_day_agenda_voice(result.rows, start)
         return voice, "day_agenda", data
+    # P1-2: the same over-fire guard as tier2_week_strip, on the resolve()->run_query
+    # events path. A non-event question that merely resolved to a multi-day events
+    # window (e.g. "what should I do when it's too hot" -> DATE_LOOKUP) must not
+    # render a 7-day calendar strip. Fall back to a voice-only list (no widget).
+    if query is not None and not _query_has_event_intent(query):
+        return _text_list(result), "none", {}
     data = cb.build_week_strip(filters, result.rows)
     voice = cb.fallback_week_strip_voice(result.rows, (start, end))
     return voice, "week_strip", data
 
 
-def _render(result: QueryResult, *, today: date) -> tuple[str, str, dict]:
+def _render(
+    result: QueryResult, *, today: date, query: str | None = None
+) -> tuple[str, str, dict]:
     """Return (voice_text, component_type, component_data). Non-empty only."""
     if result.kind == "providers":
-        return _build_providers(result)
+        return _build_providers(result, query)
     if result.kind == "events":
-        return _build_events(result, today=today)
+        return _build_events(result, today=today, query=query)
     # gas / programs -> voice-only list
     return _text_list(result), "none", {}
 
@@ -223,6 +270,88 @@ def is_entity_about_query_safe(query: str) -> bool:
     except Exception:
         logger.exception("intent_layer: about-shape probe failed")
         return True  # fail closed -- about-shaped turns belong to the entity path
+
+
+# A narrowly-scoped ask ("live music tonight", "golf lessons") that comes back
+# empty is a DEFINITE "we don't have that", not a "maybe the LLM knows" — so the
+# intent layer answers honestly here instead of falling through to Tier 3, which
+# otherwise surfaces an off-topic event (a billiards row for "live music") or an
+# out-of-area business (a Kingman golf course for "golf lessons"). Only these
+# tightly-bounded shapes claim an empty result; a broad browse still falls
+# through so the conversational tiers can help.
+_WINDOW_GAP_PHRASES: dict[str, str] = {
+    "today": "on today's calendar",
+    "tomorrow": "on tomorrow's calendar",
+    "this_week": "this week",
+    "this_weekend": "this weekend",
+    "next_week": "next week",
+    "upcoming": "on the upcoming calendar",
+}
+_ACTIVITY_GAP_PHRASES: dict[str, str] = {"live_music": "live music"}
+
+
+def _honest_empty_answer(
+    resolved: ResolvedIntent, result: QueryResult, query: str
+) -> IntentAnswer | None:
+    """An honest 'nothing found' answer for a bounded empty result, or None.
+
+    Returns None (fall through to Tier 3) for broad/unbounded empties; claims
+    the turn only for a topic-filtered events ask or a specific-activity class
+    ask, where an empty catalog result is authoritative."""
+    key = result.intent_key
+    if key.startswith("events_"):
+        activity = resolved.slots.get("activity")
+        if isinstance(activity, str) and activity:
+            phrase = _ACTIVITY_GAP_PHRASES.get(activity, activity.replace("_", " "))
+            when = _WINDOW_GAP_PHRASES.get(result.window or "upcoming", "on the calendar")
+            return IntentAnswer(
+                text=f"I don't see any {phrase} {when} right now.",
+                intent_key=key,
+                category=result.category_hint,
+                result_count=0,
+            )
+        return None
+    if key == "classes_find":
+        from app.chat.intents.queries import _class_activity_terms
+
+        terms = _class_activity_terms(query)
+        if terms:
+            what = " ".join(terms)
+            return IntentAnswer(
+                text=(
+                    f"I don't see any {what} classes or lessons in the local "
+                    "listings right now."
+                ),
+                intent_key=key,
+                category=result.category_hint,
+                result_count=0,
+            )
+    # 2026-07-01 consolidated audit A1/2.B: a broad-bucket provider ask that
+    # names a topic the bucket doesn't carry ("gun store", "tubing", "golf cart
+    # rental") comes back empty via the topical gate -- that empty is
+    # authoritative. Answer honestly here instead of falling through to Tier 3,
+    # which is what produced the off-catalog / Kingman recommendations.
+    from app.chat.intents.queries import (
+        TOPIC_GATED_PROVIDER_INTENTS,
+        _provider_activity_terms,
+    )
+
+    if key in TOPIC_GATED_PROVIDER_INTENTS or (
+        key == "eat_find" and not resolved.slots.get("cuisine")
+    ):
+        terms = _provider_activity_terms(query, key)
+        if terms:
+            what = " ".join(terms)
+            return IntentAnswer(
+                text=(
+                    f"I don't see any {what} listed in the local directory "
+                    "yet. Try golakehavasu.com, or add one at /contribute."
+                ),
+                intent_key=key,
+                category=result.category_hint,
+                result_count=0,
+            )
+    return None
 
 
 def try_intent_layer(
@@ -271,7 +400,9 @@ def try_intent_layer(
             resolved_venue = ResolvedIntent("venue_schedule", {"venue": entity.strip()}, "L2")
             result = None
             try:
-                result = run_query(resolved_venue, db, today=today, now=now)
+                result = run_query(
+                    resolved_venue, db, today=today, now=now, raw_query=query
+                )
             except Exception:
                 logger.exception("intent_layer: venue_schedule query failed")
             if result is not None:
@@ -284,7 +415,7 @@ def try_intent_layer(
 
                         today = now_lake_havasu().date()
                     try:
-                        text, component_type, component_data = _render(result, today=today)
+                        text, component_type, component_data = _render(result, today=today, query=query)
                     except Exception:
                         logger.exception("intent_layer: venue_schedule render failed")
                         return None
@@ -309,9 +440,9 @@ def try_intent_layer(
         # and a category listing is the right zero-token answer. Only hold the
         # guard when the turn isn't recommendation-shaped.
         try:
-            from app.chat.unified_router import _RECOMMENDATION_SHAPED
+            from app.chat.unified_router import RECOMMENDATION_SHAPED
 
-            if not _RECOMMENDATION_SHAPED.match(query or ""):
+            if not RECOMMENDATION_SHAPED.match(query or ""):
                 return None
         except Exception:
             logger.exception("intent_layer: recommendation-shape probe failed")
@@ -339,7 +470,7 @@ def try_intent_layer(
         return None
 
     try:
-        result = run_query(resolved, db, today=today, now=now)
+        result = run_query(resolved, db, today=today, now=now, raw_query=query)
     except Exception:
         logger.exception("intent_layer: query template failed for %s", resolved.intent_key)
         return None
@@ -353,7 +484,11 @@ def try_intent_layer(
     if telemetry is not None:
         telemetry["intent_logged"] = True
     if result.result_count == 0:
-        return None
+        # A bounded topic/activity ask answers honestly ("no live music tonight",
+        # "no golf lessons listed") rather than handing off to Tier 3, which
+        # would surface an off-topic or out-of-area guess. Broad empties still
+        # fall through.
+        return _honest_empty_answer(resolved, result, query)
 
     if today is None:
         from app.core.timezone import now_lake_havasu
@@ -361,7 +496,7 @@ def try_intent_layer(
         today = now_lake_havasu().date()
 
     try:
-        text, component_type, component_data = _render(result, today=today)
+        text, component_type, component_data = _render(result, today=today, query=query)
     except Exception:
         logger.exception("intent_layer: render failed for %s", result.intent_key)
         return None

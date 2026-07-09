@@ -1,0 +1,28 @@
+{
+  "defaults": {
+    "standard": "WCAG2AA",
+    "timeout": 30000,
+    "wait": 500,
+    "chromeLaunchConfig": { "args": ["--no-sandbox"] },
+    "ignore": []
+  },
+  "urls": [
+    "http://127.0.0.1:8000/home?theme=lake",
+    "http://127.0.0.1:8000/events-ui?theme=lake",
+    "http://127.0.0.1:8000/calendar?q=live%20music%20this%20weekend",
+    "http://127.0.0.1:8000/categories?theme=lake",
+    "http://127.0.0.1:8000/sponsor?theme=lake",
+    "http://127.0.0.1:8000/login?theme=lake",
+    "http://127.0.0.1:8000/portal?theme=lake",
+    "http://127.0.0.1:8000/portal/claim?theme=lake",
+    "http://127.0.0.1:8000/about?theme=lake",
+    "http://127.0.0.1:8000/help?theme=lake",
+    "http://127.0.0.1:8000/contact?theme=lake",
+    "http://127.0.0.1:8000/privacy?theme=lake",
+    "http://127.0.0.1:8000/terms?theme=lake",
+    "http://127.0.0.1:8000/gas?theme=lake",
+    "http://127.0.0.1:8000/today?theme=lake",
+    "http://127.0.0.1:8000/home?home_redesign=1",
+    "http://127.0.0.1:8000/calendar?home_redesign=1"
+  ]
+}

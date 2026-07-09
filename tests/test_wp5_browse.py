@@ -152,10 +152,10 @@ def test_all_chip_preserves_other_params_and_drops_only_sub(client: TestClient) 
         r = client.get("/lake-havasu/restaurants?open=1&sort=closest")
         assert r.status_code == 200
         body = r.text
-        # The subtype "All" chip target preserves open + sort but drops sub. Its
-        # exact markup carries data-filter="all" (HTML-escaped &).
+        # The subtype "All" chip target preserves open + sort but drops sub (it
+        # walks up to the bucket route). HTML-escaped &.
         assert (
-            'data-filter="all" href="/categories/eat-drink?open=1&amp;sort=closest"' in body
+            '<a class="chip" href="/categories/eat-drink?open=1&amp;sort=closest">All</a>' in body
         )
     finally:
         _cleanup(eids)
@@ -170,18 +170,26 @@ def test_open_now_toggle_preserves_active_sort(client: TestClient) -> None:
 
 
 def test_open_now_is_a_filter_not_a_sort_pill(client: TestClient) -> None:
-    """DL-20: Open now lives in the filter row, never as a sort pill, and the
-    sort row never shows two 'on' pills at once."""
+    """DL-20: Open now lives in the filter group, never as a sort pill, and the
+    sort group never shows two 'on' chips at once."""
     r = client.get("/lake-havasu/restaurants?open=1")
     body = r.text
-    assert 'class="filterpill on"' in body
-    # Exactly one sort pill is active (the default favorites), even with open=1.
-    assert body.count('class="sortpill on"') == 1
+    # Open now is an active filter chip.
+    assert '<a class="chip on" href="/lake-havasu/restaurants" aria-current="true">Open now</a>' in body
+    # Exactly one sort chip is active (the default favorites), even with open=1.
+    # Isolate the Sort segment of the unified "Filter and sort" toolbar.
+    sort_seg = body.split('">Sort</span>', 1)[1].split("</div>", 1)[0]
+    assert sort_seg.count('class="chip on"') == 1
+    # F15: the default-sort chip is now labeled "Featured" (unified with the
+    # trade leaf page and this page's own "Featured = … shuffled fresh" note).
+    assert "Featured" in sort_seg
 
 
 def test_sort_explainer_matches_active_sort(client: TestClient) -> None:
     """Item 32: the explainer text reflects the active sort, not a static blurb."""
-    r_fav = client.get("/lake-havasu/restaurants")
+    r_default = client.get("/lake-havasu/restaurants")
+    assert "shuffled fresh each day" in r_default.text  # the new default (Featured)
+    r_fav = client.get("/lake-havasu/restaurants?sort=favorites")
     assert "weighted by review volume" in r_fav.text
     r_close = client.get("/lake-havasu/restaurants?sort=closest")
     assert "nearest to the Lake Havasu City civic center" in r_close.text
@@ -196,7 +204,7 @@ def test_active_filter_summary_line_renders_with_clear(client: TestClient) -> No
         body = r.text
         assert "Restaurants" in body
         assert "clear" in body
-        assert 'class="filtersummary"' in body
+        assert 'class="cat-empty"' in body
     finally:
         _cleanup(eids)
 

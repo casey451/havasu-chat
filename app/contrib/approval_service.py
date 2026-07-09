@@ -8,6 +8,7 @@ from datetime import UTC, datetime
 from sqlalchemy.orm import Session
 
 from app.contrib.hours_helper import places_hours_to_structured
+from app.contrib.source_category_map import derive_event_category
 from app.core.event_recurrence import event_text_blob, is_recurring_heuristic
 from app.db.contribution_store import normalize_submission_url
 from app.db.entity_dual_write import (
@@ -17,6 +18,11 @@ from app.db.entity_dual_write import (
 )
 from app.db.models import Contribution, Event, Program, Provider
 from app.db.seed_helpers import derive_provider_slug
+from app.events.description_clean import (
+    clean_event_description,
+    normalize_location_text,
+    valid_event_url,
+)
 from app.schemas.contribution import (
     EventApprovalFields,
     ProgramApprovalFields,
@@ -200,9 +206,15 @@ def approve_contribution_as_event(
     c = _load_pending_contribution(db, contribution_id, "event")
     verified = enrichment_suggests_verified(c)
     created_by = "user" if c.source == "user_submission" else "admin"
+    # Central guardrail: never persist metadata/placeholder bodies, email-as-URL
+    # click-throughs, or glued venue strings — regardless of which source or which
+    # approval path produced the contribution.
+    clean_desc = clean_event_description(edited_fields.description)
+    clean_loc = normalize_location_text(edited_fields.location_name) or edited_fields.location_name.strip()
+    clean_url = valid_event_url(edited_fields.event_url) or "https://askhava.com/events-ui"
     blob = event_text_blob(
         edited_fields.title.strip(),
-        edited_fields.description.strip(),
+        clean_desc,
         list(tags or []),
     )
     is_rec = is_recurring_heuristic(blob)
@@ -217,9 +229,9 @@ def approve_contribution_as_event(
         end_date=end_date,
         start_time=edited_fields.start_time,
         end_time=edited_fields.end_time,
-        location_name=edited_fields.location_name.strip(),
-        description=edited_fields.description.strip(),
-        event_url=edited_fields.event_url.strip(),
+        location_name=clean_loc,
+        description=clean_desc,
+        event_url=clean_url,
         source_url=event_source_url,
         contact_name=None,
         contact_phone=None,
@@ -231,6 +243,10 @@ def approve_contribution_as_event(
     )
     ev = Event.from_create(ec)
     ev.verified = verified
+    # Source-parity (2026-07-03): stamp the canonical event category from the
+    # source's own tags so every event carries a structured category alongside
+    # the loose tag list. Nullable — an unrecognised tag set leaves it NULL.
+    ev.category = derive_event_category(list(tags or []))
     try:
         db.add(ev)
         create_event_and_entity(db, ev)
@@ -267,6 +283,17 @@ _SCRAPE_EVENT_SOURCES = frozenset(
 # Trust-tier decision (2026-06-05): high-trust civic/official feeds (legistar
 # council/board agendas, lhusd school calendar) auto-approve; aggregators like
 # allevents are deliberately NOT here, so they land pending for human review.
+#
+# Sustainable-sourcing decision (2026-06-28): the events catalog only auto-
+# publishes data from STRUCTURED, re-pullable feeds (city CivicPlus iCal/RSS,
+# go_lake_havasu JSON-LD, chamber, legistar, lhusd) -- never one-off OCR reads.
+# The Parks & Rec calendar/flyer and senior-center flyer VISION sources were
+# auto-approving their "clean" rows (2026-06-24), but flyer OCR has no re-pullable
+# ground truth: it produced cross-contaminated craft/fishing descriptions and an
+# unverifiable event date. So the three vision sources are removed here -- they
+# keep ingesting (nothing is lost) but now land PENDING for human review, exactly
+# like the ``allevents`` aggregator. Flyer-only content still matters; it must be
+# human-confirmed before publish, never auto-fabricated.
 _DEFAULT_AUTO_APPROVE_EVENT_SOURCES = frozenset(
     {
         "chamber",
@@ -278,12 +305,35 @@ _DEFAULT_AUTO_APPROVE_EVENT_SOURCES = frozenset(
     }
 )
 
+# Vision/flyer OCR sources are review-gated by policy (contamination risk):
+# they must NEVER auto-publish, even if an EVENT_AUTO_APPROVE_SOURCES override
+# lists them. This is the hard backstop for PR #605 -- the prod env var no longer
+# matters for these sources, so no one has to remember to audit it.
+_NEVER_AUTO_APPROVE_EVENT_SOURCES = frozenset(
+    {"parks_rec_calendar", "parks_rec_flyers", "senior_center_flyers"}
+)
+
 
 def auto_approve_event_sources() -> frozenset[str]:
     raw = os.environ.get("EVENT_AUTO_APPROVE_SOURCES", "").strip()
     if not raw:
-        return _DEFAULT_AUTO_APPROVE_EVENT_SOURCES
-    return frozenset(s.strip() for s in raw.split(",") if s.strip())
+        computed = _DEFAULT_AUTO_APPROVE_EVENT_SOURCES
+    else:
+        computed = frozenset(s.strip() for s in raw.split(",") if s.strip())
+    # Subtract the hard never-list on BOTH branches so a stale/misconfigured env
+    # override can never silently re-enable the vision sources.
+    return computed - _NEVER_AUTO_APPROVE_EVENT_SOURCES
+
+
+# Structured feeds whose events may legitimately be all-day / time-TBD (a civic
+# meeting date with no posted time, a multi-day festival). A missing start time
+# from these is NOT a parse failure, so it should auto-approve as all-day rather
+# than dumping to the pending queue (2026-07-03 parity plan C3). The vision /
+# flyer sources are deliberately excluded: for them a missing start time signals
+# an incomplete OCR parse and must stay held for review.
+_ALLDAY_OK_SOURCES = frozenset(
+    {"chamber", "go_lake_havasu", "river_scene", "river_scene_import", "legistar", "lhusd"}
+)
 
 
 def should_auto_approve_event(contribution: Contribution) -> bool:
@@ -294,7 +344,8 @@ def should_auto_approve_event(contribution: Contribution) -> bool:
         return False
     if not contribution.submission_name or not contribution.event_date:
         return False
-    if not contribution.event_time_start:
+    if not contribution.event_time_start and contribution.source not in _ALLDAY_OK_SOURCES:
+        # vision/flyer sources: a missing start time signals an incomplete parse.
         return False
     return True
 

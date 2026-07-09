@@ -1,0 +1,158 @@
+"""CLI: scan the directory's stored outbound links and report broken ones.
+
+Read-only and dry-run by design -- it issues outbound HTTP HEAD/GET and writes
+nothing. Prints a category breakdown plus the actionable (broken / unreachable)
+links so they can be reviewed before any persistence/admin-queue is wired up.
+
+  python scripts/link_health_scan.py                  # full polite scan + report
+  python scripts/link_health_scan.py --limit 200       # quick sample
+  python scripts/link_health_scan.py --kind provider_website
+  python scripts/link_health_scan.py --json > report.json
+
+On the VPS it yields to the scrape/backup jobs (``--respect-jobs``): while the
+vision scraper or nightly backup is running it pauses and re-checks.
+"""
+
+from __future__ import annotations
+
+import argparse
+import json
+import os
+import subprocess
+import sys
+from pathlib import Path
+
+sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
+
+from app.bootstrap_env import ensure_dotenv_loaded  # noqa: E402
+
+ensure_dotenv_loaded()
+
+from app.monitoring import link_health as lh  # noqa: E402
+
+# Units the scan should yield to on the VPS.
+HEAVY_UNITS = ("havasu-vision-scrape.service", "havasu-db-backup.service")
+
+# A `Type=oneshot` unit sits in state "activating" the whole time its ExecStart
+# runs (it never reports "active"), so checking `is-active` exit 0 alone would
+# miss a running scrape/backup and never pause. Treat any of these as "running".
+_RUNNING_STATES = {"active", "activating", "reloading", "deactivating"}
+
+
+def _unit_state(unit: str) -> str:
+    try:
+        return subprocess.run(
+            ["systemctl", "is-active", unit], capture_output=True, text=True, timeout=10
+        ).stdout.strip()
+    except Exception:
+        return ""  # systemctl absent (e.g. dev/Windows) -> treat as not running
+
+
+def _heavy_job_running() -> bool:
+    return any(_unit_state(unit) in _RUNNING_STATES for unit in HEAVY_UNITS)
+
+
+def _persist_and_maybe_email(report: "lh.ScanReport", *, email: bool, catalog_urls=None) -> None:
+    from datetime import UTC, datetime
+
+    from app.db.database import SessionLocal
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        newly = lh.persist_results(db, report, now=now)
+        pruned = lh.prune_orphans(db, catalog_urls) if catalog_urls is not None else 0
+        print(
+            f"\npersisted {len(report.results)} results; {len(newly)} newly-confirmed broken; "
+            f"pruned {pruned} orphaned row(s)"
+        )
+        if email and newly:
+            subject, text, html = lh.format_broken_link_report(newly)
+            to = (os.getenv("WATCH_ALERT_EMAIL") or "").strip()
+            if not to:
+                print("  (WATCH_ALERT_EMAIL unset — skipping email)")
+            else:
+                try:
+                    from app.auth.email_sender import send_alert_email
+
+                    send_alert_email(to_email=to, subject=subject, html_body=html, text_body=text)
+                    for r in newly:
+                        r.notified = True
+                    print(f"  emailed summary to {to}")
+                except Exception as exc:  # noqa: BLE001
+                    print(f"  email failed ({exc}); rows left un-notified for retry")
+        db.commit()
+
+
+def main(argv: list[str] | None = None) -> int:
+    p = argparse.ArgumentParser(description=__doc__)
+    p.add_argument("--limit", type=int, default=None, help="check at most N unique URLs")
+    p.add_argument("--kind", choices=["provider_website", "provider_facebook", "event_url"])
+    p.add_argument("--per-host-delay", type=float, default=1.0, help="min seconds between hits to one host")
+    p.add_argument("--workers", type=int, default=1, help="parallel checks (use >1 for a full sweep)")
+    p.add_argument("--respect-jobs", action="store_true", help="pause while scrape/backup run")
+    p.add_argument("--apply", action="store_true", help="persist results to the link_health table")
+    p.add_argument("--email-summary", action="store_true", help="email newly-confirmed-broken links (implies --apply)")
+    p.add_argument("--json", action="store_true", help="emit JSON instead of a text report")
+    args = p.parse_args(argv)
+
+    from app.db.database import SessionLocal
+
+    with SessionLocal() as db:
+        refs = lh.collect_links(db)
+    # The FULL catalog (every current link), captured before any --kind filter, so
+    # orphan-pruning never deletes rows of a kind we simply didn't scan this run.
+    catalog_urls = {r.url for r in refs}
+    if args.kind:
+        refs = [r for r in refs if r.kind == args.kind]
+
+    report = lh.scan_links(
+        refs,
+        per_host_delay=args.per_host_delay if args.workers <= 1 else 0.0,
+        workers=args.workers,
+        should_pause=_heavy_job_running if args.respect_jobs else None,
+        limit=args.limit,
+    )
+
+    if args.apply or args.email_summary:
+        _persist_and_maybe_email(report, email=args.email_summary, catalog_urls=catalog_urls)
+
+    counts = report.by_category()
+    if args.json:
+        print(
+            json.dumps(
+                {
+                    "checked": len(report.results),
+                    "skipped_duplicate_urls": report.skipped_duplicate_urls,
+                    "counts": counts,
+                    "actionable": [
+                        {
+                            "url": r.ref.url,
+                            "kind": r.ref.kind,
+                            "entity_id": r.ref.entity_id,
+                            "label": r.ref.label,
+                            "category": r.category,
+                            "http_status": r.http_status,
+                            "detail": r.detail,
+                        }
+                        for r in report.actionable
+                    ],
+                },
+                indent=2,
+            )
+        )
+        return 0
+
+    total = len(report.results)
+    print("=== link health scan (DRY RUN — no writes) ===")
+    print(f"checked {total} unique URLs ({report.skipped_duplicate_urls} duplicate URLs skipped)")
+    for cat in (lh.OK, lh.BROKEN, lh.UNREACHABLE, lh.BLOCKED_BY_SITE, lh.SSRF_BLOCKED):
+        print(f"  {cat:16} {counts.get(cat, 0)}")
+    actionable = report.actionable
+    print(f"\n--- {len(actionable)} actionable (broken / unreachable) ---")
+    for r in sorted(actionable, key=lambda x: (x.ref.kind, x.category)):
+        print(f"  [{r.category}] {r.detail} | {r.ref.kind} | {r.ref.label[:40]!r} | {r.ref.url}")
+    return 0
+
+
+if __name__ == "__main__":
+    raise SystemExit(main())

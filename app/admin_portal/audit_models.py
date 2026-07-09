@@ -5,9 +5,9 @@ metadata means alembic autogenerate cannot pick it up while the portal
 is unwired, and importing this package never mutates app-wide state.
 Mirrors the ``Job`` pattern: additive, standalone, no FKs.
 
-The table is created only by the draft migration in
-``migrations_draft/`` once it is promoted into ``alembic/versions``.
-Until then ``audit_enabled()`` is False and the portal skips writes.
+The table is created by alembic migration ``e9b5d7f3a1c6`` (already promoted
+into ``alembic/versions``). On any DB where that migration hasn't run yet,
+``audit_enabled()`` is False and the portal skips audit writes.
 """
 
 from __future__ import annotations

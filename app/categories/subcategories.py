@@ -26,6 +26,7 @@ rather than mislabeling them.
 from __future__ import annotations
 
 import json
+import re
 from dataclasses import dataclass
 from typing import Any, Iterable
 
@@ -57,7 +58,13 @@ _SUBCATEGORIES: tuple[Subcategory, ...] = (
     Subcategory("cafes-coffee", "Cafés & Coffee", "food-drink", "Coffee, bakeries, and light bites."),
     Subcategory("quick-bites", "Quick Bites", "food-drink", "Fast, casual, and takeout."),
     # -- Recreation & Outdoors (Storage intentionally NOT here) --
-    Subcategory("on-the-water", "On the Water", "recreation-outdoors", "Marinas, launches, rentals."),
+    Subcategory("on-the-water", "Lake Life", "recreation-outdoors", "Marinas, launches, rentals."),
+    # Marine trade split out from the recreation "on-the-water" bucket so boat
+    # businesses get their own pages (2026-06-13 audit). All map to the
+    # ``on-the-water`` primary; watersports *rentals* stay under on-the-water.
+    Subcategory("marine-dealers", "Boat Dealers", "recreation-outdoors", "New and used boat sales."),
+    Subcategory("marine-repair", "Boat Repair & Mechanics", "recreation-outdoors", "Marine service, repair, and mechanics."),
+    Subcategory("marine-supply", "Marine Supply & Stores", "recreation-outdoors", "Parts, accessories, and marine retail."),
     Subcategory("trails-offroad", "Trails & Off-road", "recreation-outdoors", "Hiking and off-road routes."),
     Subcategory("parks-beaches", "Parks & Beaches", "recreation-outdoors", "City parks and shoreline."),
     Subcategory("golf", "Golf", "recreation-outdoors", "Courses and driving ranges."),
@@ -76,7 +83,7 @@ _SUBCATEGORIES: tuple[Subcategory, ...] = (
     Subcategory("markets", "Markets", "shopping", "Grocers and markets."),
     # -- Services (Storage lives here, per brief §2) --
     Subcategory("home-services", "Home Services", "services", "HVAC, plumbing, electrical, roofing, cleaning."),
-    Subcategory("auto", "Auto", "services", "Repair, body, tires, RV & boat."),
+    Subcategory("auto", "Auto", "services", "Repair, body, tires, RV & gas."),
     Subcategory("health-medical", "Health & Medical", "services", "Dental, vision, clinics, chiro."),
     Subcategory("professional", "Professional", "services", "Legal, insurance, real estate, financial."),
     Subcategory("pets", "Pets", "services", "Vets, grooming, boarding."),
@@ -117,12 +124,6 @@ def bucket_for_category_route(route_slug: str | None) -> str | None:
         return None
     return _ROUTE_TO_BUCKET.get(route_slug.strip().lower())
 
-
-def subcategories_for_category_route(route_slug: str | None) -> list[Subcategory]:
-    """Chip set for a plural category page — empty when the route isn't a bucket
-    destination (tile routes like ``beauty-care`` show no second level)."""
-    bucket_id = bucket_for_category_route(route_slug)
-    return subcategories_for_bucket(bucket_id) if bucket_id else []
 
 
 # ---------------------------------------------------------------------------
@@ -188,8 +189,13 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("trail", "trails-offroad"),
     ("off_road", "trails-offroad"),
     ("beach", "parks-beaches"),
+    # Overnight-stay types must outrank the bare "park" substring rule below:
+    # "rv_park" CONTAINS "park", and first-match-wins, so the stay block's own
+    # rv_park/campground entries (line ~300) were unreachable — RV parks and
+    # campgrounds filed as parks-beaches instead of rv-parks (→ lodging).
+    ("rv_park", "rv-parks"),
+    ("campground", "rv-parks"),
     ("park", "parks-beaches"),
-    ("campground", "parks-beaches"),
     # sports/fitness
     ("pickleball", "racquet-sports"),
     ("tennis", "racquet-sports"),
@@ -277,7 +283,8 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("bank", "professional"),
     ("consultant", "professional"),
     ("hair", "beauty"),
-    ("barber", "beauty"),
+    # ("barber", "beauty") lives in the eat-drink block above (it must precede
+    # the bare "bar" token); a duplicate here was unreachable.
     ("nail", "beauty"),
     ("beauty", "beauty"),
     ("salon", "beauty"),
@@ -293,10 +300,9 @@ _TYPE_TO_SUBCAT: tuple[tuple[str, str], ...] = (
     ("school", "kids-lessons"),
     ("university", "kids-lessons"),
     ("childcare", "kids-lessons"),
-    # stay
+    # stay ("rv_park"/"campground" live earlier, above the bare "park" rule
+    # that would otherwise swallow them — see the recreation block)
     ("vacation", "vacation-rentals"),
-    ("rv_park", "rv-parks"),
-    ("campground", "rv-parks"),
     ("resort", "hotels"),
     ("motel", "hotels"),
     ("hotel", "hotels"),
@@ -409,15 +415,18 @@ SUBCATEGORY_TO_PRIMARY: dict[str, str] = {
     "bars-breweries": "eat-drink",
     "cafes-coffee": "eat-drink",
     "quick-bites": "eat-drink",
-    # On the Water
+    # On the Water (incl. the marine trade split — boat sales/repair/supply)
     "on-the-water": "on-the-water",
+    "marine-dealers": "on-the-water",
+    "marine-repair": "on-the-water",
+    "marine-supply": "on-the-water",
     # Outdoors, Parks & Trails
     "trails-offroad": "outdoors-parks-trails",
     "parks-beaches": "outdoors-parks-trails",
     "golf": "outdoors-parks-trails",
     "disc-golf": "outdoors-parks-trails",
     "biking": "outdoors-parks-trails",
-    # Classes, Sports & Recreation
+    # Fitness, Sports & Classes
     "gyms": "classes-sports-recreation",
     "racquet-sports": "classes-sports-recreation",
     "martial-arts": "classes-sports-recreation",
@@ -432,7 +441,7 @@ SUBCATEGORY_TO_PRIMARY: dict[str, str] = {
     "home-services": "home-property-services",
     # Auto, RV & Fuel
     "auto": "auto-rv-fuel",
-    # Health, Wellness & Care
+    # Health & Medical
     "health-medical": "health-wellness-care",
     "beauty": "health-wellness-care",
     # Professional Services (legal/insurance/real-estate/financial/accounting).
@@ -465,9 +474,22 @@ LEGACY_CATEGORY_TO_PRIMARY: dict[str, str] = {
     "lake_recreation": "on-the-water",
     "boat_rental": "on-the-water",
     "boat_repair": "on-the-water",
+    # These direct folds must agree with the _LEGACY_TO_SUBCAT →
+    # SUBCATEGORY_TO_PRIMARY derivation (which is what actually places a row on
+    # a listing): a divergent entry makes an un-backfilled (NULL-primary) row
+    # COUNT under one department while LISTING under another — the
+    # count-vs-listing drift WP-12 exists to prevent. fitness_sports/fitness
+    # used to fold to health-wellness-care while gyms (their derived
+    # subcategory) lands on classes-sports-recreation.
+    # tests/test_audit_categories_fixes.py asserts the two paths agree map-wide.
+    # KNOWN EXCEPTION: "recreation" folds here to classes-sports-recreation
+    # (CATEGORY_FILTERS + /api/map_data expect that) while its derived
+    # subcategory (parks-beaches) lands on outdoors-parks-trails — the legacy
+    # bucket genuinely straddles both departments and only a per-row recat can
+    # split it; documented in the test's exception list.
     "recreation": "classes-sports-recreation",
-    "fitness_sports": "health-wellness-care",
-    "fitness": "health-wellness-care",
+    "fitness_sports": "classes-sports-recreation",
+    "fitness": "classes-sports-recreation",
     "childcare_education": "classes-sports-recreation",
     "education": "classes-sports-recreation",
     "edu": "classes-sports-recreation",
@@ -508,6 +530,7 @@ def derive_primary_category(
     *,
     category: str | None,
     subcategory: str | None = None,
+    name: str | None = None,
     google_primary_category: str | None = None,
     google_categories: Any = None,
     attributes: Any = None,
@@ -528,6 +551,7 @@ def derive_primary_category(
     if sub is None:
         sub = derive_subcategory(
             category=category,
+            name=name,
             google_primary_category=google_primary_category,
             google_categories=google_categories,
             attributes=attributes,
@@ -603,9 +627,96 @@ def _subcat_from_types(
     return None
 
 
+# Marine trade routing from the business NAME (2026-06-13 audit). Boat
+# businesses carry generic Google types (``service``/``store``/``supplier``), so
+# the type-token tiers file them as ``specialty`` / generic ``on-the-water`` and
+# a re-derive would clobber the marine-* leaf split. When a NAME is available it
+# is the decisive signal: an anchor token (boat/marine/watercraft/nautical) plus
+# a trade qualifier pins the row to dealers / repair / supply. Watersports
+# rentals (jet ski / kayak) are intentionally NOT matched here — they stay
+# on-the-water. Returns one of the three marine subcats or ``None``.
+_MARINE_ANCHOR = re.compile(r"\b(boats?|marine|watercraft|nautical)\b", re.I)
+_MARINE_REPAIR = re.compile(
+    r"\b(service|repair|mechanic|performance|fiberglass|gel ?coat|gelcraft|"
+    r"machine|engines?|rigging|restoration|customs?|body shop|speed)\b",
+    re.I,
+)
+_MARINE_SUPPLY = re.compile(r"\b(supply|supplies|parts|store)\b|west marine", re.I)
+_MARINE_DEALER = re.compile(r"\bboats\b|\b(sales|dealer|brokers?|power boats|custom boats)\b", re.I)
+
+
+def _marine_subcat_from_name(name: str | None) -> str | None:
+    if not name:
+        return None
+    n = name.lower()
+    if not _MARINE_ANCHOR.search(n):
+        return None
+    # Order: supply (store/parts) and dealer (sales/boats) before the broad
+    # repair qualifier, so "Marine Sales & Service" reads as a dealer.
+    if _MARINE_SUPPLY.search(n):
+        return "marine-supply"
+    if _MARINE_DEALER.search(n):
+        return "marine-dealers"
+    if _MARINE_REPAIR.search(n):
+        return "marine-repair"
+    return None
+
+
+# Martial-arts routing from the business NAME (2026-06-15 coverage audit). Dojos
+# carry generic Google types (gym / school / point_of_interest), so the type
+# tiers file them as ``gyms`` / ``kids-lessons`` and the ``martial-arts``
+# subcategory page renders empty even though the rows exist. A distinctive
+# discipline token in the NAME is decisive. Generic words ("academy", "combat",
+# "fitness", "club") are intentionally NOT matched — too many false positives
+# (dance academies, etc.); those are handled by manual review.
+_MARTIAL_ARTS_NAME = re.compile(
+    r"martial arts|mixed martial|jiu[\s-]?jitsu|\bbjj\b|\bkarate\b|"
+    r"tae ?kwon ?do|taekwondo|\bkempo\b|\bkenpo\b|krav maga|muay thai|"
+    r"kickbox|kick boxing|\bjudo\b|\baikido\b|kung ?fu|black belt|\bdojo\b|"
+    r"self[\s-]?defense",
+    re.I,
+)
+
+
+def _martial_subcat_from_name(name: str | None) -> str | None:
+    if name and _MARTIAL_ARTS_NAME.search(name):
+        return "martial-arts"
+    return None
+
+
+def is_martial_arts_name(name: str | None) -> bool:
+    """True when a business/venue NAME carries a martial-arts discipline token
+    (jiu-jitsu, bjj, karate, taekwondo, kempo, krav maga, muay thai, judo,
+    aikido, kung fu, black belt, dojo, self-defense, …).
+
+    Reused by the events page (:func:`app.home.events_views._class_subgroup`) to
+    file every class held at a martial-arts venue under the Martial Arts
+    subsection — so the catalog's martial-arts studios are covered automatically
+    as they're added, without a hand-maintained venue list."""
+    return bool(name) and bool(_MARTIAL_ARTS_NAME.search(name))
+
+
+# Vacation-rental routing from the business NAME (2026-06-15 coverage audit).
+# These carry Google type ``lodging`` / ``real_estate_agency``, so the type
+# tiers file them as ``hotels`` and the ``vacation-rentals`` page renders empty.
+# A "vacation rental/home/stay" signal in the NAME is decisive. Bare "property
+# management" is intentionally excluded (ambiguous: long-term / commercial / HOA).
+_VACATION_RENTAL_NAME = re.compile(
+    r"vacation rental|vacation home|vacation stay|\bvrbo\b|short[\s-]?term rental",
+    re.I,
+)
+
+
+def _vacation_subcat_from_name(name: str | None) -> str | None:
+    if name and _VACATION_RENTAL_NAME.search(name):
+        return "vacation-rentals"
+    return None
+
+
 def derive_subcategory(
     *,
     category: str | None,
+    name: str | None = None,
     google_primary_category: str | None = None,
     google_categories: Any = None,
     attributes: Any = None,
@@ -613,9 +724,22 @@ def derive_subcategory(
     """Best subcategory slug for a provider, or ``None`` when nothing matches.
 
     Pure (no DB / ORM) so it backfills offline and runs on ingest. Precedence:
-    specific Google type → legacy category bucket. ``sub_trades`` (curated)
-    participate at the Google-type tier.
+    decisive NAME signal (marine trade) → specific Google type → legacy category
+    bucket. ``sub_trades`` (curated) participate at the Google-type tier. ``name``
+    is optional and backward-compatible: omit it and behaviour is unchanged.
     """
+    marine = _marine_subcat_from_name(name)
+    if marine:
+        return marine
+
+    martial = _martial_subcat_from_name(name)
+    if martial:
+        return martial
+
+    vacation = _vacation_subcat_from_name(name)
+    if vacation:
+        return vacation
+
     sub_trades: list[str] | None = None
     if isinstance(attributes, str):
         try:
@@ -671,6 +795,15 @@ _CUISINES: tuple[tuple[str, str, tuple[str, ...]], ...] = (
     ("sandwiches", "Sandwiches", ("sandwich", "deli", "_sub_", "submarine")),
     ("breakfast", "Breakfast", ("breakfast", "brunch", "pancake")),
     ("diner", "Diner", ("diner",)),
+    # WS9a enum additions (Casey, 2026-07-08): specific cuisines that show up in
+    # Google types with no home in the enum. Each currently has a single Havasu
+    # member, so the >= _CUISINE_CHIP_MIN (2) chip rule keeps them OUT of the facet
+    # row — the enum HOLDS the value (search / data), the UI stays uncluttered.
+    # KFC maps to ``fried_chicken`` because the enum has no generic "fast food"
+    # home. Kept before the generic ``american`` so a specific type wins.
+    ("korean", "Korean", ("korean",)),
+    ("cuban", "Cuban", ("cuban",)),
+    ("fried_chicken", "Fried Chicken", ("chicken_restaurant", "fried_chicken")),
     ("american", "American", ("american",)),
 )
 
@@ -708,3 +841,104 @@ def derive_cuisine(
                 if needle in tok:
                     return slug
     return None
+
+
+def effective_cuisine(
+    attributes: Any = None,
+    google_primary_category: str | None = None,
+    google_categories: Any = None,
+) -> str | None:
+    """Cuisine for a restaurant: curated override first, else derived.
+
+    The WS9a backfill writes an operator-approved cuisine to
+    ``Provider.attributes['cuisine']`` (a valid enum slug); it WINS over the
+    Google-types :func:`derive_cuisine` so a name-only classification ("Filiberto's
+    Mexican Food", whose Google types carry no cuisine token) still surfaces on the
+    facet. A provider with no curated value (or an unknown/invalid one) falls back
+    to the derivation — so this is a no-op until the gated backfill applies. Pure,
+    never raises.
+    """
+    if isinstance(attributes, dict):
+        curated = str(attributes.get("cuisine") or "").strip().lower()
+        if curated in _CUISINE_LABELS:
+            return curated
+    return derive_cuisine(google_primary_category, google_categories)
+
+
+# --- Free-text cuisine intent (search routing) -----------------------------
+#
+# A plain cuisine/dish search ("mexican food", "tacos", "sushi", "pizza") must
+# reach the Eat & Drink listing filtered to that cuisine — NOT the events
+# calendar (the old ``_TYPE_WORDS`` "events" bucket matched bare "food"/"taco"
+# and swallowed cuisine queries into ``/calendar``). This resolver maps such a
+# query to its cuisine slug so the router can send it to
+# ``/lake-havasu/{cuisine}``.
+#
+# Deliberately conservative: it matches only an exact "<cuisine> [food/dining
+# tail]" phrase (after one leading qualifier is stripped) and returns ``None``
+# the moment the query carries an event/temporal signal, so a genuine calendar
+# ask ("taco festival", "food truck night") is never captured.
+
+#: Generic food/dining tails that may follow a cuisine word in a search.
+#: The empty tail lets a bare cuisine/dish word ("tacos", "sushi") match.
+_CUISINE_TAILS: tuple[str, ...] = (
+    "", "food", "foods", "restaurant", "restaurants", "cuisine",
+    "place", "places", "spot", "spots", "joint", "joints",
+    "eatery", "eateries", "takeout", "delivery",
+)
+
+#: One leading qualifier we tolerate ("good mexican food", "authentic tacos").
+_CUISINE_LEAD_RE = re.compile(
+    r"^(?:the\s+)?(?:best|good|great|authentic|real|local|top|nearby|some|a|an)\s+"
+)
+
+#: Event/discovery words that make a query a calendar ask, not a restaurant
+#: search ("taco festival", "food truck night", "cooking class"). Their presence
+#: forces ``cuisine_query_slug`` to return ``None`` so the calendar keeps them.
+_CUISINE_EVENT_EXCLUDE_RE = re.compile(
+    r"\b(festival|festivals|fest|event|events|fair|market|truck|trucks|"
+    r"night|crawl|tasting|tastings|class|classes|cooking|competition|contest|"
+    r"tonight|tomorrow|weekend|week|today)\b"
+)
+
+
+def _build_cuisine_phrase_map() -> dict[str, str]:
+    """``{normalized phrase: cuisine slug}`` for exact cuisine-query lookup.
+
+    Built from every cuisine's label + synonym needles crossed with the food
+    tails (and simple plurals so "taco" → "tacos", "burger" → "burgers"). First
+    cuisine in ``_CUISINES`` order wins a shared phrase.
+    """
+    out: dict[str, str] = {}
+    for slug, label, needles in _CUISINES:
+        bases: set[str] = {label.lower()}
+        for n in needles:
+            if n.startswith("_"):  # placeholder tokens like "_sub_"
+                continue
+            bases.add(n)
+            bases.add(f"{n}s")  # taco → tacos, burger → burgers, burrito → burritos
+        for base in bases:
+            for tail in _CUISINE_TAILS:
+                phrase = f"{base} {tail}".strip()
+                out.setdefault(phrase, slug)
+    return out
+
+
+_CUISINE_PHRASE_MAP: dict[str, str] = _build_cuisine_phrase_map()
+
+
+def cuisine_query_slug(q: str | None) -> str | None:
+    """Cuisine slug a plain restaurant/dish search maps to, or ``None``.
+
+    Pure (no DB). Returns ``None`` for any query carrying an event/temporal
+    signal, so a genuine calendar ask ("taco festival") is never treated as a
+    restaurant search. The caller still gates the resulting cuisine page on its
+    publish threshold before redirecting.
+    """
+    s = (q or "").strip().lower()
+    s = re.sub(r"[^a-z0-9\s]", " ", s)
+    s = re.sub(r"\s+", " ", s).strip()
+    if not s or _CUISINE_EVENT_EXCLUDE_RE.search(s):
+        return None
+    s = _CUISINE_LEAD_RE.sub("", s).strip()
+    return _CUISINE_PHRASE_MAP.get(s)

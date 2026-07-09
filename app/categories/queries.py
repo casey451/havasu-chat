@@ -33,16 +33,17 @@ from typing import Any
 from sqlalchemy import func as sa_func
 from sqlalchemy.orm import Session
 
-from app.categories.subcategories import derive_cuisine
+from app.categories.subcategories import effective_cuisine
 from app.core.liveness import DAMPENER_FLOOR, liveness_dampener
 from app.db.models import Provider
-from app.home.queries import _hours_status, _provider_image_url
+from app.home.queries import _format_phone, _hours_status, _provider_image_url
 from app.home.queries_c import (
     _format_rating,
     _load_eat_photos,
 )
 from app.providers.queries import (
     _parse_hours_time,
+    derive_directions_url,
     effective_hours_structured,
     is_open_now,
 )
@@ -160,7 +161,7 @@ CATEGORY_DISPLAY: dict[str, tuple[str, str]] = {
         "Restaurants, bars, cafes. Open right now or coming up.",
     ),
     "on-the-water": (
-        "On the water",
+        "Lake Life",
         "Marinas, rentals, lake stays. Everything within shouting distance of the channel.",
     ),
     "things-to-do": (
@@ -497,6 +498,8 @@ def primary_listing_filter(primary_slugs: set[str] | frozenset[str] | list[str] 
     """
     from sqlalchemy import and_, false, or_
 
+    from app.monitoring.canaries import not_canary_clause
+
     primaries = {s for s in primary_slugs if s}
     if not primaries:
         return false()
@@ -506,7 +509,10 @@ def primary_listing_filter(primary_slugs: set[str] | frozenset[str] | list[str] 
         clauses.append(
             and_(Provider.primary_category.is_(None), Provider.category.in_(legacy))
         )
-    return or_(*clauses)
+    # A4: seeded canary listings never count toward — or render in — a category,
+    # so the "N listed" numbers and the lists agree and stay honest. NULL-safe, so
+    # real rows (source IS NULL) are unaffected; a no-op until canaries exist.
+    return and_(or_(*clauses), not_canary_clause())
 
 
 def category_listing_count(
@@ -623,10 +629,14 @@ def _card_area(provider: Provider) -> str:
     """Second meta-line locator for a card (D7): district label, else the street
     line of the address (everything before the first comma). ``""`` when neither
     is known -- the template then omits the line rather than printing noise."""
+    from app.contrib.ingest_suppression import clean_placeholder_address
+
     district = (getattr(provider, "district", None) or "").strip()
     if district:
         return district
-    address = (getattr(provider, "address", None) or "").strip()
+    # Render guard (2026-07-01 Phase 3): the CVB visitor-center placeholder is
+    # never a business location — omit the line rather than show a fake pin.
+    address = (clean_placeholder_address(getattr(provider, "address", None)) or "").strip()
     if address:
         # First address segment is the street line ("2126 McCulloch Blvd N").
         return address.split(",", 1)[0].strip()
@@ -658,6 +668,9 @@ def _build_category_card(
     status_text: str,
     image_url: str | None,
     allowed_subcategories: set[str] | None = None,
+    is_sponsored: bool = False,
+    is_new_unrated: bool = False,
+    creative: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Shape a Provider row into the category-grid card contract.
 
@@ -682,10 +695,24 @@ def _build_category_card(
         is_open = False
     else:
         is_open = None
+    # A2: a sponsored card may carry the placement's ad creative. When present,
+    # the creative's art replaces the listing photo and its headline rides along
+    # as an overlay caption (rendered by sandstone_biz_card.html). Gated on
+    # ``is_sponsored`` so a creative can never label/skin an unpaid card; empty
+    # ``creative`` (the dormant default) leaves the card byte-identical.
+    ad = creative if (is_sponsored and creative) else {}
+    card_image = ad.get("image_url") or image_url
+    ad_headline = ad.get("headline") or ""
+    # Browse-card actions: a tappable phone (when we hold a real, non-placeholder
+    # number) and a Google Maps directions link (when we hold any location
+    # signal). Both default to "" so cards lacking the data simply omit the
+    # button -- never a dead tel: or maps link.
+    phone_display, phone_tel = _format_phone(getattr(provider, "phone", None))
     return {
         "slug": provider.slug,
         "name": provider.provider_name,
-        "image_url": image_url,
+        "image_url": card_image,
+        "ad_headline": ad_headline,
         "neighborhood": (provider.district or "") if hasattr(provider, "district") else "",
         "status": status_class,
         "status_text": status_text,
@@ -698,12 +725,25 @@ def _build_category_card(
         # DL-8: out-of-area hint; "" for in-area / geo-unknown rows.
         "distance_hint": _card_distance_hint(provider),
         "subcategory": _card_subcategory_token(provider, allowed_subcategories),
-        "cuisine": derive_cuisine(
+        "cuisine": effective_cuisine(
+            getattr(provider, "attributes", None),
             getattr(provider, "google_primary_category", None),
             getattr(provider, "google_categories", None),
         )
         or "",
         "is_open": is_open,
+        # Browse-card quick actions (P7 follow-up). "" -> the button is omitted.
+        "phone": phone_display or "",
+        "phone_tel": phone_tel or "",
+        "directions_url": derive_directions_url(provider) or "",
+        # Honesty gate (§7.2): True only when this provider holds an active paid
+        # placement on the surface being rendered. Default False keeps every
+        # existing caller's cards unlabeled until placements are wired in.
+        "is_sponsored": is_sponsored,
+        # §2.2: True for a no-review business in the daily-shuffled "New / Not yet
+        # rated" tail, so the grid can print the section divider above it. Default
+        # False — the legacy rating order renders no tail.
+        "is_new_unrated": is_new_unrated,
     }
 
 
@@ -762,6 +802,32 @@ def category_cards(
     if not rows:
         return []
 
+    # Phase F §7.2 honesty gate: pin active paid sticky-tier placements to the top
+    # and label them Sponsored. No-op (organic order, no badges) until a placement
+    # is sold for this route. Defensive: a lookup failure leaves the grid organic.
+    try:
+        from app.monetization.serving import (
+            active_category_creatives,
+            active_category_tiers,
+            apply_category_order,
+        )
+
+        tiers = active_category_tiers(db, slug.strip().lower())
+    except Exception:
+        tiers = {}
+    sponsored_ids = set(tiers.values())
+    try:
+        creatives = active_category_creatives(db, slug.strip().lower()) if tiers else {}
+    except Exception:
+        creatives = {}
+    if tiers:
+        by_id = {p.id: p for p in rows}
+        rows = [
+            by_id[pid]
+            for pid in apply_category_order([p.id for p in rows], tiers)
+            if pid in by_id
+        ]
+
     cards: list[dict[str, Any]] = []
     for provider in rows:
         try:
@@ -777,6 +843,8 @@ def category_cards(
                 status_class=status_class,
                 status_text=status_text,
                 image_url=image_url,
+                is_sponsored=provider.id in sponsored_ids,
+                creative=creatives.get(provider.id),
             )
         )
     return cards
@@ -878,24 +946,77 @@ def _liveness_dampener_expr():
     )
 
 
+# 4.1 ranking tuning (2026-06-17) — the In-N-Out symptom and its fix.
+#
+# REPRODUCED: Bayesian shrinkage alone (``rating_prior``, C=25) ranks the
+# contested case correctly *only when the live mean m sits below the contested
+# ratings*. With R_thin=4.7/n=20 vs R_thick=4.6/n=3878, the thin row barely
+# shrinks (n=20 « C) while the thick row barely moves (n=3878 » C), so on a
+# high-rated leaf where the review-weighted m climbs toward ~4.6 the shrunk
+# thin 4.7 floats ABOVE the thick 4.6 — exactly the reported bug (a ~20-review
+# 4.7 topping a 3,878-review 4.6). Worked example at m=4.60, C=25:
+#   thick = (4.6*3878 + 4.6*25)/3903 = 4.600
+#   thin  = (4.7*20   + 4.6*25)/45   = 4.644   ->  thin wrongly wins.
+#
+# WHY NOT JUST RAISE C: shrinkage only ever pulls a score toward m, and a 4.7
+# thin row stays above a ~4.6 m at ANY C (raising C just moves it closer to
+# 4.6 from above). C is a global constant owned by app.core.rating_prior and
+# is held at its calibrated 25 (head-stable on the 2026-06-10 prod export).
+#
+# FIX (this module's lane): a saturating review-volume *confidence* multiplier
+# on the SORT score only (never the displayed rating). A listing with thousands
+# of reviews has earned its rating and should win a near-tie against a
+# barely-reviewed one regardless of m. The bonus uses a pure-arithmetic
+# saturating curve ``n / (n + REF)`` — bounded in [0, 1), monotonic, and (unlike
+# LN/LEAST) portable across SQLite (tests) and Postgres (prod) with no DB
+# function dependency. It is capped at ``+W`` (8%), so the review-rich head —
+# where every row already has a large, similar n near the asymptote — is
+# essentially unreordered (the C=25 head-stability calibration holds), while the
+# thin tail loses almost all of the bonus and is pushed down. Re-running the
+# worked example (m≈4.60):
+#   thick * (1 + .08 * 3878/(3878+300)) = 4.600 * 1.074 = 4.942
+#   thin  * (1 + .08 *   20/(20+300))   = 4.644 * 1.005 = 4.667  -> thick wins.
+#: Review volume at which the confidence bonus reaches half its max (so a few
+#: thousand reviews — the In-N-Out scale — sits near the full bonus while a
+#: 20-review row gets almost none).
+_VOLUME_CONFIDENCE_REF = 300.0
+#: Max fractional lift the volume bonus adds to a fully-credible listing's score.
+#: Small (8%) so it only ever breaks near-ties — it can't promote a genuinely
+#: lower-rated listing past a clearly higher-rated one in the head.
+_VOLUME_CONFIDENCE_WEIGHT = 0.08
+
+
+def _volume_confidence_expr():
+    """``1 + W * n/(n + REF)`` — a bounded, saturating review-volume bonus.
+
+    Monotonic in review count, asymptotes to ``1 + W``, and uses only
+    COALESCE + arithmetic so it runs identically on SQLite and Postgres. NULL/0
+    review counts get the bare 1.0 (no bonus); a few-thousand-review listing
+    sits near the full ``1 + W`` lift."""
+    from sqlalchemy import func as sa_func
+
+    n = sa_func.coalesce(Provider.google_review_count, 0)
+    return 1.0 + _VOLUME_CONFIDENCE_WEIGHT * (n / (n + _VOLUME_CONFIDENCE_REF))
+
+
 def _dampened_rating_sort_key(db):
-    """``queries_c._rating_sort_key`` with the liveness dampener folded in.
+    """``queries_c._rating_sort_key`` with the liveness dampener + volume bonus.
 
     Bayesian-shrunk rating (WS-2, ``app.core.rating_prior``: ``(R*n + m*C) /
     (n + C)``, C=25, live review-weighted ``m``) replacing the old hard
     ``MIN_RATING_REVIEWS`` tier — the prior shrinks thin-review ratings toward
-    the global mean continuously instead of bucketing them, so a 2-review 5.0
-    can't top a leaf page while a review-rich head keeps its order (top-20
-    identical at C=25 on the 2026-06-10 prod calibration). The score is
-    multiplied by the liveness dampener, so a stale-but-once-popular listing
-    sinks (the bury-don't-remove rule). NULL ratings still sort last; NULL
-    liveness leaves the ordering identical to the undampened sort.
+    the global mean continuously instead of bucketing them. The shrunk score is
+    then multiplied by the liveness dampener (bury-don't-remove) AND a saturating
+    log-review-count confidence bonus (:func:`_volume_confidence_expr`), so a
+    3,878-review 4.6 outranks a 20-review 4.7 even when the live mean climbs into
+    the contested range — the 4.1 ranking fix. NULL ratings still sort last; the
+    review-count tiebreak is preserved as the final discriminator.
     """
     from app.core.rating_prior import bayesian_rating_expr, global_mean_rating
 
     score = bayesian_rating_expr(global_mean_rating(db))
     return (
-        (score * _liveness_dampener_expr()).desc().nullslast(),
+        (score * _liveness_dampener_expr() * _volume_confidence_expr()).desc().nullslast(),
         Provider.google_review_count.desc().nullslast(),
     )
 
@@ -1009,6 +1130,9 @@ def _provider_card(
     *,
     now: datetime,
     allowed_subcategories: set[str] | None = None,
+    sponsored_provider_ids: set[str] | None = None,
+    new_unrated_ids: set[str] | frozenset[str] | None = None,
+    creatives: dict[str, dict[str, str]] | None = None,
 ) -> dict[str, Any]:
     try:
         status_class, status_text = _hours_status(provider, now=now)
@@ -1020,43 +1144,43 @@ def _provider_card(
         status_text=status_text,
         image_url=_resolve_category_card_image(provider),
         allowed_subcategories=allowed_subcategories,
+        is_sponsored=bool(sponsored_provider_ids and provider.id in sponsored_provider_ids),
+        is_new_unrated=bool(new_unrated_ids and provider.id in new_unrated_ids),
+        creative=(creatives or {}).get(provider.id),
     )
 
 
 def available_cuisines_for_route(db: Session | None, slug: str) -> list[dict[str, str]]:
-    """Cuisine chips present among a route's providers (C-2), in canonical order.
+    """Cuisine chips for a route's providers (C-2), in canonical order.
 
-    Returns ``[]`` for non-food routes (no cuisine tokens match) or on any DB
-    hiccup — the template then renders no cuisine row. One light two-column query.
+    2026-07-01 (consolidated audit A4): a chip renders only for a cuisine that
+    clears the RENDER gate (``CUISINE_PAGE_MIN_PROVIDERS``). 2026-07-02: counts
+    now come from ``cuisine_pages._eat_drink_cuisine_counts`` — the SAME pool
+    (``route_provider_filter``: primary→subcategory→legacy tiers) the cuisine
+    facet view and the landing gate use. This function used to count on the
+    legacy ``Provider.category`` filter only, so a chip could render for a
+    cuisine whose facet sat below the gate (and a qualifying cuisine could miss
+    its chip) — exactly the drift A4 existed to stop. Cuisine signal only
+    exists on the eat-drink route; every other route returns ``[]`` without
+    touching the DB (the old version scanned e.g. the whole ~1.5k-row services
+    pool to produce an empty chip list).
     """
+    from app.categories.cuisine_pages import (
+        CUISINE_PAGE_MIN_PROVIDERS,
+        EAT_DRINK_ROUTE,
+        _eat_drink_cuisine_counts,
+    )
     from app.categories.subcategories import cuisine_label, cuisine_slugs_in_order
 
     if db is None:
         return []
-    slugs = CATEGORY_FILTERS.get((slug or "").strip().lower())
-    if not slugs:
+    if (slug or "").strip().lower() != EAT_DRINK_ROUTE:
         return []
-    try:
-        rows = (
-            db.query(Provider.google_primary_category, Provider.google_categories)
-            .filter(
-                Provider.category.in_(slugs),
-                Provider.is_active.is_(True),
-                Provider.draft.is_(False),
-            )
-            .all()
-        )
-    except Exception:
-        return []
-    present: set[str] = set()
-    for primary, cats in rows:
-        c = derive_cuisine(primary, cats)
-        if c:
-            present.add(c)
+    counts = _eat_drink_cuisine_counts(db)
     return [
         {"slug": s, "label": cuisine_label(s) or s}
         for s in cuisine_slugs_in_order()
-        if s in present
+        if counts.get(s, 0) >= CUISINE_PAGE_MIN_PROVIDERS
     ]
 
 
@@ -1127,6 +1251,7 @@ def category_listing(
     facets: CategoryFacets | None = None,
     limit: int = _DEFAULT_CARD_LIMIT,
     page: int = 1,
+    placement_key: str | None = None,
 ) -> tuple[list[dict[str, Any]], int]:
     """Return ``(cards, total)`` for a category page under the given facets.
 
@@ -1149,6 +1274,49 @@ def category_listing(
     route_key = slug.strip().lower()
     allowed_subs = _allowed_subcategory_slugs(route_key)
     try:
+        # Phase F §7.2 honesty gate: active paid sticky-tier placements for this
+        # route. Empty today (nothing sold) → the fast SQL-only path below stays
+        # byte-identical. A non-empty set diverts to the materialized path so paid
+        # tiers can be pinned to the top (page 1) and labeled Sponsored.
+        from app.monetization.serving import (
+            ItemRating,
+            active_category_creatives,
+            active_category_tiers,
+            arrange_listing,
+            listing_day,
+        )
+        from app.portal.products import (
+            daily_shuffle_enabled,
+            mobile_paid_cap,
+            rating_gate,
+        )
+
+        # §2.2: the seeded daily shuffle is the DEFAULT organic order. Explicit
+        # sorts (favorites / closest / alpha) are user overrides and keep their
+        # order. When the shuffle is on for the default sort we must materialize
+        # (the partition + Fisher-Yates can't run in SQL), so the fast path below
+        # is skipped for that case only.
+        use_shuffle = daily_shuffle_enabled() and facets.sort in (None, "", "default")
+
+        # A3: a sub-surface (e.g. a cuisine landing) can sell placements on its
+        # own namespaced key instead of the parent route — so a Mexican
+        # restaurant tops the Mexican page without topping all of Eat & Drink.
+        # Defaults to the route slug, keeping every existing caller identical.
+        placement_route = (placement_key or "").strip().lower() or route_key
+
+        try:
+            tiers = active_category_tiers(db, placement_route)
+        except Exception:
+            tiers = {}  # placement lookup must never empty the organic grid
+        sponsored_ids = set(tiers.values())
+        # A2: per-provider ad creative for the sold tiers. Only queried when a
+        # tier is held here (a creative can only ride an active placement, which
+        # also populates ``tiers``), so the dormant SQL-only path adds no query.
+        try:
+            creatives = active_category_creatives(db, placement_route) if tiers else {}
+        except Exception:
+            creatives = {}
+
         base = db.query(Provider).filter(
             route_provider_filter(slug.strip().lower()),
             Provider.is_active.is_(True),
@@ -1159,8 +1327,8 @@ def category_listing(
         if facets.top_rated:
             base = base.filter(Provider.google_rating >= _TOP_RATED_MIN)
 
-        needs_scan = facets.needs_materialize
-        if not needs_scan:
+        needs_scan = facets.needs_materialize or use_shuffle
+        if not needs_scan and not tiers:
             # SQL-only path (B4): subcategory + top_rated predicates and the
             # rating/alpha orderings are all expressible in SQL, so COUNT runs in
             # the DB and only the requested page is fetched -- no Python
@@ -1182,7 +1350,8 @@ def category_listing(
             rows = [
                 p
                 for p in rows
-                if derive_cuisine(
+                if effective_cuisine(
+                    getattr(p, "attributes", None),
                     getattr(p, "google_primary_category", None),
                     getattr(p, "google_categories", None),
                 )
@@ -1219,7 +1388,54 @@ def category_listing(
         elif facets.sort == "alpha":
             rows.sort(key=lambda p: (p.provider_name or "").lower())
         total = len(rows)
+        new_unrated_ids: frozenset[str] = frozenset()
+        by_id = {p.id: p for p in rows}
+        if use_shuffle:
+            # §2.1/§2.2: ≤cap paid pinned, then the daily-shuffled >gate pool, the
+            # "New / Not yet rated" tail, then the low band. Replaces the favorites
+            # order computed above (kept for the shuffle-off rollback path).
+            arr = arrange_listing(
+                [
+                    ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
+                    for p in rows
+                ],
+                tiers,
+                category_slug=placement_route,
+                day=listing_day(now),
+                threshold=rating_gate(),
+                cap=mobile_paid_cap(),
+            )
+            rows = [by_id[k] for k in arr.order if k in by_id]
+            new_unrated_ids = arr.new_unrated
+        elif tiers:
+            # Legacy path (shuffle off): preserve the organic order, but still pin
+            # paid tiers under the SAME mobile cap so disabling the shuffle can't
+            # bypass it. shuffle=False keeps the rating order untouched below.
+            arr = arrange_listing(
+                [
+                    ItemRating(p.id, p.google_rating, getattr(p, "google_review_count", None))
+                    for p in rows
+                ],
+                tiers,
+                category_slug=placement_route,
+                day=listing_day(now),
+                threshold=rating_gate(),
+                cap=mobile_paid_cap(),
+                shuffle=False,
+            )
+            rows = [by_id[k] for k in arr.order if k in by_id]
         window = rows[offset : offset + per_page]
-        return [_provider_card(db, p, now=now, allowed_subcategories=allowed_subs) for p in window], total
+        return [
+            _provider_card(
+                db,
+                p,
+                now=now,
+                allowed_subcategories=allowed_subs,
+                sponsored_provider_ids=sponsored_ids,
+                new_unrated_ids=new_unrated_ids,
+                creatives=creatives,
+            )
+            for p in window
+        ], total
     except Exception:
         return [], 0

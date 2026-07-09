@@ -13,12 +13,14 @@ from __future__ import annotations
 import pytest
 
 from app.home.sandstone import (
+    _TIER_AQUATIC,
     _TIER_CLASS,
     _TIER_COMMUNITY,
     _TIER_MUSIC,
     _TIER_OTHER,
     _TIER_SPECIAL,
     _TIER_WATER,
+    _event_pill_type,
     _event_tier,
 )
 
@@ -46,6 +48,29 @@ def test_civic_tags_route_to_community():
 ])
 def test_government_meetings_are_community(title):
     assert tier(title) == _TIER_COMMUNITY
+
+
+# --- food/novelty guard (carried-forward: "Troy's Alligator Feed" → Music) --
+
+def test_food_novelty_with_venue_music_tag_is_not_music():
+    # The live bug: a food/novelty one-off at a bar inherited the venue's coarse
+    # `music` tag and tiered to Music & nightlife. It's a "Happening today" event.
+    assert tier("Troy's Alligator Feed", ["music"]) == _TIER_OTHER
+
+
+@pytest.mark.parametrize("title", [
+    "Annual Fish Fry",
+    "Pancake Breakfast Fundraiser",
+    "Lions Club Spaghetti Dinner",
+])
+def test_food_novelty_titles_not_promoted_to_music_by_tag(title):
+    assert tier(title, ["music"]) != _TIER_MUSIC
+
+
+def test_food_novelty_guard_yields_to_real_live_music():
+    # A genuine show with a strong music signal stays in Music even with a food
+    # word in the title — the guard only demotes venue/tag-only signals.
+    assert tier("Blues Fish Fry Concert", ["music"]) == _TIER_MUSIC
 
 
 # --- substring false-positives the boundary fix kills ----------------------
@@ -78,15 +103,36 @@ def test_fest_suffix_still_special():
 def test_gerund_and_plural_tails_still_match():
     assert tier("Sunrise Kayaking") == _TIER_WATER
     assert tier("Concerts in the Park") == _TIER_MUSIC
-    assert tier("Swimming Lessons") == _TIER_CLASS
+    # Swim lessons happen in the POOL — Aquatic Center, not the lake.
+    assert tier("Swimming Lessons") == _TIER_AQUATIC
     assert tier("Spinning") == _TIER_CLASS
+
+
+# --- pool (Aquatic Center) is NOT "on the water" (the lake) -----------------
+
+def test_pool_activities_tier_aquatic_not_water():
+    # The live bug: Aquatic Center pool sessions wore the lake pill. Pool words
+    # now route to their own Aquatic Center tier, never On-the-water.
+    assert tier("Open Swim") == _TIER_AQUATIC
+    assert tier("Free Family Swim") == _TIER_AQUATIC
+    assert tier("Lap Swim (Morning)") == _TIER_AQUATIC
+    assert tier("Aqua Zumba") == _TIER_AQUATIC
+    assert tier("Water Aerobics") == _TIER_AQUATIC
+
+
+def test_genuine_lake_activities_stay_on_the_water():
+    # Literally on Lake Havasu / the Bridgewater Channel — these keep the
+    # On-the-water tier (no pool word present).
+    assert tier("Sunset Kayak Tour") == _TIER_WATER
+    assert tier("Sunset Paddle") == _TIER_WATER
+    assert tier("Boat Parade") == _TIER_SPECIAL  # "parade" is a special
+    assert tier("Channel Cleanup") == _TIER_WATER
 
 
 # --- unchanged baseline behavior -------------------------------------------
 
 def test_class_signal_beats_music_and_water():
     assert tier("Beginner Pilates (Wed/Fri)") == _TIER_CLASS
-    assert tier("Lap Swim (Morning)") == _TIER_CLASS
 
 
 def test_untyped_one_off_is_other_and_recurring_is_class():
@@ -99,9 +145,19 @@ def test_featured_always_special():
 
 
 def test_water_and_community_baselines():
-    assert tier("Open Swim") == _TIER_WATER
+    assert tier("Sunrise Kayak Social") == _TIER_WATER
     assert tier("Farmers Market") == _TIER_COMMUNITY
     assert tier("Rowdy Bingo at Grapes N Grains") == _TIER_COMMUNITY
+
+
+def test_month_pill_type_agrees_with_tier():
+    # The month-cell pill must never disagree with the tier classifier (it once
+    # used a separate keyword list that missed "water aerobics").
+    # Pool sessions fold into the class color now (no separate Aquatic pill).
+    assert _event_pill_type("Water Aerobics", [], featured=False) == "class"
+    assert _event_pill_type("Open Swim", [], featured=False) == "class"
+    assert _event_pill_type("Sunset Kayak Tour", ["kayak"], featured=False) == "water"
+    assert _event_pill_type("Spring Concert", [], featured=True) == "special"
 
 
 def test_musical_theatre_no_longer_reads_as_music():

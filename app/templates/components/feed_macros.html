@@ -1,0 +1,78 @@
+{#- Shared v4 feed macros — the SAME nested-tree rendering the home feed and
+   /events-ui both use (parity Rule 0; v4.5 PR-1 extracted these out of
+   home_redesign.html so /events-ui reuses them instead of forking). -#}
+{%- from "components/redesign_icons.html" import icon, cicon -%}
+
+{#- SEO guard: skip internal namespaced ``KEY:value`` taxonomy tokens. -#}
+{%- macro tags(tlist) -%}
+{%- for t in tlist if ':' not in t -%}{%- set l = t|lower -%}<span class="tg{% if 'free' in l %} free{% elif l == 'water' %} water{% endif %}">{{ t }}</span>{%- endfor -%}
+{%- endmacro -%}
+
+{#- A pageless row (no ``url``) renders as a <div>, never a dead ``href="#"``. -#}
+{%- macro ev_row(row) -%}
+{% if row.url %}<a class="ev" href="{{ row.url }}">{% else %}<div class="ev pageless">{% endif %}
+  <span class="evt">{% if row.time_label and 'TBD' not in row.time_label %}{{ row.time_label }}{% endif %}</span>
+  <span class="b">
+    <span class="et">{{ row.title }}</span>
+    {% if row.venue %}<span class="em">{{ row.venue }}</span>{% endif %}
+    {% if row.blurb %}<span class="eb">{{ row.blurb }}</span>{% endif %}
+    {#- Session 1 (2026-07-04): backend sorting tags (e.g. "church events",
+       "farmers market") are no longer shown on event rows — users already know
+       the section they're in. The tags() macro below is kept intact for future
+       use (e.g. a clean "Free" badge). Re-enable by restoring the span. -#}
+    {#- {% if row.tags %}<span class="tags">{{ tags(row.tags) }}</span>{% endif %} -#}
+  </span>
+  {% if row.url %}<span class="det" aria-hidden="true">{{ icon('arrow', 15) }}</span>{% endif %}
+{% if row.url %}</a>{% else %}</div>{% endif %}
+{%- endmacro -%}
+
+{#- Recursive subcategory node — rows + optional nested `children` (youth/facet
+   third level). Collapsed by default; youth children get the kid accent. -#}
+{%- macro sub_tree(node, cls='subg') -%}
+<details class="{{ cls }}{% if node.youth %} youth{% endif %}"{% if node.open %} open{% endif %}>
+  <summary class="subhd"><span class="subl">{{ node.label }}</span><span class="subc num">{{ node.count }}</span><span class="cv">{{ icon('chev', 12) }}</span></summary>
+  <div class="subbody">
+    {% for row in node.rows %}{{ ev_row(row) }}{% endfor %}
+    {% for child in node.children %}{{ sub_tree(child, 'l3') }}{% endfor %}
+  </div>
+</details>
+{%- endmacro -%}
+
+{#- Closed-section preview line, from the section's own first rows (v4.4 §6.2). -#}
+{%- macro sec_preview(s) -%}
+  {%- set bits = [] -%}
+  {%- for row in s.preview_rows[:3] -%}
+    {%- set _ = bits.append(row.title ~ (' ' ~ row.time_short if row.time_short else '')) -%}
+  {%- endfor -%}
+  {%- if s.count > 3 -%}{%- set _ = bits.append((s.count - 3) ~ ' more') -%}{%- endif -%}
+  {{ bits | join(' · ') }}
+{%- endmacro -%}
+
+{#- One collapsible section (Events / Music / On the water / Movies / …). The
+   whole accordion, so home + /events-ui render an identical tree. -#}
+{%- macro section(s, index0=0) -%}
+<details class="sec{% if s.key == 'events' %} lead{% endif %} rise" style="animation-delay:{{ 120 + index0 * 40 }}ms" data-k="{{ s.key }}"{% if s.open %} open{% endif %} id="sec-{{ s.key }}">
+  <summary class="sechd">
+    <span class="si">{{ cicon(s.key, 18) }}</span>
+    <span class="sl">{{ s.label }}</span>
+    <span class="sc num">{{ s.count }}</span>
+    {% if s.preview_rows %}<span class="sp">{{ sec_preview(s) }}</span>{% endif %}
+    <span class="cv">{{ icon('chev', 14) }}</span>
+  </summary>
+  <div class="secbody"><div class="host">
+    {% if s.is_movies %}
+      {% for m in s.rows %}
+      <a class="ev movie" href="{{ m.url or '/movies' }}">
+        <span class="b"><span class="et">{{ m.title }}</span>{% if m.theater %}<span class="em">{{ m.theater }}</span>{% endif %}{% if m.times %}<span class="times">{% for t in m.times %}<span class="tpill">{{ t }}</span>{% endfor %}</span>{% endif %}</span>
+        <span class="det" aria-hidden="true">{{ icon('arrow', 15) }}</span>
+      </a>
+      {% endfor %}
+      <a class="showall" href="/movies">All showtimes {{ icon('arrow', 15) }}</a>
+    {% elif s.subgroups %}
+      {% for sub in s.subgroups %}{{ sub_tree(sub) }}{% endfor %}
+    {% else %}
+      {% for row in s.rows %}{{ ev_row(row) }}{% endfor %}
+    {% endif %}
+  </div></div>
+</details>
+{%- endmacro -%}

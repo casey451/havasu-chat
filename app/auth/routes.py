@@ -4,12 +4,10 @@ from __future__ import annotations
 
 import logging
 from datetime import UTC, datetime, timedelta, timezone
-from pathlib import Path
 from urllib.parse import quote, unquote
 
 from fastapi import APIRouter, BackgroundTasks, Depends, Form, HTTPException, Request
 from fastapi.responses import HTMLResponse, JSONResponse, RedirectResponse, Response
-from fastapi.templating import Jinja2Templates
 from pydantic import BaseModel
 from sqlalchemy import func
 from sqlalchemy.exc import IntegrityError
@@ -47,18 +45,15 @@ from app.core.background import (
     deliver_outbox_row,
     enqueue_outbox,
 )
-from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.rate_limit import limiter
+from app.core.templates import make_templates
 from app.db.database import get_db
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
 from app.db.models import AuthSession, Entity, MagicLinkToken, Provider, User
 
 logger = logging.getLogger(__name__)
 
-_TEMPLATES_DIR = Path(__file__).resolve().parent.parent / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 router = APIRouter(tags=["auth"])
 
@@ -77,6 +72,16 @@ def _safe_next(raw: str | None) -> str | None:
     if ".." in s:
         return None
     return s
+
+
+def _tname(request: Request, base_name: str) -> str:
+    """Map a ``foo.html`` page name to its Lake template ``foo_lake.html``.
+
+    Lake is the only theme (the desert lineage was deleted 2026-06-24), so this
+    always returns the lake variant. ``request`` stays in the signature so the
+    call sites are unchanged."""
+    del request
+    return f"{base_name[:-5]}_lake.html"
 
 
 def _client_ip(request: Request) -> str | None:
@@ -107,7 +112,7 @@ def login_page(request: Request) -> HTMLResponse:
     next_path = _safe_next(request.query_params.get("next"))
     return templates.TemplateResponse(
         request=request,
-        name="login.html",
+        name=_tname(request, "login.html"),
         context={"error": None, "next_path": next_path},
     )
 
@@ -126,7 +131,7 @@ def request_link(
     if not is_valid_email(normalized):
         return templates.TemplateResponse(
             request=request,
-            name="login.html",
+            name=_tname(request, "login.html"),
             context={
                 "error": "Please enter a valid email address.",
                 "next_path": safe_next,
@@ -136,8 +141,8 @@ def request_link(
     if _email_rate_limit_exceeded(db, normalized):
         return templates.TemplateResponse(
             request=request,
-            name="login_check_email.html",
-            context={"email": normalized},
+            name=_tname(request, "login_check_email.html"),
+            context={"email": normalized, "next_path": safe_next},
         )
 
     plaintext, token_hash = generate_magic_link_token()
@@ -169,8 +174,8 @@ def request_link(
 
     return templates.TemplateResponse(
         request=request,
-        name="login_check_email.html",
-        context={"email": normalized},
+        name=_tname(request, "login_check_email.html"),
+        context={"email": normalized, "next_path": safe_next},
     )
 
 
@@ -187,7 +192,7 @@ def auth_callback(
     if row is None or row.consumed_at is not None or row.expires_at < now_aware:
         return templates.TemplateResponse(
             request=request,
-            name="login_expired.html",
+            name=_tname(request, "login_expired.html"),
             status_code=400,
             context={},
         )
@@ -250,7 +255,7 @@ def account_page(request: Request) -> Response:
         return RedirectResponse(url="/login?next=%2Faccount", status_code=303)
     return templates.TemplateResponse(
         request=request,
-        name="account.html",
+        name=_tname(request, "account.html"),
         context={"user": user},
     )
 
@@ -296,7 +301,9 @@ def api_boat_mode_preference(
     return JSONResponse(
         content={
             "boat_mode_preference": body.enabled,
-            "preferred_mode": user.preferred_mode,
+            # Echo the freshly written row, not the middleware-expunged `user`
+            # snapshot, which still carries the PRE-request value.
+            "preferred_mode": row.preferred_mode,
         }
     )
 
@@ -368,7 +375,7 @@ def account_favorites_page(request: Request, db: SqlSession = Depends(get_db)) -
         )
     return templates.TemplateResponse(
         request=request,
-        name="account_favorites.html",
+        name=_tname(request, "account_favorites.html"),
         context={"user": user, "favorites": rows},
     )
 
@@ -390,12 +397,12 @@ def claim_get(slug: str, request: Request, db: SqlSession = Depends(get_db)) -> 
     if existing is not None:
         return templates.TemplateResponse(
             request=request,
-            name="claim_status.html",
+            name=_tname(request, "claim_status.html"),
             context={"entity": ent, "claim": existing},
         )
     return templates.TemplateResponse(
         request=request,
-        name="claim_form.html",
+        name=_tname(request, "claim_form.html"),
         context={"entity": ent},
     )
 
@@ -423,7 +430,7 @@ def claim_post(
     if prior is not None:
         return templates.TemplateResponse(
             request=request,
-            name="claim_status.html",
+            name=_tname(request, "claim_status.html"),
             context={"entity": ent, "claim": prior},
         )
     try:
@@ -436,11 +443,11 @@ def claim_post(
             raise err
         return templates.TemplateResponse(
             request=request,
-            name="claim_status.html",
+            name=_tname(request, "claim_status.html"),
             context={"entity": ent, "claim": existing},
         )
     return templates.TemplateResponse(
         request=request,
-        name="claim_submitted.html",
+        name=_tname(request, "claim_submitted.html"),
         context={"entity": ent},
     )

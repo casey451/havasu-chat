@@ -1,0 +1,33 @@
+{% extends "base_redesign.html" %}
+{#- WS10 /family/camps — the seasonal camps index (v1). Server-rendered from the
+   events DB (family_hub.camps_index); a WS12 connector's camp rows appear here
+   with no page change. Honest "nothing yet" state, never a fabricated camp. -#}
+{% from "components/redesign_icons.html" import icon %}
+{% block title %}Summer camps in Lake Havasu — Ask Hava{% endblock %}
+{% block meta_description %}Day camps, sports clinics and VBS around Lake Havasu City — dates, venues and how to register, pulled live from the events calendar.{% endblock %}
+
+{% block main %}
+<div class="famx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/family">For Kids</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Camps</span></nav>
+  <div class="pagehead">
+    <span class="eyebrow">Family</span>
+    <h1 class="serif">Summer camps &amp; clinics</h1>
+    <p class="dsub">Day camps, sports clinics and VBS around Lake Havasu — pulled live from the events calendar. Tap a camp for its dates and how to register.</p>
+  </div>
+
+  {% if camps %}
+  <div class="famgrid">
+    {% for c in camps %}
+    <a class="famtile" href="{{ c.url }}">
+      <div class="ft serif">{{ c.title }}</div>
+      {% set meta = [c.when, c.venue]|select|join(' · ') %}
+      {% if meta %}<div class="fn">{{ meta }}</div>{% endif %}
+      <span class="fgo" aria-hidden="true">{{ icon('arrow', 14) }}</span>
+    </a>
+    {% endfor %}
+  </div>
+  {% else %}
+  <p class="dsub">No camps are on the calendar right now. As local camps, clinics and VBS are announced they'll appear here automatically. Know one we're missing? <a href="/contribute">Tell us about it</a>.</p>
+  {% endif %}
+</div>
+{% endblock %}

@@ -510,7 +510,7 @@ _SERVICE_TILES: tuple[dict[str, Any], ...] = (
         "svg_path": "M6 7h12l-1 13H7L6 7zM9 7V5a3 3 0 0 1 6 0v2",
     },
     {
-        "name": "On the water",
+        "name": "Lake Life",
         "route": "on-the-water",
         "svg_path": "M2 17c2-2 4-2 6 0s4 2 6 0 4-2 6 0M2 13c2-2 4-2 6 0s4 2 6 0 4-2 6 0M5 10l7-6 7 6",
     },

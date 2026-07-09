@@ -24,6 +24,73 @@ def test_build_business_list_sorts_by_rating_desc() -> None:
     assert data["items"][2]["name"] == "Low Rated"
 
 
+def test_build_business_list_relevance_outranks_rating() -> None:
+    # P1-1.1: a lower-rated row whose text matches the query's distinctive terms
+    # ("rent") must outrank a higher-rated row that matches none — the shortcut
+    # path's grab-bag fix ("where can I rent a kayak?" -> rentals, not a body shop).
+    rows = _rows(
+        {
+            "name": "Boat Body Shop",
+            "slug": "boat-body-shop",
+            "google_rating": 4.9,
+            "google_primary_category": "Boat repair shop",
+        },
+        {
+            "name": "Havasu Watercraft Rental",
+            "slug": "havasu-watercraft-rental",
+            "google_rating": 4.1,
+            "google_primary_category": "Boat rental service",
+        },
+    )
+    data = build_business_list(
+        rows,
+        category="boat-and-watercraft-rentals",
+        total_count=2,
+        intent_query="where can I rent a kayak?",
+    )
+    assert data["items"][0]["name"] == "Havasu Watercraft Rental"
+    assert data["items"][1]["name"] == "Boat Body Shop"
+
+
+def test_build_business_list_relevance_noop_falls_back_to_rating() -> None:
+    # A query of only stop/locality/bucket words yields empty rank_terms, so the
+    # sort is byte-identical to the legacy rating-then-name order (zero regression).
+    rows = _rows(
+        {"name": "Boat Body Shop", "slug": "boat-body-shop", "google_rating": 4.9},
+        {"name": "Havasu Watercraft Rental", "slug": "havasu", "google_rating": 4.1},
+    )
+    data = build_business_list(
+        rows, category="boat", total_count=2, intent_query="what is around here in town"
+    )
+    assert data["items"][0]["name"] == "Boat Body Shop"  # higher rating still wins
+
+
+def test_build_business_list_leaf_slug_drives_relevance() -> None:
+    # "launch"/"ramp" live ONLY in the leaf slug, not the provider name — P1-1.1
+    # folds category_slugs into the searchable text so slug-only signals rank too.
+    rows = _rows(
+        {
+            "name": "Generic Boat Spot",
+            "slug": "generic-boat-spot",
+            "google_rating": 4.8,
+            "category_slugs": "boat-and-watercraft-rentals on-the-water",
+        },
+        {
+            "name": "Site Six",
+            "slug": "site-six",
+            "google_rating": 3.9,
+            "category_slugs": "marinas-and-launch-ramps on-the-water",
+        },
+    )
+    data = build_business_list(
+        rows,
+        category="on-the-water",
+        total_count=2,
+        intent_query="which launch ramp is best for a 28-foot boat?",
+    )
+    assert data["items"][0]["name"] == "Site Six"  # leaf slug carries launch + ramp
+
+
 def test_build_business_list_phone_and_maps_links() -> None:
     rows = _rows(
         {

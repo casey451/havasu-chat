@@ -9,7 +9,7 @@ from typing import Any
 
 from sqlalchemy.orm import Session
 
-from app.conditions import airnow, nws, usgs, usgs_water_temp, uv
+from app.conditions import airnow, nws, rise_water_temp, usgs, usgs_water_temp, uv
 from app.conditions.cache import record_fetch_failure, should_skip_fetch, upsert_source
 from app.conditions.constants import (
     SOURCE_AIRNOW,
@@ -17,8 +17,8 @@ from app.conditions.constants import (
     SOURCE_NWS_ALERTS,
     SOURCE_NWS_CURRENT,
     SOURCE_NWS_FORECAST,
-    SOURCE_NWS_SUNSET,
     SOURCE_OPENUV,
+    SOURCE_RISE_WATER_TEMP,
     SOURCE_USGS,
     SOURCE_USGS_WATER_TEMP,
     TTL_BY_SOURCE,
@@ -33,7 +33,6 @@ _FETCHERS: dict[str, Callable[[], dict[str, Any]]] = {
     SOURCE_NWS_ALERTS: nws.fetch_nws_alerts_lhc_zone,
     SOURCE_NWS_CURRENT: nws.fetch_nws_current,
     SOURCE_NWS_FORECAST: nws.fetch_nws_forecast_daily,
-    SOURCE_NWS_SUNSET: nws.fetch_nws_sunset,
     SOURCE_USGS: usgs.fetch_usgs_lake_havasu,
     # UV index (robust). Prefers the key-gated Open-UV source and falls back to
     # the keyless EPA Envirofacts forecast when OPENUV_API_KEY is unset, so a UV
@@ -44,6 +43,11 @@ _FETCHERS: dict[str, Callable[[], dict[str, Any]]] = {
     # empty payload without issuing any HTTP request when disabled, so the
     # cron is safe to call this on every tick regardless of flag state.
     SOURCE_USGS_WATER_TEMP: usgs_water_temp.fetch_usgs_water_temp_09426630,
+    # Reclamation RISE Parker Dam water temp — the representative main-lake
+    # reading, preferred over the sentinel-stuck Bill Williams USGS gage. Self-
+    # gates on FEATURE_FLAG_WATER_TEMP_RISE_6127 (v4.6: default ON; an explicit
+    # falsy env var disables it and suppresses HTTP).
+    SOURCE_RISE_WATER_TEMP: rise_water_temp.fetch_rise_water_temp,
 }
 
 
@@ -72,6 +76,22 @@ def fetch_one_source(
     if not force and should_skip_fetch(row, now=now):
         logger.info("conditions.circuit_skipped", extra={"source": source})
         return False
+    # TTL freshness gate (2026-07-02 audit): don't re-fetch a source whose last
+    # SUCCESSFUL payload is still inside its TTL. The 15-min cron used to hit
+    # every source every tick regardless — ~96 Open-UV calls/day against its
+    # 50/day free tier (exhausting the key mid-day) and ~96 daily-forecast
+    # pulls for a value that changes once a day. ``fetched_at`` only advances
+    # on success (cache.upsert_source), so failures still retry on the next
+    # tick under the circuit-breaker's pacing. ``--force`` bypasses.
+    ttl = TTL_BY_SOURCE.get(source)
+    if not force and row is not None and ttl and row.fetched_at is not None:
+        age_s = (now - row.fetched_at).total_seconds()
+        if 0 <= age_s < ttl:
+            logger.info(
+                "conditions.fresh_skipped",
+                extra={"source": source, "age_s": int(age_s), "ttl_s": ttl},
+            )
+            return True
 
     fn = _FETCHERS[source]
 

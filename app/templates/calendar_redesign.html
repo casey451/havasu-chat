@@ -1,0 +1,56 @@
+{% extends "base_redesign.html" %}
+{#- Calendar redesign (v4 glanceable month grid + agenda) — flag-gated. Desktop
+   shows event chips per day; mobile shows density dots + a tap-a-day agenda.
+   Every day cell links to its agenda (server-rendered), so it works with no JS.
+   See app/home/redesign.calendar_month_view. -#}
+{% from "components/redesign_icons.html" import icon, cicon %}
+
+{% block title %}Calendar · {{ cal.title }} — Ask Hava, Lake Havasu City{% endblock %}
+{% block meta_description %}A glanceable month of events and classes in Lake Havasu City. Tap a day to see everything happening.{% endblock %}
+
+{% block main %}
+<div class="calhead">
+  <a class="calback" href="/home">{{ icon('back', 15) }} Today feed</a>
+  <h1 class="serif">{{ cal.title }}</h1>
+  <span class="calnav">
+    <a href="{{ cal.prev_url }}" aria-label="Previous month">‹</a>
+    <a href="{{ cal.next_url }}" aria-label="Next month">›</a>
+  </span>
+</div>
+
+<div class="calgrid">
+  <div class="caldow"><span>Sun</span><span>Mon</span><span>Tue</span><span>Wed</span><span>Thu</span><span>Fri</span><span>Sat</span></div>
+  <div class="calmonth" id="calMonth">
+    {% for week in cal.weeks %}{% for d in week %}
+    {% if d.empty %}
+    <span class="cell empty" aria-hidden="true"></span>
+    {% else %}
+    <a class="cell{% if d.is_today %} today{% endif %}{% if d.is_selected %} sel{% endif %}{% if d.is_past %} past{% endif %}{% if d.is_weekend %} wknd{% endif %}"
+       href="/calendar?cal={{ '%04d-%02d'|format(cal.year, cal.month) }}&date={{ d.iso }}#cal-agenda" data-day="{{ d.iso }}"
+       aria-label="{{ d.count }} event{{ '' if d.count == 1 else 's' }} on {{ d.iso }}">
+      <span class="dnum">{{ d.day }}</span>
+      {% if d.chips %}<span class="chips">{% for ch in d.chips %}<span class="chip">{% if ch.time %}<span class="ct">{{ ch.time }}</span>{% endif %}{{ ch.title }}</span>{% endfor %}</span>{% endif %}
+      {% if d.more > 0 %}<span class="more">+{{ d.more }} more</span>{% endif %}
+      {% if d.dots %}<span class="dots">{% for c in d.dots %}<i style="background:{{ c }}"></i>{% endfor %}</span>{% endif %}
+    </a>
+    {% endif %}
+    {% endfor %}{% endfor %}
+  </div>
+</div>
+
+{% if cal.agenda %}
+<div class="agenda" id="cal-agenda">
+  <h4 class="serif">{{ cal.agenda.heading }}</h4>
+  <div class="asub">{% if cal.agenda.total %}{{ cal.agenda.total }} event{{ '' if cal.agenda.total == 1 else 's' }} &amp; classes{% else %}No events listed yet.{% endif %}</div>
+  {% for r in cal.agenda.rows %}
+  <a class="arow" href="{{ r.url or '#' }}">
+    <span class="atime">{{ r.time_label }}</span>
+    <span class="adot" style="background:{{ r.color }}"></span>
+    <span class="atitle">{{ r.title }}</span>
+    <span class="acat">{{ r.cat_label }}</span>
+  </a>
+  {% endfor %}
+  {% if cal.agenda.more > 0 %}<a class="amore" href="/home?date={{ cal.agenda.iso }}#today">View all {{ cal.agenda.total }} on this day {{ icon('arrow', 14) }}</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}

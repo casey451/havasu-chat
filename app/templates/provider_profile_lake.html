@@ -1,0 +1,238 @@
+{% extends "base_redesign.html" %}
+{#- Business profile (/provider/{slug}) in the v4 language (v4.5 PR-5) — the
+   highest-SEO-value page. SAME ProviderProfileVM; preserves the favorites/owner
+   JS hooks (.fav-save / .favorite-heart / data-* + body_attrs) so favorites.js +
+   sandstone_profile.js keep working. Full LocalBusiness JSON-LD (address, geo,
+   openingHoursSpecification, aggregateRating) + BreadcrumbList. Rating + Featured
+   + Save use inline SVG icons, not ★/♥ glyphs (§0 zero-emoji guard). -#}
+{% from "components/redesign_icons.html" import icon %}
+{%- macro clean_about(text) -%}
+{%- set ns = namespace(t = text or '') -%}
+{%- for marker in ['Stay Connected', 'Stay connected', 'Follow us on', 'Categories:', 'Category:', 'Tags:'] -%}
+{%- if marker in ns.t -%}{%- set ns.t = ns.t.split(marker)[0] -%}{%- endif -%}
+{%- endfor -%}
+{{- ns.t | trim -}}
+{%- endmacro -%}
+{% set _name = vm.provider_name | clean_name %}
+{% set _show_rating = vm.google_review_count and vm.google_review_count >= 3 and vm.google_rating %}
+{% set _about = clean_about(vm.description) if vm.description else '' %}
+{% set _seo_desc = _about if _about else (_name ~ " on Ask Hava, Lake Havasu City's local directory.") %}
+
+{% block title %}{{ _name }} — Ask Hava, Lake Havasu City{% endblock %}
+{% block meta_description %}{{ _seo_desc | meta_desc(160) }}{% endblock %}
+{% block og_image %}{{ social_image_url(vm.hero_photo_url) }}{% endblock %}
+
+{% block head_extra %}
+{# hava_card.css is a self-contained BEM component (its own --hava-card-* tokens)
+   used by the venue-events strip below — shell-independent, so it stays. #}
+<link rel="stylesheet" href="{{ static_url('/static/styles/components/hava_card.css') }}">
+{%- set _ohs = [] -%}
+{%- if vm.hours_structured -%}
+{%- for _k, _dow in [('monday','Monday'),('tuesday','Tuesday'),('wednesday','Wednesday'),('thursday','Thursday'),('friday','Friday'),('saturday','Saturday'),('sunday','Sunday')] -%}
+{%- for _s in (vm.hours_structured.get(_k) or []) -%}{%- if _s.get('open') and _s.get('close') -%}{%- set _ = _ohs.append({"@type":"OpeningHoursSpecification","dayOfWeek":_dow,"opens":_s.get('open'),"closes":_s.get('close')}) -%}{%- endif -%}{%- endfor -%}
+{%- endfor -%}
+{%- endif -%}
+<script type="application/ld+json">{{ {
+  "@context": "https://schema.org",
+  "@type": "LocalBusiness",
+  "name": _name,
+  "url": request.url | string,
+  "description": _seo_desc,
+  "image": social_image_url(vm.hero_photo_url),
+  "telephone": vm.call_phone_display,
+  "address": ({
+    "@type": "PostalAddress",
+    "streetAddress": vm.postal_address.street,
+    "addressLocality": vm.postal_address.city,
+    "addressRegion": vm.postal_address.state,
+    "postalCode": vm.postal_address.get("zip"),
+    "addressCountry": "US",
+  } if vm.postal_address else vm.address),
+  "geo": ({
+    "@type": "GeoCoordinates",
+    "latitude": vm.postal_address.lat,
+    "longitude": vm.postal_address.lng,
+  } if vm.postal_address and vm.postal_address.get("lat") is not none else None),
+  "openingHoursSpecification": (_ohs if _ohs else None),
+  "aggregateRating": ({
+    "@type": "AggregateRating",
+    "ratingValue": vm.google_rating,
+    "reviewCount": vm.google_review_count,
+  } if _show_rating else None),
+} | tojson | safe }}</script>
+{% if canonical_url is defined %}
+<script type="application/ld+json">{{ {
+  "@context": "https://schema.org",
+  "@type": "BreadcrumbList",
+  "itemListElement": [
+    {"@type": "ListItem", "position": 1, "name": "Ask Hava", "item": absolute_url('/home')},
+    {"@type": "ListItem", "position": 2, "name": vm.category_label, "item": absolute_url(vm.category_url)},
+    {"@type": "ListItem", "position": 3, "name": _name},
+  ],
+} | tojson | safe }}</script>
+{% endif %}
+{% endblock %}
+
+{% block body_attrs %} data-current-user="{{ current_user_id }}" data-favorite-entity-id="{{ favorite_entity_id }}" data-viewer-is-owner="{% if vm.viewer_is_owner %}1{% else %}0{% endif %}"{% endblock %}
+
+{% block main %}
+<div class="prof-wrap">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">›</span><a href="{{ vm.category_url }}">{{ vm.category_label }}</a><span class="sep" aria-hidden="true">›</span><span aria-current="page">{{ _name }}</span></nav>
+
+  {% set _photos = [] %}
+  {% if vm.hero_photo_url %}{% set _ = _photos.append(vm.hero_photo_url) %}{% endif %}
+  {% for _p in (vm.gallery_photo_urls or [])[:4] %}{% if _p != vm.hero_photo_url %}{% set _ = _photos.append(_p) %}{% endif %}{% endfor %}
+
+  <section class="phero">
+    <div>
+      {% if _photos %}
+      <div class="pgallery pg-{{ _photos[:5]|length }}" role="img" aria-label="Photos of {{ _name }}">
+        {% for _p in _photos[:5] %}<span class="g" style="background-image:url('{{ _p }}')"></span>{% endfor %}
+      </div>
+      {% endif %}
+
+      <div class="ptitle"><h1 class="serif">{{ _name }}</h1>{% if vm.is_sponsored and vm.sponsor_disclosure_label %}<span class="tg spon">{{ vm.sponsor_disclosure_label }}</span>{% endif %}</div>
+      <div class="pmeta">
+        {% if _show_rating %}<span class="star">{{ icon('star', 13) }}{{ "%.1f"|format(vm.google_rating) }}</span><span>({{ vm.google_review_count }} reviews)</span>{% else %}<span>New / few reviews yet</span>{% endif %}
+        <span class="sep" aria-hidden="true">·</span><span>{{ vm.category_label }}</span>
+        {% if vm.is_featured or vm.is_sponsored %}<span class="sep" aria-hidden="true">·</span><span class="feat">{{ icon('star', 12) }}Featured Local</span>{% endif %}
+        {% if vm.open_status_copy %}<span class="sep" aria-hidden="true">·</span><span class="open">{{ vm.open_status_copy }}</span>{% endif %}
+        {% if vm.district %}<span class="sep" aria-hidden="true">·</span><span>{{ vm.district }}</span>{% endif %}
+      </div>
+    </div>
+
+    <aside class="pcta">
+      <div class="pcta-card">
+        <div class="pcta-act">
+          {% if vm.call_phone %}<a class="btn btn-primary" href="tel:{{ vm.call_phone }}">Call{% if vm.call_phone_display %} {{ vm.call_phone_display }}{% endif %}</a>{% endif %}
+          {% if vm.directions_url %}<a class="btn btn-ghost" href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">Directions</a>{% endif %}
+          {% if vm.website_url %}<a class="btn btn-ghost" href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer">Website</a>{% endif %}
+          {% if current_user_id and favorite_entity_id %}
+          <button type="button" class="fav-save favorite-heart{% if is_favorited %} is-saved{% endif %}" data-entity-id="{{ favorite_entity_id }}" aria-label="Save to favorites" aria-pressed="{% if is_favorited %}true{% else %}false{% endif %}"><span class="heart" aria-hidden="true">{{ icon('heart', 15) }}</span> Save</button>
+          {% else %}
+          <button type="button" class="fav-save" data-requires-login="1" aria-label="Save to favorites"><span class="heart" aria-hidden="true">{{ icon('heart', 15) }}</span> Save</button>
+          {% endif %}
+        </div>
+        {% if vm.directions_url %}<a class="pmap" href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open map and directions for {{ _name }}">{{ icon('pin', 16) }}View on the map →</a>{% endif %}
+        <div class="pclaim">{% if claim_surfaces_enabled() and vm.show_claim_cta %}Own this business? <a href="{{ vm.claim_url or '/contribute' }}">Claim &amp; manage it →</a>{% else %}Listing kept fresh from public data.{% endif %}</div>
+      </div>
+    </aside>
+  </section>
+
+  <section class="psec">
+    <div>
+      <h2>About</h2>
+      {#- No own description → lead About with the short factual line (name ·
+         category · address/area), never the auto-built disclaimer. The disclaimer
+         moves to a small .pautonote footnote by the suggest-an-edit control below. (v4.6) -#}
+      <p class="pabout">{% if _about %}{{ _about }}{% else %}{{ _name }}{% if vm.category_label %} · {{ vm.category_label }}{% endif %}{% if vm.address %} · {{ vm.address }}{% elif vm.service_area %} · Serving {{ vm.service_area | join(', ') }}{% endif %}{% endif %}</p>
+      {% if vm.service_chips %}<div class="amen">{% for chip in vm.service_chips %}<span class="tg">{{ chip }}</span>{% endfor %}</div>{% endif %}
+
+      {% if vm.google_review_snippets %}
+      {% set _revs = [] %}
+      {% for s in vm.google_review_snippets %}{% if s.text and _revs|length < 3 %}{% set _ = _revs.append(s) %}{% endif %}{% endfor %}
+      {% if _revs %}
+      <h2 class="mt">Reviews</h2>
+      {% if _show_rating %}<div class="aggr"><div class="big num">{{ "%.1f"|format(vm.google_rating) }}</div><div><div class="src">{{ vm.google_review_count }} public reviews · From Google reviews, unedited</div></div></div>{% endif %}
+      <div class="revlist">
+        {% for s in _revs %}
+        <div class="rev">
+          <div class="rtop">{% if s.author %}<span class="nm">{{ s.author }}</span>{% endif %}</div>
+          {% set _w = s.text.split() %}
+          <p>{% if _w|length > 40 %}“{{ _w[:40]|join(' ') }}…”{% else %}“{{ _w|join(' ') }}”{% endif %}</p>
+        </div>
+        {% endfor %}
+        {% set _du = vm.directions_url or '' %}
+        {% if 'query_place_id=' in _du %}<a class="rev-all" href="https://www.google.com/maps/place/?q=place_id:{{ _du.split('query_place_id=')[1].split('&')[0] }}" target="_blank" rel="noopener noreferrer">Read all on Google →</a>
+        {% else %}<a class="rev-all" href="https://www.google.com/maps/search/?api=1&query={{ _name | urlencode }}" target="_blank" rel="noopener noreferrer">Read all on Google →</a>{% endif %}
+      </div>
+      {% endif %}
+      {% endif %}
+    </div>
+
+    <aside>
+      <h2>Hours</h2>
+      {% set _ns = namespace(rows=[], any=false) %}
+      {% if vm.hours_structured %}
+        {% for _k, _label in [('monday','Monday'),('tuesday','Tuesday'),('wednesday','Wednesday'),('thursday','Thursday'),('friday','Friday'),('saturday','Saturday'),('sunday','Sunday')] %}
+          {% set _spans = vm.hours_structured.get(_k) %}
+          {% if not _spans %}{% set _ = _ns.rows.append((_label, 'Closed')) %}{% if _spans is not none %}{% set _ns.any = true %}{% endif %}
+          {% else %}
+            {% set _parts = [] %}
+            {% for _s in _spans %}{% set _o = _s.get('open') %}{% set _c = _s.get('close') %}{% if _o and _c %}{% if _o in ('00:00','0:00') and _c in ('23:59','00:00','24:00') %}{% set _ = _parts.append('Open 24 hours') %}{% else %}{% set _cl = 'Midnight' if _c in ('23:59','00:00') else (_c | time12h) %}{% set _ = _parts.append((_o | time12h) ~ ' – ' ~ _cl) %}{% endif %}{% endif %}{% endfor %}
+            {% if _parts %}{% set _ = _ns.rows.append((_label, _parts|join(', '))) %}{% set _ns.any = true %}{% else %}{% set _ = _ns.rows.append((_label, 'Closed')) %}{% endif %}
+          {% endif %}
+        {% endfor %}
+      {% endif %}
+      {% if _ns.any %}
+      <div class="hours">
+        {% if vm.open_status_copy %}<div class="hours-now">{{ vm.open_status_copy }}</div>{% endif %}
+        {% for _label, _val in _ns.rows %}<div class="hr"><span class="hd">{{ _label }}</span><span class="hv">{{ _val }}</span></div>{% endfor %}
+      </div>
+      {% elif vm.open_status_copy %}<p class="prow">{{ vm.open_status_copy }}</p>
+      {% elif vm.hours_freetext %}<p class="prow">{{ vm.hours_freetext }}</p>
+      {% else %}<p class="prow muted">Hours not available — call to confirm.</p>{% endif %}
+
+      <h2 class="mt">Find it</h2>
+      {% if vm.postal_address %}<address class="paddr">{{ vm.postal_address.street }}<br>{{ vm.postal_address.city }}, {{ vm.postal_address.state }}{% if vm.postal_address.get('zip') %} {{ vm.postal_address.zip }}{% endif %}</address>
+      {% elif vm.address %}<p class="paddr">{{ vm.address }}</p>
+      {% elif vm.service_area_only and vm.service_area %}<p class="paddr">Serves: {{ vm.service_area|join(', ') }}</p>
+      {% else %}<p class="prow muted">Address not listed.</p>{% endif %}
+      {% if vm.call_phone_display %}<p class="prow"><span class="lab">Call</span> <a href="tel:{{ vm.call_phone }}">{{ vm.call_phone_display }}</a></p>{% endif %}
+      {% if vm.website_url %}<p class="prow"><a href="{{ vm.website_url }}" target="_blank" rel="noopener noreferrer">Visit website →</a></p>{% endif %}
+      {% if vm.freshness_copy %}<p class="prow"><span class="lab">Fresh</span> {{ vm.freshness_copy }}</p>{% endif %}
+      {% if vm.verification_method_copy %}<p class="prow"><span class="lab">Verified</span> {{ vm.verification_method_copy }}</p>{% endif %}
+
+      {% if claim_surfaces_enabled() and vm.show_claim_cta %}
+      <div class="pclaim-block"><b>Claim this listing to add photos, details, and offers.</b><div class="pcb-sub">It's free. A real person reviews every claim. <a href="{{ vm.claim_url or '/contribute' }}">Claim this listing →</a></div></div>
+      {% elif ads_enabled() and vm.show_upgrade_cta %}
+      <div class="pclaim-block"><b>Local offer:</b> show this screen for a featured-local welcome offer this week.</div>
+      {% endif %}
+      <a class="ask-hava-cta" href="/chat?q={{ ('Tell me about ' ~ _name)|urlencode }}">Ask Hava about this business</a>
+    </aside>
+  </section>
+
+  {% if vm.class_schedule %}
+  <section class="pclasses" aria-label="Classes and schedule">
+    <h2 class="serif">Classes &amp; schedule</h2>
+    {% if vm.class_schedule_as_of %}<p class="prow muted">Times as of {{ vm.class_schedule_as_of }} — confirm with the venue.</p>{% endif %}
+    <ul>
+      {% for c in vm.class_schedule %}
+      <li><div class="ct">{{ c.title }}</div>{% if c.days or c.time %}<div class="cm">{% if c.days %}{{ c.days }}{% endif %}{% if c.days and c.time %} · {% endif %}{% if c.time %}{{ c.time }}{% endif %}</div>{% endif %}{% if c.cost %}<div class="cm">Cost: {{ c.cost }}</div>{% endif %}{% if c.description %}<div class="cm">{{ c.description }}</div>{% endif %}</li>
+      {% endfor %}
+    </ul>
+  </section>
+  {% endif %}
+
+  {% set provider_name = vm.provider_name %}
+  {% include 'components/venue_events_region.html' %}
+
+  {% for _strip in [('Part of', [parent_org] if parent_org else []), ('Departments & services here', department_children or []), ('Other locations', other_locations or []), ("While you're here", nearby_providers or [])] %}
+  {% if _strip[1] %}
+  <section class="alsosee" aria-label="{{ _strip[0] }}">
+    <h2>{{ _strip[0] }}</h2>
+    <div class="strip">
+      {% for n in _strip[1] %}<a class="catchip" href="{{ n.url }}"><div><div class="t">{{ n.name | clean_name }}</div><div class="n">{{ n.label }}</div></div></a>{% endfor %}
+    </div>
+  </section>
+  {% endif %}
+  {% endfor %}
+
+  <p class="psuggest"><a href="/contribute?kind=provider&amp;name={{ vm.provider_name|urlencode }}{% if vm.website_url %}&amp;url={{ vm.website_url|urlencode }}{% endif %}">See something out of date? Suggest an edit.</a>
+    <span aria-hidden="true">·</span>
+    <a href="/feedback?type=wrong_info&amp;target_type=provider&amp;ref={{ vm.provider_name|urlencode }}&amp;name={{ vm.provider_name|urlencode }}">Report wrong or missing info.</a></p>
+  {%- if not _about %}<p class="pautonote">This listing is auto-built from trusted public data — suggest an edit above to correct it.</p>{% endif %}
+</div>
+
+{% if vm.call_phone or vm.directions_url %}
+<div class="prof-sticky" aria-label="Quick actions">
+  {% if vm.call_phone %}<a class="btn btn-primary" href="tel:{{ vm.call_phone }}">Call</a>{% endif %}
+  {% if vm.directions_url %}<a class="btn btn-ghost" href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer">Directions</a>{% endif %}
+</div>
+{% endif %}
+{% endblock %}
+
+{% block scripts %}
+<script src="{{ static_url('/static/favorites.js') }}" defer></script>
+<script src="{{ static_url('/static/js/sandstone_profile.js') }}" defer></script>
+{% endblock %}

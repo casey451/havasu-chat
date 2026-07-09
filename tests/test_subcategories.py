@@ -35,12 +35,108 @@ def test_storage_lives_under_services_not_recreation() -> None:
     assert "storage" in svc_slugs
 
 
-def test_subcategories_for_category_route_maps_bucket_destinations() -> None:
-    # /categories/services is the Services bucket destination → Services chips.
-    labels = {s.slug for s in subcats.subcategories_for_category_route("services")}
-    assert {"home-services", "auto", "pets", "storage"} <= labels
-    # A non-bucket tile route has no second level.
-    assert subcats.subcategories_for_category_route("beauty-care") == []
+def test_marine_trade_subcategories_resolve_to_on_the_water() -> None:
+    # 2026-06-13 audit: boat dealers / repair / supply split out of the generic
+    # "on-the-water" recreation bucket into their own pages, all folding back to
+    # the on-the-water primary.
+    from app.categories.subcategories import primary_for_subcategory
+
+    rec_slugs = {s.slug for s in subcats.subcategories_for_bucket("recreation-outdoors")}
+    for slug, label in (
+        ("marine-dealers", "Boat Dealers"),
+        ("marine-repair", "Boat Repair & Mechanics"),
+        ("marine-supply", "Marine Supply & Stores"),
+    ):
+        sub = subcats.subcategory_by_slug(slug)
+        assert sub is not None and sub.label == label
+        assert slug in rec_slugs
+        assert primary_for_subcategory(slug) == "on-the-water"
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        # marine trade routed from the NAME (generic Google types would miss it)
+        ("West Marine", "marine-supply"),
+        ("Nordic Boats", "marine-dealers"),
+        ("Alco Marine Sales & Services", "marine-dealers"),
+        ("Shimmer Boat Service", "marine-repair"),
+        ("Xtreme Speed And Marine", "marine-repair"),
+        ("Prestige Marine", None),  # anchor only, no qualifier -> fall through
+        ("Germaine Marine", None),  # anchor only, no qualifier -> fall through
+        # NOT marine trade: watersports rentals stay out of the marine split
+        ("Lake Havasu Jet Ski Rentals", None),
+        ("Wacko kayak & paddleboard rentals", None),
+        # no marine anchor at all
+        ("Whiz Kid Computer Services / Ink & Toner", None),
+    ],
+)
+def test_derive_subcategory_marine_name_routing(name: str, expected: str | None) -> None:
+    from app.categories.subcategories import derive_subcategory
+
+    got = derive_subcategory(category="retail", name=name, google_primary_category="service")
+    if expected is None:
+        assert got != "marine-dealers" and got != "marine-repair" and got != "marine-supply"
+    else:
+        assert got == expected
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        # Dojos carry a generic "gym" Google type; the NAME router must override
+        # it so the martial-arts subcategory stops rendering empty.
+        ("The Tap Room Jiu Jitsu", "martial-arts"),
+        ("Lake Havasu Black Belt Academy", "martial-arts"),
+        ("Arizona Krav Maga", "martial-arts"),
+        ("Havasu Shao-Lin Kempo", "martial-arts"),
+        ("Next Generation Mixed Martial Arts", "martial-arts"),
+        ("Seibukan Karate-Do", "martial-arts"),
+        # NOT martial arts: generic fitness / dance names must not be swept in.
+        ("Anytime Fitness", None),
+        ("Footlite School of Dance", None),
+    ],
+)
+def test_derive_subcategory_martial_arts_name_routing(name: str, expected: str | None) -> None:
+    from app.categories.subcategories import derive_subcategory
+
+    got = derive_subcategory(category="fitness_sports", name=name, google_primary_category="gym")
+    if expected is None:
+        assert got != "martial-arts"
+    else:
+        assert got == expected
+
+
+@pytest.mark.parametrize(
+    "name,expected",
+    [
+        # Property managers carry a generic "lodging" Google type; the NAME
+        # router must override it so vacation-rentals stops rendering empty.
+        ("Empty Spaces Vacation Rental Management", "vacation-rentals"),
+        ("First Choice Property Vacation Rentals", "vacation-rentals"),
+        ("Integrity Arizona Vacation Rentals", "vacation-rentals"),
+        # NOT a vacation rental: a plain hotel/motel must stay under hotels.
+        ("Windsor Inn Lake Havasu City", None),
+        # Bare "property management" is intentionally ambiguous -> not routed.
+        ("Lake Havasu Property Management", None),
+    ],
+)
+def test_derive_subcategory_vacation_rental_name_routing(name: str, expected: str | None) -> None:
+    from app.categories.subcategories import derive_subcategory
+
+    got = derive_subcategory(category="lodging", name=name, google_primary_category="lodging")
+    if expected is None:
+        assert got != "vacation-rentals"
+    else:
+        assert got == expected
+
+
+def test_derive_subcategory_without_name_unchanged() -> None:
+    # Backward compatibility: omitting name must not change existing behaviour.
+    from app.categories.subcategories import derive_subcategory
+
+    assert derive_subcategory(category="x", google_primary_category="dentist") == "health-medical"
+    assert derive_subcategory(category="x", google_primary_category="plumber") == "home-services"
 
 
 # --- derivation -------------------------------------------------------------
@@ -171,12 +267,12 @@ def test_plural_page_shows_subcategory_chips(client: TestClient) -> None:
         r = client.get("/lake-havasu/storage")
         assert r.status_code == 200
         body = r.text
-        # Sandstone: subcategory chips render in the in-place filter row, each with
-        # a data-filter token; the sort/facet bar renders below.
-        assert 'class="chips"' in body
-        assert 'data-filter="all"' in body
+        # Lake Ink & Brass: subcategory chips render in the Subcategory toolbar,
+        # each a ``chip`` anchor; the filter/sort toolbar renders below.
+        assert 'aria-label="Subcategory"' in body
+        assert 'class="chip' in body
         assert "?sub=storage" in body  # Storage subcategory chip present under Services
-        assert 'class="sortbar"' in body
+        assert 'aria-label="Filter and sort"' in body
     finally:
         with SessionLocal() as db:
             db.execute(delete(Provider).where(Provider.entity_id == eid))

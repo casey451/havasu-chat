@@ -1,0 +1,69 @@
+{#- ───── Unified site masthead (F11) ─────
+   The single v4 header included by both base_redesign.html and base_plain.html so
+   every page wears the same chrome. Styled by lake_redesign.css (the one shell as
+   of v4.6 PR-2 — base_lake.html + site_chrome.css were deleted). F10: ONE complete
+   menu (incl. Lake + Account, no
+   /night), an opaque drawer panel, and the hamburger pinned to the start side.
+   The live-conditions strip is rendered by each base after this partial (big
+   tiles on home, the condensed strip on content pages). -#}
+{% from "_partials/lake_logo.svg.html" import logo_nav %}
+{% from "components/redesign_icons.html" import icon %}
+{#- v4.4 §7: the mobile drawer keeps the FULL destination list (nothing becomes
+   unreachable); the desktop bar shows only the six primary links. For Business is
+   appended (brass) after each list. -#}
+{%- set _nav_full = [
+  ('/home', 'Today', ['home', 'today']),
+  ('/events-ui', 'Events', ['events']),
+  ('/calendar', 'Calendar', ['calendar']),
+  ('/news', 'News', ['news']),
+  ('/movies', 'Movies', ['movies']),
+  ('/family', 'For Kids', ['family']),
+  ('/seniors', 'For Seniors', ['seniors']),
+  ('/lake', 'Lake', ['lake']),
+  ('/categories/eat-and-drink', 'Eat & Drink', ['eat']),
+  ('/gas', 'Gas', ['gas']),
+  ('/categories#search', 'Explore', ['explore']),
+  ('/ask', 'Ask', ['ask', 'chat']),
+] -%}
+{%- set _nav_primary = [
+  ('/home', 'Today', ['home', 'today']),
+  ('/events-ui', 'Events', ['events']),
+  ('/lake', 'Lake', ['lake']),
+  ('/categories/eat-and-drink', 'Eat & Drink', ['eat']),
+  ('/categories#search', 'Explore', ['explore']),
+] -%}
+<header class="head-stack">
+  <div class="util">
+    <span>Lake Havasu City</span>
+    {% if today_label %}<span class="r">{{ today_label }}</span>{% endif %}
+  </div>
+  <nav class="nav" aria-label="Primary">
+    <div class="nav-in">
+      {# Hamburger menu — pinned to the start side on every page. The COMPLETE
+         menu (F10): every section + Lake, For Business and Account. #}
+      <details class="navdrawer sc-only-m">
+        <summary aria-label="Open menu">{{ icon('menu', 18) }}</summary>
+        <div class="navdrawer-menu">
+          {% for href, label, keys in _nav_full %}<a href="{{ href }}"{% if active_tab in keys %} class="active" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+          {% if claim_surfaces_enabled() %}<a class="biz{% if active_tab == 'portal' %} active{% endif %}" href="/portal">For Business</a>{% endif %}
+          <a class="{% if active_tab == 'account' %}active{% endif %}" href="/account">Account</a>
+          {#- Session 1 (2026-07-04): drawer "Sign in" hidden — auth isn't in use
+             yet. The /login route + login_lake.html template are kept; restore
+             this link to bring it back. -#}
+        </div>
+      </details>
+      <a class="brand" href="/home" aria-label="Ask Hava — home">{{ logo_nav(26, cls="rdlogo") }}<span class="wm">Ask <span class="b">Hava</span></span></a>
+      <span class="navlinks sc-only-d">
+        {% for href, label, keys in _nav_primary %}<a href="{{ href }}"{% if active_tab in keys %} class="active" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
+        {% if claim_surfaces_enabled() %}<a class="biz{% if active_tab == 'portal' %} active{% endif %}" href="/portal">For Business</a>{% endif %}
+      </span>
+      <span class="nav-sp"></span>
+      <a class="ico sc-only-d" href="/chat" aria-label="Ask Hava">{{ icon('search', 17) }}</a>
+      {#- Session 1 (2026-07-04): sign-in UI removed from the masthead — the
+         desktop "Sign in" ghost button and the mobile avatar circle (which led to
+         "Sign in with email") are hidden because auth isn't in use yet. The
+         /login and /account routes/templates are untouched; restore these two
+         anchors to bring the entry points back. -#}
+    </div>
+  </nav>
+</header>

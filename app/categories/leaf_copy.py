@@ -35,10 +35,12 @@ _COMMON_FAQS: tuple[tuple[str, str], ...] = (
     ),
     (
         "How are these {name_lower} ranked?",
-        "By real public reviews — more reviews, more weight, so a strong rating "
-        "across many reviews beats a perfect score from only a couple. Spots "
-        "can't be bought, Hava never invents a rating, and any sponsored "
-        "placement is clearly labeled.",
+        "The default Featured order rotates the well-reviewed locals daily, so "
+        "the same names aren't always on top — both the cutoff and the rotation "
+        "pool are based on real public reviews (more reviews, more weight). Tap "
+        "Top rated to sort strictly by review strength. Spots can't be bought, "
+        "Hava never invents a rating, and any sponsored placement is clearly "
+        "labeled.",
     ),
     (
         "Are the ratings and review counts real?",
@@ -61,13 +63,34 @@ def _copy(intro: str, *specific: tuple[str, str]) -> LeafCopy:
 
 
 LEAF_COPY: dict[str, LeafCopy] = {
+    "golf-courses": _copy(
+        "Golf in Lake Havasu City runs year-round — and it's more than the "
+        "courses. The listings below cover public and semi-private golf courses, "
+        "the local driving range with Toptracer, and indoor virtual golf "
+        "simulators you can play in any weather. Whether you want 18 holes, a "
+        "bucket of balls, or a climate-controlled simulator bay, start here. "
+        "Listings are ranked by real public reviews; sponsored placements are "
+        "always labeled.",
+        (
+            "What kinds of golf does this page cover?",
+            "All of it: full golf courses, the driving range (including Toptracer "
+            "range tech), and Lake Havasu's indoor virtual golf simulators — "
+            "grouped on one page so you can find the right option fast.",
+        ),
+        (
+            "Can I play golf indoors in Lake Havasu?",
+            "Yes — there are indoor virtual golf simulators in town, a popular "
+            "way to play or practice out of the summer heat. They're listed here "
+            "alongside the outdoor courses and driving range.",
+        ),
+    ),
     "auto-repair": _copy(
         "Desert heat is hard on cars — batteries cook, coolant systems work "
         "overtime, and AC failures turn a Havasu commute miserable fast. The "
         "auto repair shops below serve Lake Havasu City with everything from "
         "oil changes and brakes to diagnostics, AC work, and major engine and "
-        "transmission jobs. Listings are ranked by real public "
-        "reviews, so shops locals actually trust rank first.",
+        "transmission jobs. Listings are built from real public reviews and "
+        "rotate daily, so the shops locals trust stay easy to find.",
         (
             "Why do cars need extra care in Lake Havasu's heat?",
             "Sustained triple-digit summers stress batteries, coolant, and AC "
@@ -111,8 +134,9 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "toothache, the dentists and orthodontists below serve Lake Havasu "
         "City. Many local practices handle general dentistry, cosmetic work, "
         "and orthodontics under one roof, and several see new patients and "
-        "families. Listings are ranked by real public reviews, so "
-        "well-reviewed practices surface first — never paid placement.",
+        "families. Listings are built from real public reviews and rotate "
+        "daily — never paid placement — so well-reviewed practices stay easy "
+        "to find.",
     ),
     "plumbing": _copy(
         "Desert water is hard on pipes — scale buildup, slab leaks, and water "
@@ -170,17 +194,27 @@ LEAF_COPY: dict[str, LeafCopy] = {
         "Retirement planning, investments, and tax-aware strategy — the "
         "financial advisors and planners below serve Lake Havasu City, a town "
         "with a large retiree and second-home population. Whether you're "
-        "rolling over a 401(k) or building an income plan, the real "
-        "review rankings here surface well-reviewed local offices first. "
+        "rolling over a 401(k) or building an income plan, the listings here "
+        "draw on real public reviews and rotate daily, keeping well-reviewed "
+        "local offices visible. "
         "Ask Hava doesn't sell placement, and isn't a financial adviser itself.",
+    ),
+    "mortgage-lenders": _copy(
+        "Home loans, refinancing, and reverse mortgages — the mortgage lenders "
+        "and loan officers below serve Lake Havasu City. With a large retiree "
+        "and second-home market, local originators handle everything from "
+        "first-time purchases to jumbo and vacation-property financing. Listings "
+        "draw on real public reviews and rotate daily, so well-reviewed local "
+        "offices stay visible; ratings show only when a lender has earned them. "
+        "Ask Hava doesn't sell placement, and isn't a mortgage broker itself.",
     ),
     "hair-salons-and-barbers": _copy(
         "Cuts, color, blowouts, and classic barbering — the hair salons and "
         "barbers below serve Lake Havasu City. From quick walk-in trims to "
         "full-service color and styling, the listings span neighborhood shops "
-        "and busier downtown salons. Listings are ranked by real "
-        "public reviews, so the chairs locals book again rank first; star "
-        "ratings appear only when a shop has earned real reviews.",
+        "and busier downtown salons. Listings are built from real public "
+        "reviews and rotate daily, so the chairs locals book again stay easy "
+        "to find; star ratings appear only when a shop has earned real reviews.",
     ),
     "hotels-and-motels": _copy(
         "From channel-side resorts to budget motels and everything between, the "
@@ -196,13 +230,38 @@ LEAF_COPY: dict[str, LeafCopy] = {
             "the cooler shoulder months are typically calmer and cheaper.",
         ),
     ),
+    "vacation-rentals": _copy(
+        "Room for the whole crew, a kitchen, and a driveway for the boat "
+        "trailer — vacation rentals fill the gap hotels can't, and the ones "
+        "below host visitors to Lake Havasu City. From channel-side condos to "
+        "desert-view houses with a private pool, short-term rentals book out "
+        "earliest for spring break, summer river weekends, and the Balloon "
+        "Festival, so reserve ahead for peak dates. Listings are ranked by "
+        "real public reviews, never by who paid.",
+        (
+            "When should I book a Lake Havasu vacation rental?",
+            "The larger houses and channel-side units go first for spring "
+            "break, summer river weekends, and big events like the Balloon "
+            "Festival — often months out. Mid-week and the cooler shoulder "
+            "months are easier to book and usually cheaper.",
+        ),
+        (
+            "How is a vacation rental different from a hotel here?",
+            "Vacation rentals are whole homes or condos rented by the night or "
+            "week — with kitchens, multiple bedrooms, and room to park a boat "
+            "or trailer — while hotels and motels offer per-room stays with "
+            "daily service. Ask Hava lists both; check each listing's details "
+            "and house rules before you book.",
+        ),
+    ),
     "restaurants": _copy(
         "Lakefront patios, taco joints, steakhouses, and the spots locals "
         "actually drive across town for — the restaurants below serve Lake "
         "Havasu City. Whether you want waterfront dining on the Channel, a "
-        "quick bite, or a sit-down dinner, the review rankings "
-        "here put consistently well-reviewed kitchens first. Hours swing with "
-        "the season, so check each listing before you go.",
+        "quick bite, or a sit-down dinner, the listings here are built from "
+        "real public reviews and rotate daily, so the same kitchens aren't "
+        "always on top — tap Top rated to sort by review strength. Hours swing "
+        "with the season, so check each listing before you go.",
         (
             "Are there waterfront restaurants in Lake Havasu City?",
             "Yes — several restaurants sit along the Channel and the lakefront. "
@@ -865,6 +924,30 @@ LEAF_COPY: dict[str, LeafCopy] = {
             "USPS handles PO box rental and passport services at branch "
             "locations — check the listing for hours and call ahead, since "
             "passport service is often by appointment and counter hours vary.",
+        ),
+    ),
+    "tattoo-and-piercing": _copy(
+        "Whether it's a first tattoo, a cover-up, a touch-up, or a new piercing, "
+        "the studios below serve Lake Havasu City with custom work, flash, and "
+        "body piercing. A good shop walks you through the design, pricing, and "
+        "aftercare before any needle comes out — and in Havasu's sun, keeping "
+        "fresh ink covered and out of the lake while it heals matters. Listings "
+        "are built from real public reviews and rotate daily, so the artists "
+        "locals come back to stay easy to find; any sponsored placement is "
+        "clearly labeled.",
+        (
+            "What should I check before booking a tattoo in Lake Havasu City?",
+            "Look through the artist's healed-work portfolio for the style you "
+            "want, read the public reviews, and ask about pricing, deposits, and "
+            "aftercare up front. A consultation before you commit is normal and a "
+            "good sign.",
+        ),
+        (
+            "Do these studios do piercings as well as tattoos?",
+            "Many Lake Havasu tattoo studios also offer body piercing, though not "
+            "all do, and piercing is sometimes handled by a dedicated piercer on "
+            "set days. Check the individual listing or call ahead to confirm what "
+            "each shop offers.",
         ),
     ),
 }

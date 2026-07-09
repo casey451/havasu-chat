@@ -37,21 +37,45 @@ from app.chat.normalizer import spell_correct
 # entries.
 PENDING_LEAF_SLUGS: frozenset[str] = frozenset(
     {
-        "hearing-and-audiology",
-        "medical-specialists-and-imaging",
-        "golf-carts",
-        "auto-glass",
-        "window-tint-and-wraps",
-        "trailer-sales-and-repair",
-        "property-management",
+        # 2026-06-19 monetization pass: the high-ad-value Havasu trades below were
+        # promoted into docs/proposals/taxonomy-seed.json (so the leaf rows seed
+        # and the synonyms self-activate once providers are backfilled), and so
+        # are NO LONGER pending — they live in the seed now:
+        #   hearing-and-audiology, golf-carts, auto-glass, window-tint-and-wraps,
+        #   trailer-sales-and-repair, property-management, junk-removal-and-hauling,
+        #   pressure-washing-and-exterior-cleaning, shade-screens-and-patio-covers,
+        #   off-road-shops-and-accessories, marine-supply, garage-doors, painters.
+        # These remain genuinely unseeded (synonyms are deliberate no-ops until a
+        # future taxonomy pass seeds them):
+        # 2026-07-01 consolidated Phase 3: medical-specialists-and-imaging,
+        # firearms-and-shooting-sports, and pediatrics moved to
+        # docs/proposals/taxonomy-seed.json — the Phase-3 data op creates the
+        # Category rows, so they are no longer pending.
         "laundry-and-dry-cleaning",
         "funeral-cremation-and-cemeteries",
-        "junk-removal-and-hauling",
-        "pressure-washing-and-exterior-cleaning",
         "mobile-home-services",
-        "shade-screens-and-patio-covers",
         "pet-waste-removal",
-        "firearms-and-shooting-sports",
+        # 2026-06-20 search-coverage: brand-new service leaves with no taxonomy
+        # home yet. Created by scripts/create_missing_service_leaves_2026_06_20.py;
+        # routed below. Self-activate once the leaf clears the publish gate in
+        # leaf_pages.LEAF_PAGE_MIN_PROVIDERS renderable listings (via
+        # _resolve_gated) — so the Step-3 backfill must seed each leaf with
+        # enough approved businesses to clear that threshold, not just one row.
+        # (garage-doors + painters are intentionally NOT here — the 2026-06-19
+        # pass already seeded them above, so they are live, not pending.)
+        "locksmiths",
+        "flooring",
+        "fencing",
+        "concrete-and-masonry",
+        "drywall",
+        "carpentry-and-cabinets",
+        "welding-and-fabrication",
+        "gutters",
+        "windows-and-doors",
+        "appliance-repair",
+        "liquor-stores",
+        "pawn-shops",
+        "nurseries-and-garden-centers",
     }
 )
 
@@ -88,10 +112,29 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "fishing charters": "fishing-charters-and-guides",
     "beaches": "beaches-and-swim-areas",
     "marinas": "marinas-and-launch-ramps",
+    # 2026-06-19: marine retail (boat parts/supplies) — distinct from boat
+    # rentals/sales/repair. NEW leaf seeded under On the Water.
+    "marine supply": "marine-supply",
+    "marine supplies": "marine-supply",
+    "marine store": "marine-supply",
+    "boat parts": "marine-supply",
+    "boat supplies": "marine-supply",
+    "boat accessories": "marine-supply",
     # Outdoors & Recreation
     "parks": "parks-and-playgrounds",
     "golf courses": "golf-courses",
+    "golf course": "golf-courses",
     "golf": "golf-courses",
+    # 2026-06-19: golf-courses is the combined Golf hub — range/Toptracer +
+    # indoor simulators route here too.
+    "driving range": "golf-courses",
+    "driving ranges": "golf-courses",
+    "golf simulator": "golf-courses",
+    "golf simulators": "golf-courses",
+    "indoor golf": "golf-courses",
+    "virtual golf": "golf-courses",
+    "toptracer": "golf-courses",
+    "top tracer": "golf-courses",
     "hiking trails": "hiking-trails",
     "hiking": "hiking-trails",
     "disc golf": "disc-golf",
@@ -241,6 +284,9 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "lawn care": "landscaping-and-lawn",
     "pool service": "pools-and-spas",
     "pool cleaning": "pools-and-spas",
+    "pool cleaner": "pools-and-spas",
+    "pool cleaners": "pools-and-spas",
+    "pool maintenance": "pools-and-spas",
     "hvac": "hvac",
     "air conditioning": "hvac",
     "ac repair": "hvac",
@@ -251,6 +297,16 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "handymen": "handyman",
     "security systems": "security-and-alarms",
     "alarm companies": "security-and-alarms",
+    # 2026-06-19: NEW high-ad-value home-services leaves (seeded).
+    "garage doors": "garage-doors",
+    "garage door": "garage-doors",
+    "garage door repair": "garage-doors",
+    "garage door installation": "garage-doors",
+    "painters": "painters",
+    "painter": "painters",
+    "house painters": "painters",
+    "painting contractor": "painters",
+    "painting contractors": "painters",
     # 2026-06-11: taxonomy-rebuild leaves (PENDING — self-activate at seed).
     "junk removal": "junk-removal-and-hauling",
     "junk hauling": "junk-removal-and-hauling",
@@ -284,18 +340,18 @@ _QUERY_TO_LEAF: dict[str, str] = {
     # 2026-06-11: existing leaves with no entry.
     # Detailing — the gerund ("detailing") AND the agent noun ("detailers")
     # are both high-traffic navigational asks; English inflection can't bridge
-    # them, so both forms are listed explicitly. Boat/marine-qualified terms
-    # route to the marine leaf; bare/auto/car terms route to the auto leaf.
-    "detailing": "auto-detailing",
-    "detailers": "auto-detailing",
-    "detailer": "auto-detailing",
-    "auto detailing": "auto-detailing",
-    "auto detailers": "auto-detailing",
-    "auto detailer": "auto-detailing",
-    "car detailing": "auto-detailing",
-    "car detailers": "auto-detailing",
-    "mobile detailing": "auto-detailing",
-    "mobile detailers": "auto-detailing",
+    # them, so both forms are listed explicitly. T3.4 (2026-07-06): the two
+    # detailing leaves merged, so all detailing terms route to auto-marine-detailing.
+    "detailing": "auto-marine-detailing",
+    "detailers": "auto-marine-detailing",
+    "detailer": "auto-marine-detailing",
+    "auto detailing": "auto-marine-detailing",
+    "auto detailers": "auto-marine-detailing",
+    "auto detailer": "auto-marine-detailing",
+    "car detailing": "auto-marine-detailing",
+    "car detailers": "auto-marine-detailing",
+    "mobile detailing": "auto-marine-detailing",
+    "mobile detailers": "auto-marine-detailing",
     "boat detailing": "auto-marine-detailing",
     "boat detailers": "auto-marine-detailing",
     "boat detailer": "auto-marine-detailing",
@@ -311,8 +367,23 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "boat storage": "boat-and-rv-storage-service",
     "rv storage": "boat-and-rv-storage-service",
     "powersports": "powersports-and-atv",
-    "atv rentals": "powersports-and-atv",
-    "utv rentals": "powersports-and-atv",
+    # 2026-07-01 Phase 4: rental intent leaves the dealer leaf for the new
+    # utv-and-offroad-rentals home (bare vehicle nouns "powersports"/"atv"/
+    # "utv" stay on powersports-and-atv — dealers).
+    "atv rentals": "utv-and-offroad-rentals",
+    "utv rentals": "utv-and-offroad-rentals",
+    # 2026-06-19: off-road RETAIL/upfit shops (parts, accessories, lift kits) —
+    # Casey's "off road stores and sales". Distinct from off-road-and-ohv (trails)
+    # and powersports-and-atv (vehicle sales/rentals). NEW leaf under Auto, RV & Marine.
+    "off road shop": "off-road-shops-and-accessories",
+    "off road shops": "off-road-shops-and-accessories",
+    "off road store": "off-road-shops-and-accessories",
+    "off road stores": "off-road-shops-and-accessories",
+    "off road accessories": "off-road-shops-and-accessories",
+    "off road parts": "off-road-shops-and-accessories",
+    "utv accessories": "off-road-shops-and-accessories",
+    "utv parts": "off-road-shops-and-accessories",
+    "lift kits": "off-road-shops-and-accessories",
     "shuttles": "shuttles-and-transportation",
     "taxis": "shuttles-and-transportation",
     # 2026-06-11: taxonomy-rebuild leaves (PENDING — self-activate at seed).
@@ -343,8 +414,16 @@ _QUERY_TO_LEAF: dict[str, str] = {
     # 2026-06-11: existing leaves with no entry.
     "smoke shops": "smoke-vape-and-cannabis",
     "vape shops": "smoke-vape-and-cannabis",
-    "dispensary": "smoke-vape-and-cannabis",
-    "dispensaries": "smoke-vape-and-cannabis",
+    # 2026-06-30 audit 3D: cannabis dispensaries split into their own leaf so the
+    # 2 real dispensaries aren't buried among the vape shops. Dispensary/cannabis
+    # terms route to the new leaf; smoke/vape terms stay above.
+    "dispensary": "cannabis-dispensaries",
+    "dispensaries": "cannabis-dispensaries",
+    "cannabis": "cannabis-dispensaries",
+    "cannabis dispensary": "cannabis-dispensaries",
+    "marijuana": "cannabis-dispensaries",
+    "marijuana dispensary": "cannabis-dispensaries",
+    "weed": "cannabis-dispensaries",
     "convenience stores": "convenience",
     "appliance stores": "appliances-and-electronics",
     "electronics stores": "appliances-and-electronics",
@@ -362,6 +441,15 @@ _QUERY_TO_LEAF: dict[str, str] = {
     # Professional & Financial
     "financial advisors": "financial-advisors",
     "financial advisor": "financial-advisors",
+    "mortgage": "mortgage-lenders",
+    "mortgage lender": "mortgage-lenders",
+    "mortgage lenders": "mortgage-lenders",
+    "mortgage broker": "mortgage-lenders",
+    "mortgage brokers": "mortgage-lenders",
+    "loan officer": "mortgage-lenders",
+    "home loan": "mortgage-lenders",
+    "refinance": "mortgage-lenders",
+    "reverse mortgage": "mortgage-lenders",
     "real estate": "real-estate",
     "realtors": "real-estate",
     "real estate agents": "real-estate",
@@ -432,6 +520,544 @@ _QUERY_TO_LEAF: dict[str, str] = {
     "cemeteries": "funeral-cremation-and-cemeteries",
 }
 
+# ---------------------------------------------------------------------------
+# 2026-06-20 search-coverage expansion. Casey: typing "pool builders" /
+# "pool cleaners" (and many other plain service terms) returned "sorry, no
+# results" because only a narrow set of phrasings was wired to each leaf. This
+# block adds the agent-noun (-er/-ers), singular/plural, and common-synonym
+# forms for EVERY rendering leaf, plus the five leaves that previously had zero
+# navigational terms (quick-bites-and-takeout, specialty-food,
+# kids-classes-and-camps, colleges-and-higher-ed, vacation-rentals).
+#
+# Kept as a separate slug -> (terms,) map so the original B.3 map above stays
+# readable, then merged with setdefault() so an existing entry always wins (so
+# the 2026-06-19 monetization-pass entries above are never overridden — e.g.
+# "painters"/"garage door" keep their live slugs). Terms whose leaf is still
+# PENDING self-activate when that page ships (resolve_leaf_by_slug -> None).
+# ---------------------------------------------------------------------------
+_QUERY_TO_LEAF_EXPANSION_2026_06_20: dict[str, tuple[str, ...]] = {
+    "accountants-and-tax": ("accountant", "bookkeeper", "bookkeeping", "cpa", "cpas",
+        "tax preparation", "tax preparer", "tax service", "tax services"),
+    "appliances-and-electronics": ("appliance store", "appliances",
+        "electronics", "electronics store"),
+    "attorneys": ("attorney", "law firm", "law firms", "law office", "law offices", "lawyer",
+        "legal services"),
+    "auto-parts": ("auto parts store", "car parts", "napa", "parts store"),
+    "auto-repair": ("auto service", "auto shop", "auto shops", "brake repair", "brakes",
+        "emissions test", "engine repair", "mechanic", "oil change", "oil changes",
+        "smog check", "transmission repair"),
+    "bakeries-and-desserts": ("cake shop", "cakes", "cupcakes", "dessert", "desserts",
+        "donut shop", "donut shops", "donuts", "doughnuts", "ice cream", "ice cream shop",
+        "ice cream shops"),
+    "banks-and-credit-unions": ("atm", "bank", "credit union"),
+    "bars-and-breweries": ("bar", "beer", "breweries and bars", "brewery", "cocktail bar",
+        "cocktail bars", "pub", "pubs", "sports bar", "sports bars", "taproom", "taprooms",
+        "wine bar", "wine bars"),
+    "beaches-and-swim-areas": ("beach", "public beaches", "swim areas", "swim beach",
+        "swimming areas", "swimming beach"),
+    "boarding-and-daycare": ("cat boarding", "dog daycare", "dog kennel", "dog kennels",
+        "doggy daycare", "pet daycare", "pet hotel"),
+    "boat-and-rv-storage-service": ("covered rv storage",),
+    "boat-and-watercraft-rentals": ("boat rental companies", "pontoon boat rental",
+        "pontoon rental", "pontoon rentals", "watercraft rental"),
+    "boat-repair-and-service": ("boat mechanic", "boat motor repair", "boat service",
+        "marine repair", "outboard repair"),
+    "boat-sales": ("boat dealer", "boat dealership", "boats for sale"),
+    "boat-tours-and-charters": ("boat charter", "boat charters", "boat cruises", "boat tour",
+        "lake tour", "lake tours", "sunset cruise", "sunset cruises"),
+    "cafes-and-coffee": ("cafe", "coffee house", "coffee houses", "coffee shop", "coffeehouse",
+        "espresso"),
+    "car-dealerships": ("auto dealer", "auto dealers", "car dealership", "car lot", "new cars",
+        "used car dealer", "used cars"),
+    "car-rental": ("car rental", "rent a car", "rental cars"),
+    "car-wash": ("auto wash", "detail wash"),
+    "casinos-and-gaming": ("gaming", "slot machines"),
+    "chiropractic": ("chiro", "chiropractic care"),
+    "cleaning": ("carpet cleaner", "carpet cleaners", "carpet cleaning", "cleaning service",
+        "house cleaner", "house cleaners", "janitorial", "maid service", "maid services",
+        "window cleaners", "window cleaning"),
+    "clothing-and-apparel": ("apparel", "boutique clothing", "clothes", "clothing",
+        "clothing store", "mens clothing", "womens clothing"),
+    "colleges-and-higher-ed": ("college", "colleges", "community college", "higher education",
+        "trade school", "universities", "university"),
+    "community-centers": ("community center", "rec center", "recreation center", "senior center"),
+    "computer-and-it-repair": ("computer repair shop", "computer service", "it services",
+        "laptop repair", "pc repair", "tech support", "virus removal"),
+    "convenience": ("convenience store", "corner store", "mini mart"),
+    "dance-studios": ("ballet", "ballet classes", "dance classes", "dance lessons",
+        "dance studio"),
+    "day-spas-and-massage": ("day spa", "facials", "massage therapist", "massage therapists",
+        "massage therapy", "masseuse", "spa"),
+    "dentists-and-orthodontists": ("cosmetic dentist", "dental", "dental clinic",
+        "dental office", "dental offices", "orthodontist", "teeth cleaning"),
+    "dermatology-and-skin": ("dermatology", "skin care clinic", "skin doctor"),
+    "disc-golf": ("disc golf course", "frisbee golf"),
+    "dog-parks": ("dog park", "off leash park"),
+    "electrical": ("electric", "electrical contractor", "electrical contractors"),
+    "event-planning": ("event planner", "event planning services", "party planner",
+        "party planners", "wedding planner"),
+    "eye-care": ("eye doctor", "eye doctors", "eye exam", "optician", "opticians",
+        "optometrist", "vision center"),
+    "family-fun-and-arcades": ("arcade games", "family fun", "fun for kids", "go karts",
+        "laser tag", "mini golf"),
+    "financial-advisors": ("financial planner", "financial planners", "investment advisor",
+        "retirement planning", "wealth management"),
+    "mortgage-lenders": ("mortgage broker", "mortgage brokers", "mortgage lender",
+        "loan officer", "home loan", "refinance", "reverse mortgage"),
+    "fishing-charters-and-guides": ("fishing charter", "fishing guide", "fishing guides",
+        "fishing tours", "fishing trips", "guided fishing"),
+    "florists": ("floral", "florist", "flower shop", "flowers"),
+    "food-trucks-and-catering": ("caterer", "caterers", "catering companies", "food truck"),
+    "furniture-and-mattress": ("furniture", "furniture store", "mattress", "mattress store",
+        "mattress stores", "mattresses"),
+    "gas-stations": ("gas station",),
+    "general-contractors": ("builders", "construction companies", "construction company",
+        "contractor", "general contractor", "home builder", "home builders", "home remodeling",
+        "remodeler", "remodelers", "remodeling"),
+    "gifts-and-boutiques": ("boutique", "gift shop", "gifts", "souvenir shop", "souvenirs"),
+    "golf-courses": ("driving range", "driving ranges", "golf club", "golf clubs", "golf course"),
+    "government-and-mvd": ("city hall", "county office", "courthouse", "dmv office",
+        "government office", "motor vehicle"),
+    "grocery-and-markets": ("food market", "food stores", "grocery", "grocery store", "markets",
+        "supermarket", "supermarkets"),
+    "grooming": ("cat grooming", "mobile dog grooming", "mobile pet grooming"),
+    "gyms-and-fitness-centers": ("crossfit", "fitness", "fitness center", "fitness club",
+        "gym memberships", "health club", "health clubs", "weight training"),
+    "hair-salons-and-barbers": ("barber shop", "barber shops", "barbershop", "blowout",
+        "hair stylist", "hair stylists", "hairdresser", "hairdressers"),
+    "handyman": ("handyman service", "handyman services", "odd jobs"),
+    "hardware-and-home-improvement": ("hardware", "hardware store", "home improvement",
+        "home improvement store", "lumber"),
+    "hiking-trails": ("hike", "hikes", "hiking trail", "nature trails", "trail", "trails",
+        "walking trails"),
+    "hobby-and-craft": ("art supplies", "art supply store", "craft store", "crafts",
+        "fabric store", "hobby shop", "hobby stores"),
+    "hotels-and-motels": ("bed and breakfast", "inn", "inns", "motel", "resort", "resorts"),
+    "hvac": ("ac installation", "ac service", "air conditioner repair",
+        "air conditioning repair", "furnace repair", "heating", "heating and cooling",
+        "hvac companies", "hvac repair"),
+    "insurance": ("auto insurance", "health insurance", "home insurance", "insurance agency",
+        "insurance agent", "insurance broker", "insurance companies"),
+    "jet-ski-and-watersports": ("jet ski", "jet ski rental", "sea doo", "seadoo",
+        "water sports", "watersports", "wave runner", "wave runners", "waverunner",
+        "waverunners"),
+    "jewelry": ("jeweler", "jewellery", "jewelry repair", "jewelry store", "watch repair"),
+    "k-12-schools": ("charter school", "elementary school", "high school", "middle school",
+        "private school", "school"),
+    "kayak-and-paddle": ("canoe", "canoe rental", "canoes", "kayak", "kayak rental",
+        "paddle board", "paddle boards", "paddleboard", "paddleboarding",
+        "stand up paddleboard", "sup rental"),
+    "kids-classes-and-camps": ("after school programs", "day camp", "day camps",
+        "kids activities", "kids camps", "kids classes", "kids programs", "summer camp",
+        "summer camps", "youth programs"),
+    "landmarks-and-sights": ("landmark", "points of interest", "scenic spots", "sights"),
+    "landscaping-and-lawn": ("gardener", "gardeners", "irrigation", "landscaper",
+        "lawn maintenance", "lawn mowing", "lawn service", "lawn services", "sprinkler repair",
+        "tree removal", "tree service", "tree trimming", "yard work"),
+    "libraries": ("library", "public library"),
+    "marinas-and-launch-ramps": ("boat launch", "boat launches", "boat ramp", "boat ramps",
+        "launch ramp", "launch ramps", "marina"),
+    "martial-arts": ("bjj", "dojo", "jiu jitsu", "karate classes", "kickboxing", "mma",
+        "self defense", "taekwondo"),
+    "med-spas-and-aesthetics": ("aesthetics", "botox", "fillers", "laser hair removal",
+        "medical spa"),
+    "mental-and-behavioral-health": ("behavioral health", "counseling", "counselor",
+        "psychiatrist", "psychiatrists", "psychologist", "psychologists", "therapist", "therapy"),
+    "movers": ("local movers", "moving company", "moving services", "relocation"),
+    "museums-and-galleries": ("art galleries", "art gallery", "galleries", "museum"),
+    "music-lessons": ("guitar lessons", "music lesson", "music school", "music teacher",
+        "piano lessons", "singing lessons"),
+    "nail-salons": ("manicure", "manicures", "nail salon", "nail spa", "nail tech", "pedicure",
+        "pedicures"),
+    "nonprofits-and-charities": ("charitable organizations", "charity", "food bank",
+        "non profit", "nonprofit"),
+    "nutrition-and-wellness": ("dietician", "dietitian", "nutritionist", "wellness center"),
+    "off-road-and-ohv": ("atv trail", "off road", "off road trail", "off roading trails",
+        "offroad", "ohv trails", "utv trail"),
+    "parks-and-playgrounds": ("city parks", "park", "playground", "playgrounds", "public parks"),
+    "personal-training": ("fitness trainer", "fitness trainers"),
+    "pest-control": ("bug control", "exterminator", "pest control companies", "termite control"),
+    "pet-sitting": ("cat sitter", "cat sitting", "dog sitter", "dog sitting", "dog walker",
+        "dog walkers", "dog walking", "pet sitter"),
+    "pet-stores-and-supplies": ("aquarium store", "dog food", "pet shop", "pet shops",
+        "pet supplies"),
+    "pharmacies": ("drug store", "drug stores", "drugstore", "drugstores"),
+    "photographers": ("photo studio", "photographer", "photography", "photography studio",
+        "portrait photographer", "wedding photographer"),
+    "physical-therapy": ("physical therapists", "pt clinic", "rehab", "rehabilitation"),
+    "places-of-worship": ("chapel", "church", "mosque", "place of worship", "synagogue",
+        "temple"),
+    "plumbing": ("drain cleaners", "drain cleaning", "water heater repair"),
+    "pools-and-spas": ("hot tub", "hot tub repair", "hot tubs", "pool builder", "pool builders",
+        "pool cleaner", "pool cleaners", "pool companies", "pool company", "pool contractor",
+        "pool contractors", "pool installation", "pool maintenance", "pool repair",
+        "pool resurfacing", "pool servicing", "pool tech", "pool techs", "spa repair",
+        "swimming pool", "swimming pools"),
+    # 2026-07-01 Phase 4: the rental phrasings ("atv rental", "utv rental",
+    # "ohv rentals") moved to utv-and-offroad-rentals (see the rentals dict
+    # below); the dealer leaf keeps the bare vehicle nouns.
+    "powersports-and-atv": ("atv", "dirt bikes", "side by side",
+        "side by sides", "utv"),
+    "preschools-and-childcare": ("child care", "day care", "daycares", "preschool"),
+    "primary-care": ("doctor", "family doctor", "family physician", "general practitioner",
+        "medical clinic", "medical clinics", "physicians", "primary care doctor",
+        "primary care physician"),
+    "print-signs-and-marketing": ("banners", "graphic design", "marketing agency", "printer",
+        "printers", "sign maker", "sign makers", "signs"),
+    "quick-bites-and-takeout": ("burger joint", "burgers", "deli", "delis", "drive thru",
+        "fast food", "fast food restaurants", "hot dogs", "pizza", "pizza places", "pizzeria",
+        "quick bites", "sandwich shop", "sandwich shops", "sandwiches", "subs", "taco shop",
+        "tacos", "take out", "takeout", "wings"),
+    "real-estate": ("property listings", "real estate agency", "real estate agent",
+        "real estate offices", "realtor"),
+    "restaurants": ("dining", "dinner", "family restaurants", "fine dining", "food", "lunch"),
+    "roofing": ("roof repair", "roof replacement", "roofing companies", "roofing contractor",
+        "roofing contractors"),
+    "rv-parks-and-campgrounds": ("campground", "camping", "rv park", "rv resort", "rv resorts"),
+    "rv-sales-and-service": ("motorhome repair", "rv dealer", "rv dealership", "rv parts",
+        "rv repair shop"),
+    "security-and-alarms": ("alarm company", "alarm system", "alarm systems", "home security",
+        "security cameras", "security system"),
+    "self-storage": ("mini storage", "storage", "storage facilities", "storage facility",
+        "storage unit"),
+    "senior-care-and-assisted-living": ("assisted living facilities", "independent living",
+        "memory care", "nursing home", "retirement home"),
+    "shipping-and-postal": ("fedex", "mailbox", "mailboxes", "pack and ship", "postal services",
+        "shipping store", "ups store"),
+    "shoes": ("shoe store", "shoes", "sneakers"),
+    "shuttles-and-transportation": ("airport shuttle", "airport shuttles", "rideshare",
+        "shuttle", "taxi", "taxi service", "transportation services"),
+    "solar": ("solar companies", "solar company", "solar installer", "solar panel installation",
+        "solar panels"),
+    "specialty-food": ("butcher", "butcher shop", "candy store", "chocolate shop",
+        "farmers market", "gourmet food", "health food store", "specialty food", "spice shop"),
+    "sporting-goods": ("fishing gear", "sporting goods store", "sporting goods stores",
+        "sports equipment", "sports store"),
+    "tanning": ("spray tan", "spray tanning", "tanning salon", "tanning salons"),
+    "tattoo-and-piercing": ("body piercing", "piercing", "piercings", "tattoo artist",
+        "tattoo artists", "tattoo parlor", "tattoo parlors", "tattoo shop", "tattoos"),
+    "theaters-and-cinema": ("movie theater", "movie times", "movies", "theater", "theatre",
+        "theatres"),
+    "thrift-and-consignment": ("consignment", "consignment shop", "second hand store",
+        "thrift shop", "thrift shops", "thrift store"),
+    "tires": ("new tires", "tire", "tire repair", "tire shop", "tire store", "tire stores"),
+    "tours-and-sightseeing": ("attractions", "sightseeing tours", "things to see", "tour"),
+    "towing-and-roadside": ("roadside assistance", "tow service", "tow truck", "towing service",
+        "towing services", "wrecker"),
+    "training": ("dog obedience", "dog training classes", "obedience training", "puppy training"),
+    "tutoring-and-test-prep": ("math tutor", "reading tutor", "sat prep", "test prep", "tutor"),
+    "urgent-care-and-er": ("emergency room", "immediate care"),
+    "utilities": ("electric company", "power company", "trash service", "utility",
+        "water company"),
+    "vacation-rentals": ("cabin rentals", "rental homes", "short term rental",
+        "short term rentals", "vacation homes", "vacation rental"),
+    "veterinarians": ("animal clinic", "animal hospital", "animal hospitals", "vet clinic",
+        "vet clinics", "veterinary", "veterinary clinic"),
+    "yoga-and-pilates": ("hot yoga", "pilates classes", "pilates studio", "yoga classes",
+        "yoga studio", "yoga studios"),
+}
+
+# Bare single-word forms that still dead-ended on an EXISTING page (the noun
+# alone is a natural search, but only multi-word phrasings were mapped above).
+_QUERY_TO_LEAF_BARE_FORMS_2026_06_20: dict[str, str] = {
+    "cleaning": "cleaning",
+    "jewelry": "jewelry",
+    "pool": "pools-and-spas",
+    "pools": "pools-and-spas",
+    "appliance": "appliances-and-electronics",
+    "smoke shop": "smoke-vape-and-cannabis",
+    "vape": "smoke-vape-and-cannabis",
+    "vape shop": "smoke-vape-and-cannabis",
+}
+
+# Routing for the BRAND-NEW leaves (slugs added to PENDING_LEAF_SLUGS above).
+# No-ops until scripts/create_missing_service_leaves_2026_06_20.py seeds the leaf
+# and it clears the leaf_pages.LEAF_PAGE_MIN_PROVIDERS publish gate (via
+# _resolve_gated); then these searches start landing on the page.
+# NOTE: "painters" and "garage-doors" are already LIVE (2026-06-19 pass), so
+# their extra agent-noun/synonym forms below route to the existing live page via
+# setdefault — they are not pending.
+_QUERY_TO_LEAF_NEW_LEAVES_2026_06_20: dict[str, tuple[str, ...]] = {
+    "painters": ("painter", "painters", "painting", "painting contractor",
+        "painting contractors", "paint contractor", "house painter", "house painters",
+        "house painting", "interior painting", "exterior painting", "commercial painting"),
+    "locksmiths": ("locksmith", "locksmiths", "lockout service", "rekey", "re key",
+        "lock repair", "lock installation", "key duplication", "car key replacement"),
+    # 2026-06-20 batch 2
+    "flooring": ("flooring", "flooring store", "flooring contractor", "flooring contractors",
+        "floor installation", "floor installer", "floor installers", "carpet installation",
+        "tile installation", "hardwood flooring", "laminate flooring", "vinyl plank"),
+    "fencing": ("fencing", "fence company", "fence companies", "fence contractor",
+        "fence contractors", "fence installation", "fence repair", "fence builder",
+        "fencing company", "wrought iron fence", "chain link fence"),
+    "garage-doors": ("garage door", "garage doors", "garage door repair",
+        "garage door installation", "garage door opener", "garage door service",
+        "overhead door", "overhead doors"),
+    "concrete-and-masonry": ("concrete", "concrete contractor", "concrete contractors",
+        "concrete driveway", "decorative concrete", "stamped concrete", "masonry", "mason",
+        "masons", "block wall", "block walls", "retaining wall", "retaining walls", "pavers",
+        "paver installation", "stucco", "rv pad", "rv pads"),
+    # 2026-06-20 batch 3 — brand-new leaves
+    "drywall": ("drywall", "drywall repair", "drywall contractor", "drywall contractors",
+        "drywall installation", "sheetrock"),
+    "carpentry-and-cabinets": ("carpenter", "carpenters", "carpentry", "custom cabinets",
+        "cabinet maker", "cabinet makers", "cabinets", "kitchen cabinets", "cabinet refacing",
+        "finish carpentry", "woodworking"),
+    "welding-and-fabrication": ("welder", "welders", "welding", "welding shop",
+        "metal fabrication", "fabrication", "fabricator", "metal fabricators", "mobile welding"),
+    "gutters": ("gutter", "gutters", "gutter installation", "gutter repair", "seamless gutters",
+        "rain gutters", "gutter company"),
+    # Bare "windows" routes here (not the auto window-tint leaf): "window tint"/
+    # "window tinting" are distinct exact keys and share no token with the plural
+    # "windows", so the more-specific tint match still wins.
+    "windows-and-doors": ("windows", "window installation", "window replacement",
+        "replacement windows", "window installer", "door installation", "door installer",
+        "windows and doors", "new windows", "patio doors", "sliding doors"),
+    "appliance-repair": ("appliance repair", "appliance repairman", "appliance service",
+        "refrigerator repair", "washer repair", "dryer repair", "dishwasher repair",
+        "oven repair", "stove repair", "freezer repair"),
+    "liquor-stores": ("liquor store", "liquor stores", "liquor", "package store",
+        "beer and wine", "wine and spirits"),
+    "pawn-shops": ("pawn shop", "pawn shops", "pawnshop", "pawn", "pawnbroker", "pawn broker"),
+    "nurseries-and-garden-centers": ("nursery", "plant nursery", "garden center",
+        "garden centers", "nurseries", "garden nursery", "plant store"),
+    # 2026-06-20 batch 3 — enrichment for already-designed (pending) leaves; in
+    # particular medical-specialists-and-imaging previously had NO search terms.
+    "medical-specialists-and-imaging": ("imaging", "imaging center", "medical imaging",
+        "radiology", "mri", "ct scan", "x ray", "ultrasound", "specialists",
+        "medical specialists", "cardiologist", "cardiologists", "neurologist", "orthopedic",
+        "oncologist", "podiatrist", "urologist", "ear nose and throat"),
+    "firearms-and-shooting-sports": ("gun store", "gun shop", "shooting sports", "gunsmith",
+        "ammo", "guns and ammo"),
+    "trailer-sales-and-repair": ("trailer dealer", "utility trailer", "trailer parts"),
+    "mobile-home-services": ("manufactured home repair", "mobile home service"),
+    "shade-screens-and-patio-covers": ("patio cover", "sun screen", "awning",
+        "retractable awning", "sun shades", "solar screens"),
+    "pet-waste-removal": ("dog poop removal", "poop scooping", "dog waste removal"),
+}
+
+# 2026-06-28 intent-search alias pass (directory-audit §11). Each entry is a
+# category NOUN/phrase — NEVER a descriptive sentence (those stay conversational
+# by design; see test_leaf_query.test_normalize_leaves_descriptive_queries_unmatched)
+# — routing to an ALREADY-POPULATED leaf, closing the live-search gaps surfaced by
+# scripts/audit_search_intent_coverage_2026_06_28.py. These reach the keyword search
+# via the leaf-link bridge (app.search.routes._leaf_link_exists_predicate); a term
+# pointing at a sub-gate/empty leaf is a harmless no-op until it's seeded.
+_QUERY_TO_LEAF_SEARCH_ALIASES_2026_06_28: dict[str, tuple[str, ...]] = {
+    "hvac": ("swamp cooler", "swamp coolers", "swamp cooler repair", "evaporative cooler",
+        "evaporative coolers", "mini split", "ductless mini split", "ac install",
+        "ac installation", "ac tune up", "new ac unit", "ac unit"),
+    "roofing": ("leaky roof", "roof leak", "roof leak repair"),
+    "pest-control": ("bug guy", "bug man"),
+    "plumbing": ("water heater", "water heaters", "water heater repair",
+        "water heater installation", "water heater replacement", "tankless water heater"),
+    "title-and-escrow": ("title company", "title companies", "escrow company"),
+    "pools-and-spas": ("pool pump", "pool pumps", "pool equipment", "pool filter"),
+    "vacation-rentals": ("airbnb", "air bnb", "vrbo", "short term rental",
+        "short term rentals", "vacation home", "vacation homes"),
+    "veterinarians": ("emergency vet", "emergency veterinarian", "24 hour vet", "24 hr vet"),
+    "utilities": ("trash pickup", "trash service", "garbage pickup", "garbage service",
+        "recycling", "recycling center", "water company", "electric company",
+        "power company", "gas company"),
+    "gifts-and-boutiques": ("gift shops", "gift store", "gift stores"),
+    # ("pediatrician" et al. pointed here 2026-06-28 as a stopgap; moved to the
+    # dedicated ``pediatrics`` leaf in the 2026-07-01 dict below — the 159-row
+    # primary-care dump was the audit's A2 complaint.)
+}
+
+# 2026-06-30 search-audit expansion (ASKHAVA_SEARCH_AUDIT_2026-06-30 §A3 / PART
+# D). The leaf exists and is populated, but these phrasings were never wired, so
+# the box dropped to a weak conversational answer instead of the page (e.g.
+# "kayak rentals" reached the leaf but "paddleboard rentals" didn't). Same
+# mechanism as the 2026-06-20 pool-builders pass: category NOUNS only (never a
+# descriptive sentence), merged via setdefault so any live entry above wins.
+# Attraction terms (escape room, axe throwing, trampoline park...) point at the
+# existing Things-to-Do leaves so they land on a real page now, and become exact
+# once Phase 2 backfills VR Escape Reality / the helicopter operators.
+# NB: "scenic flight" is deliberately NOT added -- its token "flight" is one edit
+# from the common word "light" ("light switch not working") and would pollute the
+# shared spell-correct vocab (normalizer._spell_vocab). "helicopter tour(s)" is
+# distinctive and covers the same intent without that footgun.
+_QUERY_TO_LEAF_SEARCH_ADD_2026_06_30: dict[str, tuple[str, ...]] = {
+    "kayak-and-paddle": ("paddleboard rentals", "paddle board rental"),
+    "jet-ski-and-watersports": ("wake surfing", "wakesurf", "wakesurfing",
+        "wakeboarding", "flyboard"),
+    "fishing-charters-and-guides": ("fishing trip", "bass fishing guide"),
+    "music-lessons": ("drum lessons",),
+    "family-fun-and-arcades": ("escape room", "escape rooms", "axe throwing",
+        "miniature golf", "trampoline park"),
+    "tours-and-sightseeing": ("helicopter tour", "helicopter tours"),
+}
+
+# 2026-06-30 follow-on: the data backfill added Havasu Parasail (jet-ski leaf)
+# and created the scuba-and-dive leaf (re-homing Scuba Training & Technology off
+# jet-ski-and-watersports). Wire the phrasings that reach them. "scuba-and-dive"
+# is a real live leaf (added to docs/proposals/taxonomy-seed.json) so the drift
+# guard passes.
+_QUERY_TO_LEAF_SEARCH_ADD2_2026_06_30: dict[str, tuple[str, ...]] = {
+    "jet-ski-and-watersports": ("parasailing", "parasail"),
+    "scuba-and-dive": ("scuba", "scuba diving", "scuba lessons", "scuba certification",
+        "dive shop", "dive shops", "scuba shop"),
+}
+
+# 2026-07-01 consolidated search audit (A3 + A5). The calendar router no longer
+# captures these evergreen asks (is_discovery_query is scoped to explicit
+# time/event intent), so each gets a real directory destination; plus the
+# bare/variant terms the audit found unmapped ("hair" -> the 83-listing salons
+# leaf, phone-repair variants -> the IT-repair leaf). Category NOUNS only
+# (never a descriptive sentence), merged via setdefault so live entries win.
+_QUERY_TO_LEAF_SEARCH_ADD_2026_07_01: dict[str, tuple[str, ...]] = {
+    "bars-and-breweries": ("nightlife", "happy hour"),
+    "restaurants": ("date night", "waterfront dining"),
+    # "lake havasu state park" normalizes to "state park" (the locality filler
+    # strip removes "lake havasu" first); the park's beach rows live on the
+    # beaches leaf.
+    "beaches-and-swim-areas": ("state park", "state parks"),
+    "boat-and-watercraft-rentals": ("party boat", "party boats",
+        "party boat rental", "party boat rentals"),
+    "boat-tours-and-charters": ("boat rental with captain", "captained boat tour",
+        "captained boat tours"),
+    "hair-salons-and-barbers": ("hair",),
+    "computer-and-it-repair": ("cell phone repair", "phone repair",
+        "iphone repair", "phone screen repair"),
+    "jet-ski-and-watersports": ("waverunner rental", "waverunner rentals",
+        "sea doo rental", "sea doo rentals"),
+    # A2: the missing specialty terms. medical-specialists-and-imaging already
+    # carries cardiologist/podiatrist/etc. (2026-06-20 block above) and
+    # self-activates when the Phase-3 data op seeds the leaf; these add the
+    # obgyn family and the lab terms (which also ends the "lab" → Fit Lab 928
+    # gym collision — the gym row is correctly categorized and stays put).
+    # "women s health" is the _normalize output of "women's health".
+    "medical-specialists-and-imaging": ("obgyn", "ob gyn", "obstetrician",
+        "gynecologist", "womens health", "women s health",
+        "lab", "labs", "medical lab", "medical labs", "blood work", "lab work"),
+    # Pediatricians get their own leaf (seeded in Phase 3; a deliberate no-op
+    # until then per _resolve_gated) instead of the 159-doctor primary-care leaf.
+    "pediatrics": ("pediatrician", "pediatricians", "pediatrics"),
+}
+
+# 2026-07-01 Phase 4 (consolidated plan — rental categories). Real homes for the
+# rental intents the topical gate now answers honestly-empty: golf carts (leaf
+# exists; Premier Golf Cars is already on it), the new bikes-and-e-bikes and
+# utv-and-offroad-rentals leaves (created by scripts/backfill_rentals_2026_07_01
+# .py, declared in the taxonomy seed), and the specialty lake rentals that live
+# on existing water leaves. Same rules: category NOUNS only, setdefault-merged.
+_QUERY_TO_LEAF_RENTALS_2026_07_01: dict[str, tuple[str, ...]] = {
+    "golf-carts": ("golf cart rental", "golf cart rentals", "golf carts rental"),
+    "bikes-and-e-bikes": ("bike shop", "bike shops", "bike store", "bike stores",
+        "bike rental", "bike rentals", "e bike rental", "e bike rentals",
+        "ebike rental", "ebike rentals", "e bike", "e bikes", "ebike", "ebikes",
+        "bicycle shop", "bicycle shops", "bike repair", "bicycle repair",
+        "bicycles", "bikes"),
+    "utv-and-offroad-rentals": ("atv rental", "utv rental", "ohv rentals",
+        "ohv rental", "side by side rental", "side by side rentals",
+        "rzr rental", "rzr rentals", "off road rental", "off road rentals",
+        "atv tours", "utv tours", "offroad tours", "off road tours",
+        "rzr tours"),
+    "boat-and-watercraft-rentals": ("houseboat", "houseboats", "houseboat rental",
+        "houseboat rentals", "beach chair rental", "beach chair rentals",
+        "beach gear rental"),
+    "boat-tours-and-charters": ("yacht rental", "yacht rentals", "yacht charter",
+        "yacht charters"),
+    # [ASK #5] resolved 2026-07-01: fold RV rentals into rv-sales-and-service
+    # (JR RV Rentals + the backfilled Lake Havasu RV & Boat Rentals live there).
+    "rv-sales-and-service": ("rv rental", "rv rentals"),
+    # Master site audit §1 (2026-07-01 PM): "pool supply" had no route to the
+    # 15-listing pools leaf ("pool", "pool service", "pool pump" etc. were all
+    # wired; the supply/store phrasings weren't) — it fell to chat and, for
+    # "pool store", the bare "store" token bought the shopping junk fallback.
+    "pools-and-spas": ("pool supply", "pool supplies", "pool store", "pool stores"),
+}
+
+# 2026-07-01 Phase 5 (consolidated plan — backfill polish). Terms for rows the
+# Phase-5 data op re-homes/inserts (weight-loss target per [ASK #6] default =
+# med-spas-and-aesthetics, where Sculpted MD / Desert Oasis live), plus the
+# things-to-do polish: Copper Canyon is already a beaches row, "Lighthouses"
+# (the 28-replica trail) already a landmarks row.
+_QUERY_TO_LEAF_BACKFILLS_2026_07_01: dict[str, tuple[str, ...]] = {
+    "med-spas-and-aesthetics": ("weight loss", "weight loss clinic",
+        "weight loss clinics"),
+    "nonprofits-and-charities": ("animal shelter", "animal shelters",
+        "humane society"),
+    "beaches-and-swim-areas": ("cliff jumping", "copper canyon"),
+    "landmarks-and-sights": ("lighthouse", "lighthouses"),
+}
+
+# Evergreen browse asks whose right destination is a DEPARTMENT landing or a
+# static page, not a single leaf (the dicts above can only target leaf slugs).
+# Consulted by the /chat router ahead of the leaf match via
+# :func:`match_direct_destination`; these routes always render, so no publish
+# gate applies. "things to do" -> the Things to Do department landing (a real
+# browse page; the tours-and-sightseeing leaf is too narrow for the ask);
+# the kids variant -> the /family day view.
+_QUERY_TO_URL_2026_07_01: dict[str, str] = {
+    "things to do": "/categories/things-to-do-and-attractions",
+    "fun things to do": "/categories/things-to-do-and-attractions",
+    "free things to do": "/categories/things-to-do-and-attractions",
+    "stuff to do": "/categories/things-to-do-and-attractions",
+    "things to do with kids": "/family",
+}
+
+
+def match_direct_destination(q: str | None) -> str | None:
+    """Static destination URL for an evergreen browse ask, or ``None``.
+
+    Pure in-memory lookup on the normalized query -- no DB, because the
+    department landing and /family always render (unlike leaf pages, which
+    carry the publish gate)."""
+    norm = _normalize(q or "")
+    if not norm:
+        return None
+    return _QUERY_TO_URL_2026_07_01.get(norm)
+
+
+# ---------------------------------------------------------------------------
+# Build the one canonical term -> slug routing table.
+#
+# ``_QUERY_TO_LEAF`` above is the hand-authored core (with its own rationale
+# comments); the generation-stamped blocks below it are provenance-tagged
+# additions, each kept as a readable ``slug -> (terms,)`` map (or ``term ->
+# slug`` for the bare-forms block) so a leaf's aliases stay grouped. They fold
+# into the ONE table here via a single ordered merge with first-writer-wins
+# (``setdefault``) — a live entry is never overridden by a later block.
+#
+# The eight near-identical per-block loops this replaced are collapsed to one
+# data-driven pass. ``tests/test_leaf_query_routing_table.py`` locks the result:
+# it asserts no two contributing blocks (base included) route the same term to
+# DIFFERENT slugs — so the merge order is provably irrelevant, no silent drops —
+# and that the merged table is byte-identical to the committed snapshot.
+# ---------------------------------------------------------------------------
+
+# 2026-07-07 (WS9): "haircut" was the one common consumer term that fell through
+# — /search?q=haircut returned a single literal name match while "barber" / "hair
+# salon" (both already mapped) return the full ~50-listing leaf. Route the haircut
+# phrasings to that same Hair Salons & Barbers leaf. Category nouns only.
+_QUERY_TO_LEAF_SEARCH_ADD_2026_07_07: dict[str, tuple[str, ...]] = {
+    "hair-salons-and-barbers": ("haircut", "haircuts", "hair cut", "hair cuts"),
+}
+
+#: Ordered ``slug -> (terms,)`` contribution blocks, folded into ``_QUERY_TO_LEAF``.
+_LEAF_TERM_BLOCKS: tuple[dict[str, tuple[str, ...]], ...] = (
+    _QUERY_TO_LEAF_EXPANSION_2026_06_20,
+    _QUERY_TO_LEAF_NEW_LEAVES_2026_06_20,
+    _QUERY_TO_LEAF_SEARCH_ALIASES_2026_06_28,
+    _QUERY_TO_LEAF_SEARCH_ADD_2026_06_30,
+    _QUERY_TO_LEAF_SEARCH_ADD2_2026_06_30,
+    _QUERY_TO_LEAF_SEARCH_ADD_2026_07_01,
+    _QUERY_TO_LEAF_RENTALS_2026_07_01,
+    _QUERY_TO_LEAF_BACKFILLS_2026_07_01,
+    _QUERY_TO_LEAF_SEARCH_ADD_2026_07_07,
+)
+
+for _block in _LEAF_TERM_BLOCKS:
+    for _leaf_slug, _terms in _block.items():
+        for _term in _terms:
+            _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
+# Bare-forms is authored ``term -> slug`` (not ``slug -> terms``); same first-wins.
+for _term, _leaf_slug in _QUERY_TO_LEAF_BARE_FORMS_2026_06_20.items():
+    _QUERY_TO_LEAF.setdefault(_term, _leaf_slug)
+
+
 # Locality + filler stripped before lookup. Order matters (longest first).
 _FILLER_PHRASES: tuple[str, ...] = (
     "lake havasu city",
@@ -495,6 +1121,41 @@ _CONVERSATIONAL_TOKENS = (
     "when do",
     "when does",
 )
+
+# Service-intent + function words that can surround a category noun in a
+# need-shaped query ("hvac needs repair", "pool service repair", "coffee shop").
+# match_leaf_service_intent routes such a query to its leaf ONLY when, after
+# pulling out a single category keyword, every remaining token is in this set —
+# so a descriptive ask carrying a content word ("wifi password coffee shop",
+# "best plumber for a slab leak") still falls through. Deliberately holds NO
+# category nouns and NO factual/temporal words (those are _CONVERSATIONAL_TOKENS).
+_SERVICE_FILLER: frozenset[str] = frozenset(
+    {
+        # service intent
+        "repair", "repairs", "service", "services", "servicing", "need", "needs",
+        "needed", "broken", "fix", "fixing", "fixed", "install", "installation",
+        "installer", "installers", "replace", "replacement", "maintenance", "help",
+        "quote", "quotes", "estimate", "estimates", "recommendation", "recommendations",
+        "company", "companies", "guy", "guys", "shop", "shops", "place", "places",
+        "unit", "units", "get", "find", "hire", "book",
+        # 2026-07-01: rent-intent words, so "<mapped-category> rental" routes
+        # ("waverunner rental", "pontoon boat rental"). "golf cart rental" stays
+        # safely unrouted -- its leftover "cart" is a content token.
+        "rent", "rents", "rental", "rentals", "renting",
+        # breakdown phrasings ("my hvac is broken", "ac not working", "stopped")
+        "is", "are", "was", "broke", "not", "working", "stopped",
+        # harmless function words (no category signal)
+        "i", "we", "my", "a", "an", "the", "for", "to", "some", "any", "please",
+        "looking", "near", "around", "local", "and", "of",
+    }
+)
+
+
+def _has_conversational_payload(raw: str) -> bool:
+    """True when the RAW query carries factual/temporal payload (hours, phone,
+    "open now", "tonight"…) — those stay conversational and never service-route.
+    Checked on the raw text BEFORE _normalize, which strips some of these."""
+    return any(tok in raw for tok in _CONVERSATIONAL_TOKENS)
 
 
 def _normalize(q: str) -> str:
@@ -565,14 +1226,71 @@ def match_leaf_for_chat(db: Session, q: str | None) -> leaf_pages.Leaf | None:
     return _leaf_for_normalized_term(db, norm)
 
 
-def _leaf_for_normalized_term(db: Session, norm: str) -> leaf_pages.Leaf | None:
-    """Dict lookup + DB existence + thin-page gate for a normalized term."""
-    slug = _QUERY_TO_LEAF.get(norm)
-    if slug is None:
-        return None
+def _resolve_gated(db: Session, slug: str) -> leaf_pages.Leaf | None:
+    """DB existence + thin-page (≥3-provider) gate for a known leaf slug."""
     leaf = leaf_pages.resolve_leaf_by_slug(db, slug)
     if leaf is None:
         return None
     if leaf_pages.leaf_renderable_count(db, leaf) < leaf_pages.LEAF_PAGE_MIN_PROVIDERS:
         return None
     return leaf
+
+
+def _leaf_for_normalized_term(db: Session, norm: str) -> leaf_pages.Leaf | None:
+    """Dict lookup + DB existence + thin-page gate for a normalized term."""
+    slug = _QUERY_TO_LEAF.get(norm)
+    if slug is None:
+        return None
+    return _resolve_gated(db, slug)
+
+
+def _service_intent_slug(norm: str) -> str | None:
+    """A single unambiguous leaf slug a need-shaped query maps to, or ``None``.
+
+    Pure (no DB). Finds known navigational terms as contiguous token spans in
+    the normalized query, longest-span-per-start. Routes ONLY when every span
+    resolves to ONE leaf AND every leftover token is service/function filler —
+    so "hvac needs repair" → ``hvac`` but "wifi password coffee shop" (content
+    leftover) and "plumber and electrician" (two leaves) fall through.
+    """
+    toks = norm.split()
+    if len(toks) < 2:
+        return None  # single-token asks are the exact-match path's job
+    n = len(toks)
+    spans: list[tuple[int, int, str]] = []
+    for i in range(n):
+        for j in range(n, i, -1):  # longest span starting at i wins
+            slug = _QUERY_TO_LEAF.get(" ".join(toks[i:j]))
+            if slug is not None:
+                spans.append((i, j, slug))
+                break
+    if not spans:
+        return None
+    slugs = {s for _, _, s in spans}
+    if len(slugs) != 1:
+        return None  # ambiguous — multiple categories implied
+    covered: set[int] = set()
+    for i, j, _ in spans:
+        covered.update(range(i, j))
+    leftover = [toks[k] for k in range(n) if k not in covered]
+    if any(t not in _SERVICE_FILLER for t in leftover):
+        return None  # a content word remains → stay conservative, fall through
+    return next(iter(slugs))
+
+
+def match_leaf_service_intent(db: Session, q: str | None) -> leaf_pages.Leaf | None:
+    """Leaf match for need-shaped service queries the exact matcher misses.
+
+    Extends :func:`match_leaf_query`: routes "[category] + service/function
+    words" ("hvac needs repair", "pool service repair", "coffee shop") to the
+    leaf, while queries with factual/temporal payload or any content leftover
+    stay conversational. The candidate leaf must still clear the existence +
+    ≥3-provider gate. Used as the fall-through before /search in the concierge.
+    """
+    raw = (q or "").strip().lower()
+    if not raw or _has_conversational_payload(raw):
+        return None
+    slug = _service_intent_slug(_normalize(raw))
+    if slug is None:
+        return None
+    return _resolve_gated(db, slug)

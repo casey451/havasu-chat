@@ -1,0 +1,110 @@
+/* Lake Ink & Brass — admin/portal skin (Phase 6). Injected (after each admin
+   page's own inline <style>) into every /admin HTML response when the THEME flag
+   resolves to lake — see AdminLakeSkinMiddleware in app/main.py. ONE sheet
+   reskins all three admin rendering families:
+     1. the inline-HTML _nav_shell pages (.wrap/.nav/.pill/.btn/.flash/...),
+     2. the Jinja .d-admin/.d-table templates,
+     3. the admin_portal pages (which are CSS-var driven — we override :root).
+   Self-contained: embeds the lake fonts + tokens so it needs no other sheet.
+   "Lower visual ambition" per the build plan — consistent, accessible, AA. */
+
+@font-face{font-family:"Inter";font-style:normal;font-weight:100 900;font-display:swap;src:url("/static/fonts/inter-latin-wght-normal.woff2") format("woff2")}
+@font-face{font-family:"Fraunces";font-style:normal;font-weight:100 900;font-display:swap;src:url("/static/fonts/fraunces-latin-wght-normal.woff2") format("woff2")}
+
+/* lake tokens (local copy so this sheet stands alone) */
+:root{
+  --la-ink:#10202b; --la-ink-2:#374954; --la-muted:#5e6e79;
+  --la-hair:#dbe3e9; --la-hair-2:#c6d2da; --la-paper:#e8eef3; --la-surface:#f1f5f8; --la-raised:#fff;
+  --la-brass:#b07a22; --la-brass-deep:#835914; --la-brass-wash:#f7ecd5; --la-brass-edge:#e7d1a3;
+  --la-good:#2c7d57; --la-warn:#b4511c; --la-disp:"Fraunces",Georgia,serif; --la-ui:"Inter",system-ui,sans-serif;
+  /* admin_portal CSS vars → remap to lake (those pages read var(--bg) etc.) */
+  --bg:#e8eef3; --panel:#fff; --ink:#10202b; --muted:#5e6e79; --line:#dbe3e9;
+  --accent:#835914; --accent-soft:#f7ecd5; --ok:#2c7d57; --warn:#b4511c; --chip:#f1f5f8;
+}
+
+body{font-family:var(--la-ui);background:var(--la-paper);color:var(--la-ink)}
+h1,h2,h3,.brand{font-family:var(--la-disp);letter-spacing:-.01em;color:var(--la-ink)}
+a{color:var(--la-brass-deep)}
+.sub,.muted,.meta,.desc,.note,.blurb,.label{color:var(--la-ink-2)}
+.empty{color:var(--la-ink-2)}
+code,.mono{font-family:ui-monospace,SFMono-Regular,Menlo,monospace}
+
+/* top nav strip (inline-HTML _nav_shell) */
+.nav{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.nav a{color:var(--la-brass-deep);font-weight:600;text-decoration:none}
+.nav a:hover{text-decoration:underline}
+
+/* cards / panels / sections */
+.card,.section,.box,.panel,.queue-card,.conf,.window,.notice,.stat{background:var(--la-raised);border:1px solid var(--la-hair);border-radius:14px}
+.card,.section,.box,.queue-card,.conf,.notice,.stat{padding:16px 18px}
+
+/* tables (generic + .d-table) */
+table,.d-table{width:100%;border-collapse:collapse;background:var(--la-raised);border:1px solid var(--la-hair);border-radius:12px;overflow:hidden;font-size:14px}
+th,td,.d-table th,.d-table td{text-align:left;padding:10px 12px;border-bottom:1px solid var(--la-hair);color:var(--la-ink-2);vertical-align:top}
+th,.d-table th{background:var(--la-surface);color:var(--la-ink);font-weight:600;font-size:12.5px;text-transform:uppercase;letter-spacing:.03em}
+tr:last-child td{border-bottom:0}
+
+/* buttons */
+.btn,button,.wbtn,.d-btn{font-family:var(--la-ui);font-weight:600;font-size:14px;border:1px solid transparent;border-radius:10px;padding:9px 16px;cursor:pointer;background:linear-gradient(160deg,#22394a,#10202b);color:#fff;min-height:40px;text-decoration:none;display:inline-flex;align-items:center;gap:7px}
+.btn:disabled,button:disabled{opacity:.5;cursor:not-allowed}
+.btn-primary{background:linear-gradient(160deg,#22394a,#10202b);color:#fff}
+.btn-secondary,.btn-muted,.btn-link,button.quiet,.wbtn{background:var(--la-raised);color:var(--la-ink);border-color:var(--la-hair-2)}
+.btn-link{border-color:transparent;color:var(--la-brass-deep);background:none;padding-left:0;padding-right:0}
+.btn-danger,.btn.bad{background:var(--la-warn);color:#fff}
+.btn-info{background:var(--la-brass);color:#fff}
+.btn.ok{background:var(--la-good);color:#fff}
+.wbtn.active{background:var(--la-ink);color:#fff;border-color:var(--la-ink)}
+
+/* pills / badges / chips / tags. Status is carried by the tint + the LABEL text
+   (not colour alone — WCAG 1.4.1); text stays ink / ink-2 / brass-deep, which
+   are the only hues that clear AA on these light tints (green/warn on the wash
+   top out at ~4.3:1). */
+.pill,.tag,.chip,.d-badge,.embed-badge{display:inline-flex;align-items:center;gap:5px;font-size:12px;font-weight:600;border-radius:999px;padding:3px 10px;background:var(--la-surface);border:1px solid var(--la-hair-2);color:var(--la-ink-2)}
+.pill-ok,.pill-approved,.chip.ok,.embed-ok{background:var(--la-brass-wash);border-color:var(--la-brass-edge);color:var(--la-ink)}
+.pill-pending,.pill-needs,.pill-warn,.chip.warn,.embed-warn{background:var(--la-surface);border-color:var(--la-brass-edge);color:var(--la-ink)}
+.pill-rejected,.embed-none{background:var(--la-surface);border-color:var(--la-hair-2);color:var(--la-ink-2)}
+.pill-info,.pill-tip,.chip.accent,.pill-provider,.pill-program,.pill-event{background:var(--la-brass-wash);border-color:var(--la-brass-edge);color:var(--la-brass-deep)}
+.pill-muted{background:var(--la-surface);color:var(--la-muted)}
+
+/* flash / notice banners */
+.flash{border-radius:12px;padding:11px 14px;font-size:14px;border:1px solid var(--la-hair-2);background:var(--la-surface);color:var(--la-ink)}
+.flash-ok{background:var(--la-brass-wash);border-color:var(--la-brass-edge);color:var(--la-ink)}
+.flash-err,.err,.warn{color:var(--la-warn)}
+
+/* forms */
+input,select,textarea,.d-input,.d-select,.d-textarea{font-family:var(--la-ui);font-size:14px;border:1px solid var(--la-hair-2);border-radius:10px;padding:9px 12px;background:#fff;color:var(--la-ink)}
+label,.d-label{color:var(--la-ink);font-weight:600}
+
+/* override desert_portal.css's higher-specificity .d-admin descendant rules.
+   lake_admin.css is injected AFTER desert_portal.css, so MATCHING the desert
+   specificity (e.g. `.d-admin button` 0,1,1) lets the lake rule win on source
+   order — without this the Jinja .d-admin pages render a desert/lake hybrid. */
+.d-admin h1,.d-admin h2{font-family:var(--la-disp);text-transform:none;letter-spacing:-.01em;color:var(--la-ink)}
+.d-admin a{font-weight:600;color:var(--la-brass-deep)}
+.d-admin a:hover{color:var(--la-brass-deep)}
+.d-admin .note,.d-admin .empty{color:var(--la-ink-2);font-style:normal;opacity:1}
+.d-admin button{font-family:var(--la-ui);font-size:13px;font-weight:600;letter-spacing:0;text-transform:none;background:linear-gradient(160deg,#22394a,#10202b);color:#fff;border:1px solid transparent;border-radius:999px;padding:8px 15px}
+.d-admin button:hover{background:var(--la-brass-deep);border-color:var(--la-brass-deep)}
+.d-admin select,.d-admin textarea,.d-admin input[type="text"]{border:1px solid var(--la-hair-2);border-radius:10px;color:var(--la-ink);background:#fff}
+.d-badge--live{background:var(--la-brass-wash);border-color:var(--la-brass-edge);color:var(--la-ink)}
+.d-badge--off{background:var(--la-surface);border-color:var(--la-hair-2);color:var(--la-ink-2)}
+
+/* demand dashboard bits (.d-kpi / .d-bar) + misc */
+.d-kpi{background:var(--la-raised);border:1px solid var(--la-hair);border-radius:14px;padding:16px 18px}
+.d-bar,.bar{background:var(--la-brass);border-radius:3px}
+.bartrack{background:var(--la-surface)}
+.tabs,.sort-bar,.toolbar,.filters,.actions,.form-actions,.backrow,.kv{color:var(--la-ink-2)}
+
+/* inline _nav_shell moderation dashboard: each page hard-codes Bootstrap blue
+   (#0d6efd/#0a58ca/#e7f1ff) for its .tabs pills + .sort-opt links in its own
+   <style>. lake_admin.css is injected AFTER that, so MATCHING the inline
+   specificity recolours them to lake brass/ink — without this the dashboard
+   renders a desert/lake hybrid (blue accents on a lake page). AA: ink on
+   brass-wash and brass-deep/ink-2 on the light surfaces all clear 4.5:1. */
+.tabs a{border-color:var(--la-hair-2);background:var(--la-surface);color:var(--la-ink-2)}
+.tabs a.active{border-color:var(--la-brass);background:var(--la-brass-wash);color:var(--la-ink)}
+.sort-opt{color:var(--la-brass-deep)}
+.sort-opt-active{color:var(--la-ink)}
+
+/* focus ring (a11y) */
+a:focus-visible,button:focus-visible,input:focus-visible,select:focus-visible,textarea:focus-visible,.btn:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--la-havasu,#1c9bb4);border-radius:8px}

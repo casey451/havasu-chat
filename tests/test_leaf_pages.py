@@ -20,6 +20,7 @@ from sqlalchemy.orm import Session, sessionmaker
 from sqlalchemy.pool import StaticPool
 
 from app.categories import leaf_pages
+from app.categories.router import _group_cards_by_neighborhood
 from app.db.database import Base, SessionLocal
 from app.db.models import Category, Entity, EntityCategory, Provider
 from app.main import app
@@ -255,11 +256,11 @@ def test_department_landing_lists_gate_clearing_leaves(
     r = client.get(f"/categories/{seeded_leaves['ship_dept']}")
     assert r.status_code == 200
     body = r.text
-    # The gate-clearing child leaf is linked with its live count.
+    # The gate-clearing child leaf is linked by name. Phase 7.3 removed the
+    # per-leaf "N listed" inventory count site-wide, so we assert the link +
+    # name only (the count clause is intentionally gone).
     assert f'href="/categories/{seeded_leaves["ship_dept"]}/{seeded_leaves["ship_leaf"]}"' in body
     assert "Plumbing" in body
-    n = len(seeded_leaves["ship_names"])
-    assert f"{n} listed" in body
 
 
 def test_department_landing_all_subgate_404s(
@@ -316,14 +317,100 @@ def test_qualifying_and_department_leaves(mem_db: Session) -> None:
     assert [(lf.slug, n) for lf, n in dleaves] == [("plumbing", 3)]
 
 
+# --- Cross-listing count honesty (leaf header == department landing == gate) -
+
+
+def test_cross_listed_cards_render_but_do_not_inflate_count(
+    mem_db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """A curated cross-listing renders on the leaf but is NOT a member of it.
+
+    The "N Best X" header, the thin-page gate, and the department landing all
+    count the PRIMARY entity_categories link (a business belongs to exactly one
+    leaf). A cross-listed reference card — whose canonical home is its OWN leaf —
+    must therefore appear on the page yet leave the count untouched, so the leaf
+    header can never over-state vs the department landing for the same leaf.
+    """
+    from datetime import datetime
+
+    from app.categories import cross_listing
+
+    # A gate-clearing "boat repair" leaf with 3 native primary members.
+    dept = Category(slug="otw-x", name="On the Water", sort_order=0, level=0)
+    mem_db.add(dept)
+    mem_db.flush()
+    leaf = Category(slug="boat-repair-x", name="Boat Repair", sort_order=0,
+                    level=1, parent_id=dept.id)
+    mem_db.add(leaf)
+    mem_db.flush()
+    for i in range(3):
+        ent = Entity(entity_type="commercial", slug=f"native-{i}",
+                     name=f"Native Boat Repair {i}", source=_SOURCE)
+        mem_db.add(ent)
+        mem_db.flush()
+        mem_db.add(Provider(provider_name=f"Native Boat Repair {i}", category="x",
+                            slug=f"np-{i}", is_active=True, draft=False, source=_SOURCE,
+                            entity_id=ent.id, google_rating=4.5, google_review_count=20))
+        mem_db.add(EntityCategory(entity_id=ent.id, category_id=leaf.id, is_primary=True))
+
+    # A hybrid shop whose PRIMARY leaf is Auto Repair (a different department).
+    auto_dept = Category(slug="auto-x", name="Auto", sort_order=1, level=0)
+    mem_db.add(auto_dept)
+    mem_db.flush()
+    auto_leaf = Category(slug="auto-repair-x", name="Auto Repair", sort_order=0,
+                         level=1, parent_id=auto_dept.id)
+    mem_db.add(auto_leaf)
+    mem_db.flush()
+    cross_ent = Entity(entity_type="commercial", slug="hybrid-auto-marine",
+                       name="Hybrid Auto Marine Service", source=_SOURCE)
+    mem_db.add(cross_ent)
+    mem_db.flush()
+    mem_db.add(Provider(provider_name="Hybrid Auto Marine Service", category="x",
+                        slug="xp-cross", is_active=True, draft=False, source=_SOURCE,
+                        entity_id=cross_ent.id, google_rating=4.7, google_review_count=40))
+    mem_db.add(EntityCategory(entity_id=cross_ent.id, category_id=auto_leaf.id,
+                              is_primary=True))
+    mem_db.commit()
+
+    # Curate the hybrid onto the boat-repair leaf (as the real map does).
+    monkeypatch.setitem(
+        cross_listing.CROSS_LISTED_ENTITY_SLUGS,
+        "boat-repair-x",
+        frozenset({"hybrid-auto-marine"}),
+    )
+
+    leaf_obj = leaf_pages.resolve_leaf(mem_db, "otw-x", "boat-repair-x")
+    assert leaf_obj is not None
+    cards, total, providers = leaf_pages.leaf_listing(
+        mem_db, leaf_obj, now=datetime(2026, 6, 27, 12, 0, 0)
+    )
+
+    names = [c.get("name") for c in cards]
+    # The cross-listed shop RENDERS (a visible reference)...
+    assert "Hybrid Auto Marine Service" in names
+    # ...but does NOT count toward the canonical "N Best X" / gate total.
+    assert total == 3
+    # The ItemList JSON-LD basis is native members only — no cross-leaf double
+    # count (cross-listed providers omitted).
+    assert len(providers) == 3
+    assert all(p.entity_id != cross_ent.id for p in providers)
+
+    # The header/gate total agrees with the department landing for this leaf.
+    dleaves = dict((lf.slug, n) for lf, n in leaf_pages.department_leaves(mem_db, dept))
+    assert dleaves["boat-repair-x"] == total == 3
+
+
 # --- B.2: Wave-1 curated per-leaf copy --------------------------------------
 
 
 def test_wave1_leaf_copy_intros_and_faq_counts() -> None:
     from app.categories.leaf_copy import LEAF_COPY
 
-    # 14 Wave-1 + 5 trades + 9 Auto/RV/Marine + 9 Health + 6 Pets + 12 thin.
-    assert len(LEAF_COPY) == 55
+    # This branch's SEO-copy batch — 9 Auto/RV/Marine + 9 Health + 6 Pets + 12
+    # thin (36 leaves) — on top of the 14 Wave-1 + 5 trade entries, MERGED with the
+    # leaves main added since it opened (vacation-rentals, tattoo-and-piercing,
+    # mortgage-lenders, …). 59 total, no duplicate keys.
+    assert len(LEAF_COPY) == 59
     for slug, copy in LEAF_COPY.items():
         words = len(copy.intro.split())
         assert 40 <= words <= 100, f"{slug}: intro is {words} words"
@@ -336,6 +423,19 @@ def test_copy_for_leaf_unknown_is_none() -> None:
     assert copy_for_leaf("definitely-not-a-leaf") is None
     assert copy_for_leaf(None) is None
     assert copy_for_leaf("plumbing") is not None
+
+
+def test_tattoo_leaf_has_curated_copy() -> None:
+    """P7 polish: the tattoo leaf no longer falls back to the generic intro."""
+    from app.categories.leaf_copy import copy_for_leaf
+
+    cp = copy_for_leaf("tattoo-and-piercing")
+    assert cp is not None
+    assert "Lake Havasu" in cp.intro
+    # 4 common FAQs + 2 tattoo-specific ones.
+    assert len(cp.faqs) == 6
+    questions = " ".join(q for q, _ in cp.faqs).lower()
+    assert "tattoo" in questions and "piercing" in questions
 
 
 def test_curated_leaf_page_renders_intro_and_faqs(client: TestClient) -> None:
@@ -388,9 +488,84 @@ def test_leaf_page_has_category_claim_slot(client: TestClient, seeded_leaves: di
     r = client.get(f"/categories/{seeded_leaves['ship_dept']}/{seeded_leaves['ship_leaf']}")
     assert r.status_code == 200
     body = r.text
-    assert "cat-claim" in body
-    assert "/portal/reserve?product=category" in body
+    assert "cat-sponsor-claim" in body
+    # P4: the advertise CTA now routes to the public /sponsor storefront (the
+    # clean public purchase path) rather than the auth-gated dashboard.
+    assert "/sponsor" in body
     assert "Own the Plumbing spot" in body  # ship_leaf name is "Plumbing"
+    # P0 render-bug guards: a real leaf body is non-blank, and the "Can't decide?"
+    # ask-strip + the category-claim CTA each render exactly once (the live site
+    # showed a triple-printed ask CTA + stray duplicate fragments).
+    assert len(body) > 1000
+    assert body.count("Can&#39;t decide?") + body.count("Can't decide?") == 1
+    # WS3.3: paid category placement is "Sponsor this category" (the free flow
+    # keeps the "Claim" verb); the CTA still renders exactly once.
+    assert body.count("Sponsor this category") == 1
+    assert "Claim this category" not in body
+
+
+def test_leaf_claim_slot_renders_above_the_listings(
+    client: TestClient, seeded_leaves: dict
+) -> None:
+    # P3 finding 34: the unsold "claim this category" CTA holds the TOP ad slot
+    # (above the listing grid), consistent with the other templates — it used to
+    # sit at the very bottom of leaf pages. (?theme=lake = the live default skin.)
+    base = f"/categories/{seeded_leaves['ship_dept']}/{seeded_leaves['ship_leaf']}"
+    r = client.get(f"{base}?theme=lake")
+    assert r.status_code == 200
+    body = r.text
+    claim_pos = body.find("cat-sponsor")
+    grid_pos = body.find('class="listcard"')
+    assert claim_pos != -1 and grid_pos != -1
+    assert claim_pos < grid_pos, "claim CTA must render above the listing grid"
+
+
+def test_leaf_sort_chips_separate_featured_from_top_rated(
+    client: TestClient, seeded_leaves: dict
+) -> None:
+    # P4 follow-up: the bare route is the daily-shuffle "Featured" default, so the
+    # "Top rated" chip must carry ?sort=favorites (not link to the bare URL).
+    base = f"/categories/{seeded_leaves['ship_dept']}/{seeded_leaves['ship_leaf']}"
+    body = client.get(f"{base}?theme=lake").text
+    assert ">Featured</a>" in body
+    assert ">Top rated</a>" in body
+    assert "sort=favorites" in body
+
+
+def test_leaf_askstrip_label_is_descriptive_not_duplicated(
+    client: TestClient, seeded_leaves: dict
+) -> None:
+    # The ask-strip's visually-hidden <label> used to read "Ask Hava" — redundant
+    # with the submit button. It now describes the field instead.
+    base = f"/categories/{seeded_leaves['ship_dept']}/{seeded_leaves['ship_leaf']}"
+    body = client.get(f"{base}?theme=lake").text
+    assert '<label class="skip" for="trade-ask">Ask about' in body
+
+
+def test_leaf_faq_render_strips_markdown(
+    client: TestClient, seeded_leaves: dict, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    # Finding 7 / P0 extension: the data-side guard (test_faq_copy_no_markdown)
+    # only checks the curated source. This pins the RENDER path: even if markdown
+    # slips into the copy, the leaf page strips it before it reaches the <h3>/<p>.
+    from app.categories import leaf_copy
+
+    slug = seeded_leaves["ship_leaf"]
+    md_copy = leaf_copy.LeafCopy(
+        intro="### Intro with **bold** and `code` markers.",
+        faqs=(
+            ("### How many {name_lower} are there?", "**Bold** answer with `code`."),
+        ),
+    )
+    monkeypatch.setitem(leaf_copy.LEAF_COPY, slug, md_copy)
+    r = client.get(f"/categories/{seeded_leaves['ship_dept']}/{slug}?theme=lake")
+    assert r.status_code == 200
+    body = r.text
+    # The FAQ + intro render, but the markdown markers are gone.
+    assert "How many" in body  # FAQ question still rendered
+    assert "### " not in body
+    assert "**bold**" not in body
+    assert "`code`" not in body
 
 
 # --- Provider-less place entities render + count toward the gate -------------
@@ -464,7 +639,9 @@ def test_provider_less_places_render_and_count(
     assert "Channel Kayak Rentals" in body
     assert "Three Dunes Paddle Launch" in body
     assert "Windsor Beach Put-In" in body
-    assert "biz--place" in body
+    # Only the provider-backed card links to a /provider/ detail page (its name +
+    # "View" button = 2 links); the two provider-less places add no provider link.
+    assert body.count('href="/provider/') == 2
 
 
 def test_place_only_leaf_gate(client: TestClient, _place_cleanup: list[str]) -> None:
@@ -494,3 +671,98 @@ def test_place_only_leaf_below_gate_404s(client: TestClient, _place_cleanup: lis
         db.commit()
     r = client.get(f"/categories/{dept_slug}/{leaf_slug}")
     assert r.status_code == 404
+
+
+# --- P7 leaf sub-grouping by neighborhood ------------------------------------
+
+
+def _hood_card(name: str, hood: str) -> dict:
+    return {"name": name, "neighborhood": hood}
+
+
+def test_group_below_min_cards_stays_flat() -> None:
+    cards = [_hood_card(f"b{i}", "Downtown" if i % 2 else "North Lake") for i in range(7)]
+    assert _group_cards_by_neighborhood(cards) is None
+
+
+def test_group_single_neighborhood_stays_flat() -> None:
+    cards = [_hood_card(f"b{i}", "Downtown") for i in range(10)]
+    assert _group_cards_by_neighborhood(cards) is None
+
+
+def test_group_two_neighborhoods_sections_sorted_by_size() -> None:
+    cards = [_hood_card(f"d{i}", "Downtown") for i in range(5)]
+    cards += [_hood_card(f"n{i}", "North Lake") for i in range(3)]
+    groups = _group_cards_by_neighborhood(cards)
+    assert groups is not None
+    assert [label for label, _ in groups] == ["Downtown", "North Lake"]  # largest first
+    assert len(groups[0][1]) == 5 and len(groups[1][1]) == 3
+
+
+def test_group_collapses_singletons_and_missing_into_catch_all() -> None:
+    cards = [_hood_card(f"d{i}", "Downtown") for i in range(4)]
+    cards += [_hood_card(f"n{i}", "North Lake") for i in range(3)]
+    cards += [_hood_card("lonely", "Outpost")]  # one-off neighborhood
+    cards += [_hood_card("nohood", "")]  # no district at all
+    groups = _group_cards_by_neighborhood(cards)
+    assert groups is not None
+    labels = [label for label, _ in groups]
+    assert labels[:2] == ["Downtown", "North Lake"]
+    assert labels[-1] == "More across Lake Havasu City"
+    assert {c["name"] for c in groups[-1][1]} == {"lonely", "nohood"}
+
+
+def _add_provider_with_district(
+    db: Session, leaf: Category, name: str, district: str
+) -> None:
+    ent = Entity(entity_type="commercial", slug=f"e-{uuid4().hex[:10]}", name=name,
+                 source=_SOURCE)
+    db.add(ent)
+    db.flush()
+    db.add(Provider(provider_name=name, category="x", slug=f"p-{uuid4().hex[:10]}",
+                    is_active=True, draft=False, source=_SOURCE, entity_id=ent.id,
+                    google_rating=4.6, google_review_count=30, district=district))
+    db.add(EntityCategory(entity_id=ent.id, category_id=leaf.id, is_primary=True))
+
+
+def test_leaf_groups_by_neighborhood_when_spread(
+    client: TestClient, _place_cleanup: list[str]
+) -> None:
+    """A leaf with 8 listings across 2 districts renders neighborhood sections."""
+    suf = uuid4().hex[:6]
+    dept_slug, leaf_slug = f"grp-{suf}", f"salons-{suf}"
+    _place_cleanup.extend([dept_slug, leaf_slug])
+    with SessionLocal() as db:
+        leaf = _seed_dept_leaf(db, dept_slug, leaf_slug, "Salons")
+        for i in range(4):
+            _add_provider_with_district(db, leaf, f"Downtown Salon {i} {uuid4().hex[:4]}",
+                                        "Downtown")
+        for i in range(4):
+            _add_provider_with_district(db, leaf, f"Lakeside Salon {i} {uuid4().hex[:4]}",
+                                        "Lakeside")
+        db.commit()
+    r = client.get(f"/categories/{dept_slug}/{leaf_slug}")
+    assert r.status_code == 200
+    body = r.text
+    assert 'class="also-sec"' in body  # lake neighborhood-section heading class
+    assert ">Downtown</h2>" in body
+    assert ">Lakeside</h2>" in body
+    # Every listing landed in a named section -> no catch-all.
+    assert "More across Lake Havasu City" not in body
+
+
+def test_leaf_stays_flat_when_one_neighborhood(
+    client: TestClient, _place_cleanup: list[str]
+) -> None:
+    """Eight listings all in one district keep the original flat grid."""
+    suf = uuid4().hex[:6]
+    dept_slug, leaf_slug = f"flat-{suf}", f"barbers-{suf}"
+    _place_cleanup.extend([dept_slug, leaf_slug])
+    with SessionLocal() as db:
+        leaf = _seed_dept_leaf(db, dept_slug, leaf_slug, "Barbers")
+        for i in range(8):
+            _add_provider_with_district(db, leaf, f"Barber {i} {uuid4().hex[:4]}", "Downtown")
+        db.commit()
+    r = client.get(f"/categories/{dept_slug}/{leaf_slug}")
+    assert r.status_code == 200
+    assert 'class="biz-group-head"' not in r.text

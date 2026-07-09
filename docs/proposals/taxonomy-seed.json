@@ -86,6 +86,18 @@
     "count": 3,
     "gate_ok": true,
     "new": false
+   },
+   "marine-supply": {
+    "name": "Marine Supply",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
+   },
+   "scuba-and-dive": {
+    "name": "Scuba & Dive",
+    "count": 1,
+    "gate_ok": true,
+    "new": true
    }
   }
  },
@@ -128,6 +140,12 @@
     "count": 4,
     "gate_ok": true,
     "new": false
+   },
+   "wildlife-and-nature": {
+    "name": "Wildlife & Nature",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
    }
   }
  },
@@ -170,6 +188,24 @@
     "count": 1,
     "gate_ok": false,
     "new": false
+   },
+   "event-venues": {
+    "name": "Event Venues",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
+   },
+   "bikes-and-e-bikes": {
+    "name": "Bikes & E-Bikes",
+    "count": 3,
+    "gate_ok": true,
+    "new": true
+   },
+   "utv-and-offroad-rentals": {
+    "name": "UTV & Off-Road Rentals",
+    "count": 3,
+    "gate_ok": true,
+    "new": true
    }
   }
  },
@@ -236,6 +272,24 @@
     "count": 1,
     "gate_ok": false,
     "new": false
+   },
+   "hearing-and-audiology": {
+    "name": "Hearing & Audiology",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
+   },
+   "medical-specialists-and-imaging": {
+    "name": "Medical Specialists & Imaging",
+    "count": 12,
+    "gate_ok": true,
+    "new": true
+   },
+   "pediatrics": {
+    "name": "Pediatrics",
+    "count": 3,
+    "gate_ok": true,
+    "new": true
    }
   }
  },
@@ -452,6 +506,36 @@
     "count": 1,
     "gate_ok": false,
     "new": false
+   },
+   "garage-doors": {
+    "name": "Garage Doors",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
+   },
+   "painters": {
+    "name": "Painters",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
+   },
+   "pressure-washing-and-exterior-cleaning": {
+    "name": "Pressure Washing & Exterior Cleaning",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
+   },
+   "junk-removal-and-hauling": {
+    "name": "Junk Removal & Hauling",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
+   },
+   "shade-screens-and-patio-covers": {
+    "name": "Shade Screens & Patio Covers",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
    }
   }
  },
@@ -554,6 +638,36 @@
     "count": 1,
     "gate_ok": false,
     "new": false
+   },
+   "golf-carts": {
+    "name": "Golf Carts",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
+   },
+   "off-road-shops-and-accessories": {
+    "name": "Off-Road Shops & Accessories",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
+   },
+   "window-tint-and-wraps": {
+    "name": "Window Tint & Wraps",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
+   },
+   "auto-glass": {
+    "name": "Auto Glass",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
+   },
+   "trailer-sales-and-repair": {
+    "name": "Trailer Sales & Repair",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
    }
   }
  },
@@ -633,6 +747,12 @@
     "gate_ok": true,
     "new": true
    },
+   "cannabis-dispensaries": {
+    "name": "Cannabis Dispensaries",
+    "count": 2,
+    "gate_ok": true,
+    "new": true
+   },
    "shoes": {
     "name": "Shoes",
     "count": 3,
@@ -650,6 +770,12 @@
     "count": 3,
     "gate_ok": true,
     "new": false
+   },
+   "firearms-and-shooting-sports": {
+    "name": "Firearms & Shooting Sports",
+    "count": 1,
+    "gate_ok": true,
+    "new": true
    }
   }
  },
@@ -662,6 +788,12 @@
     "count": 71,
     "gate_ok": true,
     "new": false
+   },
+   "mortgage-lenders": {
+    "name": "Mortgage Lenders",
+    "count": 15,
+    "gate_ok": true,
+    "new": true
    },
    "real-estate": {
     "name": "Real Estate",
@@ -734,6 +866,12 @@
     "count": 1,
     "gate_ok": false,
     "new": false
+   },
+   "property-management": {
+    "name": "Property Management",
+    "count": 0,
+    "gate_ok": false,
+    "new": true
    }
   }
  },
@@ -842,6 +980,12 @@
     "count": 24,
     "gate_ok": true,
     "new": false
+   },
+   "vacation-rentals": {
+    "name": "Vacation Rentals",
+    "count": 3,
+    "gate_ok": false,
+    "new": true
    }
   }
  }

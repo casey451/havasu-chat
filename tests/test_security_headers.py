@@ -77,15 +77,20 @@ def test_html_pages_demand_revalidation(client: TestClient) -> None:
         r = client.get(path)
         assert r.status_code == 200, path
         assert (r.headers.get("content-type") or "").startswith("text/html"), path
-        assert r.headers.get("cache-control") == "no-cache, max-age=0, must-revalidate", path
+        assert r.headers.get("cache-control") == "no-store, no-cache, max-age=0, must-revalidate", path
 
 
-def test_non_html_responses_keep_default_caching(client: TestClient) -> None:
-    """The no-cache stamp is HTML-only: assets and text feeds are untouched."""
-    for path in ("/robots.txt", "/static/styles/desert.css"):
-        r = client.get(path)
-        assert r.status_code == 200, path
-        assert "cache-control" not in {k.lower() for k in r.headers}, path
+def test_route_served_text_feeds_keep_default_caching(client: TestClient) -> None:
+    """The HTML no-cache stamp is HTML-only: route-served text feeds are untouched.
+
+    ``/robots.txt`` is served by a route (not the ``/static`` mount), so neither
+    the HTML no-cache stamp nor the static ``Cache-Control`` (UI plan 1.9, see
+    ``test_static_cache``) applies — it keeps Starlette's default of no
+    ``Cache-Control`` header.
+    """
+    r = client.get("/robots.txt")
+    assert r.status_code == 200
+    assert "cache-control" not in {k.lower() for k in r.headers}
 
 
 def test_http_request_omits_hsts(client: TestClient) -> None:

@@ -141,8 +141,11 @@ def test_null_liveness_is_not_dampened() -> None:
         _cleanup(eids)
 
 
-def test_listing_sql_rating_sort_applies_dampener() -> None:
-    """``category_listing`` SQL-only path (default sort) dampens too."""
+def test_listing_sql_rating_sort_applies_dampener(monkeypatch) -> None:
+    """``category_listing`` SQL-only rating path dampens too. This path is the
+    shuffle-off rollback (the daily-shuffle default supersedes it when on), so
+    exercise it with ``RANKING_DAILY_SHUFFLE=0``."""
+    monkeypatch.setenv("RANKING_DAILY_SHUFFLE", "0")
     suf = uuid.uuid4().hex[:8]
     fresh, stale = f"Fresh Bistro {suf}", f"Stale Bistro {suf}"
     eids = _seed(
@@ -163,6 +166,40 @@ def test_listing_sql_rating_sort_applies_dampener() -> None:
         assert total >= 2
     finally:
         _cleanup(eids)
+
+
+def test_high_volume_listing_outranks_thin_review_outlier() -> None:
+    """4.1 ranking fix: a 3,878-review 4.6 (In-N-Out scale) ranks ABOVE a
+    20-review 4.7 outlier, even with NULL liveness (no dampening on either).
+
+    Reproduces the reported symptom and pins the volume-confidence correction.
+    A high catalog mean (seeded via an anchor with most of the review mass)
+    is the worst case — shrinkage alone would float the thin 4.7 above the
+    thick 4.6; the log-review-count bonus keeps the credible-volume row on top.
+    """
+    suf = uuid.uuid4().hex[:8]
+    thick, thin = f"In N Out {suf}", f"Thin Gem {suf}"
+    anchor = f"Mean Anchor {suf}"  # pushes the live review-weighted mean up
+    eids = _seed(
+        [
+            {"name": thick, "rating": 4.6, "review_count": 3878, "liveness": None},
+            {"name": thin, "rating": 4.7, "review_count": 20, "liveness": None},
+            {"name": anchor, "rating": 4.7, "review_count": 9000, "liveness": None},
+        ]
+    )
+    try:
+        from app.core.rating_prior import reset_global_mean_cache
+
+        reset_global_mean_cache()
+        with SessionLocal() as db:
+            cards = category_cards(db, "eat-drink", now=_NOW, limit=500)
+        pos = _positions(cards, [thick, thin])
+        assert pos[thick] < pos[thin], "credible-volume 4.6 must outrank thin 4.7"
+    finally:
+        _cleanup(eids)
+        from app.core.rating_prior import reset_global_mean_cache
+
+        reset_global_mean_cache()
 
 
 def test_listing_favorites_sort_applies_dampener() -> None:

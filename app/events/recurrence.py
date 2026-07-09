@@ -27,7 +27,26 @@ def parsed_until_from_rrule(rrule: str | None) -> date | None:
 
 
 def _event_is_recurring(event: Event) -> bool:
-    return bool(event.rrule or event.rdate or event.is_recurring)
+    # Source-parity fix (2026-07-03): recurrence is decided by actual recurrence
+    # DATA (rrule/rdate), NOT the bare ``is_recurring`` flag. ~266 rows carry
+    # ``is_recurring=True`` with no rrule and no rdate; the old flag-based check
+    # sent them down the expansion branch, which then produced ZERO occurrences
+    # (empty rrule + empty rdate) and dropped them off the calendar entirely.
+    # Ignoring the data-less flag makes them fall through to the single-date
+    # branch and render on their stored date. This render-time fix covers both
+    # existing and future rows; ``normalize_recurrence_flag`` additionally lets a
+    # dry-run cleanup clear the stray flag at the data layer.
+    return bool(event.rrule or event.rdate)
+
+
+def normalize_recurrence_flag(
+    *, is_recurring: bool, rrule: str | None, rdate: list[str] | None
+) -> bool:
+    """Return a truthful ``is_recurring`` flag: True only with real recurrence
+    data (rrule or rdate). Call at ingest so no new row can carry the flag with
+    no data — the state that dropped ~266 events off the calendar. Idempotent.
+    """
+    return bool(is_recurring and (rrule or rdate))
 
 
 def expand_event(
@@ -74,6 +93,89 @@ def expand_event(
     occurrences = [d for d in occurrences if d not in excluded]
     occurrences.sort()
     return occurrences
+
+
+def next_occurrence(event: Event, *, on_or_after: date) -> date | None:
+    """The first occurrence on or after ``on_or_after``, or None if the series
+    has no future date.
+
+    A recurring event stores ``event.date`` as the RRULE *anchor* (for the
+    senior-center series that's a 2024 ``Monday, January 1`` seed), never the
+    upcoming date a visitor should see. The day/index views expand the rule to
+    real dates; the detail page must do the same so it shows the next live
+    occurrence instead of the anchor (the N1 "January 1 / This event has passed"
+    bug). For a one-off, returns ``event.date`` when it is not already past.
+
+    Persisted recurrence data is known-messy (that is what N1 is about), so every
+    parse here is defensive: a malformed ``rrule`` / ``exdate`` / ``rdate`` token
+    is skipped, never raised. If the recurrence data can't be evaluated at all,
+    the event degrades to one-off semantics (its ``event.date``) so the detail
+    page still renders — this function must never raise into ``_display_date`` /
+    ``_event_is_past`` and 500 the page.
+    """
+    if not _event_is_recurring(event):
+        return event.date if event.date >= on_or_after else None
+
+    # EXDATE: skip any token that isn't a parseable date rather than raising.
+    excluded: set[date] = set()
+    for x in event.exdate or []:
+        try:
+            excluded.add(date.fromisoformat(str(x)[:10]))
+        except (ValueError, TypeError):
+            continue
+
+    best: date | None = None
+    rule_ok = True  # False if an rrule was present but could not be evaluated
+
+    rule_body = (event.rrule or "").strip()
+    if rule_body:
+        try:
+            if rule_body.upper().startswith("RRULE:"):
+                rule_body = rule_body.split(":", 1)[1].strip()
+            dtstart = datetime.combine(event.date, event.start_time)
+            rule_text = f"DTSTART:{dtstart.strftime('%Y%m%dT%H%M%S')}\nRRULE:{rule_body}"
+            rule = rrulestr(rule_text, ignoretz=True)
+            cursor = datetime.combine(on_or_after, time.min)
+            inc = True
+            # Bounded walk so an EXDATE'd occurrence is skipped without looping
+            # forever; a year of candidates covers any real cadence (annual incl.).
+            for _ in range(370):
+                nxt = rule.after(cursor, inc=inc)
+                if nxt is None:
+                    break
+                d = nxt.date()
+                if d not in excluded:
+                    best = d
+                    break
+                cursor = nxt
+                inc = False
+        except (ValueError, TypeError):
+            # Malformed rrule (or a NULL start_time on a recurring row): can't
+            # evaluate the rule. Fall through to RDATE / the one-off fallback.
+            rule_ok = False
+
+    for extra in event.rdate or []:
+        try:
+            d = date.fromisoformat(str(extra)[:10])
+        except (ValueError, TypeError):
+            continue
+        if d >= on_or_after and d not in excluded and (best is None or d < best):
+            best = d
+
+    has_recurrence_data = bool(rule_body) or bool(event.rdate)
+    if best is None and (not rule_ok or not has_recurrence_data):
+        # Degrade to one-off semantics (the anchor date) when there is no usable
+        # schedule to evaluate — either:
+        #   * an rrule was present but malformed (``not rule_ok``), or
+        #   * the row is flagged ``is_recurring`` yet carries NO rrule and NO
+        #     rdate at all (a known data anomaly — 266 live rows on 2026-06-29).
+        # Without this, ``next_occurrence`` returns None for the anomaly, which
+        # ``_event_is_past`` reads as "series exhausted" and the detail page wears
+        # a false "This event has passed" banner while the anchor date is today
+        # or still upcoming (audit F5). Never raises.
+        return event.date if event.date is not None and event.date >= on_or_after else None
+
+    return best
 
 
 def occurrences_in_window(

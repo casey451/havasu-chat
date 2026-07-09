@@ -353,7 +353,10 @@ def test_map_data_payload_is_cached_within_ttl(client: TestClient) -> None:
     reset_map_cache() forces the next call to rebuild."""
     r1 = client.get("/api/map_data/pets")
     assert r1.status_code == 200
-    key = ("pets", False)
+    # Key carries the running build_sha (deploy-invalidation by construction).
+    from app.core.build_info import build_sha
+
+    key = (build_sha(), "pets", False)
     assert key in map_data_module._map_cache
     stamped, payload = map_data_module._map_cache[key]
     r2 = client.get("/api/map_data/pets")

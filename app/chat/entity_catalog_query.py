@@ -258,24 +258,22 @@ def _fetch_ranked_entities(
     rows = list(db.scalars(stmt.limit(limit)).unique().all())
     if ctx.boat_mode:
         rows = [e for e in rows if e.boat_access is not None]
-    if filters.category and filters.category.strip() and not category_slugs:
-        cat = filters.category.strip()
-        prov_map = {
-            p.entity_id: p
-            for p in db.scalars(
-                select(Provider).where(Provider.entity_id.in_([e.id for e in rows]))
-            ).all()
-        }
-        rows = [e for e in rows if _category_match_entity(e, cat, prov_map.get(e.id))]
-
-    now = now_lake_havasu()
-    temp = ctx.effective_temperature_f()
+    # One Provider IN(...) fetch reused by both the category filter and the
+    # card assembly below — this used to run twice whenever a category filter
+    # was present (audit 2026-07-01). The pre-filter superset map is harmless
+    # for the later per-entity lookups.
     prov_map = {
         p.entity_id: p
         for p in db.scalars(
             select(Provider).where(Provider.entity_id.in_([e.id for e in rows]))
         ).all()
     }
+    if filters.category and filters.category.strip() and not category_slugs:
+        cat = filters.category.strip()
+        rows = [e for e in rows if _category_match_entity(e, cat, prov_map.get(e.id))]
+
+    now = now_lake_havasu()
+    temp = ctx.effective_temperature_f()
     event_map: dict[str, Event] = {}
     if rows:
         event_map = {

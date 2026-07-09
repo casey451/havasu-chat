@@ -40,7 +40,7 @@ _JUNE_2 = datetime(2099, 6, 2, 9, 0, tzinfo=_LHC)
 # Sunday five days later — the day the stale render was still being served.
 _JUNE_7 = datetime(2099, 6, 7, 9, 0, tzinfo=_LHC)
 
-_EXPECTED_CACHE_CONTROL = "no-cache, max-age=0, must-revalidate"
+_EXPECTED_CACHE_CONTROL = "no-store, no-cache, max-age=0, must-revalidate"
 
 
 def _add_event(db, *, title: str, on, start: time, loc: str) -> tuple[str, str]:
@@ -161,8 +161,9 @@ def test_home_day_rollover_updates_today_label(monkeypatch: pytest.MonkeyPatch) 
             body_day_n5 = resp.text
             assert "Sunday, June 7" in body_day_n5
             assert "Tuesday, June 2" not in body_day_n5
-            # Week strip re-anchors: today's tap-through link is the new date.
-            assert "/events-ui?date=2099-06-07" in body_day_n5
+            # Week strip re-anchors: today's tap-through link is the new date
+            # (the day-picker re-renders the home feed in place now).
+            assert "/home?date=2099-06-07" in body_day_n5
             assert resp.headers.get("cache-control") == _EXPECTED_CACHE_CONTROL
     finally:
         _cleanup(eids)

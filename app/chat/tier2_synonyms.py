@@ -103,6 +103,21 @@ _CATEGORY_SYNONYM_GROUPS: tuple[frozenset[str], ...] = (
                "boat storage", "rv storage"}),
     frozenset({"sign shop", "sign company", "signs", "custom signs", "banners",
                "print shop", "printing", "screen printing"}),
+    # 2026-06-19: pool service/cleaning was a live-search miss ("pool cleaner"
+    # returned nothing on askhava.com) — a Havasu-signature trade. Members
+    # include both user phrasings AND the substrings present in Google primary
+    # types (``pool_cleaning_service`` → "pool cleaning"; ``swimming_pool_*`` →
+    # "swimming pool") so the needle set actually reaches the provider rows.
+    frozenset({"pool cleaner", "pool cleaners", "pool cleaning", "pool service",
+               "pool services", "pool maintenance", "pool repair", "pools and spas",
+               "pool and spa", "swimming pool", "pool guy"}),
+    # 2026-06-19: combined Golf hub. "golf" / "driving range" / "golf simulator"
+    # / "indoor golf" / "toptracer" all surface the golf businesses (the page
+    # groups courses, range, and simulators). "golf course" matches the Google
+    # primary type ``golf_course``.
+    frozenset({"golf", "golf course", "golf courses", "driving range",
+               "driving ranges", "golf simulator", "golf simulators", "indoor golf",
+               "virtual golf", "toptracer", "top tracer"}),
 )
 
 

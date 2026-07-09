@@ -12,7 +12,9 @@ from app.contrib.approval_service import (
     approve_contribution_as_event,
     approve_contribution_as_program,
     approve_contribution_as_provider,
+    auto_approve_event_sources,
     enrichment_suggests_verified,
+    should_auto_approve_event,
 )
 from app.db.contribution_store import create_contribution
 from app.db.database import SessionLocal
@@ -80,6 +82,80 @@ def _event_contribution(db: Session) -> Contribution:
         ),
         submitter_ip_hash=None,
     )
+
+
+# --------------------------------------------------------------------------- #
+# Auto-approve trust tier (2026-06-28): only STRUCTURED feeds auto-publish.
+# Flyer/OCR vision sources are review-gated (land pending), like aggregators.
+# --------------------------------------------------------------------------- #
+_STRUCTURED_AUTO_APPROVE = ("chamber", "go_lake_havasu", "legistar", "lhusd", "river_scene")
+_VISION_REVIEW_GATED = ("parks_rec_calendar", "parks_rec_flyers", "senior_center_flyers")
+
+
+def _complete_event_contribution(db: Session, source: str) -> Contribution:
+    """A complete event contribution (name + date + start time) for ``source``."""
+    u = uuid.uuid4().hex[:8]
+    from datetime import date, time
+
+    return create_contribution(
+        db,
+        ContributionCreate(
+            entity_type="event",
+            submission_name=f"Trust Tier Event {u}",
+            submission_notes="C" * 22,
+            submission_url=f"https://example.com/tt-{u}",
+            event_date=date(2027, 7, 4),
+            event_time_start=time(12, 0),
+            event_time_end=time(16, 0),
+            source=source,
+        ),
+        submitter_ip_hash=None,
+    )
+
+
+@pytest.mark.parametrize("source", _VISION_REVIEW_GATED)
+def test_vision_sources_are_not_auto_approved(db: Session, source: str) -> None:
+    """Flyer/OCR vision rows must land pending even when payload is complete."""
+    assert source not in auto_approve_event_sources()
+    c = _complete_event_contribution(db, source)
+    assert should_auto_approve_event(c) is False
+
+
+@pytest.mark.parametrize("source", _STRUCTURED_AUTO_APPROVE)
+def test_structured_sources_still_auto_approve(db: Session, source: str) -> None:
+    """High-trust structured feeds keep auto-publishing complete payloads."""
+    assert source in auto_approve_event_sources()
+    c = _complete_event_contribution(db, source)
+    assert should_auto_approve_event(c) is True
+
+
+def test_env_override_cannot_re_enable_vision_sources(
+    db: Session, monkeypatch: pytest.MonkeyPatch
+) -> None:
+    """Hard backstop (#605 follow-up): even an EVENT_AUTO_APPROVE_SOURCES override
+    that LISTS a vision source can never re-enable it -- the never-list wins."""
+    monkeypatch.setenv(
+        "EVENT_AUTO_APPROVE_SOURCES",
+        "go_lake_havasu,parks_rec_calendar,parks_rec_flyers",
+    )
+    sources = auto_approve_event_sources()
+    assert "go_lake_havasu" in sources  # the structured source the override added
+    for vision in _VISION_REVIEW_GATED:
+        assert vision not in sources  # subtracted regardless of the override
+    c = _complete_event_contribution(db, "parks_rec_calendar")
+    assert should_auto_approve_event(c) is False
+
+
+def test_default_excludes_vision_and_keeps_structured(db: Session, monkeypatch: pytest.MonkeyPatch) -> None:
+    """With the env var unset, structured sources still auto-approve and the three
+    vision sources are still excluded."""
+    monkeypatch.delenv("EVENT_AUTO_APPROVE_SOURCES", raising=False)
+    sources = auto_approve_event_sources()
+    assert "go_lake_havasu" in sources
+    for vision in _VISION_REVIEW_GATED:
+        assert vision not in sources
+    assert should_auto_approve_event(_complete_event_contribution(db, "go_lake_havasu")) is True
+    assert should_auto_approve_event(_complete_event_contribution(db, "parks_rec_calendar")) is False
 
 
 def test_approve_provider_sets_catalog_and_contribution(db: Session) -> None:
@@ -429,3 +505,43 @@ def test_enrichment_suggests_verified_helper(db: Session) -> None:
     assert enrichment_suggests_verified(c) is False
     c.url_fetch_status = "success"
     assert enrichment_suggests_verified(c) is True
+
+
+def test_approve_event_sanitizes_metadata_description_and_bad_url(db: Session) -> None:
+    """Central guardrail: a metadata-only body collapses to no description (the
+    template renders the sparse-event card), an email-as-URL click-through is
+    replaced with the safe fallback, and a glued venue string is normalized —
+    regardless of source/approval path."""
+    c = _event_contribution(db)
+    from datetime import date, time
+
+    evf = EventApprovalFields(
+        title="Motor Madness",
+        description="Venue: 2144 McCulloch Blvd N\nOrganizer: Havasu Together\nCategories: car show",
+        date=date(2026, 6, 21),
+        start_time=time(17, 0),
+        location_name="2144 McCulloch Blvd NLake Havasu City, AZ",
+        event_url="https://info@ijsba.com/",
+    )
+    ev = approve_contribution_as_event(db, c.id, evf, ["community"])
+    assert not (ev.description or "")  # metadata-only -> empty -> sparse card
+    assert ev.event_url == "https://askhava.com/events-ui"  # email-as-URL rejected
+    assert ev.location_name == "2144 McCulloch Blvd N Lake Havasu City, AZ"
+
+
+def test_approve_event_keeps_real_description(db: Session) -> None:
+    c = _event_contribution(db)
+    from datetime import date, time
+
+    real = "A-Z is a high-energy local cover band playing rock and country favorites all night."
+    evf = EventApprovalFields(
+        title="A-Z",
+        description=real,
+        date=date(2026, 6, 18),
+        start_time=time(20, 0),
+        location_name="Flying X Saloon",
+        event_url="https://www.facebook.com/azband",
+    )
+    ev = approve_contribution_as_event(db, c.id, evf, ["music"])
+    assert ev.description == real
+    assert ev.event_url == "https://www.facebook.com/azband"

@@ -1,0 +1,61 @@
+ec_id,entity_id,name,assigned_leaf,suggested_leaf,suggested_cat_id,confidence,signal,gpc,is_primary
+3217,74ba05e1-4b6e-47a2-a9aa-eb8a84a06e8e,Turtle Grille,marinas-and-launch-ramps,bars-and-breweries,35,high,gpc:bar_and_grill,bar_and_grill,False
+1463,8b70373e-0fa5-437b-8048-6b8d51c25485,JandJ Performance and Marine Service & Repair,boat-and-watercraft-rentals,boat-repair-and-service,113,high,name,service,False
+245,23742b60-f6f3-4d30-bab2-b25d87076442,Mark's Marine Service LLC,on-the-water,boat-repair-and-service,113,high,name,,False
+1511,e1b9475e-06f1-4096-8fdc-c6569c850042,BlueWater Resort & Casino,boat-tours-and-charters,casinos-and-gaming,58,high,name,,True
+685,79dc0302-5edd-4426-ae2e-84033cfdfaf5,Havasu Landing Resort & Casino,parks-and-playgrounds,casinos-and-gaming,58,high,name,,True
+273,933ce742-4ffc-459b-b692-393a5ba88d07,Win Win Bingo Casino,classes-sports-recreation,casinos-and-gaming,58,high,name,,False
+1331,933ce742-4ffc-459b-b692-393a5ba88d07,Win Win Bingo Casino,parks-and-playgrounds,casinos-and-gaming,58,high,name,,True
+1183,d8075ba5-673d-432f-a1f0-2ed72eb2ca8c,Hav-A-Tech Computers & Phone Repair,auto-repair,computer-and-it-repair,138,high,name,service,True
+3142,d8075ba5-673d-432f-a1f0-2ed72eb2ca8c,Hav-A-Tech Computers & Phone Repair,appliances-and-electronics,computer-and-it-repair,138,high,name,service,False
+1118,0f1a2d79-ee54-4adf-8598-437343db2ce7,Marshall's Computers - Computer Repair in Lake Havasu City,auto-repair,computer-and-it-repair,138,high,name,,True
+529,36aedc71-0d3b-442b-a30b-e4c32fdc0779,ReConnected Phone & Device Repair - Lake Havasu City,auto-repair,computer-and-it-repair,138,high,name,service,True
+3103,36aedc71-0d3b-442b-a30b-e4c32fdc0779,ReConnected Phone & Device Repair - Lake Havasu City,appliances-and-electronics,computer-and-it-repair,138,high,name,service,False
+482,3d978b56-eeab-4e7d-9ce3-d5b6a1d98da3,Bridgewater Links Disc Golf Course,classes-sports-recreation,disc-golf,50,high,name,,False
+483,a4b96f6e-62c6-4860-a99b-899b0c0a3e08,Grand Island Disc Golf Course,classes-sports-recreation,disc-golf,50,high,name,,False
+485,e37ef621-2ac1-47a3-9c5d-9f096ba7baae,Mohave Valley Community Park Disc Golf Course,classes-sports-recreation,disc-golf,50,high,name,,False
+487,59a754cb-b483-4b48-bd37-d9adf8cfb7d8,Riverview Disc Golf Course,classes-sports-recreation,disc-golf,50,high,name,,False
+484,beb4fe1d-570a-49ac-a8f7-789a46584bfc,SARA Park Disc Golf Course,classes-sports-recreation,disc-golf,50,high,name,,False
+407,d630f22c-3a6b-43b6-b518-39ba48baa83a,Bridgewater Links Golf Course at the London Bridge Resort,classes-sports-recreation,golf-courses,48,high,name,,False
+283,b2513906-ed21-4cc3-8d1c-71d4bca75267,Cerbat Cliffs Golf Course,classes-sports-recreation,golf-courses,48,high,name,,False
+278,1d1612b2-fc32-4906-a693-12f0128fbf32,El Rio Golf Club,classes-sports-recreation,golf-courses,48,high,name,,False
+281,b2c4f420-c0cc-44fe-8eaf-ad5a651684cd,Emerald Canyon Golf Course,classes-sports-recreation,golf-courses,48,high,name,,False
+282,47a01ab7-d655-4197-8ce9-7588d3572b87,Huukan Golf Club,classes-sports-recreation,golf-courses,48,high,name,,False
+406,171d3038-5e00-445d-86a7-c630d5b5c4d4,Lake Havasu Golf Club - East Course,classes-sports-recreation,golf-courses,48,high,name,,False
+405,f17ce08c-5d49-4d04-8c5d-1cf05922659f,Lake Havasu Golf Club - West Course,classes-sports-recreation,golf-courses,48,high,name,,False
+481,58094cb8-c541-43b2-9ec7-604bafc90a94,Lake Havasu Golf Club East,classes-sports-recreation,golf-courses,48,high,name,,False
+312,e4b90916-9555-4437-982f-b09c6d3b16f6,Laughlin Ranch Golf Club,classes-sports-recreation,golf-courses,48,high,name,,False
+280,ba6451d6-870d-4629-b68d-6f0a3e13a4bc,Los Lagos Golf Club,classes-sports-recreation,golf-courses,48,high,name,,False
+277,7589f46b-bb29-4be6-895b-c5dd20192dbb,Mojave Resort Golf Club,classes-sports-recreation,golf-courses,48,high,name,,False
+279,e2f58802-c4bf-4150-895a-7b00ab0e4f0a,River's Edge Golf Course,classes-sports-recreation,golf-courses,48,high,name,,False
+3174,db56666a-735e-43c3-95e4-31070b26fd43,Rock Paper Scissors,clothing-and-apparel,hair-salons-and-barbers,69,high,gpc:hair_salon,hair_salon,False
+369,758b8a40-6dec-4be2-85b1-b0202e4339cf,Days Inn,lodging-vacation-rentals,hotels-and-motels,158,high,name,,False
+2589,9f3944b0-9237-4e1e-af65-a3718371d0ab,Havasu Suites,tours-and-sightseeing,hotels-and-motels,158,high,name,travel_agency,True
+3194,9f3944b0-9237-4e1e-af65-a3718371d0ab,Havasu Suites,real-estate,hotels-and-motels,158,high,name,travel_agency,False
+333,e86a8d45-aabd-4fcb-8f72-9f84a221896f,Holiday Inn Express & Suites Lake Havasu - London Bridge,lodging-vacation-rentals,hotels-and-motels,158,high,name,,False
+365,274f61bd-37d7-4286-9bfa-d45b098bb376,Studio 6 Suites,lodging-vacation-rentals,hotels-and-motels,158,high,name,,False
+718,82fcc6c9-9edd-4140-ad96-97ec46558042,Route 66 Museum | Powerhouse Visitor Center,government-and-mvd,museums-and-galleries,55,high,name,,True
+3212,2108d24b-b0b5-496b-8417-271d0aae3a65,CVS,convenience,pharmacies,61,high,gpc:drugstore,drugstore,False
+3164,1c30c446-0947-4f5d-b800-c8cb123fad8d,Walgreens,convenience,pharmacies,61,high,gpc:drugstore,drugstore,False
+339,19d09ecb-d537-4d4b-b8ed-433a53496eb5,Copper Canyon Realty,lodging-vacation-rentals,real-estate,133,high,name,,False
+3267,19d09ecb-d537-4d4b-b8ed-433a53496eb5,Copper Canyon Realty,vacation-rentals,real-estate,133,high,name,,True
+337,c047a0fc-5913-4ee1-b40f-48dc9df3e2ba,"Havasu Realty, Inc.",lodging-vacation-rentals,real-estate,133,high,name,,False
+1550,c047a0fc-5913-4ee1-b40f-48dc9df3e2ba,"Havasu Realty, Inc.",hotels-and-motels,real-estate,133,high,name,,True
+345,4e1d4b7a-5b3e-48e7-8323-d2a173caa1b0,"Integrity Arizona Real Estate Sales, LLC",lodging-vacation-rentals,real-estate,133,high,name,,False
+1556,4e1d4b7a-5b3e-48e7-8323-d2a173caa1b0,"Integrity Arizona Real Estate Sales, LLC",hotels-and-motels,real-estate,133,high,name,,True
+3189,a89f9fcb-b774-444e-8442-156e09f399e8,HavaZoo Tanning & Clothing Co.,clothing-and-apparel,tanning,73,high,gpc:tanning_studio,tanning_studio,False
+3208,2b1292b0-5f50-4f58-9a6e-82ce8008b423,Bombshell Body Art Studio,clothing-and-apparel,tattoo-and-piercing,72,high,name,body_art_service,False
+3102,d918f1d3-5787-46d0-8374-4ebdb3a9fb8e,Immortal Beauty,jewelry,tattoo-and-piercing,72,high,gpc:body_art_service,body_art_service,False
+3207,443aefe5-385a-402d-9c93-984fe9213e24,The Blind Pig Tattoo,museums-and-galleries,tattoo-and-piercing,72,high,name,body_art_service,False
+700,23742b60-f6f3-4d30-bab2-b25d87076442,Mark's Marine Service LLC,boat-and-rv-storage-service,boat-repair-and-service,113,med,name,,True
+2692,5bddb35d-2ceb-4801-90ce-ba3a47bd2f3e,Foster's Dental Lab Inc,primary-care,dentists-and-orthodontists,60,med,name,health,True
+1638,9e1e25a6-2c61-470e-a485-5853c69d3bfc,Full Arch Dental Implant Center,primary-care,dentists-and-orthodontists,60,med,name,health,True
+1143,8073711c-1f50-4962-8c33-c3c8ed78ec1b,Justt Dental Prosthetics LLC,primary-care,dentists-and-orthodontists,60,med,name,health,True
+1192,c4697ab1-dde7-4f63-bd96-95f1455bbedc,Mohave Dental Prosthetics,primary-care,dentists-and-orthodontists,60,med,name,health,True
+1190,df7f038d-7200-4219-bb2c-ae74b95b3157,New West Dental Lab,primary-care,dentists-and-orthodontists,60,med,name,health,True
+2227,3e4c5404-da3c-49fc-934c-db96a1e78ea6,SARA Park Disc Golf Course,parks-and-playgrounds,disc-golf,50,med,name,athletic_field,True
+919,d630f22c-3a6b-43b6-b518-39ba48baa83a,Bridgewater Links Golf Course at the London Bridge Resort,parks-and-playgrounds,golf-courses,48,med,name,,True
+704,dc675624-ccab-4a7e-8a62-10634aa940a3,Chaparral Golf Course,parks-and-playgrounds,golf-courses,48,med,name,,True
+761,171d3038-5e00-445d-86a7-c630d5b5c4d4,Lake Havasu Golf Club - East Course,parks-and-playgrounds,golf-courses,48,med,name,,True
+1757,f17ce08c-5d49-4d04-8c5d-1cf05922659f,Lake Havasu Golf Club - West Course,parks-and-playgrounds,golf-courses,48,med,name,,True
+3176,cdb55a86-0800-4a6c-a74c-8badb9bd0336,Milemarkers-Lake Havasu City,physical-therapy,primary-care,59,med,gpc:medical_clinic,medical_clinic,False

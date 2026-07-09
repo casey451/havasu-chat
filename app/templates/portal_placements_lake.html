@@ -1,0 +1,92 @@
+{% extends "base_redesign.html" %}
+{#- Lake merchant placements dashboard (GET /portal/placements, auth-gated).
+   Same context as portal_placements.html: {providers, placements, prov_by_id,
+   type_labels, purchased}. noindex. -#}
+{% block title %}Your placements — Ask Hava{% endblock %}
+{% block meta_description %}Manage your clearly-labeled paid placements on Ask Hava.{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+{% endblock %}
+{% block main %}
+<div class="portx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/portal">For businesses</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Your placements</span></nav>
+  <div class="pagehead">
+    <h1>Your placements</h1>
+    <p class="sub">Clearly-labeled paid spots for the listings you've claimed. Every placement is reviewed before it goes live, and shows a <strong>Sponsored</strong> label wherever it appears.</p>
+  </div>
+
+  {% if purchased %}
+  <p class="notice" role="status"><strong>Request received.</strong> Your placement is pending — we'll confirm and arrange payment before it goes live. It won't appear on the site until then.</p>
+  {% endif %}
+
+  {% if not providers %}
+  <div class="empty">
+    <h3>No claimed listings yet</h3>
+    <p>You need a verified claim on a listing before you can advertise it.</p>
+    <p class="act"><a class="btn btn-primary" href="/portal/claim">Claim your listing &rarr;</a></p>
+  </div>
+  {% else %}
+  <div style="margin-top:22px">
+    <a class="btn btn-primary" href="/portal/placements/new">Buy a placement</a>
+    {% if has_billing_account %}
+    <form method="post" action="/billing/portal" style="display:inline;margin-left:8px">
+      <button type="submit" class="btn btn-ghost">Manage billing</button>
+    </form>
+    {% endif %}
+  </div>
+
+  <h2 class="disp" style="font-size:21px;margin:30px 0 12px">Active &amp; pending placements</h2>
+  {% if not placements %}
+  <p class="foot-note" style="text-align:left">No placements yet. <a href="/portal/placements/new">Buy your first &rarr;</a></p>
+  {% else %}
+  <div class="card ptable-wrap">
+    <table class="ptable">
+      <thead>
+        <tr>
+          <th scope="col">Listing</th>
+          <th scope="col">Placement</th>
+          <th scope="col">Where</th>
+          <th scope="col">Billing</th>
+          <th scope="col">Price</th>
+          <th scope="col">Status</th>
+          {% if billing_enabled %}<th scope="col">Action</th>{% endif %}
+        </tr>
+      </thead>
+      <tbody>
+        {% for p in placements %}
+        <tr>
+          <td>{{ (prov_by_id.get(p.provider_id).provider_name) if prov_by_id.get(p.provider_id) else '—' }}</td>
+          <td>{{ type_labels.get(p.placement_type, p.placement_type) }}</td>
+          <td>{{ p.category_slug or 'Homepage' }}{% if p.rank_tier %} · tier {{ p.rank_tier }}{% endif %}</td>
+          <td>{{ p.billing_type|capitalize }}</td>
+          <td>{{ "$%.0f"|format(p.price_cents/100) if p.price_cents else 'TBD' }}</td>
+          <td><span class="pill{% if p.status == ACTIVE %} on{% endif %}">{{ p.status|capitalize }}</span></td>
+          {% if billing_enabled %}
+          <td>
+            {% if p.status == PENDING %}
+            <form method="post" action="/billing/checkout/{{ p.id }}" style="display:inline">
+              <button type="submit" class="btn btn-primary">Pay now</button>
+            </form>
+            {% else %}<span class="foot-note">—</span>{% endif %}
+          </td>
+          {% endif %}
+        </tr>
+        {% endfor %}
+      </tbody>
+    </table>
+  </div>
+  {% endif %}
+
+  <h2 class="disp" style="font-size:21px;margin:30px 0 12px">Your claimed listings</h2>
+  <div class="lcards">
+    {% for prov in providers %}
+    <div class="card lcard">
+      <h3>{{ prov.provider_name }}</h3>
+      <p class="cat">{{ prov.category or 'Local business' }}</p>
+      <p class="act"><a class="btn btn-ghost" href="/portal/placements/new?provider_id={{ prov.id }}">Advertise this &rarr;</a></p>
+    </div>
+    {% endfor %}
+  </div>
+  {% endif %}
+</div>
+{% endblock %}

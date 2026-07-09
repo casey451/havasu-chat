@@ -1,0 +1,112 @@
+"""Movies feature renders under the lake theme (nav, home strip, /movies page).
+
+The #445 nav + home strip and the /movies page were desert-only; lake is the
+live default, so they must render through base_lake too. Seeds one showtime for
+"today" and, with THEME_DEFAULT=lake (as prod sets it), asserts the lake base
+renders and the movies content shows on /movies, /home, and /events-ui.
+"""
+
+from __future__ import annotations
+
+import uuid
+
+import pytest
+from fastapi.testclient import TestClient
+from sqlalchemy import delete
+
+from app.core.timezone import now_lake_havasu
+from app.db.database import SessionLocal
+from app.db.models import MovieShowtime
+from app.main import app
+
+_LAKE_MARKER = 'data-theme="lake"'
+
+
+def _seed(film_title: str, sid: str) -> str:
+    # Seed the showtime at "now" (today) so it's inside the visible window on every
+    # surface (/movies, /home, /events-ui) at any time of day — movies are hidden
+    # ~1 hour AFTER they start (#506), so a fixed evening time failed every night.
+    # BUT clamp UP to a 9 AM floor: the early-AM showtime quarantine (#785, added
+    # later) hides any showtime before 9 AM as a probable PM-typed-as-AM, so a
+    # pre-9-AM "now" (an early-morning CI run) otherwise dropped the row entirely.
+    base = now_lake_havasu().replace(second=0, microsecond=0)
+    when = max(base, base.replace(hour=9, minute=0))
+    with SessionLocal() as db:
+        row = MovieShowtime(
+            source="test_movies_lake",
+            source_stable_id=sid,
+            theater_slug="star-cinemas",
+            theater_name="Star Cinemas",
+            film_title=film_title,
+            show_date=when.date(),
+            show_time=when.time(),
+            booking_url="https://example.com/book",
+        )
+        db.add(row)
+        db.commit()
+        return row.id
+
+
+def _cleanup(ids: list[str]) -> None:
+    with SessionLocal() as db:
+        db.execute(delete(MovieShowtime).where(MovieShowtime.id.in_(ids)))
+        db.commit()
+
+
+def test_movies_feature_renders_under_lake_theme(monkeypatch: pytest.MonkeyPatch) -> None:
+    del monkeypatch  # THEME_DEFAULT is inert since the 2026-07-02 theme collapse
+    suffix = uuid.uuid4().hex[:6]
+    film = f"ZZ Lake Showtime {suffix}"
+    ids = [_seed(film, f"sc-{suffix}")]
+    try:
+        with TestClient(app) as client:
+            movies = client.get("/movies")
+            home = client.get("/home")
+            # WS9c: request the explicit Today view — bare /events-ui defaults to
+            # the This-weekend span on Fri–Sun, which has no movies accordion.
+            events = client.get("/events-ui?view=today")
+
+        # /movies: lake base + lake nav Movies link + the film grid body.
+        assert movies.status_code == 200
+        assert _LAKE_MARKER in movies.text
+        assert 'href="/movies"' in movies.text  # nav parity link
+        assert "Movies around the lake" in movies.text
+        assert film in movies.text
+
+        # /home (v4, flag collapsed 2026-07-02): movies live inside the
+        # unified feed's movies section, which links through to /movies.
+        assert home.status_code == 200
+        assert _LAKE_MARKER in home.text
+        assert 'href="/movies"' in home.text
+        assert film in home.text
+
+        # /events-ui (today): lake base + the first-class "At the Movies"
+        # category accordion (two-surface spec §2; promoted from the old strip).
+        assert events.status_code == 200
+        assert _LAKE_MARKER in events.text
+        assert 'data-k="movies"' in events.text
+        assert film in events.text
+    finally:
+        _cleanup(ids)
+
+
+def test_movies_showtimes_are_tpill_anchors() -> None:
+    """v4.6 PR-0.3: /movies showtimes are .tpill-styled booking anchors (pill
+    chrome, never underlined text links), matching home's movies rows. The
+    booking href is preserved and .tpill carries text-decoration:none in CSS."""
+    suffix = uuid.uuid4().hex[:6]
+    film = f"ZZ Tpill Movie {suffix}"
+    ids = [_seed(film, f"tp-{suffix}")]
+    try:
+        with TestClient(app) as client:
+            movies = client.get("/movies")
+            css = client.get("/static/styles/lake_redesign.css")
+        assert movies.status_code == 200
+        # The showtime is an <a class="tpill" ...> booking link (real ticketing href kept).
+        assert 'class="tpill"' in movies.text
+        assert 'href="https://example.com/book"' in movies.text
+        # Pill chrome, not an underlined link.
+        assert css.status_code == 200
+        assert "text-decoration:none" in css.text.split(".tpill{", 1)[1].split("}", 1)[0]
+    finally:
+        _cleanup(ids)

@@ -26,14 +26,16 @@ class PermalinkRouteTests(unittest.TestCase):
             db.query(Event).delete()
             db.commit()
 
-    def _create_event(self, *, title: str, status: str = "live") -> str:
+    def _create_event(
+        self, *, title: str, status: str = "live", location_name: str = "London Bridge Beach"
+    ) -> str:
         payload = EventCreate(
             title=title,
             date=date(2026, 6, 18),
             end_date=None,
             start_time=time(18, 30, 0),
             end_time=None,
-            location_name="London Bridge Beach",
+            location_name=location_name,
             description="A waterfront community event with live music and local vendors.",
             event_url="https://example.com/event",
             contact_name="Havasu Events Team",
@@ -59,6 +61,39 @@ class PermalinkRouteTests(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("text/html", response.headers.get("content-type", ""))
         self.assertIn("Sunset Music Night", response.text)
+
+    def test_event_permalink_hides_backend_tags_section(self) -> None:
+        # §3.1: the backend bucket/section "Tags" block is no longer rendered on
+        # the detail page (mirrors Session 1 row-tag hiding). The event carries
+        # tags=["music","community"], which previously rendered a "Tags" section.
+        event_id = self._create_event(title="Tagged Community Night")
+        response = self.__class__.client.get(f"/events/{event_id}")
+        self.assertEqual(response.status_code, 200)
+        body = response.text
+        self.assertNotIn("<h2>Tags</h2>", body)
+        self.assertNotIn('class="tag-wrap"', body)
+        # ...but the page itself still renders.
+        self.assertIn("Tagged Community Night", body)
+
+    def test_directions_link_present_for_real_venue(self) -> None:
+        event_id = self._create_event(
+            title="Beach Concert", location_name="London Bridge Beach"
+        )
+        response = self.__class__.client.get(f"/events/{event_id}")
+        self.assertIn("maps/dir/?api=1", response.text)
+        self.assertIn(">Directions</a>", response.text)
+
+    def test_directions_link_suppressed_for_org_location(self) -> None:
+        # F7: the parks-rec org is not a venue -> no misdirecting Directions link.
+        event_id = self._create_event(
+            title="Free Summer Craft Series",
+            location_name="Lake Havasu City Parks & Recreation",
+        )
+        response = self.__class__.client.get(f"/events/{event_id}")
+        self.assertEqual(response.status_code, 200)
+        self.assertNotIn("maps/dir/?api=1", response.text)
+        # The location text still renders.
+        self.assertIn("Lake Havasu City Parks &amp; Recreation", response.text)
 
     def test_event_permalink_renders_image_when_present(self) -> None:
         # ED-3: an event with an image_url renders an <img> + og:image.

@@ -28,38 +28,85 @@ is the test seam.
 
 from __future__ import annotations
 
+import re
 import time as _time
-from pathlib import Path
+from collections.abc import Callable
+from datetime import datetime
 from typing import Any
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
-from app.categories import leaf_copy, leaf_pages, leaf_seo
+from app.categories import cuisine_pages, leaf_copy, leaf_pages, leaf_seo
 from app.categories import queries as cat_queries
 from app.categories import subcategories as subcats
 from app.categories import trades as trade_pages
+from app.categories.cross_surface import cross_surface_sections
+from app.categories.display_labels import display_label
 from app.categories.queries import CategoryFacets
-from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.rate_limit import limiter, public_html_rate_limit
+from app.core.templates import make_templates
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import Provider
-from app.home import sandstone as home_sandstone
 from app.home import sponsor_store
 from app.home.queries import _provider_image_url
 from app.home.router import _utility_chips as _home_utility_chips
+from app.monetization import serving
+from app.providers import queries as provider_queries
 from app.seo.urls import absolute_url
 from app.v1.categories import BUCKET_SLUG_REDIRECTS
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[1] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 router = APIRouter(tags=["categories"])
+
+
+def _chrome_context(db: Session, now: datetime) -> dict[str, Any]:
+    """Header/ribbon nav context shared by every category page.
+
+    Each chrome query is guarded so a hiccup (e.g. a conditions-cache read that
+    raises) degrades to an empty element instead of bubbling up to blank or 500
+    the whole listing — the P0 "200 but empty body" failure mode. The page's
+    actual content (the listings) is built by the caller and is unaffected.
+
+    v4.5 PR-4: the directory now wears the v4 shell (base_redesign), so it also
+    carries the live-conditions strip + cheapest-gas panel like every other
+    discovery page. Both are ``_safe``-guarded — a conditions/gas hiccup degrades
+    to no strip, never a 500.
+    """
+
+    def _safe(fn: Callable[[], Any]) -> Any:
+        try:
+            return fn()
+        except Exception:  # noqa: BLE001 — chrome must never break the page
+            return []
+
+    from app.home import redesign
+
+    return {
+        "utility_chips": _safe(lambda: _home_utility_chips(db)),
+        "cond_tiles": _safe(lambda: redesign.conditions_tiles(db, now=now)),
+    }
+
+
+# Lake Ink & Brass redesign (Phase 3): theme-select the directory templates from
+# request.state.theme. Default stays desert until the flip; the lake variants
+# render the SAME context.
+_LAKE_DIR_TEMPLATES = {
+    "categories_index.html": "categories_index_lake.html",
+    "category_sandstone.html": "category_sandstone_lake.html",
+    "category_department.html": "category_department_lake.html",
+    "category_trade.html": "category_trade_lake.html",
+}
+
+
+def _dir_template(request: Request, name: str) -> str:
+    """Map a directory page name to its Lake template (the only theme now)."""
+    del request
+    return _LAKE_DIR_TEMPLATES.get(name, name)
 
 # Retired flat category routes -> their canonical taxonomy department. The
 # pre-taxonomy site served ~15 lumped Provider.category buckets at
@@ -81,11 +128,27 @@ ROUTE_SLUG_ALIASES: dict[str, str] = {
     "professional": "/categories/professional-and-financial",
     "beauty-care": "/categories/beauty-and-personal-care",
     "auto-rv-fuel": "/categories/auto-rv-and-marine",
-    "public-civic-resources": "/categories/community-and-civic",
+    "public-civic-resources": "/categories/city-and-government",
     "classes-sports-recreation": "/categories/fitness-and-wellness",
     "lodging-vacation-rentals": "/categories/lodging",
-    "outdoors-parks-trails": "/categories/outdoors-and-recreation",
+    "outdoors-parks-trails": "/categories/things-to-do-and-attractions",
+    # IA v2 (Phase 2): retired department slugs -> successor department.
+    "outdoors-and-recreation": "/categories/things-to-do-and-attractions",
+    "community-and-civic": "/categories/city-and-government",
+    # 1.5 friendly slugs: the labels people type / link don't match the internal
+    # department slugs. "pets-and-vets" -> the Pets department; "salons-and-spas"
+    # -> the beauty department, whose display label IS "Salons & Spas" (see
+    # app.categories.display_labels). 301 both to their real department landing.
+    "pets-and-vets": "/categories/pets",
+    "salons-and-spas": "/categories/beauty-and-personal-care",
 }
+
+# IA v2 (Phase 2): departments a leaf may have moved OUT of (merge/split/promote).
+# Used to 301 an old /categories/{source}/{leaf} URL to the leaf's new home while
+# leaving genuine wrong-department/leaf combinations to 404.
+_RETIRED_LEAF_PARENTS: frozenset[str] = frozenset(
+    {"outdoors-and-recreation", "community-and-civic", "beauty-and-personal-care"}
+)
 
 # Taxonomy LEAF slugs renamed in place (data migration) keep their old URL as
 # a permanent redirect so indexed/bookmarked links never die. B1 (2026-06-10):
@@ -94,6 +157,9 @@ ROUTE_SLUG_ALIASES: dict[str, str] = {
 # path under whatever department segment the request used.
 LEAF_SLUG_ALIASES: dict[str, str] = {
     "caf-s-and-coffee": "cafes-and-coffee",
+    # T3.4 (2026-07-06): the two detailing leaves merged into the broader
+    # ``auto-marine-detailing``; the retired ``auto-detailing`` slug 301s here.
+    "auto-detailing": "auto-marine-detailing",
 }
 
 
@@ -104,12 +170,13 @@ LEAF_SLUG_ALIASES: dict[str, str] = {
 #
 # Walks the live taxonomy departments (one grouped gate query) and runs one
 # top-rated peek-provider fetch per department (~15 small queries on a cold
-# cache). The cache key is global -- no per-request variance -- so a single
-# ``(timestamp, payload)`` tuple is enough. Mirrors
-# ``app.main._sitemap_cache``. ``reset_index_cache()`` is the canonical
-# test seam; tests should never poke ``_index_cache`` directly.
+# cache). The cache key carries the running build_sha (no per-request variance
+# otherwise) so a deploy invalidates the payload BY CONSTRUCTION — a
+# ``(build_sha, timestamp, payload)`` tuple. Mirrors ``app.main._sitemap_cache``.
+# ``reset_index_cache()`` is the canonical test seam; tests should never poke
+# ``_index_cache`` directly.
 _INDEX_TTL_SECONDS = 3600
-_index_cache: tuple[float, list[dict[str, Any]]] | None = None
+_index_cache: tuple[str, float, list[dict[str, Any]]] | None = None
 
 # Defensive fallback blurb for any department missing from _DEPT_BLURBS.
 _FALLBACK_BLURB = "Local picks in Lake Havasu."
@@ -123,20 +190,24 @@ _EMPTY_BLURB = "Coming soon."
 # counts come from the live Category tree.
 _DEPT_BLURBS: dict[str, str] = {
     "eat-and-drink": "Restaurants, bars, cafés, takeout.",
-    "on-the-water": "Boat rentals, charters, marinas, beaches.",
+    "on-the-water": "Boat rentals, repair, fuel, ramps, beaches.",
     "outdoors-and-recreation": "Parks, trails, golf, off-road.",
-    "things-to-do-and-attractions": "Tours, landmarks, museums, family fun.",
+    "things-to-do-and-attractions": "Parks, trails, golf, tours, museums, family fun.",
     "health-and-medical": "Doctors, dentists, pharmacies, therapy.",
-    "beauty-and-personal-care": "Salons, barbers, spas, nails.",
-    "fitness-and-wellness": "Gyms, yoga, dance studios.",
+    "beauty-and-personal-care": "Hair, nails, day spas, med spas.",
+    "fitness-and-wellness": "Gyms, yoga, martial arts, dance.",
     "pets": "Vets, groomers, supplies, training.",
-    "home-and-property-services": "Plumbers, electricians, contractors, storage.",
-    "auto-rv-and-marine": "Repair, dealers, parts, towing, boats.",
+    "home-and-property-services": "Contractors, plumbers, electricians, cleaning.",
+    "auto-rv-and-marine": "Auto & boat repair, tires, parts, towing, gas.",
     "shopping-and-retail": "Clothing, gifts, hardware, grocery.",
-    "professional-and-financial": "Real estate, legal, financial, insurance.",
-    "family-and-education": "Schools, childcare, kids' classes.",
+    "professional-and-financial": "Real estate, money, legal, business services.",
+    "family-and-education": "Kids' classes, camps, childcare, schools.",
     "community-and-civic": "Worship, nonprofits, government, libraries.",
-    "lodging": "Hotels, motels, RV parks.",
+    "lodging": "Hotels, motels, RV parks, vacation rentals.",
+    # IA v2 (Phase 2) structural departments.
+    "city-and-government": "City offices, MVD, utilities, post office, libraries.",
+    "worship-and-nonprofits": "Churches, temples, nonprofits, charities.",
+    "tattoo": "Tattoo & piercing studios.",
 }
 
 
@@ -170,6 +241,79 @@ def _dept_peek_provider(db: Session, dept_id: int) -> Provider | None:
         )
     except Exception:
         return None
+
+
+# Department landing listings (P2 2026-06-23): the landing PROMISED "open-now
+# first" but rendered only sub-tiles — no businesses until you pick a leaf. Show
+# a few real listings above the leaf grid. Pool a small top-rated set, then float
+# the open-now ones first; the rest stay (the page never lands empty after dark).
+_DEPT_LANDING_POOL = 24
+_DEPT_LANDING_CARDS = 6
+
+
+def _dept_top_providers(db: Session, dept_id: int, *, limit: int) -> list[Provider]:
+    """Up to ``limit`` top-rated active providers primary-linked under the
+    department's leaves. Generalizes :func:`_dept_peek_provider`. [] on hiccup."""
+    from app.db.models import Category, Entity, EntityCategory
+
+    try:
+        return (
+            db.query(Provider)
+            .join(Entity, Provider.entity_id == Entity.id)
+            .join(EntityCategory, EntityCategory.entity_id == Entity.id)
+            .join(Category, Category.id == EntityCategory.category_id)
+            .filter(
+                Category.parent_id == dept_id,
+                Category.level == 1,
+                EntityCategory.is_primary.is_(True),
+                Entity.is_active.is_(True),
+                Provider.is_active.is_(True),
+                Provider.draft.is_(False),
+            )
+            .order_by(*cat_queries._dampened_rating_sort_key(db))
+            .limit(limit)
+            .all()
+        )
+    except Exception:
+        return []
+
+
+def _dept_landing_cards(db: Session, dept: Any, *, now: datetime) -> list[dict[str, Any]]:
+    """3–6 'open-now first' listing cards for a department landing.
+
+    Pulls a small top-rated pool under the department, floats the providers that
+    are open right now to the front (stable within each band, so top-rated order
+    is preserved), and shapes the shared category-grid card dict (the same shape
+    ``components/lake_biz_card.html`` consumes). Returns [] on any hiccup so the
+    landing still shows its sub-tiles (never blocks the page)."""
+    try:
+        pool = _dept_top_providers(db, dept.id, limit=_DEPT_LANDING_POOL)
+        if not pool:
+            return []
+        scored: list[tuple[int, Provider, bool | None, str | None]] = []
+        for p in pool:
+            is_open, copy = provider_queries.is_open_now(p, now=now)
+            scored.append((0 if is_open else 1, p, is_open, copy))
+        scored.sort(key=lambda t: t[0])  # open-now first; stable within each band
+        cards: list[dict[str, Any]] = []
+        for _band, p, is_open, copy in scored[:_DEPT_LANDING_CARDS]:
+            if is_open is True:
+                status_class, status_text = "open", (copy or "Open now")
+            elif is_open is False:
+                status_class, status_text = "closed", (copy or "Closed")
+            else:
+                status_class, status_text = "", ""
+            cards.append(
+                cat_queries._build_category_card(
+                    p,
+                    status_class=status_class,
+                    status_text=status_text,
+                    image_url=cat_queries._resolve_category_card_image(p),
+                )
+            )
+        return cards
+    except Exception:  # pragma: no cover - landing must never 500 over the extra
+        return []
 
 
 def _build_index_payload(db: Session) -> list[dict[str, Any]]:
@@ -206,7 +350,7 @@ def _build_index_payload(db: Session) -> list[dict[str, Any]]:
         rows.append(
             {
                 "slug": dept.slug,
-                "label": dept.name,
+                "label": display_label(dept.slug, dept.name),
                 "blurb": _DEPT_BLURBS.get(dept.slug, _FALLBACK_BLURB),
                 "count": count,
                 "leaf_count": leaf_count,
@@ -224,16 +368,24 @@ def _get_index_payload(db: Session) -> list[dict[str, Any]]:
     window get the exact same list object.
     """
     global _index_cache  # noqa: PLW0603 -- module-level cache by design
+    from app.core.build_info import build_sha
+
     now_ts = _time.time()
+    sha = build_sha()
     cached = _index_cache
-    if cached is not None and (now_ts - cached[0]) < _INDEX_TTL_SECONDS:
-        return cached[1]
+    if (
+        cached is not None
+        and cached[0] == sha  # build_sha in the key: a deploy is a guaranteed miss
+        and (now_ts - cached[1]) < _INDEX_TTL_SECONDS
+    ):
+        return cached[2]
     payload = _build_index_payload(db)
-    _index_cache = (now_ts, payload)
+    _index_cache = (sha, now_ts, payload)
     return payload
 
 
 @router.get("/categories", response_class=HTMLResponse)
+@limiter.limit(public_html_rate_limit)
 def serve_categories_index(
     request: Request,
     db: Session = Depends(get_db),
@@ -247,12 +399,13 @@ def serve_categories_index(
     categories = _get_index_payload(db)
     return templates.TemplateResponse(
         request=request,
-        name="categories_index.html",
+        name=_dir_template(request, "categories_index.html"),
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
             "categories": categories,
             "active_tab": "all-categories",
+            **_chrome_context(db, now),
         },
     )
 
@@ -275,10 +428,13 @@ def _facets_from_query(
         return val is not None and str(val).strip().lower() not in {"", "0", "false", "no"}
 
     sort_key = (sort or "").strip().lower()
-    # Default = volume-weighted "Locals' favorites" (01_UI_BUILD_GUIDE.md §4.8),
-    # so institutions outrank thin 5.0/3-review outliers out of the box.
-    if sort_key not in {"closest", "alpha", "favorites"}:
-        sort_key = "favorites"
+    # Default = the seeded DAILY shuffle of the >gate quality pool (plan §2.2):
+    # fair day-to-day rotation, stable+cacheable within a day, with the no-review
+    # tail kept below. "favorites" (volume-weighted rating, closed-demoted,
+    # liveness-dampened — 01_UI_BUILD_GUIDE.md §4.8) stays a reachable explicit
+    # sort for anyone who wants the institutions-first order.
+    if sort_key not in {"closest", "alpha", "favorites", "default"}:
+        sort_key = "default"
     sub = (subcategory or "").strip().lower() or None
     if sub and subcats.subcategory_by_slug(sub) is None:
         sub = None
@@ -298,6 +454,7 @@ def _facets_from_query(
 
 _SORT_OPTIONS: tuple[tuple[str, str], ...] = (
     ("default", "Featured"),
+    ("favorites", "Top rated"),
     ("closest", "Closest"),
     ("alpha", "A–Z"),
 )
@@ -327,17 +484,22 @@ def _render_category_page(
     active_tab: str,
     page: int = 1,
     extra_context: dict[str, Any] | None = None,
+    placement_key: str | None = None,
 ) -> HTMLResponse:
     """Shared render for the plural mega-page and the subcategory SEO landing.
 
     ``route_slug`` is the ``CATEGORY_FILTERS`` route providers are drawn from;
     ``active_subcategory`` (when set) both filters and highlights its chip.
+    ``placement_key`` (A3) overrides the surface the paid-placement overlay keys
+    on — a cuisine landing sells on its own ``cuisine:{slug}`` key while still
+    drawing its pool from the Eat & Drink route. Defaults to ``route_slug``.
     """
     now = now_lake_havasu()
     page = max(int(page), 1)
     per_page = cat_queries._DEFAULT_CARD_LIMIT
     cards, total = cat_queries.category_listing(
-        db, route_slug, now=now, facets=facets, limit=per_page, page=page
+        db, route_slug, now=now, facets=facets, limit=per_page, page=page,
+        placement_key=placement_key,
     )
 
     # C8/N-16: chips are generated from subtypes ACTUALLY present (ordered by
@@ -398,12 +560,12 @@ def _render_category_page(
     # DL-20 / item 32: the sort-explainer must describe the ACTIVE sort, not a
     # static favorites blurb. Closest/A-Z carry their own one-liner.
     sort_notes = {
-        "favorites": "Favorites = rating weighted by review volume, so institutions rank first.",
-        "default": "Favorites = rating weighted by review volume, so institutions rank first.",
+        "favorites": "Top rated = rating weighted by review volume, so institutions rank first.",
+        "default": "Featured = highly-rated local businesses, shuffled fresh each day; new and unrated listings follow below.",
         "closest": "Closest = nearest to the Lake Havasu City civic center first.",
         "alpha": "Sorted A to Z by name.",
     }
-    sort_note = sort_notes.get(facets.sort, sort_notes["favorites"])
+    sort_note = sort_notes.get(facets.sort, sort_notes["default"])
 
     # DL-20 C7: a single honest active-filter summary line. Lists the narrowing
     # facets (subcategory / cuisine / open-now) with the result count and a
@@ -453,23 +615,26 @@ def _render_category_page(
             "all_chip_url": all_chip_url,
             # A full reset link for the active-filter "clear" control: bare route.
             "clear_filters_url": f"/categories/{route_slug}",
-            # One labeled sponsored slot (≤1, real-or-omit). active_promoted is the
-            # single page-wide promoted row; None -> no slot (never a fake sponsor).
-            "sponsored": sponsor_store.active_promoted(db),
-            "primary_nav": home_sandstone.primary_nav(),
-            "mega_columns": home_sandstone.mega_columns(db),
-            "utility_chips": _home_utility_chips(db),
+            # One labeled sponsored slot (≤1, real-or-omit). Phase 6A: a sold
+            # page_ad PLACEMENT for this category wins the top-of-page unit;
+            # otherwise fall back to the legacy page-wide promoted row, then to no
+            # slot (never a fake sponsor). Dormant until a placement is sold —
+            # serve_category_page_ad returns None on an empty book.
+            "sponsored": serving.serve_category_page_ad(db, route_slug)
+            or sponsor_store.active_promoted(db),
+            **_chrome_context(db, now),
         }
     if extra_context:
         context.update(extra_context)
     return templates.TemplateResponse(
         request=request,
-        name="category_sandstone.html",
+        name=_dir_template(request, "category_sandstone.html"),
         context=context,
     )
 
 
 @router.get("/categories/{slug}", response_class=HTMLResponse, response_model=None)
+@limiter.limit(public_html_rate_limit)
 def serve_category(
     request: Request,
     slug: str,
@@ -513,6 +678,7 @@ def serve_category(
 @router.get(
     "/categories/{parent}/{trade}", response_class=HTMLResponse, response_model=None
 )
+@limiter.limit(public_html_rate_limit)
 def serve_trade_page(
     request: Request,
     parent: str,
@@ -585,6 +751,19 @@ def serve_trade_page(
     if leaf is not None:
         return _render_leaf_page(request, db, leaf)
 
+    # IA v2 (Phase 2): a leaf whose parent department changed (merge/split/promote)
+    # keeps its slug — 301 the old /categories/{old-parent}/{leaf} URL to the
+    # canonical path under the leaf's current department. Gated to the retired
+    # source departments so a genuine wrong-department/leaf combo still 404s.
+    if parent_key in _RETIRED_LEAF_PARENTS:
+        moved = leaf_pages.resolve_leaf_by_slug(db, trade)
+        if moved is not None and moved.department_slug != parent_key:
+            dest = f"/categories/{moved.department_slug}/{moved.slug}"
+            query = request.url.query
+            if query:
+                dest = f"{dest}?{query}"
+            return RedirectResponse(url=dest, status_code=301)
+
     raise HTTPException(status_code=404, detail="unknown_category")
 
 
@@ -593,7 +772,12 @@ def _render_trade_page(
 ) -> HTMLResponse:
     """Render a curated home-services trade page (the original P2.1/P2.2 path)."""
     now = now_lake_havasu()
-    cards, total, providers = trade_pages.trade_listing(db, trade_obj, now=now)
+    # P4: "Top rated" (?sort=favorites) suppresses the daily Featured shuffle and
+    # keeps the dampened-rating order; everything else gets the shuffled default.
+    sort_param = (request.query_params.get("sort") or "").strip().lower()
+    cards, total, providers = trade_pages.trade_listing(
+        db, trade_obj, now=now, sort=sort_param
+    )
     if total < trade_pages.TRADE_PAGE_MIN_PROVIDERS:
         # Scaled-content gate: below the minimum the page does not exist.
         raise HTTPException(status_code=404, detail="trade_below_minimum")
@@ -637,17 +821,21 @@ def _render_trade_page(
     label_lower = trade_obj.label.lower()
     faqs = [
         (
-            q.format(
-                n=total,
-                label=trade_obj.label,
-                label_lower=label_lower,
-                singular=trade_obj.singular,
+            _strip_md(
+                q.format(
+                    n=total,
+                    label=trade_obj.label,
+                    label_lower=label_lower,
+                    singular=trade_obj.singular,
+                )
             ),
-            a.format(
-                n=total,
-                label=trade_obj.label,
-                label_lower=label_lower,
-                singular=trade_obj.singular,
+            _strip_md(
+                a.format(
+                    n=total,
+                    label=trade_obj.label,
+                    label_lower=label_lower,
+                    singular=trade_obj.singular,
+                )
             ),
         )
         for q, a in trade_obj.faqs
@@ -655,7 +843,7 @@ def _render_trade_page(
 
     return templates.TemplateResponse(
         request=request,
-        name="category_trade.html",
+        name=_dir_template(request, "category_trade.html"),
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
@@ -665,19 +853,37 @@ def _render_trade_page(
             "trade_slug": trade_obj.slug,
             "trade_label": trade_obj.label,
             "trade_count": total,
-            "trade_intro": trade_obj.intro,
+            "trade_intro": _strip_md(trade_obj.intro),
             "trade_faqs": faqs,
             "category_cards": visible_cards,
             "list_controls": list_controls,
+            # P3 finding 34: the category ad slot lives at the TOP on every
+            # template. A sold page_ad pins above the unsold "claim" CTA; None
+            # (the dormant default) → the slot renders the claim invitation.
+            "sponsored": serving.serve_category_page_ad(db, trade_obj.slug),
             "canonical_override": absolute_url(page_path),
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": "explore",
-            "primary_nav": home_sandstone.primary_nav(),
-            "mega_columns": home_sandstone.mega_columns(db),
-            "utility_chips": _home_utility_chips(db),
+            **_chrome_context(db, now),
         },
     )
+
+
+#: Markdown markers that must never reach the directory copy <h3>/<p> (the
+#: templates render intro/FAQ text verbatim — there is no markdown filter by
+#: site convention). The curated source is already plain (guarded by
+#: ``tests/test_faq_copy_no_markdown.py``); this is the render-path belt-and-
+#: suspenders so a leading ``### `` heading or ``**bold**`` can never surface
+#: even if markdown slips into the copy later. Strips a leading heading run and
+#: any inline bold/code fences; leaves ordinary text untouched.
+_MD_HEADING_RE = re.compile(r"^\s*#{1,6}[ \t]+")
+
+
+def _strip_md(text: str) -> str:
+    """Remove leading markdown heading markers and inline bold/code fences."""
+    cleaned = _MD_HEADING_RE.sub("", text)
+    return cleaned.replace("**", "").replace("`", "")
 
 
 def _itemlist_jsonld(name: str, total: int, providers: list[Provider]) -> dict[str, Any]:
@@ -722,9 +928,14 @@ def _apply_list_controls(
     scope).
     """
     sort = (query_params.get("sort") or "top").lower()
-    if sort not in ("top", "az"):
+    if sort not in ("top", "az", "favorites"):
         sort = "top"
     open_now = (query_params.get("open") or "").lower() in ("1", "true", "yes", "on")
+    # WS9a: cuisine facet on Eat & Drink leaves. Cards already carry a derived
+    # ``cuisine`` token (queries._build_category_card → derive_cuisine over Google
+    # types), so filtering here keeps the leaf's data-sourcing (primary-link join)
+    # intact and just narrows the rendered set. A blank/unknown value is a no-op.
+    cuisine = (query_params.get("cuisine") or "").strip().lower() or None
     try:
         page = int(query_params.get("page") or "1")
     except (TypeError, ValueError):
@@ -732,10 +943,37 @@ def _apply_list_controls(
     page = max(1, page)
 
     working = list(cards)
+    if cuisine:
+        working = [c for c in working if (c.get("cuisine") or "") == cuisine]
     if open_now:
         working = [c for c in working if c.get("is_open") is True]
     if sort == "az":
         working = sorted(working, key=lambda c: (c.get("name") or "").lower())
+    elif sort == "favorites":
+        # "Top rated": the cards arrive in dampened-rating order (the daily
+        # Featured shuffle is suppressed upstream for this sort), so preserve it
+        # as-is. Paid pins were applied upstream and unrated rows already sink
+        # last via the SQL nullslast ordering — no re-sort needed here.
+        pass
+    else:
+        # Featured (default): keep the daily-shuffled order but stably demote
+        # closed and not-yet-reviewed cards, so an open, proven place never ranks
+        # below a closed/no-review one (the audit's "closed studio with no reviews
+        # shown first" bug). Python's stable sort preserves the incoming order
+        # within each tier; sponsored pins were already applied upstream.
+        # ``is_query_match`` (the #666 relevance float from a ?q= arrival)
+        # outranks the open/has_reviews demotion — otherwise a closed or
+        # not-yet-reviewed on-topic match sank right back under the generic
+        # rows the float lifted it above.
+        working = sorted(
+            working,
+            key=lambda c: (
+                0 if c.get("is_sponsored") else 1,
+                0 if c.get("is_query_match") else 1,
+                0 if c.get("is_open") is True else 1,
+                0 if c.get("has_reviews") else 1,
+            ),
+        )
 
     shown_total = len(working)
     total_pages = max(1, (shown_total + _LEAF_PAGE_SIZE - 1) // _LEAF_PAGE_SIZE)
@@ -743,8 +981,15 @@ def _apply_list_controls(
     start = (page - 1) * _LEAF_PAGE_SIZE
     visible = working[start : start + _LEAF_PAGE_SIZE]
 
-    def _href(*, want_sort: str, want_open: bool, want_page: int) -> str:
+    def _href(
+        *, want_sort: str, want_open: bool, want_page: int, want_cuisine: str | None = cuisine
+    ) -> str:
         parts: list[str] = []
+        # Cuisine leads so a filtered view reads ``?cuisine=mexican&sort=favorites``.
+        # Defaults to the active cuisine, so every sort/open/pager link preserves
+        # the current cuisine narrowing (DL-20 param-preservation, cuisine lane).
+        if want_cuisine:
+            parts.append(f"cuisine={want_cuisine}")
         if want_sort and want_sort != "top":
             parts.append(f"sort={want_sort}")
         if want_open:
@@ -756,12 +1001,15 @@ def _apply_list_controls(
     controls = {
         "sort": sort,
         "open_now": open_now,
+        "cuisine": cuisine,
         "shown_total": shown_total,
         "page": page,
         "total_pages": total_pages,
         "has_prev": page > 1,
         "has_next": page < total_pages,
+        # url_top = the bare route = the daily-shuffled "Featured" default.
         "url_top": _href(want_sort="top", want_open=open_now, want_page=1),
+        "url_favorites": _href(want_sort="favorites", want_open=open_now, want_page=1),
         "url_az": _href(want_sort="az", want_open=open_now, want_page=1),
         "url_open_on": _href(want_sort=sort, want_open=True, want_page=1),
         "url_open_off": _href(want_sort=sort, want_open=False, want_page=1),
@@ -771,16 +1019,162 @@ def _apply_list_controls(
     return visible, controls
 
 
+# WS9a — cuisine facet on Eat & Drink leaves.
+#
+# The canonical leaf page (``/categories/eat-and-drink/restaurants``) lists by the
+# leaf's PRIMARY entity_categories link (leaf_pages.leaf_listing). Its cards already
+# carry a derived ``cuisine`` token (queries._build_category_card → derive_cuisine
+# over Google types), so a cuisine facet is a server-rendered narrowing over that
+# existing token — no new data model, no merge with the /lake-havasu/{cuisine} SEO
+# landings (which stay the indexable cuisine pages; these facet views canonical to
+# the bare leaf). Only Eat & Drink leaves carry cuisine signal; every other leaf
+# gets no chip row. A chip renders only for a cuisine with >= _CUISINE_CHIP_MIN
+# listings here, so a lone-outlier cuisine never clutters the row (honest facets).
+_EAT_DRINK_DEPARTMENT_SLUG = "eat-and-drink"
+_CUISINE_CHIP_MIN = 2
+
+
+def _leaf_cuisine_facet(
+    query_params: Any, leaf: "leaf_pages.Leaf", cards: list[dict[str, Any]], *, base_path: str
+) -> dict[str, Any] | None:
+    """Server-rendered cuisine facet for an Eat & Drink leaf, or ``None``.
+
+    Returns ``None`` (no chip row) unless the leaf is under Eat & Drink and at
+    least two cuisines each clear ``_CUISINE_CHIP_MIN`` listings on this leaf.
+    The returned dict carries the chip list (label + count + crawlable href +
+    active flag), the "All" href, and the active cuisine's label/count for the
+    filter-summary line. Chip hrefs preserve the active sort / open-now toggle
+    and drop ``page`` (a narrower set invalidates the old page index).
+    """
+    if (leaf.department_slug or "").strip().lower() != _EAT_DRINK_DEPARTMENT_SLUG:
+        return None
+    counts: dict[str, int] = {}
+    for card in cards:
+        cui = (card.get("cuisine") or "").strip().lower()
+        if cui:
+            counts[cui] = counts.get(cui, 0) + 1
+    ordered = [
+        (slug, counts[slug])
+        for slug in subcats.cuisine_slugs_in_order()
+        if counts.get(slug, 0) >= _CUISINE_CHIP_MIN
+    ]
+    if len(ordered) < 2:
+        return None
+
+    active = (query_params.get("cuisine") or "").strip().lower() or None
+    if active is not None and active not in subcats.cuisine_slugs_in_order():
+        active = None
+
+    sort = (query_params.get("sort") or "").strip().lower()
+    keep_sort = sort if sort in ("favorites", "az") else None
+    keep_open = (query_params.get("open") or "").strip().lower() in ("1", "true", "yes", "on")
+
+    def _href(cuisine: str | None) -> str:
+        parts: list[str] = []
+        if cuisine:
+            parts.append(f"cuisine={cuisine}")
+        if keep_sort:
+            parts.append(f"sort={keep_sort}")
+        if keep_open:
+            parts.append("open=1")
+        return base_path + ("?" + "&".join(parts) if parts else "")
+
+    chips = [
+        {
+            "slug": slug,
+            "label": subcats.cuisine_label(slug) or slug,
+            "count": n,
+            "href": _href(slug),
+            "active": slug == active,
+        }
+        for slug, n in ordered
+    ]
+    active_label = subcats.cuisine_label(active) if active else None
+    active_count = counts.get(active, 0) if active else 0
+    return {
+        "chips": chips,
+        "all_href": _href(None),
+        "all_active": active is None,
+        "active": active,
+        "active_label": active_label,
+        "active_count": active_count,
+    }
+
+
+# Leaf sub-grouping (P7 follow-up): when a leaf lists enough places spread across
+# enough neighborhoods, split the flat list into per-neighborhood sections so a
+# searcher can scan by area. Conservative thresholds keep thin or single-area
+# leaves on the original flat list — no one-item sections, no trivial grouping.
+_GROUP_MIN_CARDS = 8  # don't bother grouping a short page
+_GROUP_MIN_SECTION = 2  # a named neighborhood section needs at least this many
+_GROUP_MIN_SECTIONS = 2  # need at least this many real sections to group at all
+_GROUP_OTHER_LABEL = "More across Lake Havasu City"
+
+
+def _group_cards_by_neighborhood(
+    cards: list[dict[str, Any]],
+) -> list[tuple[str, list[dict[str, Any]]]] | None:
+    """Split leaf cards into neighborhood sections, or ``None`` to stay flat.
+
+    Groups only when it aids browsing: at least ``_GROUP_MIN_CARDS`` cards AND at
+    least ``_GROUP_MIN_SECTIONS`` neighborhoods that each hold
+    ``_GROUP_MIN_SECTION``+ cards. Named sections are ordered by size (largest
+    first), then alphabetically. Cards with no district — and any lone card in a
+    one-off neighborhood — collapse into a trailing catch-all section, so the
+    page never shows a one-item heading. Card order within each section is
+    preserved from the incoming (already sorted) list.
+    """
+    if len(cards) < _GROUP_MIN_CARDS:
+        return None
+    by_hood: dict[str, list[dict[str, Any]]] = {}
+    no_hood: list[dict[str, Any]] = []
+    for card in cards:
+        hood = (card.get("neighborhood") or "").strip()
+        if hood:
+            by_hood.setdefault(hood, []).append(card)
+        else:
+            no_hood.append(card)
+    named = {h: cs for h, cs in by_hood.items() if len(cs) >= _GROUP_MIN_SECTION}
+    if len(named) < _GROUP_MIN_SECTIONS:
+        return None
+    sections: list[tuple[str, list[dict[str, Any]]]] = sorted(
+        named.items(), key=lambda kv: (-len(kv[1]), kv[0].lower())
+    )
+    leftovers = no_hood + [
+        card
+        for cs in by_hood.values()
+        if len(cs) < _GROUP_MIN_SECTION
+        for card in cs
+    ]
+    if leftovers:
+        sections.append((_GROUP_OTHER_LABEL, leftovers))
+    return sections
+
+
 # A generic, honest intro for a leaf page until B.2 adds per-leaf curated copy.
 # No fabricated specifics — just the ranking-transparency line the whole site
 # uses. ``{name}`` is the leaf's display noun (e.g. "Plumbing", "Restaurants").
 _LEAF_INTRO_TEMPLATE = (
     "{name} in Lake Havasu City, AZ — part of our {department} directory. "
-    "The {n} listings below are ranked by real public reviews — more reviews, "
-    "more weight — so a strong rating across many reviews beats a perfect "
-    "score from only a couple. Spots can't be bought, Hava never invents a "
-    "rating, and any sponsored placement is clearly labeled."
+    "The {n} well-reviewed listings below rotate daily so you're not always "
+    "seeing the same names on top; tap Top rated to sort by review strength "
+    "instead. Spots can't be bought, Hava never invents a rating, and any "
+    "sponsored placement is clearly labeled."
 )
+# 2026-06-30 audit A5/1D: with LEAF_PAGE_MIN_PROVIDERS == 1 a leaf can render a
+# single listing, where the plural/daily-rotation copy reads wrong ("The 1
+# well-reviewed listings below rotate daily"). Use a singular-correct line.
+_LEAF_INTRO_TEMPLATE_ONE = (
+    "{name} in Lake Havasu City, AZ — part of our {department} directory. "
+    "The one listing below is shown with its real public rating — Hava never "
+    "invents a rating, and any sponsored placement is clearly labeled."
+)
+
+
+def _leaf_intro(*, name: str, n: int, department: str) -> str:
+    """Number-aware honest leaf intro (singular copy when only one listing)."""
+    template = _LEAF_INTRO_TEMPLATE_ONE if n == 1 else _LEAF_INTRO_TEMPLATE
+    return template.format(name=name, n=n, department=department)
 
 
 def _render_leaf_page(
@@ -795,16 +1189,36 @@ def _render_leaf_page(
     people actually google.
     """
     now = now_lake_havasu()
-    cards, total, providers = leaf_pages.leaf_listing(db, leaf, now=now)
+    # P4: "Top rated" (?sort=favorites) suppresses the daily Featured shuffle and
+    # keeps the dampened-rating order; everything else gets the shuffled default.
+    sort_param = (request.query_params.get("sort") or "").strip().lower()
+    # 2026-07-01: the originating search term (carried from /chat as ?q=) floats
+    # on-topic businesses to the top so a niche ask isn't buried under the broad
+    # leaf's review-count order. Absent/empty q is a no-op.
+    search_q = (request.query_params.get("q") or "").strip() or None
+    cards, total, providers = leaf_pages.leaf_listing(
+        db, leaf, now=now, sort=sort_param, query=search_q
+    )
     if total < leaf_pages.LEAF_PAGE_MIN_PROVIDERS:
         raise HTTPException(status_code=404, detail="leaf_below_minimum")
 
     display = leaf_seo.display_noun(leaf.slug, leaf.name)
     page_path = f"/categories/{leaf.department_slug}/{leaf.slug}"
+    # WS9a: cuisine facet (Eat & Drink leaves only) — computed over the FULL leaf
+    # listing so chip counts reflect the whole leaf, not the paginated window.
+    cuisine_facet = _leaf_cuisine_facet(
+        request.query_params, leaf, cards, base_path=page_path
+    )
     visible_cards, list_controls = _apply_list_controls(
         request.query_params, cards, base_path=page_path
     )
+    # P7: section the leaf list by neighborhood when it helps (else stays flat).
+    card_groups = _group_cards_by_neighborhood(visible_cards)
     dept_path = f"/categories/{leaf.department_slug}"
+    # IA v2: route the parent-department label through the display-label override
+    # so a relabeled department reads consistently here (e.g. "Auto & Boat
+    # Service", not the raw DB "Auto, RV & Fuel").
+    dept_label = display_label(leaf.department_slug, leaf.department_name)
     # Three-level breadcrumb (Home › department › leaf) — the department landing
     # exists as of B.2, so the crumb links to it.
     breadcrumb_jsonld: dict[str, Any] = {
@@ -820,7 +1234,7 @@ def _render_leaf_page(
             {
                 "@type": "ListItem",
                 "position": 2,
-                "name": leaf.department_name,
+                "name": dept_label,
                 "item": absolute_url(dept_path),
             },
             {
@@ -840,44 +1254,52 @@ def _render_leaf_page(
     # the searcher noun so the grammar reads naturally ("these plumbers").
     curated = leaf_copy.copy_for_leaf(leaf.slug)
     if curated is not None:
-        intro = curated.intro
+        intro = _strip_md(curated.intro)
         name_lower = display.lower()
         faqs = [
             (
-                q.format(n=total, name=display, name_lower=name_lower),
-                a.format(n=total, name=display, name_lower=name_lower),
+                _strip_md(q.format(n=total, name=display, name_lower=name_lower)),
+                _strip_md(a.format(n=total, name=display, name_lower=name_lower)),
             )
             for q, a in curated.faqs
         ]
     else:
-        intro = _LEAF_INTRO_TEMPLATE.format(
-            name=display, n=total, department=leaf.department_name
+        intro = _strip_md(
+            _leaf_intro(name=display, n=total, department=dept_label)
         )
         faqs = []
 
     return templates.TemplateResponse(
         request=request,
-        name="category_trade.html",
+        name=_dir_template(request, "category_trade.html"),
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
             "parent_slug": leaf.department_slug,
-            "parent_label": leaf.department_name,
+            "parent_label": dept_label,
             "parent_href": dept_path,
             "trade_slug": leaf.slug,
             "trade_label": display,
             "trade_count": total,
             "trade_intro": intro,
             "trade_faqs": faqs,
+            # 2026-07-01 master audit §9.2-4: a leaf reached from search says
+            # what it is answering ("wake surfing" landing on the broad Jet Ski
+            # leaf otherwise looks like the query was ignored).
+            "search_echo": search_q,
             "category_cards": visible_cards,
+            "card_groups": card_groups,
             "list_controls": list_controls,
+            # WS9a: cuisine facet chip row (Eat & Drink leaves only; None elsewhere).
+            "cuisine_facet": cuisine_facet,
+            # P3 finding 34: top-of-page ad slot — sold page_ad pins above the
+            # unsold "claim" CTA. None (dormant default) → claim invitation.
+            "sponsored": serving.serve_category_page_ad(db, leaf.slug),
             "canonical_override": absolute_url(page_path),
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": "explore",
-            "primary_nav": home_sandstone.primary_nav(),
-            "mega_columns": home_sandstone.mega_columns(db),
-            "utility_chips": _home_utility_chips(db),
+            **_chrome_context(db, now),
         },
     )
 
@@ -905,6 +1327,14 @@ def _render_department_page(
     ]
     listing_total = sum(count for _, count in pairs)
     dept_path = f"/categories/{dept.slug}"
+    dept_label = display_label(dept.slug, dept.name)
+    # P2: a few real "open now first" listings above the leaf grid (the landing
+    # promised them but showed only sub-tiles).
+    landing_cards = _dept_landing_cards(db, dept, now=now)
+    # IA v2 Slice 2: surface related leaves from other departments (e.g. boat
+    # services under Lake & Boating) under labeled sections. References only —
+    # the listing's canonical home is unchanged, so no duplicate rows.
+    also_sections = cross_surface_sections(db, dept.slug)
 
     breadcrumb_jsonld: dict[str, Any] = {
         "@context": "https://schema.org",
@@ -919,7 +1349,7 @@ def _render_department_page(
             {
                 "@type": "ListItem",
                 "position": 2,
-                "name": dept.name,
+                "name": dept_label,
                 "item": absolute_url(dept_path),
             },
         ],
@@ -928,7 +1358,7 @@ def _render_department_page(
     itemlist_jsonld: dict[str, Any] = {
         "@context": "https://schema.org",
         "@type": "ItemList",
-        "name": f"{dept.name} categories in Lake Havasu City, AZ",
+        "name": f"{dept_label} categories in Lake Havasu City, AZ",
         "numberOfItems": len(leaves),
         "itemListElement": [
             {
@@ -943,21 +1373,21 @@ def _render_department_page(
 
     return templates.TemplateResponse(
         request=request,
-        name="category_department.html",
+        name=_dir_template(request, "category_department.html"),
         context={
             "today_label": now.strftime("%A, %B ") + str(now.day),
             "now_label": now.strftime("%I:%M %p").lstrip("0"),
             "department_slug": dept.slug,
-            "department_label": dept.name,
+            "department_label": dept_label,
             "leaves": leaves,
+            "landing_cards": landing_cards,
+            "also_sections": also_sections,
             "leaf_total": len(leaves),
             "listing_total": listing_total,
             "breadcrumb_jsonld": breadcrumb_jsonld,
             "itemlist_jsonld": itemlist_jsonld,
             "active_tab": "explore",
-            "primary_nav": home_sandstone.primary_nav(),
-            "mega_columns": home_sandstone.mega_columns(db),
-            "utility_chips": _home_utility_chips(db),
+            **_chrome_context(db, now),
         },
     )
 
@@ -1019,3 +1449,64 @@ def _bucket_route_for_subcategory(bucket_id: str) -> str | None:
         return None
     route = dest.rsplit("/", 1)[-1]
     return route if cat_queries.is_valid_category_slug(route) else None
+
+
+def render_cuisine_landing(
+    request: Request,
+    db: Session,
+    *,
+    cuisine_slug: str,
+    open_now: str | None = None,
+    rating: str | None = None,
+    sort: str | None = None,
+    late: str | None = None,
+    weekends: str | None = None,
+) -> HTMLResponse | None:
+    """Render the ``/lake-havasu/{cuisine}`` Eat & Drink cuisine landing, or None.
+
+    Returns ``None`` when ``cuisine_slug`` is not a known cuisine OR the cuisine
+    has fewer than ``CUISINE_PAGE_MIN_PROVIDERS`` active listings — the caller
+    then falls through to the provider-slug alias / 404, so a thin cuisine page
+    is never rendered or indexed. Draws the Eat & Drink pool filtered to the
+    cuisine (its own ``<h1>``) and keys the paid-placement overlay on the
+    cuisine's sellable ``cuisine:{slug}`` key, so the page is independently
+    monetizable without affecting the parent Eat & Drink grid.
+    """
+    slug = (cuisine_slug or "").strip().lower()
+    label = subcats.cuisine_label(slug)
+    if label is None:
+        return None
+    if (
+        cuisine_pages.cuisine_provider_count(db, slug)
+        < cuisine_pages.CUISINE_PAGE_MIN_PROVIDERS
+    ):
+        return None
+    facets = _facets_from_query(
+        subcategory=None,
+        open_now=open_now,
+        rating=rating,
+        sort=sort,
+        late=late,
+        weekends=weekends,
+        cuisine=slug,
+    )
+    headline = f"{label} Restaurants in Lake Havasu City"
+    one_liner = f"Local {label} spots — well-reviewed locals, with a daily-rotating featured order."
+    try:
+        page = max(int(request.query_params.get("page", "1")), 1)
+    except (TypeError, ValueError):
+        page = 1
+    route = cuisine_pages.EAT_DRINK_ROUTE
+    return _render_category_page(
+        request,
+        db,
+        route_slug=route,
+        facets=facets,
+        label=headline,
+        one_liner=one_liner,
+        chip_bucket_id=None,
+        active_subcategory=None,
+        active_tab=cat_queries.active_tab_for(route),
+        page=page,
+        placement_key=cuisine_pages.placement_key_for(slug),
+    )

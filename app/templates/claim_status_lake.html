@@ -1,0 +1,31 @@
+{% extends "base_redesign.html" %}
+{#- Lake claim-status page (GET/POST /claim/{slug} when a claim already exists).
+   Same context as claim_status.html ({entity, claim}); branches on claim.status
+   (pending | verified | rejected | other) + shows rejection_reason. noindex. -#}
+{% block title %}Claim status — Ask Hava{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+{% endblock %}
+{% block main %}
+{% set st = claim.status %}
+<div class="authx">
+  <div class="authwrap">
+    <nav class="crumbs" aria-label="Breadcrumb"><a href="/account">My account</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Claim status</span></nav>
+    <p class="eyebrow">Claim status</p>
+    <h1>Your <em>claim.</em></h1>
+    <p class="lede">
+      Your claim for <strong>{{ (entity.name | clean_name) or entity.slug }}</strong> is
+      {% if st == 'pending' %}<strong>pending review</strong>{% elif st == 'verified' %}<strong>verified</strong>{% elif st == 'rejected' %}<strong>rejected</strong>{% else %}<strong>{{ st }}</strong>{% endif %}.
+    </p>
+    <p style="margin-top:14px">
+      {% if st == 'pending' %}<span class="statusbadge">Pending review</span>
+      {% elif st == 'verified' %}<span class="statusbadge ok">Verified</span>
+      {% elif st == 'rejected' %}<span class="statusbadge bad">Rejected</span>
+      {% else %}<span class="statusbadge">{{ st }}</span>{% endif %}
+    </p>
+    {% if st == 'rejected' and claim.rejection_reason %}
+    <p class="notice warn" role="alert">{{ claim.rejection_reason }}</p>
+    {% endif %}
+  </div>
+</div>
+{% endblock %}

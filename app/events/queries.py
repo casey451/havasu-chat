@@ -10,6 +10,8 @@ from sqlalchemy.orm import Session
 
 from app.core.timezone import now_lake_havasu
 from app.db.models import Category, Entity, EntityCategory, Event, Provider
+from app.events.dedup import dedup_cross_source_occurrences
+from app.events.movie_tags import not_movie_event_clause
 from app.events.recurrence import occurrences_in_window
 from app.providers import queries as provider_queries
 
@@ -115,6 +117,7 @@ def events_in_window(
                 Event.rdate.isnot(None),
             )
         )
+        .where(not_movie_event_clause())
     )
     if category_slug:
         stmt = (
@@ -126,6 +129,16 @@ def events_in_window(
 
     candidates = list(db.scalars(stmt).unique().all())
     flat = occurrences_in_window(candidates, window_start=window_start, window_end=window_end)
+    # Collapse cross-source duplicates of one real session (two scrapers carrying
+    # the same swim/market/concert) BEFORE the time filter + limit, exactly as the
+    # /events-ui day view does via _live_events_by_day. Without this, surfaces fed
+    # by events_in_window (chat event search, category pages, the v1 events API,
+    # the feed, the weekend digest) showed every twin — e.g. one Aquatic-Center
+    # session as "Free Family Swim" (admin) + "Free Swim Day!" (go_lake_havasu) +
+    # "Open Swim" (allevents) instead of a single survivor. Same matcher as the
+    # day view, so distinct same-venue sessions (Open Swim vs Lap Swim vs Aqua
+    # Aerobics) are untouched — no loosening here (2026-06-29).
+    flat = dedup_cross_source_occurrences(flat)
     start_bound = _parse_hhmm_bound(time_start)
     end_bound = _parse_hhmm_bound(time_end)
     seen: set[tuple[str, date]] = set()
@@ -221,6 +234,7 @@ def events_for_favorite_entities(
                 Event.rdate.isnot(None),
             )
         )
+        .where(not_movie_event_clause())
     )
 
     candidates = list(db.scalars(stmt).unique().all())
@@ -261,6 +275,7 @@ def venue_events_for_profile(
                     Event.provider_id == provider.id,
                 )
             )
+            .where(not_movie_event_clause())
             .where(
                 or_(
                     and_(

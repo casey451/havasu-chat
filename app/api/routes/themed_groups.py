@@ -2,16 +2,14 @@
 
 from __future__ import annotations
 
-from pathlib import Path
 from urllib.parse import urlencode
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy.orm import Session
 
 from app.api.routes import category_pages as cat_pages
-from app.core.provider_name import register_template_filters, register_template_globals
+from app.core.templates import make_templates
 from app.core.timezone import LAKE_HAVASU_TZ, now_lake_havasu
 from app.db.database import get_db
 from app.groups import themed_groups as tg
@@ -20,10 +18,7 @@ from app.providers import queries as provider_queries
 
 router = APIRouter(tags=["themed-groups"])
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 
 @router.get("/group/{slug}", response_class=HTMLResponse)
@@ -47,6 +42,21 @@ def themed_group_landing(
         return val is not None and str(val).strip() in {"1", "true", "yes"}
 
     boat_only = _flag(boat)
+    # Operational + audience filter chips — read from the query string so the chips
+    # actually narrow the list (Casey 2026-06-29). Applied below only when at least
+    # one is active, so the default (unfiltered) page view is byte-for-byte unchanged.
+    drop_in = _flag(request.query_params.get("drop_in"))
+    registration = _flag(request.query_params.get("registration"))
+    youth = _flag(request.query_params.get("youth"))
+    adults = _flag(request.query_params.get("adults"))
+    open_now = request.query_params.get("open") == "now"
+    late_night = _flag(request.query_params.get("late"))
+    brunch_only = _flag(request.query_params.get("brunch"))
+    verified_only = _flag(request.query_params.get("verified"))
+    mobile_only = _flag(request.query_params.get("mobile"))
+    free_only = _flag(request.query_params.get("free"))
+    npi_only = _flag(request.query_params.get("npi"))
+    when = request.query_params.get("when")
     sort_slug = category_slugs[0]
     sort_key = cat_pages._normalize_sort(sort, category_slug=sort_slug)
 
@@ -59,6 +69,7 @@ def themed_group_landing(
             ref_lng=cat_pages.REF_LNG,
             now=now,
             boat_only=boat_only,
+            when=when,
         )
     else:
         entities = cat_pages.select_entities_for_categories(
@@ -67,6 +78,36 @@ def themed_group_landing(
             district_slug=None,
             boat_only=boat_only,
         )
+        if "classes-sports-recreation" in category_slugs:
+            entities = cat_pages._apply_classes_sports_filters(
+                entities,
+                db=db,
+                drop_in=drop_in,
+                registration=registration,
+                youth=youth,
+                adults=adults,
+            )
+        # Operational chips (Open now / Verified / Mobile / Free / Late / Brunch).
+        # boat_only is already applied at the select layer, so it's not re-passed.
+        if any(
+            (open_now, late_night, brunch_only, verified_only, mobile_only, free_only, npi_only)
+        ):
+            entities = cat_pages._apply_python_filters(
+                entities,
+                db=db,
+                category_slug=sort_slug,
+                cuisine=None,
+                trade=None,
+                open_now=open_now,
+                late_night=late_night,
+                brunch_only=brunch_only,
+                verified_only=verified_only,
+                mobile_only=mobile_only,
+                boat_only=False,
+                free_only=free_only,
+                npi_only=npi_only,
+                now=now,
+            )
         entities = cat_pages._sort_entity_ids(
             entities,
             sort_key=sort_key,
@@ -119,13 +160,19 @@ def themed_group_landing(
         "active_cuisine": None,
         "active_trade": None,
         "active_district": None,
-        "active_open_now": False,
-        "active_late": False,
-        "active_brunch": False,
+        "active_open_now": open_now,
+        "active_late": late_night,
+        "active_brunch": brunch_only,
         "active_dock": boat_only,
-        "active_verified": False,
-        "active_mobile": False,
-        "active_free": False,
+        "active_verified": verified_only,
+        "active_mobile": mobile_only,
+        "active_free": free_only,
+        "active_npi": npi_only,
+        "active_when": when,
+        "active_drop_in": drop_in,
+        "active_registration": registration,
+        "active_youth": youth,
+        "active_adults": adults,
         "sort_options": sort_options,
         "sort_current": sort_key,
         "organic_stream": organic_stream,
@@ -140,6 +187,6 @@ def themed_group_landing(
 
     return templates.TemplateResponse(
         request=request,
-        name="themed_group_landing.html",
+        name="themed_group_landing_lake.html",
         context=ctx,
     )

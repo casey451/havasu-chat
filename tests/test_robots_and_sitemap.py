@@ -15,10 +15,8 @@ from app.db.database import SessionLocal
 from app.db.models import Entity, Event, Provider
 from app.main import app
 
-
-@pytest.fixture
-def client() -> TestClient:
-    return TestClient(app)
+# ``client`` comes from the shared module-scoped fixture in tests/conftest.py
+# (audit 2026-07-01: one client per module instead of a per-file construction).
 
 
 @pytest.fixture(autouse=True)
@@ -139,6 +137,55 @@ def test_robots_txt_honors_base_url_env(
     r = client.get("/robots.txt")
     assert r.status_code == 200
     assert "Sitemap: https://example.test/sitemap.xml" in r.text
+
+
+def test_robots_blocks_ai_scrapers(client: TestClient) -> None:
+    """A3: well-known AI/scraper agents are denied the whole site."""
+    body = client.get("/robots.txt").text
+    for agent in ("GPTBot", "CCBot", "ClaudeBot", "PerplexityBot", "Bytespider"):
+        assert f"User-agent: {agent}" in body
+    # The blocked group ends in a whole-site disallow.
+    assert "Disallow: /\n" in body
+
+
+def test_robots_disallows_data_endpoints_for_everyone(client: TestClient) -> None:
+    """The JSON APIs + bulk iCal feed are cheap full-dataset pulls — no crawl."""
+    body = client.get("/robots.txt").text
+    assert "Disallow: /api/" in body
+    assert "Disallow: /events.ics" in body
+
+
+def test_robots_keeps_search_engines_and_html_directory(client: TestClient) -> None:
+    """Search engines are NOT blocked, and the HTML directory stays crawlable —
+    this whole effort is to win the SERP, so we never disallow content pages."""
+    body = client.get("/robots.txt").text
+    for engine in ("Googlebot", "Bingbot"):
+        assert f"User-agent: {engine}" not in body  # not singled out / blocked
+    assert "User-agent: *" in body
+    assert "Allow: /" in body
+    for html_path in ("/provider", "/categories", "/lake-havasu"):
+        assert f"Disallow: {html_path}" not in body
+
+
+def test_robots_and_sitemap_are_rate_limited(monkeypatch: pytest.MonkeyPatch) -> None:
+    """/robots.txt and /sitemap* carry the public HTML per-IP limit (each route
+    has its own bucket), so a scraper can't hammer the URL list."""
+    from app.core.rate_limit import limiter
+
+    monkeypatch.setenv("PUBLIC_HTML_RATE_LIMIT", "2/minute")
+    monkeypatch.setattr(limiter, "enabled", True)
+    limiter.reset()
+    try:
+        with TestClient(app) as c:
+            assert c.get("/robots.txt").status_code != 429
+            assert c.get("/robots.txt").status_code != 429
+            assert c.get("/robots.txt").status_code == 429
+            # sitemap index has an independent bucket — still serves Google twice.
+            assert c.get("/sitemap.xml").status_code == 200
+            assert c.get("/sitemap.xml").status_code == 200
+            assert c.get("/sitemap.xml").status_code == 429
+    finally:
+        limiter.reset()
 
 
 # ---------------------------------------------------------------------------

@@ -14,8 +14,10 @@ from app.contrib.river_scene import (
     RIVER_SCENE_DETAIL_LABELS,
     RiverSceneEvent,
     _find_event_details_table,
+    _parse_time_range,
     _submission_public_url,
     _table_label_map,
+    _time_label_value,
     fetch_and_parse_event,
     normalize_to_contribution,
 )
@@ -37,7 +39,8 @@ def _labels_from_html_fragment(html: str) -> dict[str, str]:
 
 
 def test_detail_labels_allowlist_size() -> None:
-    assert len(RIVER_SCENE_DETAIL_LABELS) == 8
+    # 8 original + 3 time-label aliases (Times / Start Time / Event Time), §3C.
+    assert len(RIVER_SCENE_DETAIL_LABELS) == 11
 
 
 def test_table_label_map_proper_website_and_facebook_water_x_shape() -> None:
@@ -221,6 +224,127 @@ def test_fetch_parse_taste_fixture_submission_url_k12() -> None:
     assert _submission_public_url(rse) == "https://www.k12foundation.org"
     payload = normalize_to_contribution(rse)
     assert str(payload.submission_url).rstrip("/") == "https://www.k12foundation.org"
+
+
+def _parse_inline_event(html: str) -> RiverSceneEvent:
+    page = f"<html><body>{html}</body></html>"
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, text=page)
+
+    transport = httpx.MockTransport(handler)
+    with httpx.Client(transport=transport, follow_redirects=True) as client:
+        rse = fetch_and_parse_event(
+            "https://riverscenemagazine.com/events/inline-fixture/",
+            client=client,
+            today=date(2026, 1, 1),
+        )
+    assert rse is not None
+    return rse
+
+
+def test_missing_time_row_leaves_start_time_unset_not_noon() -> None:
+    """No Time row -> NULL start time (never the fabricated noon placeholder)."""
+    rse = _parse_inline_event(
+        """
+        <h1>No Time Event</h1>
+        <table><tbody>
+        <tr><td>Start Date</td><td>April 10, 2026</td></tr>
+        <tr><td>Venue</td><td>English Village</td></tr>
+        </tbody></table>
+        """
+    )
+    assert rse.start_time is None
+    assert rse.end_time is None
+
+    payload = normalize_to_contribution(rse)
+    assert payload.event_time_start is None
+    assert payload.event_time_end is None
+    assert "Time: TBD" in payload.submission_notes
+    # The old behavior fabricated 12:00; make sure it never reappears.
+    assert "12:00" not in payload.submission_notes
+
+
+def test_present_time_row_renders_single_clean_time_line() -> None:
+    """A parsed time renders once, not as a zero-duration ``09:00 – 09:00`` span."""
+    rse = _parse_inline_event(
+        """
+        <h1>Timed Event</h1>
+        <table><tbody>
+        <tr><td>Start Date</td><td>April 10, 2026</td></tr>
+        <tr><td>Time</td><td>9:00 am</td></tr>
+        <tr><td>Venue</td><td>English Village</td></tr>
+        </tbody></table>
+        """
+    )
+    assert rse.start_time == time(9, 0)
+    payload = normalize_to_contribution(rse)
+    assert payload.event_time_start == time(9, 0)
+    assert "Time: 09:00" in payload.submission_notes
+    assert "09:00 – 09:00" not in payload.submission_notes
+
+
+# --- §3C: time-range + label-variant parsing (times no longer dropped) --------
+
+
+def test_parse_time_range_single_and_ranges() -> None:
+    # Single time → (start, None).
+    assert _parse_time_range("8:00 AM") == (time(8, 0), None)
+    assert _parse_time_range("5:30 PM") == (time(17, 30), None)
+    # Ranges across the separators River Scene actually uses → (start, end).
+    assert _parse_time_range("8:00 AM - 12:00 PM") == (time(8, 0), time(12, 0))
+    assert _parse_time_range("8:00 AM – 12:00 PM") == (time(8, 0), time(12, 0))
+    assert _parse_time_range("8 AM to 12 PM") == (time(8, 0), time(12, 0))
+    assert _parse_time_range("9am–5pm") == (time(9, 0), time(17, 0))
+    # Never fabricate: unparseable cells stay unset.
+    assert _parse_time_range("noon") == (None, None)
+    assert _parse_time_range("TBD") == (None, None)
+    assert _parse_time_range("") == (None, None)
+
+
+def test_time_label_value_reads_aliases() -> None:
+    assert _time_label_value({"Time": "8:00 AM"}) == "8:00 AM"
+    assert _time_label_value({"Times": "8:00 AM"}) == "8:00 AM"
+    assert _time_label_value({"Start Time": "8:00 AM"}) == "8:00 AM"
+    assert _time_label_value({"Time:": "8:00 AM"}) == "8:00 AM"  # trailing colon
+    assert _time_label_value({"Venue": "English Village"}) is None
+
+
+def test_time_range_row_keeps_both_ends() -> None:
+    """A published start–end range no longer drops to a timeless event; it keeps
+    the real start AND end (the Farmers Market "8 AM – 12 PM" shape)."""
+    rse = _parse_inline_event(
+        """
+        <h1>Ranged Event</h1>
+        <table><tbody>
+        <tr><td>Start Date</td><td>April 10, 2026</td></tr>
+        <tr><td>Time</td><td>8:00 AM - 12:00 PM</td></tr>
+        <tr><td>Venue</td><td>English Village</td></tr>
+        </tbody></table>
+        """
+    )
+    assert rse.start_time == time(8, 0)
+    assert rse.end_time == time(12, 0)
+    payload = normalize_to_contribution(rse)
+    assert payload.event_time_start == time(8, 0)
+    assert payload.event_time_end == time(12, 0)
+    assert "Time: 08:00 – 12:00" in payload.submission_notes
+
+
+def test_variant_time_label_no_longer_dropped() -> None:
+    """A page whose time row is labelled "Times" (not "Time") keeps its time
+    instead of falling through to TBD."""
+    rse = _parse_inline_event(
+        """
+        <h1>Variant Label Event</h1>
+        <table><tbody>
+        <tr><td>Start Date</td><td>April 10, 2026</td></tr>
+        <tr><td>Times</td><td>9:00 am</td></tr>
+        <tr><td>Venue</td><td>English Village</td></tr>
+        </tbody></table>
+        """
+    )
+    assert rse.start_time == time(9, 0)
 
 
 def test_fetch_parse_won_bass_fixture_submission_url_facebook() -> None:

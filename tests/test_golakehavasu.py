@@ -137,6 +137,30 @@ def test_event_end_date_omitted_for_single_day() -> None:
     assert c.event_end_date is None
 
 
+def test_missing_time_leaves_start_unset_not_noon() -> None:
+    """No time in DOM/JSON-LD -> NULL start (never the fabricated noon placeholder)."""
+    ev = GoLakeHavasuEvent(
+        title="Timeless Pop-up",
+        url="https://www.golakehavasu.com/events/timeless/",
+        start_date=date(2026, 6, 1),
+        end_date=date(2026, 6, 1),
+        start_time=None,
+        end_time=None,
+        description="A pop-up with no published time, described in enough words.",
+        venue_name="Somewhere",
+        venue_address="1 Main St, Lake Havasu City, AZ 86403",
+        lat=34.5,
+        lng=-114.3,
+        image_url=None,
+        organizer_url=None,
+    )
+    c = normalize_to_contribution(ev)
+    assert c.event_time_start is None
+    assert c.event_time_end is None
+    assert "Time: TBD" in (c.submission_notes or "")
+    assert "12:00" not in (c.submission_notes or "")
+
+
 def test_run_pull_tolerates_removed_event_pages() -> None:
     """A 404 on one event page (CVB removed it but left the sitemap entry) is a
     skip, not a run failure — one stale entry was failing the whole cron."""

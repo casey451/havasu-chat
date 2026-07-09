@@ -2,7 +2,8 @@
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+import logging
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -13,13 +14,34 @@ from app.conditions.constants import (
     SOURCE_NWS_ALERTS,
     SOURCE_NWS_CURRENT,
     SOURCE_NWS_FORECAST,
-    SOURCE_NWS_SUNSET,
     SOURCE_OPENUV,
+    SOURCE_RISE_WATER_TEMP,
     SOURCE_USGS,
     SOURCE_USGS_WATER_TEMP,
 )
 from app.conditions.staleness import staleness_label
+from app.conditions.sun import sunset_utc
 from app.core.timezone import LAKE_HAVASU_TZ
+
+logger = logging.getLogger(__name__)
+
+# Water temp is a slow (roughly daily) feed with a 6h cache TTL, so it reads
+# "fresh" for the whole window rather than flashing stale after the default 2h.
+_WATER_TEMP_STALE_AFTER_HOURS = 6
+# Throttle the WATER_TEMP_STALE observability log to at most once per hour so a
+# stale/omitted gage doesn't spam the logs on every /api/conditions build.
+_WATER_TEMP_STALE_LOG_INTERVAL = timedelta(hours=1)
+_last_water_temp_stale_log: datetime | None = None
+
+
+def _log_water_temp_stale(now: datetime, reason: str, attribution: str | None) -> None:
+    """Emit a WATER_TEMP_STALE marker at most once per hour (process-wide)."""
+    global _last_water_temp_stale_log
+    last = _last_water_temp_stale_log
+    if last is not None and (now - last) < _WATER_TEMP_STALE_LOG_INTERVAL:
+        return
+    _last_water_temp_stale_log = now
+    logger.warning("WATER_TEMP_STALE reason=%s source=%s", reason, attribution or "none")
 
 _COMPASS_16 = (
     "N",
@@ -62,11 +84,11 @@ def degrees_to_cardinal(deg: float | int | None) -> str | None:
 
 
 def _format_sunset_local(sunset_iso: str | None) -> str | None:
-    """Render an NWS sunset ISO timestamp as Lake Havasu wall-clock, e.g. ``7:42 PM``.
+    """Render a sunset ISO timestamp as Lake Havasu wall-clock, e.g. ``7:42 PM``.
 
-    The NWS sunset source stores the tonight/evening period startTime, which is
-    an approximation of sunset rather than an astronomical value. We convert to
-    America/Phoenix and strip any leading zero from the hour (Windows-safe).
+    Source-agnostic: the ISO may be Open-UV's true sunset or the locally computed
+    astronomical sunset (:mod:`app.conditions.sun`). Converts to America/Phoenix
+    and strips any leading zero from the hour (Windows-safe).
     """
     if not sunset_iso:
         return None
@@ -194,70 +216,106 @@ def build_conditions_api_payload(db: Session, *, now: datetime | None = None) ->
             }
         )
 
-    # V1.5 wave 3: water-temperature signal from USGS 09426630, gated at the
-    # api-payload boundary on the cache row's feature_enabled flag. The
-    # fetcher writes feature_enabled=False when the env flag is OFF (and
-    # makes no HTTP request); we honor that here by skipping field emission
-    # so /api/conditions stays bit-for-bit unchanged in flag-OFF prod state.
-    water_temp = read_source(db, SOURCE_USGS_WATER_TEMP, now=now)
-    if water_temp is not None:
-        d = water_temp.data
-        if d.get("feature_enabled"):
-            label, stale = staleness_label(water_temp.fetched_at, now)
-            payload.update(
-                {
-                    "water_temp_c": d.get("water_temp_c"),
-                    "water_temp_f": d.get("water_temp_f"),
-                    "water_temp_updated_at_iso": _iso(water_temp.fetched_at),
-                    "water_temp_staleness_label": label,
-                    "water_temp_is_stale": stale or water_temp.is_stale,
-                }
+    # Water temperature. Prefer the Reclamation RISE reading at Parker Dam (item
+    # 6127) — Parker Dam impounds Lake Havasu, so it's the representative main-
+    # lake value — and fall back to the USGS Bill Williams gage (09426630), which
+    # has published the -100000 sentinel since 2026-05-21 (water_temp_f None).
+    # Each self-gates at the fetcher on its feature flag, so a row with
+    # feature_enabled=False or a null reading is simply not chosen and
+    # /api/conditions stays unchanged.
+    def _live_water_temp(row) -> bool:
+        return (
+            row is not None
+            and isinstance(row.data, dict)
+            and bool(row.data.get("feature_enabled"))
+            and row.data.get("water_temp_f") is not None
+        )
+
+    rise_wt = read_source(db, SOURCE_RISE_WATER_TEMP, now=now)
+    usgs_wt = read_source(db, SOURCE_USGS_WATER_TEMP, now=now)
+    if _live_water_temp(rise_wt):
+        chosen_wt, wt_attribution = rise_wt, "Reclamation · Parker Dam"
+    elif _live_water_temp(usgs_wt):
+        chosen_wt, wt_attribution = usgs_wt, "USGS 09426630 ~25mi south"
+    else:
+        chosen_wt, wt_attribution = None, None
+    if chosen_wt is not None:
+        d = chosen_wt.data
+        # 6h window (matches the RISE cache TTL) so a daily reading doesn't flash
+        # "stale" 2h after each cron tick.
+        label, stale = staleness_label(
+            chosen_wt.fetched_at, now, stale_after_hours=_WATER_TEMP_STALE_AFTER_HOURS
+        )
+        is_stale = stale or chosen_wt.is_stale
+        payload.update(
+            {
+                "water_temp_c": d.get("water_temp_c"),
+                "water_temp_f": d.get("water_temp_f"),
+                "water_temp_attribution": wt_attribution,
+                "water_temp_updated_at_iso": _iso(chosen_wt.fetched_at),
+                "water_temp_staleness_label": label,
+                "water_temp_is_stale": is_stale,
+            }
+        )
+        if is_stale:
+            _log_water_temp_stale(now, "stale_reading", wt_attribution)
+    else:
+        # Honest-omit: no live gage reading. Only flag it in the logs when a gage
+        # was ENABLED but returned nothing (a real fetch/parse failure worth
+        # noticing) — not when both flags are intentionally OFF (the default).
+        def _enabled_but_empty(row: Any) -> bool:
+            return (
+                row is not None
+                and isinstance(row.data, dict)
+                and bool(row.data.get("feature_enabled"))
             )
+
+        if _enabled_but_empty(rise_wt) or _enabled_but_empty(usgs_wt):
+            _log_water_temp_stale(now, "no_live_reading", None)
 
     # Sunset: PREFER the true astronomical sunset from Open-UV
     # (sun_info.sun_times.sunset, stored on the SOURCE_OPENUV row as
-    # ``sunset_iso``). Fall back to the SOURCE_NWS_SUNSET row, whose ``sunset_iso``
-    # is the tonight/evening forecast-period startTime -- an approximation that
-    # runs ~1-2h early. We surface the raw ISO plus a Lake-Havasu-local formatted
-    # string so both the JSON API and the /today Lake Light strip can render it.
-    # Emitted only when a usable ISO is present so /api/conditions stays unchanged
-    # when both sources are absent.
+    # ``sunset_iso``). When Open-UV is absent, COMPUTE the astronomical sunset
+    # for the city's coordinates (app.conditions.sun) rather than falling back to
+    # the old NWS evening-forecast-period start, which read ~2h early ("Sunset
+    # 6:00 PM" in late June — site review §4c). The computed value is
+    # deterministic, always available, and never stale.
+    # Only trust Open-UV's sunset while the row is FRESH — a stale row carries an
+    # old day's sunset_iso, which is wrong for today, so we compute instead.
     openuv_sunset_iso = None
+    openuv_label = None
     if openuv_row is not None and isinstance(openuv_row.data, dict):
         candidate = openuv_row.data.get("sunset_iso")
         if isinstance(candidate, str) and candidate.strip():
-            openuv_sunset_iso = candidate.strip()
+            openuv_label, openuv_stale = staleness_label(openuv_row.fetched_at, now)
+            if not (openuv_stale or openuv_row.is_stale):
+                openuv_sunset_iso = candidate.strip()
 
     if openuv_sunset_iso is not None:
         sunset_local = _format_sunset_local(openuv_sunset_iso)
         if sunset_local is not None:
-            label, stale = staleness_label(openuv_row.fetched_at, now)
             payload.update(
                 {
                     "sunset_iso": openuv_sunset_iso,
                     "sunset_local": sunset_local,
                     "sunset_source": "openuv",
                     "sunset_updated_at_iso": _iso(openuv_row.fetched_at),
-                    "sunset_staleness_label": label,
-                    "sunset_is_stale": stale or openuv_row.is_stale,
+                    "sunset_staleness_label": openuv_label,
+                    "sunset_is_stale": False,
                 }
             )
     else:
-        sunset_row = read_source(db, SOURCE_NWS_SUNSET, now=now)
-        if sunset_row is not None and isinstance(sunset_row.data, dict):
-            sunset_iso = sunset_row.data.get("sunset_iso")
-            sunset_local = _format_sunset_local(sunset_iso) if sunset_iso else None
-            if sunset_local is not None:
-                label, stale = staleness_label(sunset_row.fetched_at, now)
-                payload.update(
-                    {
-                        "sunset_iso": sunset_iso,
-                        "sunset_local": sunset_local,
-                        "sunset_source": "nws_approx",
-                        "sunset_updated_at_iso": _iso(sunset_row.fetched_at),
-                        "sunset_staleness_label": label,
-                        "sunset_is_stale": stale or sunset_row.is_stale,
-                    }
-                )
+        local_date = now.replace(tzinfo=UTC).astimezone(LAKE_HAVASU_TZ).date()
+        computed_iso = _iso(sunset_utc(local_date))
+        payload.update(
+            {
+                "sunset_iso": computed_iso,
+                "sunset_local": _format_sunset_local(computed_iso),
+                "sunset_source": "computed",
+                "sunset_updated_at_iso": None,
+                "sunset_staleness_label": None,
+                "sunset_is_stale": False,
+            }
+        )
 
     return payload

@@ -87,6 +87,42 @@ def test_does_not_clobber_existing_keeper_fields(db_session):
     assert "website" not in res.gap_filled
 
 
+def test_gap_fills_curated_attributes_when_keeper_empty(db_session):
+    # The Hangar 24 case (WS4 2026-07-08): the retired twin carried a client-assigned
+    # cuisine; the surviving keeper (no cuisine of its own) must INHERIT it so curated
+    # data survives the merge instead of dying with the twin.
+    keep = _provider(db_session, "Hangar 24 Lake Havasu", attributes=None)
+    dup = _provider(db_session, "Hangar 24 Taproom", attributes={"cuisine": "american"})
+    res = merge_providers(db_session, keep_id=keep.id, dup_id=dup.id)
+    db_session.flush()
+    assert (keep.attributes or {}).get("cuisine") == "american"
+    assert "attributes" in res.gap_filled
+
+
+def test_does_not_overwrite_existing_keeper_attribute(db_session):
+    # Filiberto's shape: keeper already has a curated cuisine -> never clobbered.
+    keep = _provider(db_session, "Filibertos", attributes={"cuisine": "mexican"})
+    dup = _provider(db_session, "Filibertos Mexican Food", attributes={"cuisine": "american"})
+    res = merge_providers(db_session, keep_id=keep.id, dup_id=dup.id)
+    assert (keep.attributes or {}).get("cuisine") == "mexican"
+    assert "attributes" not in res.gap_filled
+
+
+def test_operational_attributes_do_not_transfer(db_session):
+    # Curated keys transfer; merge-internal/operational keys never do.
+    keep = _provider(db_session, "Keeper Cafe", attributes=None)
+    dup = _provider(
+        db_session,
+        "Keeper Cafe Twin",
+        attributes={"merged_into_slug": "somewhere-else", "cuisine": "mexican"},
+    )
+    merge_providers(db_session, keep_id=keep.id, dup_id=dup.id)
+    db_session.flush()
+    attrs = keep.attributes or {}
+    assert attrs.get("cuisine") == "mexican"
+    assert "merged_into_slug" not in attrs
+
+
 def test_repoints_event_provider_and_entity(db_session):
     keep = _provider(db_session, "Marina")
     dup = _provider(db_session, "Marina")

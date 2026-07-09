@@ -7,10 +7,8 @@
 {% if not enabled %}
 <div class="notice">
   <strong>Not yet enabled.</strong> The <span class="mono">{{ table_name }}</span> table hasn't
-  been migrated. Promote the draft migration in
-  <span class="mono">app/admin_portal/migrations_draft/</span> into
-  <span class="mono">alembic/versions/</span> (set <span class="mono">down_revision</span> to the
-  current head) and apply per the prod-ops rules in CLAUDE.md. Until then the portal skips audit
+  been migrated on this database. Run <span class="mono">alembic upgrade head</span> (the table
+  ships in migration <span class="mono">e9b5d7f3a1c6</span>). Until then the portal skips audit
   writes — all other pages work normally.
 </div>
 {% else %}

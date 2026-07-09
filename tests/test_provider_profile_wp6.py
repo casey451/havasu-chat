@@ -71,7 +71,7 @@ def test_rating_shown_at_or_above_three_reviews() -> None:
     try:
         body = _get(slug)
         assert "4.6" in body
-        assert "(12)" in body
+        assert "(12 reviews)" in body
         assert "New / few reviews yet" not in body
         ld = _jsonld(body)
         assert ld["aggregateRating"]["ratingValue"] == 4.6
@@ -138,9 +138,11 @@ def test_hours_table_renders_overnight_close_as_midnight() -> None:
     try:
         body = _get(slug)
         assert "Friday" in body
-        # 23:59 clamp displays as Midnight, not 11:59.
-        assert "Midnight" in body
-        assert "23:59" not in body
+        # 23:59 clamp displays as Midnight, not 11:59, in the visible hours table.
+        # (The raw 23:59 legitimately survives in the openingHours JSON-LD.)
+        hours_block = body.split('class="hours"', 1)[1].split("</aside>", 1)[0]
+        assert "Midnight" in hours_block
+        assert "23:59" not in hours_block
     finally:
         _cleanup(slug)
 
@@ -193,7 +195,7 @@ def test_review_excerpt_clamped_to_forty_words() -> None:
         db.commit()
     try:
         body = _get(slug)
-        assert "From Google reviews" in body
+        assert ">Reviews<" in body  # the Google-review section renders
         assert "word39" in body  # 40th word (0-indexed) is included
         assert "word40" not in body  # 41st word is clamped off
         assert "…" in body

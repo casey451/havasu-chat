@@ -20,7 +20,7 @@ implemented here — those are Casey product decisions (see PR FLAGs).
 
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from fastapi import APIRouter, Depends, Form, HTTPException, Request
@@ -29,9 +29,11 @@ from fastapi.templating import Jinja2Templates
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.admin.auth import COOKIE_NAME, verify_admin_cookie
+from app.admin.auth import admin_guard as _admin_guard
+from app.admin_portal.audit_models import record_audit
 from app.auth.claims import entity_is_claimable, find_existing_claim, get_entity_by_slug
 from app.auth.dependencies import get_current_user
+from app.billing import service as billing_service
 from app.core.provider_name import register_template_filters, register_template_globals
 from app.db.database import get_db
 from app.db.models import (
@@ -39,12 +41,14 @@ from app.db.models import (
     AdReservationStatus,
     AdSlot,
     Entity,
+    Provider,
     Sponsor,
     SponsorStatus,
     UpgradeRequest,
     UpgradeRequestStatus,
     User,
 )
+from app.db.monetization_models import Placement, PlacementStatus
 
 # Allowed forward transitions for an ad reservation's status FSM.
 _AD_RESERVATION_NEXT: dict[str, frozenset[str]] = {
@@ -60,20 +64,21 @@ _TEMPLATES = Jinja2Templates(directory=str(Path(__file__).resolve().parents[1] /
 register_template_filters(_TEMPLATES)
 register_template_globals(_TEMPLATES)
 
-# Slots a merchant may request. All four tiers are valid request targets.
-_REQUESTABLE_SLOTS: frozenset[str] = frozenset(s.value for s in AdSlot)
+# Slots a merchant may request. The Tier-2 "spotlight" (Featured) slot is retired
+# from sellable inventory (2026-07-03): the v4 home renders no Featured surface,
+# so a sold spotlight would never display — booking one would violate the
+# impressions-equal-renders contract. The tier's serving code + tests stay
+# (dormant) in case a v4 Featured surface is built later; it just can't be booked
+# or requested. The admin inventory view below still iterates every AdSlot tier
+# so any historical/dormant spotlight rows remain visible.
+_RETIRED_SLOTS: frozenset[str] = frozenset({AdSlot.SPOTLIGHT.value})
+_REQUESTABLE_SLOTS: frozenset[str] = frozenset(
+    s.value for s in AdSlot if s.value not in _RETIRED_SLOTS
+)
+# Sellable slots in canonical tier order (retired tiers dropped), for the
+# merchant upgrade form's slot picker.
+_SELLABLE_SLOT_VALUES: list[str] = [s.value for s in AdSlot if s.value in _REQUESTABLE_SLOTS]
 
-
-def _admin_guard(request: Request) -> RedirectResponse | None:
-    """Mirror of admin.router._guard (cookie OR admin-role user)."""
-    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
-        return None
-    current_user = getattr(request.state, "current_user", None)
-    if current_user is not None and getattr(current_user, "role", None) == "admin":
-        return None
-    if current_user is not None:
-        raise HTTPException(status_code=403, detail="admin_only")
-    return RedirectResponse(url="/admin/login", status_code=302)
 
 
 def _naive_utc_now() -> datetime:
@@ -369,6 +374,148 @@ def register_sponsor_admin_routes(router: APIRouter) -> None:
         db.commit()
         return RedirectResponse(url="/admin/ad-reservations", status_code=303)
 
+    # ── admin placement queue (Phase F §8 — activate self-serve purchases) ────
+
+    @router.get("/placements", response_class=HTMLResponse, response_model=None)
+    def admin_placements(
+        request: Request, db: Session = Depends(get_db)
+    ) -> HTMLResponse | RedirectResponse:
+        """Queue of monetization Placements. Pending (awaiting activation) first.
+
+        Activating a placement is what makes it serve — until then it's inert.
+        No payment is processed here; the operator confirms the price and term
+        (Stripe checkout is a later increment)."""
+        redir = _admin_guard(request)
+        if redir is not None:
+            return redir
+        rows = (
+            db.execute(
+                select(Placement).order_by(
+                    Placement.status.asc(), Placement.created_at.desc()
+                )
+            )
+            .scalars()
+            .all()
+        )
+        prov_ids = {r.provider_id for r in rows}
+        prov_by_id = (
+            {
+                p.id: p
+                for p in db.execute(
+                    select(Provider).where(Provider.id.in_(prov_ids))
+                )
+                .scalars()
+                .all()
+            }
+            if prov_ids
+            else {}
+        )
+
+        def _row(r: Placement) -> dict[str, object]:
+            prov = prov_by_id.get(r.provider_id)
+            return {
+                "id": r.id,
+                "provider_name": prov.provider_name if prov else r.provider_id,
+                "provider_slug": prov.slug if prov else None,
+                "placement_type": r.placement_type,
+                "category_slug": r.category_slug,
+                "rank_tier": r.rank_tier,
+                "billing_type": r.billing_type,
+                "price_dollars": f"{r.price_cents / 100:.0f}" if r.price_cents else "",
+                "status": r.status,
+                "created_at": r.created_at,
+                "paid_through": r.paid_through,
+            }
+
+        pending = [_row(r) for r in rows if r.status == PlacementStatus.pending.value]
+        others = [_row(r) for r in rows if r.status != PlacementStatus.pending.value]
+        return _TEMPLATES.TemplateResponse(
+            request=request,
+            name="admin_placements.html",
+            context={"pending": pending, "others": others},
+        )
+
+    @router.post("/placements/{placement_id}/activate", response_model=None)
+    def admin_placement_activate(
+        request: Request,
+        placement_id: str,
+        price_cents: str = Form(default=""),
+        term_days: str = Form(default="30"),
+        db: Session = Depends(get_db),
+    ) -> RedirectResponse:
+        """Flip a pending placement to active: it starts serving immediately and
+        renders the Sponsored label. Optionally override the priced figure and set
+        the paid-through term."""
+        redir = _admin_guard(request)
+        if redir is not None:
+            return redir
+        p = db.get(Placement, placement_id)
+        if p is None:
+            raise HTTPException(status_code=404, detail="placement_not_found")
+        if p.status != PlacementStatus.pending.value:
+            raise HTTPException(status_code=400, detail="not_pending")
+        now = _naive_utc_now()
+        days = int(term_days) if term_days.strip().isdigit() else 30
+        p.status = PlacementStatus.active.value
+        p.starts_at = now
+        p.paid_through = now + timedelta(days=days)
+        if price_cents.strip().isdigit():
+            p.price_cents = int(price_cents)
+        db.add(p)
+        db.commit()
+        return RedirectResponse(url="/admin/placements", status_code=303)
+
+    @router.post("/placements/{placement_id}/release", response_model=None)
+    def admin_placement_release(
+        request: Request, placement_id: str, db: Session = Depends(get_db)
+    ) -> RedirectResponse:
+        """Release a placement (free the spot). Stops serving immediately."""
+        redir = _admin_guard(request)
+        if redir is not None:
+            return redir
+        p = db.get(Placement, placement_id)
+        if p is None:
+            raise HTTPException(status_code=404, detail="placement_not_found")
+        p.status = PlacementStatus.released.value
+        db.add(p)
+        db.commit()
+        return RedirectResponse(url="/admin/placements", status_code=303)
+
+    @router.post("/placements/{placement_id}/cancel", response_model=None)
+    def admin_placement_cancel(
+        request: Request,
+        placement_id: str,
+        refund: str = Form(default=""),
+        db: Session = Depends(get_db),
+    ) -> RedirectResponse:
+        """Cancel a placement, optionally issuing a Stripe refund.
+
+        Calls the Stripe subscription-cancel (and, when ``refund`` is checked,
+        the refund) then releases the spot immediately. Stripe also fires its own
+        webhooks, which flip status + write the ledger entry idempotently. While
+        billing is dormant this still frees the slot (no Stripe call made)."""
+        redir = _admin_guard(request)
+        if redir is not None:
+            return redir
+        p = db.get(Placement, placement_id)
+        if p is None:
+            raise HTTPException(status_code=404, detail="placement_not_found")
+        do_refund = refund.strip().lower() in {"1", "true", "yes", "on"}
+        summary = billing_service.cancel_placement(db, p, refund=do_refund)
+        record_audit(
+            db,
+            action="placement_cancel",
+            target_type="placement",
+            target_id=placement_id,
+            detail=(
+                f"refund={do_refund} stripe_called={summary['stripe_called']} "
+                f"canceled={summary['canceled']} refunded={summary['refunded']}"
+                + (f" errors={summary['errors']}" if summary["errors"] else "")
+            ),
+        )
+        db.commit()
+        return RedirectResponse(url="/admin/placements", status_code=303)
+
 
 # ── merchant-facing upgrade request capture ──────────────────────────────────
 
@@ -410,12 +557,14 @@ def merchant_upgrade_get(
         )
         .first()
     )
+    # Lake is the only theme (desert deleted 2026-06-24); the desert branch
+    # pointed at a template that no longer exists (TemplateNotFound -> 500).
     return _TEMPLATES.TemplateResponse(
         request=request,
-        name="merchant_upgrade_form.html",
+        name="merchant_upgrade_form_lake.html",
         context={
             "entity": ent,
-            "slots": [s.value for s in AdSlot],
+            "slots": _SELLABLE_SLOT_VALUES,
             "pending": existing is not None,
         },
     )
@@ -470,6 +619,6 @@ def merchant_upgrade_post(
         db.commit()
     return _TEMPLATES.TemplateResponse(
         request=request,
-        name="merchant_upgrade_form.html",
-        context={"entity": ent, "slots": [s.value for s in AdSlot], "pending": True},
+        name="merchant_upgrade_form_lake.html",
+        context={"entity": ent, "slots": _SELLABLE_SLOT_VALUES, "pending": True},
     )

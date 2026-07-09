@@ -1,0 +1,78 @@
+{% extends "base_redesign.html" %}
+{#- Lake Seniors hub (GET /seniors, public, indexable). Lake Havasu Senior
+   Center info, meal program, the two monthly calendars, recurring activities. -#}
+{% block title %}Seniors — Lake Havasu Senior Center | Ask Hava{% endblock %}
+{% block meta_description %}Lake Havasu Senior Center guide: daily community lunch, the monthly lunch menu and activities calendars, weekly classes and games, Meals on Wheels, and how to get involved.{% endblock %}
+{% block head_extra %}
+{% endblock %}
+{% block main %}
+<div class="artx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Home</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Seniors</span></nav>
+  <div class="ah">
+    <span class="eyebrow">For our seniors</span>
+    <h1>Lake Havasu <em>Senior Center.</em></h1>
+  </div>
+  <article class="article">
+    <p class="lead">A warm, welcoming hub for Lake Havasu City seniors — daily lunch, weekly classes and games, Meals on Wheels, and good company. Here's what's happening and how to join in.</p>
+
+    {# WS10: today's live senior feed from the events calendar (senior-narrowed).
+       Omitted entirely when the center has nothing on today — never fabricated. #}
+    {% if today_feed %}
+    <h2>Today at the Senior Center</h2>
+    <p><small>{{ today_label }}</small></p>
+    <ul>
+      {% for r in today_feed %}
+      <li>{% if r.time_label %}<strong>{{ r.time_label }}</strong> — {% endif %}<a href="{{ r.url }}">{{ r.title }}</a>{% if r.venue %} <small>· {{ r.venue }}</small>{% endif %}</li>
+      {% endfor %}
+    </ul>
+    <p><small>Pulled from the live <a href="/events-ui?seniors=1">Seniors calendar</a>; holidays may change the schedule — call {{ phone }} to confirm.</small></p>
+    {% endif %}
+
+    <h2>Visit us</h2>
+    <p>
+      {{ address }}<br>
+      Open Monday–Friday, 8:00 AM–4:00 PM (closed weekends)<br>
+      Phone: <a href="tel:+19284530715">{{ phone }}</a>
+    </p>
+
+    <h2>Join us for lunch</h2>
+    <p>{{ lunch.description }} A daily hot lunch is served <strong>{{ lunch.when }}</strong>. {{ lunch.cost }}. Any amount you can give helps run the meal program — donations are appreciated but never required.</p>
+    <p><a href="{{ source_url }}">View this month's lunch menu &amp; activities calendar &rsaquo;</a></p>
+
+    <h2>This month's calendars</h2>
+    <figure>
+      <img src="{{ menu_image }}" alt="Lake Havasu Senior Center monthly lunch menu calendar" loading="lazy" style="max-width:100%;height:auto;border-radius:10px;border:1px solid rgba(0,0,0,.08)">
+      <figcaption><small>Daily lunch menu (Mohave County Senior Nutrition Program). Menu subject to change — call {{ phone }} to confirm.</small></figcaption>
+    </figure>
+    <figure style="margin-top:1.25rem">
+      <img src="{{ activities_image }}" alt="Lake Havasu Senior Center weekly activities calendar" loading="lazy" style="max-width:100%;height:auto;border-radius:10px;border:1px solid rgba(0,0,0,.08)">
+      <figcaption><small>Weekly activities calendar. Holidays may affect the schedule — call {{ phone }} to confirm.</small></figcaption>
+    </figure>
+
+    {% if specials %}
+    <h2>Special events</h2>
+    <ul>
+      {% for e in specials %}
+      <li><strong>{{ e.title }}</strong> — {{ e.when }}<br><small>{{ e.description }}</small></li>
+      {% endfor %}
+    </ul>
+    {% endif %}
+
+    <h2>Weekly activities</h2>
+    <ul>
+      {% for a in activities %}
+      <li><strong>{{ a.title }}</strong> — {{ a.when }}{% if a.cost %} ({{ a.cost }}){% endif %}</li>
+      {% endfor %}
+    </ul>
+    <p><small>Schedule as published; holidays may change it. See the live <a href="/events-ui">events calendar</a> for the Seniors section, updated weekly.</small></p>
+
+    <h2>Programs &amp; services</h2>
+    <p><strong>Meals on Wheels.</strong> Hot meals delivered almost every weekday to homebound seniors, with frozen meals for the weekend, plus a friendly wellness check at the door.</p>
+    <p><strong>Good Morning Sunshine.</strong> A free daily check-in call to make sure seniors living alone are safe and well — and to start the day with a friendly hello. To enroll, call {{ phone }}.</p>
+    <p><strong>Thrift Store.</strong> Hidden treasures inside the center — clothing and home goods — with proceeds supporting the center's programs.</p>
+
+    <h2>Get involved</h2>
+    <p>Come for a class, a meal, or a game of pool — everyone's welcome. To volunteer, donate, or ask about activities, call <a href="tel:+19284530715">{{ phone }}</a> or visit the <a href="{{ home_url }}">Senior Center website</a>.</p>
+  </article>
+</div>
+{% endblock %}

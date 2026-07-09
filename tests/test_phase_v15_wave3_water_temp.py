@@ -459,3 +459,62 @@ def test_view_model_skips_water_temp_tile_when_reading_is_sentinel() -> None:
 
     water_tiles = [t for t in vm.tiles if t.kind == "water_temp"]
     assert water_tiles == []
+
+
+# ----- RISE / Parker Dam preferred source (2026-06-30) -------------------
+#
+# api_payload prefers the Reclamation RISE Parker Dam reading (item 6127, a
+# representative main-lake value) over the sentinel-stuck Bill Williams USGS
+# gage, and falls back to USGS when RISE has no live reading.
+
+
+def _seed_source(db, source_key: str, payload: dict, *, now) -> None:
+    from app.conditions.cache import invalidate_local_cache, upsert_source
+
+    upsert_source(db, source_key, payload, now=now)
+    db.commit()
+    invalidate_local_cache(source_key)
+
+
+def _live_row(temp_f: float, c: float) -> dict:
+    return {"water_temp_c": c, "water_temp_f": temp_f, "feature_enabled": True, "history": []}
+
+
+def _dead_row() -> dict:
+    return {"water_temp_c": None, "water_temp_f": None, "feature_enabled": True, "history": []}
+
+
+def _payload_with(rise: dict, usgs: dict) -> dict:
+    """Seed both water-temp cache rows, then build /api/conditions' payload."""
+    from datetime import UTC, datetime
+
+    from app.conditions.api_payload import build_conditions_api_payload
+    from app.conditions.constants import SOURCE_RISE_WATER_TEMP, SOURCE_USGS_WATER_TEMP
+    from app.db.database import SessionLocal
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    with SessionLocal() as db:
+        _seed_source(db, SOURCE_RISE_WATER_TEMP, rise, now=now)
+        _seed_source(db, SOURCE_USGS_WATER_TEMP, usgs, now=now)
+        return build_conditions_api_payload(db, now=now)
+
+
+def test_api_payload_prefers_rise_over_usgs() -> None:
+    """Both sources live → RISE (Parker Dam) wins, with its own attribution."""
+    payload = _payload_with(_live_row(71.0, 21.7), _live_row(99.0, 37.2))
+    assert payload["water_temp_f"] == 71.0
+    assert payload["water_temp_attribution"] == "Reclamation · Parker Dam"
+
+
+def test_api_payload_falls_back_to_usgs_when_rise_dead() -> None:
+    """RISE present but null → fall back to the live USGS reading + attribution."""
+    payload = _payload_with(_dead_row(), _live_row(68.0, 20.0))
+    assert payload["water_temp_f"] == 68.0
+    assert payload["water_temp_attribution"] == "USGS 09426630 ~25mi south"
+
+
+def test_api_payload_omits_water_temp_when_both_sources_dead() -> None:
+    """Neither source has a live reading → no water_temp fields (tile hidden)."""
+    payload = _payload_with(_dead_row(), _dead_row())
+    assert "water_temp_f" not in payload
+    assert "water_temp_attribution" not in payload

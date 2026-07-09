@@ -15,7 +15,10 @@ import httpx
 from sqlalchemy import func, select
 from sqlalchemy.orm import Session
 
-from app.contrib.approval_service import approve_contribution_as_event
+from app.contrib.approval_service import (
+    approve_contribution_as_event,
+    should_auto_approve_event,
+)
 from app.contrib.event_reconciler import reconcile_event
 from app.contrib.river_scene import (
     REQUEST_TIMEOUT,
@@ -26,6 +29,7 @@ from app.contrib.river_scene import (
     fetch_sitemap_urls,
     normalize_to_contribution,
 )
+from app.core.timezone import now_lake_havasu
 from app.db import contribution_store as cs
 from app.db.database import SessionLocal
 from app.db.models import Contribution, Event
@@ -128,10 +132,17 @@ def run_pull(
     *,
     dry_run: bool,
     http_client: httpx.Client | None = None,
+    backfill_history: bool = False,
 ) -> int:
     """
     Discover event URLs from the site sitemap, dedupe before fetching HTML,
     then insert contributions (or dry-run). Returns 0 on success, 1 on fetch error.
+
+    ``backfill_history`` (Casey's decision #3, 2026-07-03): for a one-time
+    full-history ingest, pass True so past events are NOT dropped at fetch time
+    (they land, then ``scripts/expire_past_events.py`` marks them expired and they
+    stay out of every user-facing view). Default False keeps the normal
+    upcoming-only pull.
     """
     errors = 0
     imported = 0
@@ -172,8 +183,11 @@ def run_pull(
                     skipped_duplicate += 1
                     continue
 
+            # AZ-local "today" so UTC skew never drops a same-day event; for a
+            # full-history backfill, date.min disables the past-drop entirely.
+            as_of = date.min if backfill_history else now_lake_havasu().date()
             try:
-                rse = fetch_and_parse_event(url, client=client, today=date.today())
+                rse = fetch_and_parse_event(url, client=client, today=as_of)
             except Exception as e:
                 print(f"error: event {url}: {e}", file=sys.stderr)
                 errors += 1
@@ -221,7 +235,13 @@ def run_pull(
                         continue
                     created = cs.create_contribution(db, payload)
                     imported += 1
-                    if payload.source == "river_scene_import":
+                    # Gate on the trust-tier registry (approval_service), not a
+                    # source-string check — the registry is the one source of
+                    # truth for go/no-go (env-overridable via
+                    # EVENT_AUTO_APPROVE_SOURCES) and enforces the min-info bar
+                    # (title/date/start_time). golakehavasu_pull gates the same
+                    # way.
+                    if should_auto_approve_event(created):
                         try:
                             approve_fields = EventApprovalFields(
                                 title=payload.submission_name,

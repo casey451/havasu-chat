@@ -1,0 +1,111 @@
+{% extends "base_redesign.html" %}
+{#- "Add to Hava" contribution form (GET/POST /contribute) on the v4 shell (v4.6).
+   Was a standalone inline-HTML page with its own topbar + contribute.css; now
+   extends base_redesign so it wears the one shell (six-link masthead + footer).
+   EVERY field name / id / action + the entity-type toggle JS are preserved
+   verbatim from the prior version so the POST contract is unchanged. noindex
+   (an intake form, not a landing). -#}
+{% block title %}Add to Hava — Ask Hava{% endblock %}
+{% block meta_description %}Suggest a business, program, event, or tip for Lake Havasu City — Ask Hava reviews every submission before it's added.{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+{% endblock %}
+{% block main %}
+<div class="contribx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Ask Hava</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">Add to Hava</span></nav>
+  <section class="head">
+    <p class="eyebrow">Add to Hava</p>
+    <h1 class="serif">Tell me what <em>belongs</em>.</h1>
+    <p class="lede">Hava grows from what locals share. Suggest a business, program, event, or tip — I'll review and add it if it fits.</p>
+  </section>
+
+  {% if submitted %}<div class="banner ok" role="status">{{ success_intro }}</div>{% endif %}
+  {% if error_banner %}<div class="banner err" role="alert">{{ error_banner }}</div>{% endif %}
+  {% if field_errors %}<div class="banner err" role="alert"><ul class="err-list">{% for k, v in field_errors.items() %}<li><strong>{{ k }}</strong>: {{ v }}</li>{% endfor %}</ul></div>{% endif %}
+
+  <form class="form-card" method="post" action="/contribute" id="contrib-form">
+    <fieldset class="type-fieldset">
+    <legend>What are you submitting?</legend>
+    <div class="row-radio">
+      <label><input type="radio" name="entity_type" value="provider"{% if ent == 'provider' %} checked{% endif %}/> Business</label>
+      <label><input type="radio" name="entity_type" value="program"{% if ent == 'program' %} checked{% endif %}/> Program</label>
+      <label><input type="radio" name="entity_type" value="event"{% if ent == 'event' %} checked{% endif %}/> Event</label>
+      <label><input type="radio" name="entity_type" value="tip"{% if ent == 'tip' %} checked{% endif %}/> Tip</label>
+    </div>
+    </fieldset>
+
+    <label for="submission_name">Name <span class="req" aria-hidden="true">*</span></label>
+    <input type="text" name="submission_name" id="submission_name" maxlength="200" required aria-required="true" value="{{ p.get('submission_name', '') }}"/>
+
+    <label for="submission_url">Website or listing URL <span class="req" id="url-req" aria-hidden="true"{% if ent not in ('provider', 'program') %} hidden{% endif %}>*</span></label>
+    <input type="url" name="submission_url" id="submission_url" value="{{ p.get('submission_url', '') }}" placeholder="https://…" data-url-required-for="provider program"/>
+
+    <label for="category_hint">Category hint (optional)</label>
+    <input type="text" name="category_hint" id="category_hint" maxlength="200" placeholder="BMX, gymnastics, dance studio, restaurant" value="{{ p.get('category_hint', '') }}"/>
+
+    <label for="description">Description / notes (optional)</label>
+    <textarea name="description" id="description" maxlength="{{ max_notes }}" placeholder="What should we know about this?">{{ p.get('description', '') }}</textarea>
+
+    <div id="event-fields" style="display: {{ 'block' if ent == 'event' else 'none' }};">
+      <label for="event_date">Event date <span class="req" id="event-date-req" aria-hidden="true"{% if ent != 'event' %} hidden{% endif %}>*</span></label>
+      <input type="date" name="event_date" id="event_date" value="{{ p.get('event_date', '') }}"/>
+
+      <label for="event_start_time">Start time <span class="req" id="event-start-req" aria-hidden="true"{% if ent != 'event' %} hidden{% endif %}>*</span></label>
+      <input type="time" name="event_start_time" id="event_start_time" value="{{ p.get('event_start_time', '') }}"/>
+
+      <label for="event_end_time">End time (optional)</label>
+      <input type="time" name="event_end_time" id="event_end_time" value="{{ p.get('event_end_time', '') }}"/>
+    </div>
+
+    <label for="submitter_email">Email (optional)</label>
+    <input type="email" name="submitter_email" id="submitter_email" autocomplete="email" placeholder="So we can reach you if we have questions" value="{{ p.get('submitter_email', '') }}"/>
+    <p class="field-note">We only use your email to follow up on this submission — never for marketing.</p>
+
+    <p class="req-legend"><span class="req" aria-hidden="true">*</span> Required</p>
+    <button type="submit" class="submit">Submit for review</button>
+    <p class="review-note">We review most submissions within a few days.</p>
+  </form>
+
+  <p class="foot"><a href="/home">← Back to Hava</a></p>
+</div>
+{% endblock %}
+{% block scripts %}
+<script>
+(function () {
+  var form = document.getElementById("contrib-form");
+  var eventBlock = document.getElementById("event-fields");
+  var urlInput = document.getElementById("submission_url");
+  var urlReq = document.getElementById("url-req");
+  var eventDate = document.getElementById("event_date");
+  var eventStart = document.getElementById("event_start_time");
+  var eventDateReq = document.getElementById("event-date-req");
+  var eventStartReq = document.getElementById("event-start-req");
+  function entityType() {
+    var r = form.querySelector('input[name="entity_type"]:checked');
+    return r ? r.value : "provider";
+  }
+  function setRequired(el, badge, on) {
+    if (el) {
+      if (on) { el.setAttribute("required", "required"); }
+      else { el.removeAttribute("required"); }
+    }
+    if (badge) { badge.hidden = !on; }
+  }
+  function sync() {
+    var et = entityType();
+    var isEvent = et === "event";
+    eventBlock.style.display = isEvent ? "block" : "none";
+    var urlRequired = et === "provider" || et === "program";
+    if (urlRequired) { urlInput.setAttribute("required", "required"); }
+    else { urlInput.removeAttribute("required"); }
+    if (urlReq) { urlReq.hidden = !urlRequired; }
+    setRequired(eventDate, eventDateReq, isEvent);
+    setRequired(eventStart, eventStartReq, isEvent);
+  }
+  form.querySelectorAll('input[name="entity_type"]').forEach(function (el) {
+    el.addEventListener("change", sync);
+  });
+  sync();
+})();
+</script>
+{% endblock %}

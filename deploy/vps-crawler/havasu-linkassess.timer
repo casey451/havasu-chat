@@ -1,0 +1,12 @@
+[Unit]
+Description=Run the broken-link assessment daily (after the link sweep settles)
+
+[Timer]
+# Daily at 11:10 UTC — a few hours after the 08:40 sweep, so the confirmed-broken
+# set is current. Low volume (only confirmed-broken provider links not yet judged).
+OnCalendar=*-*-* 11:10:00
+AccuracySec=5min
+Persistent=true
+
+[Install]
+WantedBy=timers.target

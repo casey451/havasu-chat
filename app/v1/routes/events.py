@@ -2,9 +2,10 @@
 
 from __future__ import annotations
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from sqlalchemy.orm import Session
 
+from app.core.rate_limit import limiter, public_api_rate_limit
 from app.core.timezone import now_lake_havasu
 from app.db.database import get_db
 from app.db.models import Event
@@ -15,7 +16,9 @@ router = APIRouter()
 
 
 @router.get("/api/events")
+@limiter.limit(public_api_rate_limit)
 def list_events(
+    request: Request,
     db: Session = Depends(get_db),
     group: str | None = Query(None, description="today|weekend|next-week"),
     start: str | None = None,

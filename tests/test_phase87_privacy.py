@@ -174,10 +174,9 @@ def test_root_redirects_to_home() -> None:
         r = client.get("/")
     assert r.status_code == 200
     assert str(r.url).endswith("/home")
-    # Desert Modern home: assert the base tokens stylesheet + the display
-    # hero (Casey 2026-06-11 — see test_hero_copy).
-    assert "/static/styles/desert.css" in r.text
-    assert '<span class="hl nb">Lake&nbsp;Havasu.</span>' in r.text
+    # Lake Ink & Brass home: the base tokens stylesheet + the hero lede.
+    assert "/static/styles/lake_redesign.css" in r.text  # v4 home (flag collapsed)
+    assert 'role="search"' in r.text  # the v4 hero search
 
 
 def test_jinja2_templates_directory_resolves() -> None:
@@ -190,8 +189,8 @@ def test_jinja2_templates_directory_resolves() -> None:
     with TestClient(app) as client:
         r = client.get("/privacy")
     assert r.status_code == 200
-    # Desert Modern reskin: the markdown doc renders inside the .d-doc article.
-    assert '<article class="d-doc">' in r.text
+    # Lake Ink & Brass: the markdown doc renders inside the .article element.
+    assert '<article class="article">' in r.text
 
 
 def test_hint_extractor_validation_failure_logs_no_raw_json(

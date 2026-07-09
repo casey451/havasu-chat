@@ -105,3 +105,30 @@ def test_clean_event_is_unchanged() -> None:
     assert not out.changed
     assert out.location_name == "Rotary Park"
     assert out.description == "Community cleanup day. Bring gloves."
+
+
+# ── visitor-center placeholder override (2026-07-08 re-audit) ──────────────────
+def test_visitor_center_placeholder_is_overridden_when_prose_names_a_venue() -> None:
+    # A GLH event tagged to the shared visitor-center placeholder whose LOCATION:
+    # line names the real venue (Bunco @ Mudshark). The placeholder is a real-
+    # shaped string, but it's a stand-in the prose should override.
+    out = recover_event_fields(
+        location_name="Go Lake Havasu Visitor Center",
+        description=(
+            "Red, White and Blue Bunco Party!\n"
+            "LOCATION: Mudshark Public House, 210 Swanson Ave, Lake Havasu City, AZ 86403"
+        ),
+    )
+    assert out.changed
+    assert out.location_name == "Mudshark Public House"
+    assert out.address == "210 Swanson Ave, Lake Havasu City, AZ 86403"
+
+
+def test_visitor_center_placeholder_is_kept_when_no_real_venue_recovered() -> None:
+    # A genuine visitor-center event (no better venue in the prose) keeps its
+    # label — the placeholder must never be blanked to "Location TBD".
+    out = recover_event_fields(
+        location_name="Go Lake Havasu Visitor Center",
+        description="Stop by the visitor center for maps and local tips.",
+    )
+    assert out.location_name == "Go Lake Havasu Visitor Center"

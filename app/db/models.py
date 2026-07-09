@@ -26,7 +26,26 @@ from sqlalchemy import (
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
+# Sliced-out ORM models (audit 2026-07-01 decomposition). Defined in their own
+# modules but re-exported here so every ``from app.db.models import X`` keeps
+# resolving — and so importing ``app.db.models`` registers them with ``Base``.
+# Each slice module imports only ``Base`` (never ``models`` / ``entity_dual_write``),
+# so these imports are cycle-free regardless of load order.
+from app.db.alerts_models import (  # noqa: F401 — re-export
+    AlertDispatched,
+    AlertSubscription,
+    DigestSubscription,
+)
+from app.db.auth_models import (  # noqa: F401 — re-export
+    AuthSession,
+    Claim,
+    MagicLinkToken,
+    User,
+    UserFavorite,
+)
 from app.db.database import Base
+from app.db.jobs_models import Job, LinkHealth, ScrapeCapture  # noqa: F401 — re-export
+from app.db.photo_models import Photo  # noqa: F401 — re-export
 from app.db.types import TZAwareDateTime
 from app.schemas.event import EventCreate
 
@@ -39,7 +58,11 @@ class Provider(Base):
     __tablename__ = "providers"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    provider_name: Mapped[str] = mapped_column(String, nullable=False)
+    # Indexed (audit 2026-07-01): exact-match lookups on the chat path
+    # (session.record_entity) and admin/API ilike searches filter on it, and
+    # slug allocation prefix-probes it; there was no index. Migration
+    # aud1provname01.
+    provider_name: Mapped[str] = mapped_column(String, nullable=False, index=True)
     category: Mapped[str] = mapped_column(String, nullable=False)
     # P0 Task 2: second-level group slug (e.g. "home-services", "dog groomer"
     # bucket). One of app/categories/subcategories.py's group slugs. Nullable —
@@ -134,6 +157,13 @@ class Provider(Base):
     # first-class Place row per pivot §8.2 (Place model deferred to Phase 2).
     district: Mapped[str | None] = mapped_column(String(64), nullable=True)
 
+    # B7 (locality): whether the provider is genuinely in the Lake Havasu service
+    # area. Backfilled by scripts/backfill_is_local.py from geo distance (within
+    # IN_AREA_KM of the LHC civic anchor) OR a local city token in the address —
+    # local if EITHER signal says so. Nullable tri-state: NULL means "unknown"
+    # (no usable geo AND no recognizable city), never assume out-of-area.
+    is_local: Mapped[bool | None] = mapped_column(Boolean, nullable=True)
+
     # Directory pivot V1 follow-up (2026-05-13): URL-safe slug derived from
     # provider_name. Used as the route key for /provider/<slug>. Backfilled
     # by the f1a2b3c4d5e6 migration; new rows get a slug via the ingest
@@ -161,6 +191,21 @@ class Provider(Base):
     # phone_call, in_person, web_form_submission, email_confirmation (see migration
     # c5d6e7f8a9b0; legacy five values predate operator enrichment CSV vocab).
     verification_method: Mapped[str | None] = mapped_column(String(32), nullable=True)
+
+    # Source-parity campaign (2026-07-03) — see
+    # docs/audits/2026-07/PARITY_AND_COMPLETENESS_PLAN_2026-07-03.md.
+    # ``region``: coarse locality slug from app.contrib.source_category_map
+    # (``havasu-core`` or an out-of-area region like ``parker`` / ``laughlin-
+    # bullhead``). Finer than the tri-state ``is_local`` boolean above; used as
+    # the exclusion gate (Casey's Lake-Havasu-only decision) so out-of-area rows
+    # can be filtered/excluded rather than silently mixed in. Nullable — legacy
+    # rows stay NULL (treated as unknown-core).
+    # ``category_provenance``: which precedence rule set the current leaf
+    # (``source_crosswalk`` / ``name_signal`` / ``google_type`` / ``legacy``) so
+    # a categorization is explainable and backfills are auditable. Nullable +
+    # additive; NO serving path reads either. See the srcparity01 migration.
+    region: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    category_provenance: Mapped[str | None] = mapped_column(String(32), nullable=True)
 
     # BUILD.md step 2: editorial "Hava's pick" flag. Hand-curated via DB
     # script; admin UI deferred. Distinct from spotlight placement on
@@ -296,6 +341,30 @@ class Event(Base):
     # from a scrambled description's ``Image:`` line by the backfill, or set on
     # ingest; rendered on the event permalink when present.
     image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    # Fix 2.2 — human-readable price for the event, mirroring how ``Program.cost`` /
+    # ``Program.cost_description`` model pricing. ``cost`` is a short label like
+    # "$20", "Free", or "$10-$25"; ``cost_description`` holds extra pricing notes
+    # ("kids under 5 free", "members $15"). Both nullable + additive; populated at
+    # ingest from the source JSON-LD ``offers`` / parsed from the description, and
+    # by scripts/backfill_event_fields_2026_06.py. Rendering is handled by the
+    # event-detail/card lane; this lane only stores the value. See the
+    # a1b2c3d4e5f7 migration.
+    cost: Mapped[str | None] = mapped_column(String, nullable=True)
+    cost_description: Mapped[str | None] = mapped_column(Text, nullable=True)
+    # Fix 4.3 — instructor/host name extracted from a class title (e.g. "Tai Chi
+    # Vince" -> host="Vince"). The display-grade title is cleaned by
+    # app.events.title_clean (another lane); this structured field is populated at
+    # ingest from the RAW title using that module's shared INSTRUCTOR_NAMES set so
+    # the host survives even after the title is stripped. Nullable + additive.
+    host: Mapped[str | None] = mapped_column(String, nullable=True)
+    # Source-parity campaign (2026-07-03) — canonical event category stamped at
+    # ingest from the source's own category via app.contrib.source_category_map
+    # (one of ~26 buckets: music, festival, boating-and-lake, ...). Additive
+    # alongside the loose ``tags`` list; nullable until backfilled. ``region``
+    # mirrors Provider.region (Lake-Havasu-only exclusion gate). See the
+    # srcparity01 migration and the parity plan.
+    category: Mapped[str | None] = mapped_column(String(48), nullable=True, index=True)
+    region: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
     status: Mapped[str] = mapped_column(String, default="live", nullable=False)
     source: Mapped[str] = mapped_column(String, default="admin", nullable=False)
     verified: Mapped[bool] = mapped_column(Boolean, default=False, nullable=False)
@@ -839,6 +908,15 @@ class AnalyticsEvent(Base):
     """
 
     __tablename__ = "analytics_events"
+    # P6 perf: the admin placement/traffic dashboards group by ``slot`` and by
+    # coalesce(``slot_origin``, ``slot``) over a created_at window. Without these
+    # the group-by is a full scan + filesort that degrades as the table grows one
+    # row per ad impression sitewide. Composite (col, created_at) so the window
+    # filter rides the same index.
+    __table_args__ = (
+        Index("ix_analytics_events_slot_created", "slot", "created_at"),
+        Index("ix_analytics_events_slot_origin_created", "slot_origin", "created_at"),
+    )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
     event_name: Mapped[str] = mapped_column(String(128), nullable=False, index=True)
@@ -855,6 +933,45 @@ class AnalyticsEvent(Base):
     created_at: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False, index=True
     )
+
+
+class Feedback(Base):
+    """User-submitted feedback / "report wrong or missing info" (P5, §2.4).
+
+    The source of truth for the feedback channel: every submission writes a row
+    here first (so it's never lost), then fires one Resend notification to the
+    operator. This kills the old mailto black hole + the phantom "feedback
+    button" privacy/terms referenced.
+
+    Anonymized like ``QueryLog`` — we keep an optional reply ``email`` only when
+    the user supplies one; no IP / user-agent / user-id is persisted (rate
+    limiting hashes the IP in memory, never to a row).
+    """
+
+    __tablename__ = "feedback"
+    __table_args__ = (
+        Index("ix_feedback_status", "status"),
+        Index("ix_feedback_created_at", "created_at"),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, nullable=False, server_default=func.now()
+    )
+    # The entry point sets this: 'wrong_info' | 'missing_info' | 'general' | 'bug'.
+    kind: Mapped[str] = mapped_column(String(32), nullable=False, default="general")
+    # What the report is about, when it came from a listing/category/event page:
+    # target_type in {'provider','category','event','page'}; target_ref is the
+    # slug/id/name the control prefilled.
+    target_type: Mapped[str | None] = mapped_column(String(32), nullable=True)
+    target_ref: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    page_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    message: Mapped[str] = mapped_column(Text, nullable=False)
+    email: Mapped[str | None] = mapped_column(String(320), nullable=True)
+    # Moderation lifecycle: 'new' | 'reviewed' | 'resolved' | 'spam'.
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="new")
+    admin_note: Mapped[str | None] = mapped_column(Text, nullable=True)
+    reviewed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
 class Category(Base):
@@ -1292,289 +1409,6 @@ def _register_provider_slug_listeners() -> None:
     register_provider_slug_hooks()
 
 
-class User(Base):
-    """End-user / merchant / admin identity.
-
-    Created on first successful magic-link callback. Role defaults to
-    'end_user'; promoted to 'merchant' implicitly on first verified Claim;
-    promoted to 'admin' SQL-only (V1) — design memo §10 Q7.
-    """
-
-    __tablename__ = "users"
-    __table_args__ = (
-        CheckConstraint(
-            "role IN ('end_user', 'merchant', 'admin')",
-            name="ck_users_role",
-        ),
-        CheckConstraint(
-            "preferred_mode IN ('default', 'boat')",
-            name="ck_users_preferred_mode",
-        ),
-    )
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    email: Mapped[str] = mapped_column(String(320), nullable=False, unique=True, index=True)
-    # email is lower-cased at write time — see normalize helper in app/auth/email_helpers.py.
-    display_name: Mapped[str | None] = mapped_column(String(120), nullable=True)
-    role: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="end_user", server_default="end_user"
-    )
-    is_active: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default=true()
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-    last_login_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    last_active_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
-    preferred_mode: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="default", server_default="default"
-    )
-
-    alert_subscriptions: Mapped[list["AlertSubscription"]] = relationship(
-        "AlertSubscription",
-        back_populates="user",
-        passive_deletes=True,
-    )
-    peer_recommendations: Mapped[list["PeerRecommendation"]] = relationship(
-        "PeerRecommendation",
-        back_populates="recommender",
-        passive_deletes=True,
-        foreign_keys=lambda: [PeerRecommendation.recommender_user_id],
-    )
-
-
-class MagicLinkToken(Base):
-    """Short-lived single-use token emailed via Resend.
-
-    Plaintext is never stored — only SHA-256 of plaintext lives in DB. Pattern
-    mirrors Contribution.submitter_ip_hash at app/db/models.py:354.
-    """
-
-    __tablename__ = "magic_link_tokens"
-    __table_args__ = (
-        Index("ix_magic_link_tokens_email", "email"),
-        Index("ix_magic_link_tokens_token_hash", "token_hash", unique=True),
-        Index("ix_magic_link_tokens_expires_at", "expires_at"),
-    )
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    email: Mapped[str] = mapped_column(String(320), nullable=False)
-    # NOT a FK to users — User row may not exist at request-link time
-    # (first-time login creates the row on successful callback).
-    token_hash: Mapped[str] = mapped_column(String(64), nullable=False)
-    # SHA-256 hex digest of plaintext token. 64 chars.
-    expires_at: Mapped[datetime] = mapped_column(TZAwareDateTime(), nullable=False)
-    # 15 minutes from created_at by default.
-    consumed_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
-    requested_from_ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-
-
-class AuthSession(Base):
-    """Long-lived authenticated session.
-
-    Cookie name 'hava_session'. Cookie value = itsdangerous-signed AuthSession.id.
-    Cookie is HttpOnly + Secure (prod) + SameSite=Lax. Session row is the source
-    of truth for 'is logged in'; signature is the integrity check.
-
-    Mirrors the admin-cookie pattern at app/admin/auth.py:30 but signs a session
-    id (UUID) instead of {"ok": True}.
-
-    Class name ``AuthSession`` avoids clashing with ``sqlalchemy.orm.Session`` on
-    this module's namespace during import-time circular edges (Phase 2A.1).
-    """
-
-    __tablename__ = "sessions"
-    __table_args__ = (
-        Index("ix_sessions_user_id", "user_id"),
-        Index("ix_sessions_expires_at", "expires_at"),
-    )
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    user_id: Mapped[str] = mapped_column(
-        String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-    last_seen_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-    expires_at: Mapped[datetime] = mapped_column(TZAwareDateTime(), nullable=False)
-    # 30 days from created_at. Absolute, no idle-extension in V1.
-    ip_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-    user_agent_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-
-    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
-
-
-class UserFavorite(Base):
-    """User-saved Entity (Provider / Place / Event in V1; Programs deferred).
-
-    NOTE: master plan §4 Phase 2 Lane 2A explicitly amended the design memo's
-    polymorphic (entity_type, entity_id) shape to a single FK pointing at
-    entities.id. Entity.entity_type already discriminates; no duplicate column
-    needed. App-layer validation at insert time asserts entity.entity_type
-    is in the favoritable set (see app/auth/favorites.py validators).
-    """
-
-    __tablename__ = "user_favorites"
-    __table_args__ = (
-        UniqueConstraint("user_id", "entity_id", name="uq_user_favorites_user_entity"),
-        Index("ix_user_favorites_user_id", "user_id"),
-        Index("ix_user_favorites_entity_id", "entity_id"),
-    )
-
-    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
-    user_id: Mapped[str] = mapped_column(
-        String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    entity_id: Mapped[str] = mapped_column(
-        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-
-    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
-    entity: Mapped["Entity"] = relationship("Entity", foreign_keys=[entity_id])
-
-
-class Claim(Base):
-    """Business-owner claim on an Entity.
-
-    V1 only accepts entity_type IN ('commercial', 'place') — events + programs
-    are not claimable. Validation at insert time. Status flips from 'pending' to
-    'verified' (or 'rejected') via the admin review queue. A verified claim is
-    the bridge between User identity and merchant-facing edit affordances; the
-    Provider profile flips viewer_is_owner to True when current_user has a
-    verified claim for that provider's entity_id.
-    """
-
-    __tablename__ = "claims"
-    __table_args__ = (
-        UniqueConstraint("user_id", "entity_id", name="uq_claims_user_entity"),
-        CheckConstraint(
-            "status IN ('pending', 'verified', 'rejected')",
-            name="ck_claims_status",
-        ),
-        CheckConstraint(
-            "verification_method IS NULL OR verification_method IN ("
-            "'phone_call_initiated_by_us', 'phone_call_initiated_by_them', "
-            "'in_person', 'email_confirmation', 'business_card_handoff'"
-            ")",
-            name="ck_claims_verification_method",
-        ),
-        Index("ix_claims_user_id", "user_id"),
-        Index("ix_claims_entity_id", "entity_id"),
-        Index("ix_claims_status", "status"),
-    )
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    user_id: Mapped[str] = mapped_column(
-        String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    entity_id: Mapped[str] = mapped_column(
-        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
-    )
-    status: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="pending", server_default="pending"
-    )
-    verification_method: Mapped[str | None] = mapped_column(String(48), nullable=True)
-    claimed_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-    verified_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    rejected_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    rejection_reason: Mapped[str | None] = mapped_column(Text, nullable=True)
-    verified_by: Mapped[str | None] = mapped_column(
-        String, ForeignKey("users.id", ondelete="SET NULL"), nullable=True
-    )
-
-    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
-    entity: Mapped["Entity"] = relationship("Entity", foreign_keys=[entity_id])
-    verifier: Mapped["User | None"] = relationship("User", foreign_keys=[verified_by])
-
-
-class Photo(Base):
-    """Owner-uploaded photo for an Entity (commercial / place in V1).
-
-    FK to entities.id with ON DELETE CASCADE (master plan §4 Phase 2 amendment
-    over the design memo's polymorphic-no-FK shape — Phase 1's ENTITY pivot
-    unifies the target). Entity.entity_type discriminates; no duplicate column
-    on photos. App-layer validation on insert: assert
-    entities.entity_type IN ('commercial', 'place'). Events + programs are
-    NOT photo-uploadable in V1 — guarded at the route level.
-    """
-
-    __tablename__ = "photos"
-    __table_args__ = (
-        CheckConstraint(
-            "status IN ('uploading', 'processing', 'live', 'flagged', 'deleted')",
-            name="ck_photos_status",
-        ),
-        CheckConstraint(
-            "mime_type IN ('image/jpeg', 'image/png', 'image/webp')",
-            name="ck_photos_mime_type",
-        ),
-        Index("ix_photos_entity_id", "entity_id"),
-        Index("ix_photos_uploaded_by_user_id", "uploaded_by_user_id"),
-        Index("ix_photos_status", "status"),
-        Index("ix_photos_image_hash", "image_hash"),
-        Index("ix_photos_entity_hash_status", "entity_id", "image_hash", "status"),
-    )
-
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    entity_id: Mapped[str] = mapped_column(
-        String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
-    )
-    uploaded_by_user_id: Mapped[str] = mapped_column(
-        String, ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-
-    original_filename: Mapped[str | None] = mapped_column(String(255), nullable=True)
-    mime_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    width_px: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    height_px: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    file_size_bytes: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    image_hash: Mapped[str | None] = mapped_column(String(64), nullable=True)
-
-    storage_key: Mapped[str] = mapped_column(String(512), nullable=False)
-    cdn_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    thumbnail_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    medium_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-    hero_url: Mapped[str | None] = mapped_column(String(1024), nullable=True)
-
-    caption: Mapped[str | None] = mapped_column(Text, nullable=True)
-    is_hero: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=False, server_default=false()
-    )
-    display_order: Mapped[int] = mapped_column(
-        Integer, nullable=False, default=0, server_default="0"
-    )
-
-    status: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="uploading", server_default="uploading"
-    )
-    processing_error: Mapped[str | None] = mapped_column(String(64), nullable=True)
-
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-        nullable=False,
-    )
-
-    entity: Mapped["Entity"] = relationship("Entity", foreign_keys=[entity_id])
-    uploader: Mapped["User"] = relationship("User", foreign_keys=[uploaded_by_user_id])
-
-
 class District(Base):
     """Geographic / narrative district for profile context (Phase 3.1)."""
 
@@ -1603,83 +1437,6 @@ class District(Base):
 
     entities: Mapped[list["Entity"]] = relationship(
         "Entity", back_populates="district", foreign_keys="Entity.district_id"
-    )
-
-
-class AlertSubscription(Base):
-    """User opt-in for conditions / traffic alerts (Phase 3.1 storage; dispatcher Phase 8)."""
-
-    __tablename__ = "alert_subscriptions"
-    __table_args__ = (
-        CheckConstraint(
-            "alert_type IN ('heat_advisory', 'aqi_alert', 'lake_hazard', 'event_traffic')",
-            name="ck_alert_subscriptions_alert_type",
-        ),
-        CheckConstraint(
-            "delivery_channel IN ('email', 'sms')",
-            name="ck_alert_subscriptions_delivery_channel",
-        ),
-        UniqueConstraint(
-            "user_id",
-            "alert_type",
-            "delivery_channel",
-            name="uq_alert_subscriptions_user_type_channel",
-        ),
-        Index("ix_alert_subscriptions_user_id", "user_id"),
-        Index("ix_alert_subscriptions_alert_type", "alert_type"),
-    )
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    alert_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    delivery_channel: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="email", server_default="email"
-    )
-    paused_until: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-
-    user: Mapped["User"] = relationship(
-        "User", back_populates="alert_subscriptions", foreign_keys=[user_id]
-    )
-    dispatches: Mapped[list["AlertDispatched"]] = relationship(
-        "AlertDispatched", back_populates="subscription", passive_deletes=True
-    )
-
-
-class AlertDispatched(Base):
-    """Audit trail for alert sends (Phase 3.1)."""
-
-    __tablename__ = "alerts_dispatched"
-    __table_args__ = (
-        CheckConstraint(
-            "delivery_status IN ('queued', 'sent', 'failed', 'bounced')",
-            name="ck_alerts_dispatched_delivery_status",
-        ),
-        Index("ix_alerts_dispatched_subscription_id", "subscription_id"),
-        Index("ix_alerts_dispatched_dispatched_at", "dispatched_at"),
-        Index("ix_alerts_dispatched_delivery_status", "delivery_status"),
-    )
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    subscription_id: Mapped[str] = mapped_column(
-        String(36),
-        ForeignKey("alert_subscriptions.id", ondelete="CASCADE"),
-        nullable=False,
-    )
-    alert_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    trigger_data: Mapped[dict | list] = mapped_column(JSON, nullable=False)
-    dispatched_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-    delivery_status: Mapped[str] = mapped_column(String(20), nullable=False)
-    body_snippet: Mapped[str | None] = mapped_column(String(280), nullable=True)
-
-    subscription: Mapped["AlertSubscription"] = relationship(
-        "AlertSubscription", back_populates="dispatches", foreign_keys=[subscription_id]
     )
 
 
@@ -1802,57 +1559,6 @@ class Outbox(Base):
     delivered_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
 
 
-class DigestSubscription(Base):
-    """User opt-in for the "This weekend in Havasu" digest (Phase A3).
-
-    Deliberately separate from :class:`AlertSubscription` (conditions/traffic
-    alerts, owned by a sibling lane). This row is purely an opt-in record;
-    the digest *builder* (:mod:`app.digest.builder`) and dry-run *render*
-    (:mod:`app.digest.render`) are decoupled from delivery — actual send
-    cadence/cron is a flagged Casey product decision and is NOT wired here.
-
-    Opt-in posture: a row exists only when the user has explicitly opted in
-    (``enabled`` defaults True on insert; toggling off sets it False rather
-    than deleting, to preserve the opt-in history). No auto-enrollment.
-    """
-
-    __tablename__ = "digest_subscriptions"
-    __table_args__ = (
-        CheckConstraint(
-            "delivery_channel IN ('email')",
-            name="ck_digest_subscriptions_delivery_channel",
-        ),
-        UniqueConstraint(
-            "user_id",
-            "delivery_channel",
-            name="uq_digest_subscriptions_user_channel",
-        ),
-        Index("ix_digest_subscriptions_user_id", "user_id"),
-    )
-
-    id: Mapped[str] = mapped_column(String(36), primary_key=True, default=lambda: str(uuid4()))
-    user_id: Mapped[str] = mapped_column(
-        String(36), ForeignKey("users.id", ondelete="CASCADE"), nullable=False
-    )
-    delivery_channel: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="email", server_default="email"
-    )
-    enabled: Mapped[bool] = mapped_column(
-        Boolean, nullable=False, default=True, server_default=true()
-    )
-    created_at: Mapped[datetime] = mapped_column(
-        DateTime, default=lambda: datetime.now(UTC), nullable=False
-    )
-    updated_at: Mapped[datetime] = mapped_column(
-        DateTime,
-        default=lambda: datetime.now(UTC),
-        onupdate=lambda: datetime.now(UTC),
-        nullable=False,
-    )
-
-    user: Mapped["User"] = relationship("User", foreign_keys=[user_id])
-
-
 class UpgradeRequestStatus(str, Enum):
     """Lifecycle of a merchant's request to feature/spotlight their listing.
 
@@ -1903,8 +1609,13 @@ class UpgradeRequest(Base):
         String, ForeignKey("entities.id", ondelete="CASCADE"), nullable=False
     )
     business_id: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    # Default is PROMOTED (a slot with a live v4 render surface). Was SPOTLIGHT
+    # until 2026-07-03, when the Featured/spotlight tier was retired from sellable
+    # inventory — it has no v4 surface, so it can no longer be requested.
+    # App-layer default only (no server_default), so this is a code change with
+    # no migration; existing rows keep their stored value.
     requested_slot: Mapped[str] = mapped_column(
-        String(32), nullable=False, default=AdSlot.SPOTLIGHT.value
+        String(32), nullable=False, default=AdSlot.PROMOTED.value
     )
     status: Mapped[str] = mapped_column(
         String(16), nullable=False, default=UpgradeRequestStatus.PENDING.value
@@ -1991,83 +1702,148 @@ class AdReservation(Base):
     )
 
 
-class ScrapeCapture(Base):
-    """Image inbox for OpenClaw Facebook-post screenshots (the capture bridge).
+class MovieShowtime(Base):
+    """A single movie showtime at a local theater (the /movies surface).
 
-    OpenClaw stays dumb — it uploads a screenshot (or, when it couldn't capture,
-    a metadata-only ``flagged`` row) plus the source URL here. A Cowork skill
-    later pulls the queue, judges each shot, and marks it ``reviewed`` /
-    ``discarded``; publishing happens in a future phase and never touches this
-    table. Rows start ``new`` (image present) or ``flagged`` (no image).
+    Dedicated table so high-volume, churning showtimes stay OUT of the shared
+    events pipeline entirely: they can't leak into the general events feed and
+    they skip the contributions/auto-approve gate. One denormalized row per
+    showing (volume is small, ~250 rows). Idempotent on
+    ``(source, source_stable_id)`` — re-scrapes upsert. Standalone, no FKs, and
+    NOT promoted to ``entities`` (the Phase 1D dual-write hook only handles
+    Provider/Event/Program).
     """
 
-    __tablename__ = "scrape_captures"
+    __tablename__ = "movie_showtimes"
     __table_args__ = (
-        CheckConstraint(
-            "status IN ('new', 'reviewed', 'discarded', 'flagged')",
-            name="ck_scrape_captures_status",
+        UniqueConstraint(
+            "source", "source_stable_id", name="uq_movie_showtimes_source_stable"
         ),
-        Index("ix_scrape_captures_status", "status"),
-        Index("ix_scrape_captures_created_at", "created_at"),
+        Index("ix_movie_showtimes_show_date", "show_date"),
+        Index("ix_movie_showtimes_theater_slug", "theater_slug"),
     )
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    business_name: Mapped[str | None] = mapped_column(String, nullable=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False)
+    source_stable_id: Mapped[str] = mapped_column(String(128), nullable=False)
+    theater_slug: Mapped[str] = mapped_column(String(64), nullable=False)
+    theater_name: Mapped[str] = mapped_column(String(120), nullable=False)
+    film_title: Mapped[str] = mapped_column(String(255), nullable=False)
+    rating: Mapped[str | None] = mapped_column(String(16), nullable=True)
+    genre: Mapped[str | None] = mapped_column(String(120), nullable=True)
+    runtime_minutes: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    director: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    synopsis: Mapped[str | None] = mapped_column(Text, nullable=True)
+    poster_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    screen: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    show_date: Mapped[_Date] = mapped_column(Date, nullable=False)
+    show_time: Mapped[time] = mapped_column(Time, nullable=False)
+    booking_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
+    is_sold_out: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    is_free: Mapped[bool] = mapped_column(
+        Boolean, nullable=False, default=False, server_default=false()
+    )
+    tags: Mapped[list[str]] = mapped_column(JSON, nullable=False, default=list)
+    created_at: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC),
+        onupdate=lambda: datetime.now(UTC),
+        nullable=False,
+    )
+    scraped_at: Mapped[datetime | None] = mapped_column(TZAwareDateTime(), nullable=True)
+
+
+class SourceListing(Base):
+    """Coverage-ledger row for one external *business* listing (Part B of the
+    source-parity plan).
+
+    One row per ``(source, source_url)`` ever seen on a source directory
+    (golakehavasu partner directory today; chamber / downtown_lhc later),
+    written by ``scripts/reconcile_sources.py``. It turns completeness from an
+    assertion into a measured invariant: every in-area listing is ``matched``,
+    or ``excluded`` with a reason. ``mapped_leaf`` records the crosswalk's leaf
+    so ``miscategorized`` (matched provider whose leaf != crosswalk leaf) is
+    detectable. Additive, no serving path reads it.
+    """
+
+    __tablename__ = "source_listings"
+    __table_args__ = (
+        UniqueConstraint("source", "source_url", name="uq_source_listings_source_url"),
+        CheckConstraint(
+            "match_status IN ('matched', 'missing', 'miscategorized', 'excluded')",
+            name="ck_source_listings_match_status",
+        ),
+    )
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
     source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
-    captured_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    image_url: Mapped[str | None] = mapped_column(String(2048), nullable=True)
-    image_key: Mapped[str | None] = mapped_column(String(512), nullable=True)
-    status: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="new", server_default="new"
+    source_category: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    name: Mapped[str | None] = mapped_column(String, nullable=True)
+    address: Mapped[str | None] = mapped_column(String, nullable=True)
+    region: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    # crosswalk leaf the source category resolves to (for miscategorized detection)
+    mapped_leaf: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    match_status: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="missing", index=True
     )
-    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
+    matched_provider_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("providers.id"), nullable=True
+    )
+    exclusion_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    first_seen: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
+    last_seen: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
 
 
-class Job(Base):
-    """Admin-queued scraper-pipeline job — the one-click Jobs portal's work item.
+class SourceEvent(Base):
+    """Coverage-ledger row for one external *event* (Part B of the parity plan).
 
-    Casey clicks a button in the admin Jobs page → a ``queued`` row lands here.
-    Worker agents poll ``GET /api/ingest/jobs/pending?worker=...`` with the
-    machine-ingest bearer token, atomically claim the oldest job matching their
-    type map (OpenClaw → ``fb_capture_sweep``; Cowork → the other four), do the
-    work, then PATCH the row to ``running`` / ``done`` / ``failed`` with a
-    ``result_summary``. Additive + standalone — no FKs; ``params`` carries any
-    per-job knobs as JSON. See docs/scraper/ADMIN_JOBS_SPEC.md.
+    One row per ``(source, source_url)`` event ever seen on River Scene /
+    golakehavasu event feeds, written by ``scripts/reconcile_sources.py``.
+    ``mapped_category`` records the canonical event-category the source tag
+    resolves to. Additive, no serving path reads it.
     """
 
-    __tablename__ = "jobs"
+    __tablename__ = "source_events"
     __table_args__ = (
+        UniqueConstraint("source", "source_url", name="uq_source_events_source_url"),
         CheckConstraint(
-            "job_type IN ('schedule_hunt', 'fb_capture_sweep', 'capture_review', "
-            "'publish_approved', 'discovery_audit')",
-            name="ck_jobs_job_type",
+            "match_status IN ('matched', 'missing', 'miscategorized', 'excluded')",
+            name="ck_source_events_match_status",
         ),
-        CheckConstraint(
-            "status IN ('queued', 'claimed', 'running', 'done', 'failed')",
-            name="ck_jobs_status",
-        ),
-        Index("ix_jobs_status", "status"),
-        Index("ix_jobs_job_type", "job_type"),
-        Index("ix_jobs_created_at", "created_at"),
     )
 
-    id: Mapped[str] = mapped_column(String, primary_key=True, default=lambda: str(uuid4()))
-    job_type: Mapped[str] = mapped_column(String(32), nullable=False)
-    status: Mapped[str] = mapped_column(
-        String(16), nullable=False, default="queued", server_default="queued"
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(48), nullable=False, index=True)
+    source_url: Mapped[str] = mapped_column(String(2048), nullable=False)
+    source_category: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    title: Mapped[str | None] = mapped_column(String, nullable=True)
+    event_date: Mapped[_Date | None] = mapped_column(Date, nullable=True)
+    venue: Mapped[str | None] = mapped_column(String, nullable=True)
+    region: Mapped[str | None] = mapped_column(String(32), nullable=True, index=True)
+    mapped_category: Mapped[str | None] = mapped_column(String(48), nullable=True)
+    match_status: Mapped[str] = mapped_column(
+        String(24), nullable=False, default="missing", index=True
     )
-    requested_by: Mapped[str | None] = mapped_column(String, nullable=True)
-    claimed_by: Mapped[str | None] = mapped_column(String, nullable=True)
-    params: Mapped[dict | None] = mapped_column(JSON, nullable=True, default=None)
-    result_summary: Mapped[str | None] = mapped_column(Text, nullable=True)
-    created_at: Mapped[datetime] = mapped_column(
+    matched_event_id: Mapped[str | None] = mapped_column(
+        String, ForeignKey("events.id"), nullable=True
+    )
+    exclusion_reason: Mapped[str | None] = mapped_column(String(64), nullable=True)
+    first_seen: Mapped[datetime] = mapped_column(
         DateTime, default=lambda: datetime.now(UTC), nullable=False
     )
-    claimed_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime, nullable=True)
+    last_seen: Mapped[datetime] = mapped_column(
+        DateTime, default=lambda: datetime.now(UTC), nullable=False
+    )
 
 
 # Phase 4.1 ships the ``Outbox`` ORM class above this line. The provider-slug

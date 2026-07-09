@@ -23,11 +23,11 @@ from app.chat.tier1_templates import (
 )
 from app.contrib.hours_helper import (
     LAKE_HAVASU_TZ,
-    is_open_at,
     places_hours_to_structured,
 )
 from app.core.timezone import now_lake_havasu
 from app.db.models import Event, Program, Provider
+from app.events.time_labels import format_short_time_hhmm
 
 _TIER1_SUB_INTENTS: frozenset[str] = frozenset(
     {
@@ -191,19 +191,8 @@ _PYTHON_WEEKDAY_TO_KEY: tuple[str, ...] = (
 
 
 def _fmt_clock(hm: str) -> str:
-    """``"09:00"`` → ``"9 AM"``; ``"17:30"`` → ``"5:30 PM"``; ``"00:00"`` → ``"12 AM"``."""
-    if not isinstance(hm, str) or len(hm) != 5 or hm[2] != ":":
-        return hm or ""
-    try:
-        h = int(hm[:2])
-        m = int(hm[3:5])
-    except ValueError:
-        return hm
-    suffix = "AM" if h < 12 else "PM"
-    h12 = h % 12 or 12
-    if m == 0:
-        return f"{h12} {suffix}"
-    return f"{h12}:{m:02d} {suffix}"
+    """``"09:00"`` → ``"9 AM"``; delegates to the shared time_labels formatter."""
+    return format_short_time_hhmm(hm)
 
 
 def _structured_for_provider(provider: Provider) -> dict | None:
@@ -379,27 +368,6 @@ def _free_text_to_hm(clock: str) -> str | None:
         h24 = 12 if h == 12 else h + 12
     return f"{h24:02d}:{mm:02d}"
 
-
-def _provider_open_now(provider: Provider, now: datetime) -> bool | None:
-    """Return True/False if open-state is determinable for ``provider``; None otherwise.
-
-    Tries ``provider.hours`` via :func:`_open_now_from_hours` first (existing path).
-    Falls back to converting ``provider.google_hours`` (raw Google Places format) into
-    the structured weekday dict via :func:`places_hours_to_structured` and checking with
-    :func:`is_open_at`. The structured path correctly handles split-day windows
-    (e.g. lunch + dinner) which the legacy regex parser cannot.
-    """
-    h = (provider.hours or "").strip()
-    if h:
-        state = _open_now_from_hours(h, now)
-        if state is not None:
-            return state
-    gh = provider.google_hours
-    if isinstance(gh, dict):
-        structured = places_hours_to_structured(gh)
-        if structured:
-            return bool(is_open_at(structured, now))
-    return None
 
 
 # Day-name → weekday index (Mon=0 … Sun=6, matching ``datetime.weekday()``).

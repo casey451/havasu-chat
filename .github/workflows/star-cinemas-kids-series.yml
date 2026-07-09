@@ -1,0 +1,38 @@
+name: star-cinemas-kids-series
+
+# One-time / on-demand loader for the Star Cinemas FREE Summer Kids Movie Series.
+# This series is published on a flyer (not in the showtimes feed), so the schedule
+# lives in scripts/load_star_cinemas_kids_series.py (SERIES list). Run this from
+# the Actions tab ("Run workflow") whenever the flyer changes — no terminal needed.
+#
+# Defaults to a DRY RUN (prints counts, writes nothing). Tick "apply" to write the
+# showings into the catalog. Idempotent: re-running updates rather than duplicates.
+
+on:
+  workflow_dispatch:
+    inputs:
+      apply:
+        description: "Write to the database (leave off for a dry run)"
+        type: boolean
+        default: false
+
+jobs:
+  load-kids-series:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Load free summer kids series
+        env:
+          # Same Railway Postgres secret the other scrape crons use.
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/load_star_cinemas_kids_series.py ${{ inputs.apply && '--apply' || '--dry-run' }}

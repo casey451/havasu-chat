@@ -78,7 +78,12 @@ _SPELL_MAX_LEN_DELTA = 2  # candidate length must be within this of the token
 # misspelling of "salon" (carried over from the prior tier2 typo map). The
 # others are real words that survive the length guards but mean something else.
 _SPELL_PROTECTED: frozenset[str] = frozenset(
-    {"hostel", "hostels", "saloon", "sparks", "snails", "moves"}
+    # "desert"/"deserts" are real words (Desert Storm, Desert Bar, the Sonoran
+    # desert) that sit one edit from the "dessert" bakery search term added in
+    # the 2026-06-20 coverage pass. "broke" ("my car broke down") sits one edit
+    # from "broker" (insurance/pawn broker), added in the same pass. Never
+    # auto-correct these real words.
+    {"hostel", "hostels", "saloon", "sparks", "snails", "moves", "desert", "deserts", "broke"}
 )
 
 # Exact-match corrections edit-distance shouldn't or can't make on its own:
@@ -136,6 +141,55 @@ _SPELL_ALIASES: dict[str, str] = {
     "windsheild": "windshield",
     "grommer": "groomer",
     "loksmith": "locksmith",
+    # 2026-06-20 search-coverage pass: high-frequency category/trade misspellings
+    # the fuzzy path can miss (transpositions, short targets, big edits). Exact
+    # lookup → zero false-positive risk; token-wise so they also fix the noun
+    # inside a phrase ("matress store" → "mattress store").
+    "plumbur": "plumber",
+    "plumbr": "plumber",
+    "plumbres": "plumbers",
+    "electritian": "electrician",
+    "electrishan": "electrician",
+    "electrisian": "electrician",
+    "machanic": "mechanic",
+    "mechanick": "mechanic",
+    "resteraunt": "restaurant",
+    "restraunt": "restaurant",
+    "restarant": "restaurant",
+    "restaurent": "restaurant",
+    "chiropracter": "chiropractor",
+    "chiroprator": "chiropractor",
+    "optomotrist": "optometrist",
+    "optometris": "optometrist",
+    "physican": "physician",
+    "phisician": "physician",
+    "dermatoligist": "dermatologist",
+    "masage": "massage",
+    "massauge": "massage",
+    "massge": "massage",
+    "jewlery": "jewelry",
+    "jewelery": "jewelry",
+    "jewlry": "jewelry",
+    "matress": "mattress",
+    "mattres": "mattress",
+    "furnature": "furniture",
+    "funiture": "furniture",
+    "boutiqe": "boutique",
+    "botique": "boutique",
+    "appliace": "appliance",
+    "applience": "appliance",
+    "aplliance": "appliance",
+    "contracter": "contractor",
+    "contracor": "contractor",
+    "landscapeing": "landscaping",
+    "lanscaping": "landscaping",
+    "remodelling": "remodeling",
+    "tatoo": "tattoo",
+    "tatto": "tattoo",
+    "groomming": "grooming",
+    "poool": "pool",
+    "swiming": "swimming",
+    "swimmimg": "swimming",
 }
 
 # Filler/function words dropped from the vocab so a typo never "corrects" to one.

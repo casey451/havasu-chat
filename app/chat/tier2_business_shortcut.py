@@ -31,6 +31,8 @@ import re
 from typing import Any
 
 from app.chat.normalizer import spell_correct
+from app.chat.open_now_vocab import BARE_OPEN_NOW_RE as _BARE_OPEN_NOW_RE
+from app.chat.open_now_vocab import OPEN_NOW_CAPTURE_TO_CATEGORY as _OPEN_NOW_CAPTURE_TO_CATEGORY
 from app.chat.tier2_schema import Tier2Filters
 
 # Verb phrases that signal a listing intent. Order inside the alternation matters:
@@ -86,30 +88,13 @@ _OPEN_NOW_LISTING_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Map captured noun phrase → canonical category string for Tier2Filters + SQL needles.
-# Align with _category_needle_set / entity_intent._CATEGORY_OPEN_NOW_RE coverage.
-_OPEN_NOW_CAPTURE_TO_CATEGORY: dict[str, str] = {
-    "restaurant": "restaurant",
-    "restaurants": "restaurant",
-    "cafe": "cafe",
-    "cafes": "cafe",
-    "coffee shop": "coffee shop",
-    "coffee shops": "coffee shop",
-    "bar": "bar",
-    "bars": "bar",
-    "pharmacy": "pharmacy",
-    "pharmacies": "pharmacy",
-    "vet": "veterinarian",
-    "vets": "veterinarian",
-    "veterinarian": "veterinarian",
-    "veterinarians": "veterinarian",
-    "store": "store",
-    "stores": "store",
-    "shop": "shop",
-    "shops": "shop",
-    "gym": "gym",
-    "gyms": "gym",
-}
+# Bare "<category> open now" (no "what" prefix) — the common phrasing
+# ("plumber open now"). Gated on a known-category alternation so a bare ENTITY
+# name ("mudshark open now") never matches here and still reaches Tier 1.
+# _BARE_OPEN_NOW_RE (the bare "<category> open now" listing shape) and
+# _OPEN_NOW_CAPTURE_TO_CATEGORY (capture → canonical category) are imported at the
+# top from app.chat.open_now_vocab, the single source of truth shared with
+# entity_intent._CATEGORY_OPEN_NOW_RE. Add new categories there, not here.
 
 
 def _category_from_open_now_capture(raw: str) -> str:
@@ -218,7 +203,7 @@ def _strip_locality_and_punct(s: str) -> str:
     return cleaned.strip()
 
 
-def _pluralize_for_header(category: str) -> str:
+def pluralize_for_header(category: str) -> str:
     """Coerce the listing header to plural form for natural phrasing.
 
     "find me a barber" → category="barber" → header "A few barbers in Lake Havasu City"
@@ -271,6 +256,17 @@ def try_business_listing_shortcut(query: str) -> Tier2Filters | None:
             return None
         if len(category.split()) > 3:
             return None
+        return Tier2Filters(
+            category=category.lower(),
+            open_now=True,
+            parser_confidence=0.9,
+            fallback_to_tier3=False,
+        )
+    bare_on = _BARE_OPEN_NOW_RE.match(nq)
+    if bare_on is not None:
+        category = _normalize_category_typos(
+            _category_from_open_now_capture(bare_on.group(1))
+        )
         return Tier2Filters(
             category=category.lower(),
             open_now=True,
@@ -357,7 +353,7 @@ def _business_listing_voice(
     provider_rows = [r for r in rows if r.get("type") == "provider"]
     if not provider_rows:
         return None, []
-    cat_label = _pluralize_for_header(category)
+    cat_label = pluralize_for_header(category)
     count = len(provider_rows)
     count_word = str(count) if count != 1 else "1"
     header = f"Here are {count_word} {cat_label} in Lake Havasu City."
@@ -374,7 +370,7 @@ def _render_business_listing_prose(rows: list[dict[str, Any]], category: str) ->
     provider_rows = [r for r in rows if r.get("type") == "provider"]
     if not provider_rows:
         return None
-    cat_label = _pluralize_for_header(category)
+    cat_label = pluralize_for_header(category)
     lines: list[str] = []
     for row in provider_rows[:5]:
         name = str(row.get("name") or "").strip()

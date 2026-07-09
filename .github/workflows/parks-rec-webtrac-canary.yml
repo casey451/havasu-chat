@@ -1,0 +1,41 @@
+name: parks-rec-webtrac-canary
+
+# READ-ONLY nightly canary (spec §14.3): re-verify every FUTURE Parks & Rec flyer
+# event against the WebTrac registration authority and FAIL (page) on drift — a
+# fresh flyer scrape that disagrees with WebTrac on time (needs human confirm), a
+# live flyer that duplicates a WebTrac twin (should be retired), or a flyer-only
+# row that trips the lint. SELECTs only; writes nothing. On red, run the gated
+# parks-rec-webtrac-reconcile workflow to resolve.
+
+on:
+  schedule:
+    - cron: "17 13 * * *" # 13:17 UTC ≈ 06:17 America/Phoenix (MST, UTC-7)
+  workflow_dispatch: {}
+
+permissions:
+  contents: read
+
+jobs:
+  canary:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: WebTrac drift canary (read-only; non-zero exit = drift)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is empty — refusing to run."
+            exit 1
+          fi
+          python scripts/parks_rec_webtrac_canary.py

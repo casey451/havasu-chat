@@ -1,8 +1,8 @@
 """Portal router — aggregates all portal pages under /admin/portal.
 
-NOT registered anywhere. Activation is a deliberate two-line change in
-app/main.py (see README.md in this directory). Prefix chosen to avoid
-any collision with the existing /admin routes.
+Registered in app/main.py (Track E, live since 2026-06-10). Prefix chosen to
+avoid any collision with the classic /admin routes. (This docstring previously
+claimed the router was unwired — audit doc-rot fix 2026-07-02.)
 """
 
 from __future__ import annotations
@@ -12,7 +12,15 @@ from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy import desc, func, select
 from sqlalchemy.orm import Session
 
-from app.admin_portal import address_quality, audit_models, chat_insights, ops, users
+from app.admin_portal import (
+    address_quality,
+    analytics,
+    audit_models,
+    chat_insights,
+    feedback,
+    ops,
+    users,
+)
 from app.admin_portal.audit_models import AdminAuditLog, audit_enabled
 from app.admin_portal.guard import guard
 from app.admin_portal.queues import queue_cards
@@ -25,6 +33,8 @@ portal_router.include_router(users.router)
 portal_router.include_router(chat_insights.router)
 portal_router.include_router(ops.router)
 portal_router.include_router(address_quality.router)
+portal_router.include_router(analytics.router)
+portal_router.include_router(feedback.router)
 
 
 @portal_router.get("", response_model=None)

@@ -1,0 +1,294 @@
+/* ============================================================
+   Ask Hava — Lake Ink & Brass: HOME page layout.
+   Home-specific sections ported from askhava-home-v10.html (lead/ask,
+   "Happening" week strip, "Find your spot" explore, month-at-a-glance).
+   Shared primitives (.extile, .elist, .erow, .adbar, .cb-*, header,
+   footer) come from lake.css + lake-components.css; this file only adds
+   the home layout. Mirrors the desert_home.css pattern.
+   ============================================================ */
+
+/* LEAD — ask bar + quick intents */
+.lead{padding:26px 0 8px}
+.asklede{font-family:var(--disp);font-weight:600;font-size:clamp(24px,3.6vw,30px);letter-spacing:-.02em;color:var(--ink);max-width:22ch;line-height:1.08}
+.ask{margin-top:16px;max-width:740px;display:flex;align-items:center;gap:12px;background:linear-gradient(180deg,#fff,#fdfefe);border:1px solid var(--hair-2);border-radius:999px;padding:8px 8px 8px 20px;box-shadow:var(--sh-2);transition:border-color .2s,box-shadow .2s;min-height:66px}
+.ask:hover{box-shadow:var(--sh-pop)}
+.ask:focus-within{border-color:var(--havasu);box-shadow:0 0 0 4px rgba(28,155,180,.15),var(--sh-2)}
+.ask .ag{width:28px;height:auto;flex:none;color:var(--ink)}
+.ask .ag .b{fill:var(--brass)}
+.ask input{flex:1;min-width:0;border:0;outline:0;background:transparent;font-family:var(--ui);font-size:16px;color:var(--ink);padding:11px 0;min-height:44px}
+.ask input::placeholder{color:var(--muted)}
+.ask .go{width:50px;height:50px;border-radius:999px;background:linear-gradient(160deg,#22394a,#10202b);color:#fff;border:0;display:flex;align-items:center;justify-content:center;cursor:pointer;flex:none;transition:transform .14s var(--ease),box-shadow .18s;box-shadow:0 8px 18px -8px rgba(16,32,43,.75)}
+.ask .go:hover{transform:scale(1.05)}.ask .go:active{transform:scale(.96)}
+.ask .go svg{width:18px;height:18px}
+/* Hero sub-line directly under the ask box: "Lake Havasu's only search engine." */
+.askline{margin:12px 0 0;font-size:14px;font-weight:500;color:var(--ink-2);letter-spacing:.01em}
+/* Demoted featured/sponsor strip — sits below the feed + directory content. */
+.promo{padding:8px 0 28px}
+.home-marquee{margin-top:22px}
+.promo .home-marquee{margin-top:0}
+.adclaim{display:flex;align-items:center;gap:12px;background:linear-gradient(180deg,#fffdf8,#fbf6ec);border:1px dashed var(--brass-edge);border-radius:16px;padding:14px 18px;box-shadow:var(--sh-1)}
+.adclaim .cat{font-size:10px;font-weight:700;letter-spacing:.07em;text-transform:uppercase;color:var(--brass-deep)}
+.adclaim .claim{font-size:14px;color:var(--ink-2)}.adclaim .claim em{font-style:normal;color:var(--brass-deep);font-weight:600}
+
+/* HAPPENING — real week strip + today's events */
+.today{padding:28px 0 14px}
+/* §3b: slim feed header — small date label + "Full calendar →" (no big serif
+   heading). Wraps cleanly on narrow screens. */
+.todhead{display:flex;align-items:baseline;justify-content:space-between;gap:12px 16px;flex-wrap:wrap;margin:0}
+.todlabel{margin:0;font-size:14px;font-weight:600;color:var(--ink);min-width:0}
+.todlabel .todsum{font-weight:500;color:var(--ink-2)}
+.mod-head{display:flex;align-items:baseline;justify-content:space-between;gap:16px;flex-wrap:wrap}
+.mod-head h2{font-family:var(--disp);font-weight:600;font-size:clamp(26px,3.4vw,32px);letter-spacing:-.02em}
+.mod-head .sub{font-size:13.5px;color:var(--ink-2);margin-top:5px}
+.mod-head .full,.todhead .full{font-size:14px;font-weight:600;color:var(--brass-deep);display:inline-flex;align-items:center;gap:7px;transition:gap .18s;flex:none}.mod-head .full:hover,.todhead .full:hover{gap:11px}
+/* FIX_DAYPICKER items 1–2: the day picker is a 3-column grid (no horizontal
+   scroll), so it fits any viewport and can never page-overflow on mobile. Seven
+   weekday-labelled tiles fill rows 1–2 and column 1 of row 3; the "Full calendar"
+   button takes the remaining two cells of row 3 (grid-column:span 2). */
+.daystrip-wrap{position:relative;margin-top:16px}
+.daystrip{display:grid;grid-template-columns:repeat(3,1fr);gap:9px;padding:2px}
+.day{background:linear-gradient(180deg,#fff,#fafcfd);border:1px solid var(--hair);border-radius:15px;padding:9px 8px 8px;text-align:center;transition:transform .16s var(--ease),box-shadow .16s,border-color .16s;box-shadow:var(--sh-1)}
+.day:hover{transform:translateY(-3px);box-shadow:var(--sh-card);border-color:var(--hair-2)}
+.day .dow{font-size:11px;font-weight:600;letter-spacing:.04em;text-transform:uppercase;color:var(--muted)}
+.day .dn{font-family:var(--disp);font-weight:500;font-size:19px;margin:1px 0 4px;color:var(--ink)}
+.day .ct{font-size:11px;font-weight:600;color:var(--ink-2);display:inline-flex;align-items:center;gap:4px;justify-content:center}
+.day .ct .d{width:4px;height:4px;border-radius:50%;background:var(--brass)}
+.day .ct.none{color:var(--muted);font-weight:500}
+.day.today{background:linear-gradient(165deg,#fcefd5,#f5e3bd);border-color:var(--brass)}
+.day.today .dow{color:var(--brass-deep)}.day.today .ct{color:var(--brass-deep)}
+/* The Full-calendar button spans the last two cells; styled as a calm brass
+   call-to-action rather than a day tile. */
+.day.daycal{grid-column:span 2;display:flex;align-items:center;justify-content:center;gap:9px;padding:8px;color:var(--brass-deep);font-weight:600;font-size:14px;background:var(--brass-wash);border-color:var(--brass);text-align:center}
+.day.daycal:hover{background:linear-gradient(165deg,#fcefd5,#f5e3bd)}
+.day.daycal .dcal-ic{display:inline-flex;align-items:center;color:var(--brass-deep)}
+.today-list{margin-top:16px}
+.also{margin-top:14px;display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.also .alabel{font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--muted)}
+.wchip{font-size:12.5px;font-weight:500;color:var(--ink-2);background:var(--surface);border:1px solid var(--hair-2);border-radius:999px;padding:5px 12px}
+.wchip b{color:var(--ink);font-weight:600}
+.cal-legend{margin-top:16px;display:flex;gap:16px;flex-wrap:wrap;font-size:12px;color:var(--muted)}
+.cal-legend span{display:inline-flex;align-items:center;gap:6px}
+.cal-legend .leg{width:9px;height:9px;border-radius:3px;background:var(--brass)}
+.cal-legend .leg.water{background:var(--havasu)}.cal-legend .leg.family{background:var(--good)}
+.cal-legend .leg.music{background:#7a5cc0}.cal-legend .leg.classes{background:var(--brass-deep)}.cal-legend .leg.learn{background:#b85c8a}.cal-legend .leg.civic{background:#3f5d7a}
+
+/* EXPLORE — find your spot */
+.explore{padding:64px 0;margin-top:34px;background:linear-gradient(180deg,#ebf1f5,#e3ebf0);border-top:1px solid var(--hair);border-bottom:1px solid var(--hair)}
+.ex-head{text-align:center;margin-bottom:34px}
+.ex-head h2{font-family:var(--disp);font-weight:600;font-size:clamp(26px,4vw,38px);letter-spacing:-.02em}
+.ex-head p{font-size:14.5px;color:var(--ink-2);margin-top:8px}
+.exgrid{max-width:1000px;margin:0 auto}
+.extile .ar{position:absolute;top:24px;right:24px;color:var(--muted);opacity:0;transform:translateX(-4px);transition:.2s}
+.extile:hover .ar{opacity:1;transform:none;color:var(--brass-deep)}
+.svc-head{max-width:1000px;margin:28px auto 12px;font-family:var(--disp);font-weight:600;font-size:18px;color:var(--ink-2);text-align:center}
+.svc-strip{max-width:1000px;margin:0 auto;display:flex;gap:10px;flex-wrap:wrap;justify-content:center}
+.svc-chip{display:inline-flex;align-items:center;gap:6px;font-size:13.5px;font-weight:500;color:var(--ink-2);background:var(--raised);border:1px solid var(--hair-2);border-radius:999px;padding:8px 15px;box-shadow:var(--sh-1);transition:.15s}
+.svc-chip:hover{border-color:var(--ink);transform:translateY(-1px);color:var(--ink)}
+.ex-spon{max-width:1000px;margin:18px auto 0}
+.ex-all{text-align:center;margin-top:30px}
+
+/* Phase 3 slim directory — keyword search field, six front doors, "see all". */
+.dirsearch{max-width:680px;margin:0 auto 22px;display:flex;align-items:center;gap:10px;
+  background:var(--raised);border:1px solid var(--hair-2);border-radius:999px;
+  padding:7px 8px 7px 18px;box-shadow:var(--sh-1);min-height:54px}
+.dirsearch:focus-within{border-color:var(--havasu);box-shadow:0 0 0 4px rgba(28,155,180,.15),var(--sh-1)}
+.dirsearch .ds-ic{flex:none;color:var(--muted)}
+.dirsearch input{flex:1;min-width:0;border:0;outline:0;background:transparent;font:inherit;
+  font-size:15px;color:var(--ink);padding:9px 0;min-height:40px}
+.dirsearch input::placeholder{color:var(--muted)}
+.dirsearch .ds-go{flex:none;border:0;cursor:pointer;font:inherit;font-size:13.5px;font-weight:600;
+  color:#fff;background:linear-gradient(160deg,#22394a,#10202b);border-radius:999px;
+  padding:9px 18px;min-height:40px}
+.dirsearch .ds-go:hover{filter:brightness(1.08)}
+.dirsearch .ds-go:focus-visible{outline:2px solid var(--brass-light,#d8a64e);outline-offset:2px}
+/* Six-tile slim grid (overrides the 4-col .explore .exgrid via equal specificity
+   + later source order). */
+.explore .dir-grid{max-width:760px;grid-template-columns:repeat(3,1fr)}
+.dmore{max-width:680px;margin:22px auto 0;text-align:center;font-size:13.5px;color:var(--ink-2)}
+.dmore a{color:var(--brass-deep);font-weight:600;white-space:nowrap}
+.dmore a:hover{text-decoration:underline}
+@media(max-width:720px){.explore .dir-grid{grid-template-columns:repeat(2,1fr)}.dirsearch .ds-go{padding:9px 14px}}
+
+/* MONTH — at a glance (real calendar grid) */
+.month{padding:64px 0 80px;background:linear-gradient(180deg,#ebf1f5,#e3ebf0);border-top:1px solid var(--hair)}
+.mh{display:flex;align-items:baseline;justify-content:space-between;max-width:1040px;margin:0 auto 22px;gap:16px;flex-wrap:wrap}
+.mh h2{font-family:var(--disp);font-weight:600;font-size:clamp(24px,3.4vw,34px);letter-spacing:-.02em}
+.mh .sub{font-size:13.5px;color:var(--ink-2);margin-top:5px}
+.mh .full{font-size:14px;font-weight:600;color:var(--brass-deep);display:inline-flex;align-items:center;gap:7px}
+.mcal{max-width:1040px;margin:0 auto;background:var(--raised);border:1px solid var(--hair);border-radius:18px;box-shadow:var(--sh-card);overflow:hidden}
+.mcal-top{display:flex;align-items:center;justify-content:space-between;padding:14px 18px;border-bottom:1px solid var(--hair)}
+.mcal-top .m{font-family:var(--disp);font-weight:600;font-size:17px}
+.mcal-nav{display:flex;gap:6px}
+.mcal-nav a{width:34px;height:34px;border-radius:10px;border:1px solid var(--hair-2);display:inline-flex;align-items:center;justify-content:center;color:var(--ink-2);font-size:18px;background:var(--raised);box-shadow:var(--sh-1)}
+.mcal-nav a:hover{border-color:var(--ink);color:var(--ink)}
+.mcal .wd{display:grid;grid-template-columns:repeat(7,1fr);border-bottom:1px solid var(--hair);background:linear-gradient(180deg,#fff,#f7fafc)}
+.mcal .wd span{text-align:center;font-size:11px;font-weight:600;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);padding:12px 0}
+.mcal .grid{display:grid;grid-template-columns:repeat(7,1fr)}
+.cell{min-height:94px;border-right:1px solid var(--hair);border-bottom:1px solid var(--hair);padding:9px 11px;position:relative;color:inherit}
+.cell:nth-child(7n){border-right:0}
+.cell.empty{background:#fafcfd}
+.cell.has:hover{background:var(--surface)}
+.cell .dn{font-family:var(--disp);font-weight:500;font-size:15px;color:var(--ink);line-height:1}
+.cell.today{background:linear-gradient(165deg,#fcefd5,#f5e3bd);box-shadow:inset 0 0 0 1.5px var(--brass)}
+.cell.today .dn{color:var(--brass-deep);font-weight:600}
+/* All cell event text reads in --ink-2 (AA on white). Type cue lives in the
+   legend + the brass overflow/class chips, not low-contrast small text. */
+.cell .ev{margin-top:7px;font-size:11px;color:var(--ink-2);line-height:1.25;display:block;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.cell .ev.more{color:var(--brass-deep);font-weight:600}
+.cell .ev.classes{color:var(--brass-deep)}.cell .ev.learn{color:#b85c8a}
+.cell .cell-count{position:absolute;top:9px;right:11px;font-size:10.5px;font-weight:700;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:999px;padding:1px 7px}
+.cal-empty{padding:40px 18px;text-align:center;color:var(--muted);font-size:14px}
+.cal-empty a{color:var(--brass-deep);font-weight:600}
+
+@media(max-width:720px){
+  .asklede{font-size:22px}.ask{min-height:60px}
+  .explore{padding:48px 0}.month{padding:48px 0 60px}
+  .cell{min-height:62px;padding:7px 8px}.cell .ev{display:none}
+}
+
+
+/* ============================================================
+   2026-06-19 redesign — "Happening today" module (highlights strip +
+   collapsible category accordion) and the tightened "Find your spot" grid.
+   ============================================================ */
+.hl-cap{margin-top:20px;font-size:11px;font-weight:700;letter-spacing:.08em;text-transform:uppercase;color:var(--muted)}
+.hl-strip{margin-top:10px;display:grid;grid-template-columns:repeat(3,1fr);gap:12px}
+.hlcard{position:relative;display:block;border:1px solid var(--hair);border-radius:14px;padding:13px 14px 13px 16px;background:linear-gradient(180deg,#fff,#fafcfd);box-shadow:var(--sh-1);overflow:hidden;transition:transform .16s var(--ease),box-shadow .16s,border-color .16s}
+.hlcard::before{content:"";position:absolute;left:0;top:0;bottom:0;width:4px;background:var(--brass)}
+.hlcard.special::before{background:var(--warn)}
+.hlcard:hover{transform:translateY(-2px);box-shadow:var(--sh-card);border-color:var(--hair-2)}
+.hlcard .htitle{display:block;font-family:var(--disp);font-weight:600;font-size:15.5px;color:var(--ink);line-height:1.25}
+.hlcard .hmeta{display:block;font-size:12.5px;color:var(--ink-2);margin-top:5px}
+.hlcard .hmeta b{color:var(--ink)}
+
+.today-groups{margin-top:10px;border:1px solid var(--hair);border-radius:16px;background:var(--raised);box-shadow:var(--sh-card);overflow:hidden}
+.tg-acc{border-bottom:1px solid var(--hair)}
+.tg-acc:last-child{border-bottom:0}
+.tg-acc>summary{display:flex;align-items:center;gap:11px;padding:13px 16px;cursor:pointer;list-style:none}
+.tg-acc>summary::-webkit-details-marker{display:none}
+.tg-acc>summary:hover{background:var(--surface)}
+.tg-acc>summary:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--havasu)}
+.tg-sw{width:10px;height:10px;border-radius:3px;flex:none;background:var(--brass)}
+.tg-sw.family{background:var(--good)}.tg-sw.seniors{background:#c4793a}.tg-sw.music{background:#7a5cc0}.tg-sw.water{background:var(--havasu)}.tg-sw.classes{background:var(--brass-deep)}.tg-sw.learn{background:#b85c8a}.tg-sw.civic{background:#3f5d7a}
+.tg-name{font-weight:600;font-size:15px;color:var(--ink)}
+.tg-count{margin-left:auto;font-size:12px;font-weight:700;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:999px;padding:2px 10px;flex:none}
+.tg-chev{flex:none;color:var(--muted);transition:transform .22s var(--ease)}
+.tg-acc[open]>summary .tg-chev{transform:rotate(180deg)}
+.tg-rows{border-top:1px solid var(--hair)}
+.tg-sub{border-top:1px solid var(--hair)}
+.tg-sub:first-child{border-top:0}
+.tg-sub>summary{display:flex;align-items:center;gap:8px;padding:10px 16px;cursor:pointer;list-style:none;font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tg-sub>summary::-webkit-details-marker{display:none}
+.tg-sub>summary:hover{background:var(--surface)}
+.tg-sub .sub-name{color:var(--ink-2)}
+.tg-sub .sc{font-size:11px;font-weight:700;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:999px;padding:1px 8px}
+.tg-sub .sub-chev{margin-left:auto;color:var(--muted);transition:transform .22s var(--ease)}
+.tg-sub[open]>summary .sub-chev{transform:rotate(180deg)}
+.tg-row{display:flex;align-items:baseline;gap:12px;padding:10px 16px;border-top:1px solid var(--hair);color:inherit;transition:background .14s}
+.tg-rows>.tg-row:first-child{border-top:0}
+.tg-row:hover{background:var(--surface)}
+.tg-sub .tg-row{padding-left:28px}
+.tg-row .rtime{font-size:12.5px;font-weight:600;color:var(--ink-2);width:84px;flex:none;white-space:nowrap}
+.tg-row .rtitle{font-family:var(--disp);font-weight:500;font-size:15px;color:var(--ink);flex:1;min-width:0}
+.cal-legend .leg.seniors{background:#c4793a}
+
+/* ============================================================
+   Home "Today in Lake Havasu" feed: five collapsed groups (Events / Things to
+   do / Fitness & sports / Classes / At the movies), every row a nested
+   <details> that expands to its facts. Reuses the .today-groups / .tg-* group
+   chrome above; this block adds the per-row rows + the Fitness sub-sections.
+   ============================================================ */
+/* Group swatch colors for the home feed's group keys. */
+.tg-sw.events{background:var(--brass)}
+.tg-sw.things_to_do{background:#0f6e56}
+.tg-sw.fitness{background:var(--brass-deep)}
+.tg-sw.movies{background:#7a5cc0}
+
+/* Fitness & sports Adult / Youth sub-section header (a plain label row, not a
+   nested collapsible — the rows below it stay collapsed). */
+.tg-subhead{display:flex;align-items:center;gap:8px;padding:9px 16px 4px;border-top:1px solid var(--hair)}
+.tg-rows>.tg-subhead:first-child{border-top:0}
+.tg-subhead .sub-name{font-size:11px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--muted)}
+.tg-subhead .sc{font-size:11px;font-weight:700;color:var(--brass-deep);background:var(--brass-wash);border:1px solid var(--brass-edge);border-radius:999px;padding:1px 8px}
+.tg-subhead+.frow{border-top:0}
+
+/* Feed rows — each a collapsible <details>. */
+.tfeed{margin-top:10px}
+.frow{border-top:1px solid var(--hair)}
+.tg-rows>.frow:first-child{border-top:0}
+.frow-h{display:flex;align-items:baseline;gap:12px;padding:11px 16px;cursor:pointer;list-style:none}
+.frow-h::-webkit-details-marker{display:none}
+.frow-h:hover{background:var(--surface)}
+.frow-h:focus-visible{outline:none;box-shadow:0 0 0 2px #fff,0 0 0 4px var(--havasu)}
+.frow[open]>.frow-h{background:#fcfbf6}
+.frow-time{font-size:12.5px;font-weight:600;color:var(--ink-2);width:84px;flex:none;white-space:nowrap}
+.frow-time--ic{display:inline-flex;align-items:center;color:var(--muted)}
+.frow-main{flex:1;min-width:0;display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.frow-title{font-family:var(--disp);font-weight:500;font-size:15px;color:var(--ink)}
+.frow-venue{font-size:12.5px;color:var(--muted)}
+.frow-cv{flex:none;align-self:center;color:var(--muted);transition:transform .22s var(--ease)}
+.frow[open]>.frow-h .frow-cv{transform:rotate(180deg)}
+.frow-d{padding:2px 16px 13px 92px}
+.frow-d .facts{display:flex;flex-wrap:wrap;gap:4px 18px;font-size:12.5px;color:var(--muted)}
+.frow-d .facts span b{color:var(--ink);font-weight:600}
+.frow-d .times{display:flex;flex-wrap:wrap;gap:6px;margin:5px 0 2px}
+.tpill{font-size:12px;color:var(--ink-2);background:var(--surface);border:1px solid var(--hair-2);border-radius:7px;padding:2px 9px}
+.frow-acts{margin-top:9px}
+.fbtn{font-size:12.5px;font-weight:600;color:var(--brass-deep)}
+.fbtn:hover{text-decoration:underline}
+/* Small audience tags (Kids / Seniors) that ride on a row. */
+.rtag{font-size:9.5px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;
+  border-radius:4px;padding:1px 5px;border:1px solid var(--hair-2);color:var(--ink-2);background:var(--surface)}
+.rtag.kids{color:#2f7d45;border-color:#bcd9bf;background:#eef6ef}
+.rtag.seniors{color:#9a5a1f;border-color:#e3cf9e;background:var(--brass-wash)}
+.rtag.type{color:var(--brass-deep);border-color:#e3cf9e;background:var(--brass-wash)}
+/* Item 1 (full-day feed): rows whose session is already over today stay listed
+   but visually recede — lower-contrast text + a small "Earlier today" chip — so
+   morning-only groups (Fitness & sports, Classes) never empty out by afternoon.
+   Kept legible (not hidden) and full opacity restored on hover/open. */
+.frow--past .frow-time,
+.frow--past .frow-title,
+.frow--past .frow-venue{color:var(--muted)}
+.frow--past .frow-title{font-weight:400}
+.frow--past:hover .frow-time,.frow--past[open] .frow-time,
+.frow--past:hover .frow-title,.frow--past[open] .frow-title{color:var(--ink-2)}
+.rtag.earlier{color:var(--muted);border-color:var(--hair-2);background:transparent;text-transform:none;letter-spacing:0;font-weight:600}
+@media(max-width:720px){
+  /* FIX_DAYPICKER item 5: let the time cell size to its content (a bare hours
+     range like "10 AM–9 PM" is wider than the old fixed 46px) instead of
+     overflowing its box and colliding with the title. ``flex:none`` + a sane
+     max keeps it from crowding the title; ``.frow-main`` (flex:1, min-width:0)
+     takes the rest. */
+  .frow-time{width:auto;min-width:44px;max-width:46%;font-size:12px}
+  .frow-d{padding-left:62px}
+  .frow-title{font-size:14.5px}
+}
+
+.explore .exgrid{max-width:1000px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr);gap:10px}
+/* min-width:0 lets the grid track + the flex label shrink below their
+   nowrap min-content (otherwise the 2-col directory grid overflows the viewport
+   at ~360–390px — the home horizontal-scroll bug). */
+.explore .extile{display:flex;align-items:center;gap:10px;padding:11px 13px;border-radius:12px;min-height:0;min-width:0}
+.explore .extile:hover{transform:none;box-shadow:var(--sh-card);border-color:var(--brass-edge)}
+.explore .extile .ic{width:30px;height:30px;border-radius:9px}
+.explore .extile .ic svg{width:16px;height:16px}
+.explore .extile h3{font-family:var(--ui);font-weight:600;font-size:13.5px;margin-top:0;line-height:1.15;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1}
+.explore .extile .ar{position:static;margin-left:auto;opacity:1;transform:none;color:var(--hair-2);flex:none}
+.explore .extile:hover .ar{opacity:1;transform:none;color:var(--brass-deep)}
+
+@media(max-width:1080px){.explore .exgrid{grid-template-columns:repeat(3,1fr)}}
+@media(max-width:720px){
+  .hl-strip{grid-template-columns:1fr}
+  .explore .exgrid{grid-template-columns:repeat(2,1fr)}
+}
+
+/* P3 weather grouping: gas as its own simple line below the conditions band. */
+.home-gas{margin:14px auto 0;display:flex;justify-content:center}
+.gaschip{display:inline-flex;align-items:center;gap:8px;background:var(--raised);
+  border:1px solid var(--hair-2);border-radius:999px;padding:8px 16px;box-shadow:var(--sh-1);
+  color:var(--ink);font-size:14px}
+.gaschip:hover{border-color:var(--ink)}
+.gaschip .gc-ic{font-size:15px}
+.gaschip .gc-v{font-weight:700}
+.gaschip .gc-l{color:var(--ink-2);font-size:13px}
+.gaschip.is-stale .gc-v{color:var(--muted)}

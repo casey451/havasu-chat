@@ -1,0 +1,28 @@
+{% extends "base_redesign.html" %}
+{#- Lake About page (GET /about, public, indexable). Ports the page-editorial
+   layout, bound to the real about copy. AboutPage JSON-LD. -#}
+{% block title %}About — Ask Hava{% endblock %}
+{% block meta_description %}About Ask Hava — an honest, local guide to Lake Havasu City. What we are, how we work, and how to reach us.{% endblock %}
+{% block head_extra %}
+{% if absolute_url is defined %}
+<script type="application/ld+json">{"@context":"https://schema.org","@type":"AboutPage","name":"About Ask Hava","url":"{{ absolute_url('/about') }}","description":"The local directory for Lake Havasu City: what we are, how we work, and how to reach us.","publisher":{"@type":"Organization","name":"Ask Hava"}}</script>
+{% endif %}
+{% endblock %}
+{% block main %}
+<div class="artx">
+  <nav class="crumbs" aria-label="Breadcrumb"><a href="/home">Home</a><span class="sep" aria-hidden="true">&rsaquo;</span><span aria-current="page">About</span></nav>
+  <div class="ah">
+    <span class="eyebrow">Who we are</span>
+    <h1>About <em>Ask Hava.</em></h1>
+  </div>
+  <article class="article">
+    <p class="lead">Ask Hava is the local directory for Lake Havasu City: places, services, events, and live local conditions. Built here, for the people who live, work, and play on the lake.</p>
+    <h2>What we do</h2>
+    <p>We pull together the things you actually need on a given day: the cheapest gas, today's lake level and water temperature, air quality, what's open, and what's worth your Saturday. When we don't have something verified, we say so rather than guess.</p>
+    <h2>How we work</h2>
+    <p>Conditions come from live local sources (USGS, NWS, AirNow, and crowd-sourced gas) and are cached. Listings come from public records, business owners, and locals who add to Hava. We show real data or nothing: no engagement loops, no padding.</p>
+    <h2>Get in touch</h2>
+    <p>Spot something wrong, or want your business listed? Head to our <a href="/contact">contact page</a> or <a href="/contribute">add it to Hava</a>.</p>
+  </article>
+</div>
+{% endblock %}

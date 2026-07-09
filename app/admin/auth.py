@@ -59,3 +59,29 @@ def verify_admin_cookie(value: str | None) -> bool:
 
 def admin_password_ok(password: str) -> bool:
     return secrets.compare_digest(password.strip(), _admin_password_from_env())
+
+
+def admin_guard(request):  # -> RedirectResponse | None
+    """THE admin guard: allow the admin session cookie OR a logged-in user with
+    role="admin"; 403 a logged-in non-admin; 302 anonymous users to /admin/login.
+
+    Consolidated 2026-07-02 (audit): ~14 per-module ``_guard`` copies had
+    drifted into two semantics — the cookie-only copies bounced legitimate
+    role-admin users (who could moderate events on /admin) from
+    /admin/contributions, /admin/jobs, the whole portal, etc. Every admin
+    surface now imports this one.
+
+    Imported lazily-typed (no fastapi import at module scope) so this auth
+    module stays framework-light for scripts.
+    """
+    from fastapi import HTTPException
+    from fastapi.responses import RedirectResponse
+
+    if verify_admin_cookie(request.cookies.get(COOKIE_NAME)):
+        return None
+    current_user = getattr(request.state, "current_user", None)
+    if current_user is not None and getattr(current_user, "role", None) == "admin":
+        return None
+    if current_user is not None:
+        raise HTTPException(status_code=403, detail="admin_only")
+    return RedirectResponse(url="/admin/login", status_code=302)

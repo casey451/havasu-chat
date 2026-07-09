@@ -1,0 +1,79 @@
+business,set_subcategory,set_primary,bucket,note
+All Seasons Water Sports,on-the-water,,1a,watersports rental; primary on-the-water OK
+Nautical Watersports,on-the-water,,1a,watersports; primary on-the-water OK
+Marina Store,marine-supply,,1a,marine store
+Fallon Marine LLC,marine-dealers,,1a,marine dealer
+Germaine Marine,marine-dealers,,1a,marine dealer
+IMAGE MARINE,marine-dealers,,1a,marine dealer
+Prestige Marine,marine-dealers,,1a,marine dealer
+R & D Marine,marine-dealers,,1a,marine dealer
+Marine One Motorsports,marine-dealers,,1a,marine/powersports dealer
+Maxed Out Marine,marine-dealers,,1a,marine dealer
+"Sun Country Marine Group, Lake Havasu City, AZ",marine-dealers,,1a,marine dealer
+Loaded Gun Coffee,cafes-coffee,,1b,coffee shop
+Berry Cherry Frozen Yogurt,quick-bites,,1b,frozen yogurt
+Frozen Spoon,quick-bites,,1b,frozen yogurt
+Yogurt Paradise,quick-bites,,1b,frozen yogurt
+Sweet Treats & More,quick-bites,,1b,sweets
+We Be Pop'n Gourmet Popcorn & More,quick-bites,,1b,popcorn
+Pit Stop Deli,quick-bites,,1b,deli
+The Local Craving,quick-bites,,1b,food
+Campbell Cove RV Resort,rv-parks,,1c,RV park; primary lodging OK
+D-J's RV Park,rv-parks,,1c,RV park
+Desert Hills RV Park,rv-parks,,1c,RV park
+Havasu Falls RV Resort,rv-parks,,1c,RV park
+Havasu RV Resort,rv-parks,,1c,RV park
+Havasu View RV Space,rv-parks,,1c,RV park
+Prospectors RV Resort,rv-parks,,1c,RV park
+Sam's Beachcomber RV Resort,rv-parks,,1c,RV park
+Riverbound Custom Storage & RV Park,rv-parks,,1c,RV park
+Islander Rv Resort,rv-parks,,1c,RV park
+Anchor Lake House,vacation-rentals,,1c,lake house rental
+Artesa Resort,hotels,,1c,resort
+Islander Resort,hotels,,1c,resort
+Lake Havasu Resort,hotels,,1c,resort
+Havasu Landing Resort & Casino,hotels,,1c,resort (confirmed keep lodging primary)
+Bombshell Body Art Studio,beauty,,1d,tattoo/body art; primary health OK
+GOLD DUST TATTOO AND PIERCING,beauty,,1d,tattoo
+Good Time Tattoo Lake Havasu,beauty,,1d,tattoo
+Heart of Gold Fine Line Tattoo and Art Studio,beauty,,1d,tattoo
+HiveMind Tattoo,beauty,,1d,tattoo
+Immortal Beauty,beauty,,1d,beauty
+Lake Havasu London Bridge Tattoo,beauty,,1d,tattoo
+Lash and Mane Beauty Lounge,beauty,,1d,beauty
+Natural Gold Wellness & Beauty CBD,beauty,,1d,wellness/beauty
+Saints and Sinners Tattoo,beauty,,1d,tattoo
+Stutter Tattoo,beauty,,1d,tattoo
+The Guided Hand Tattoo Studio,beauty,,1d,tattoo
+Tigers Eye Tattoo,beauty,,1d,tattoo
+Wild Goose Tattoo,beauty,,1d,tattoo
+The Blind Pig Tattoo,beauty,,1d,tattoo (subcat attractions clearly wrong)
+Cleartone Hearing Centers,health-medical,,1d,hearing/optical
+Us Vision Inc,health-medical,,1d,optical
+Walmart Vision & Glasses,health-medical,,1d,optical
+Bogeys & Stogies Sports Lounge and Grill,bars-breweries,,1e,bar/grill; primary eat-drink OK
+Desert Bar,bars-breweries,,1e,bar
+Ghost Mine Saloon,bars-breweries,,1e,saloon
+HEAT Bar,bars-breweries,,1e,bar
+Movies Havasu,venues,,1e,cinema; primary events OK
+Win Win Bingo Casino,venues,,1e,casino; primary events OK
+Iron Wolf Golf & Country Club,golf,,1e,golf club; keep outdoors (Casey-approved over eat-drink)
+Hooks Boat Rentals,on-the-water,,1e,boat rental; primary on-the-water OK
+London Bridge Beach boat rental,on-the-water,,1e,boat rental
+Havasu Watercraft Rental,on-the-water,,1e,watercraft rental
+Sandbar Powersports,marine-dealers,,1e,powersports dealer; subcat storage wrong
+Advantage Boats & RV Storage,storage,,1e,boat/RV storage; primary home-property OK
+Essco Wholesale Electric,home-services,,1e,electric wholesale; primary home-property OK
+REDHAWK POOL SERVICE & REPAIR,home-services,,1e,pool service
+Premier Chiropractic & Functional Medicine,health-medical,,1e,chiropractic/medicine; primary health OK
+Jum-Pawn-It,specialty,,1e,pawn/retail; primary shopping OK
+Trico Engineering,professional,,1e,engineering firm; primary professional OK
+Lake Havasu Senior Center,civic-community,,1e,senior center; primary public-civic OK
+Clothes Closet Lake Havasu,civic-community,,1e,thrift/charity; primary public-civic OK
+Regional Center For Border Health Inc,civic-community,,1e,nonprofit; primary public-civic OK
+Rotary Community Park,parks-beaches,,1e,park; primary outdoors OK
+Thompson Bay Beach,parks-beaches,,1e,beach; primary outdoors OK
+Fire & Ice Recovery & Wellness,health-medical,,1e,recovery/wellness clinic; primary health OK
+Huukan Golf Club,golf,outdoors-parks-trails,2,golf course; primary was classes (stale)
+Los Lagos Golf Club,golf,outdoors-parks-trails,2,golf course; primary was classes (stale)
+Swivel & Sway Ballroom Dance,,classes-sports-recreation,2,dance lessons; primary was events (stale)

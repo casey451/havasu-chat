@@ -1,0 +1,29 @@
+{% extends "base_redesign.html" %}
+{#- Lake Ink & Brass sign-in (/login) — magic-link email form. noindex. The
+   form action + field names + the optional hidden `next` are unchanged from
+   login.html so the server contract (POST /api/auth/request-link) holds. -#}
+{% block title %}Sign in — Ask Hava{% endblock %}
+{% block meta_description %}Sign in to Ask Hava with a one-time email link — no password, nothing to remember.{% endblock %}
+{% block head_extra %}
+<meta name="robots" content="noindex">
+{% endblock %}
+{% block main %}
+<div class="authx">
+  <div class="authwrap">
+    <p class="eyebrow">Account access</p>
+    <h1>Sign in <em>with email.</em></h1>
+    <p class="lede">We'll email you a one-time link. No password, nothing to remember.</p>
+    {% if error %}
+    <p class="notice warn" role="alert">{{ error }}</p>
+    {% endif %}
+    <form class="card authcard" action="/api/auth/request-link" method="post">
+      {% if next_path %}<input type="hidden" name="next" value="{{ next_path }}">{% endif %}
+      <div class="field">
+        <label for="email">Email</label>
+        <input id="email" type="email" name="email" required autocomplete="email" placeholder="you@example.com">
+      </div>
+      <button class="btn btn-primary" type="submit">Email me a link</button>
+    </form>
+  </div>
+</div>
+{% endblock %}

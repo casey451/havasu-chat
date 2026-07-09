@@ -36,6 +36,28 @@ def clean_name(value: str | None) -> str:
     return value.split("|", 1)[0].rstrip()
 
 
+def time12h(value: str | None) -> str:
+    """Convert a 24-hour ``"HH:MM"`` string to a 12-hour label.
+
+    ``"12:00"`` → ``"12 PM"``, ``"21:00"`` → ``"9 PM"``, ``"18:30"`` → ``"6:30 PM"``.
+    Place-page hours store structured spans as 24-hour strings, but a consumer
+    audience reads 12-hour (site review §6). Unparseable input is returned
+    unchanged.
+    """
+    if not value:
+        return value or ""
+    s = str(value).strip()
+    hh, _, mm = s.partition(":")
+    if not (hh.isdigit() and mm.isdigit()):
+        return s
+    h, m = int(hh), int(mm)
+    if not (0 <= h <= 24 and 0 <= m < 60):
+        return s
+    mer = "AM" if (h % 24) < 12 else "PM"
+    h12 = h % 12 or 12
+    return f"{h12} {mer}" if m == 0 else f"{h12}:{m:02d} {mer}"
+
+
 def register_template_filters(templates_or_env: "object") -> None:
     """Register CLUSTER-08 Jinja filters on a ``Jinja2Templates`` or ``Environment``.
 
@@ -53,6 +75,7 @@ def register_template_filters(templates_or_env: "object") -> None:
     """
     env = getattr(templates_or_env, "env", templates_or_env)
     env.filters["clean_name"] = clean_name
+    env.filters["time12h"] = time12h
     # SEO P1.8: shared meta-description sanitizer (newline collapse +
     # sentence-boundary truncation) for description/og:description tags.
     from app.seo.meta import meta_description
@@ -84,12 +107,41 @@ def register_template_globals(templates_or_env: "object") -> None:
     env = getattr(templates_or_env, "env", templates_or_env)
     raw = (os.getenv("PLAUSIBLE_DOMAIN") or "").strip()
     env.globals["plausible_domain"] = raw or None
+    # Business-tier kill switches — claim (free, default on) and ads (paid,
+    # default off). Registered as the CALLABLES themselves so templates invoke
+    # ``claim_surfaces_enabled()`` / ``ads_enabled()`` and the flags are read at
+    # render time, not baked in at ``make_templates()`` construction — a config
+    # flip (and test monkeypatch) stays live without rebuilding the instance.
+    from app.core.feature_flags import ads_enabled, claim_surfaces_enabled
+
+    env.globals["claim_surfaces_enabled"] = claim_surfaces_enabled
+    env.globals["ads_enabled"] = ads_enabled
     # SEO P1.0/P1.3: absolute-https canonical / og:url builders, shared with the
     # base layout so every page emits one self-canonical from one origin source.
     from app.seo.urls import absolute_url, canonical_url
 
     env.globals["canonical_url"] = canonical_url
     env.globals["absolute_url"] = absolute_url
+    # 1.6: share-safe provider og:image / JSON-LD image — coerces to an absolute
+    # house-image fallback when a hero URL is missing or points at a transient
+    # Google host whose URL rotates and breaks cached social-card previews.
+    from app.providers.photo_urls import social_image_url
+
+    env.globals["social_image_url"] = social_image_url
+    # 1.9b: content-hash ``?v=`` fingerprinting for /static assets. Templates that
+    # adopt ``static_url('/static/...')`` get the immutable 1yr cache from
+    # CachedStaticFiles; the hash changes on file change so it can't go stale.
+    from app.core.static_assets import static_url
+
+    env.globals["static_url"] = static_url
+    # Freshness observability: the deployed build SHA (static) + a render-time
+    # timestamp (callable). Stamped into every page as <meta> so the cold-cache
+    # canary can catch a stale/edge render from an OLDER build or an hours-old
+    # cached copy — which a same-day date-label check can't see.
+    from app.core.build_info import build_sha, render_ts
+
+    env.globals["build_sha"] = build_sha()
+    env.globals["render_ts"] = render_ts
 
 
 def _norm_provider_name(name: str) -> str:

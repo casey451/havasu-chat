@@ -1,0 +1,80 @@
+name: dedupe-catalog-apply
+
+# GATED, MANUAL-ONLY apply of the catalog dedupe proposal (T2.1 follow-up).
+# Runs scripts/dedupe_apply_2026_07_06.py, which re-clusters live providers and
+# applies the approved resolutions: `duplicate` -> soft-retire clone (is_active
+# =False + merged_into_slug 301) ; `multi_location` -> shared location_group_id ;
+# `parent_child` -> parent_provider_id. All reversible.
+#
+# DRY-RUN unless the `confirm` input is exactly APPLY, so a bare dispatch only
+# PRINTS the plan and writes nothing. An apply run uploads the undo CSV.
+#
+# Why a workflow at all: the repo .env DATABASE_URL is Railway's INTERNAL host,
+# unreachable from a laptop, so the write has to run where the DB secret
+# resolves. It stays deliberate — workflow_dispatch ONLY (never push/schedule),
+# and gated per-run by the confirm input.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type APPLY to write. Anything else = dry-run (no DB writes)."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: dedupe-catalog-apply
+  cancel-in-progress: false
+
+jobs:
+  dedupe-apply:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Dedupe apply (dry-run unless confirm=APPLY)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is empty — refusing to run."
+            exit 1
+          fi
+          if [ "${CONFIRM}" = "APPLY" ]; then
+            echo "CONFIRM=APPLY -> writing (gated, reversible)."
+            python scripts/dedupe_apply_2026_07_06.py --apply
+          else
+            echo "confirm != APPLY -> DRY-RUN (no DB writes)."
+            python scripts/dedupe_apply_2026_07_06.py
+          fi
+
+      - name: Purge CDN cache after a write (no-op on dry-run / without CF creds)
+        if: ${{ github.event.inputs.confirm == 'APPLY' }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
+
+      - name: Upload undo CSV (apply runs only)
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: dedupe-apply-undo
+          path: dedupe_apply_undo_2026-07-06.csv
+          if-no-files-found: ignore

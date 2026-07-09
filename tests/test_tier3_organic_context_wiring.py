@@ -257,7 +257,7 @@ def test_helper_returns_none_for_non_emergency_regime(
     assert result is None
 
 
-def test_helper_returns_provider_dicts_when_keywords_match(
+def test_helper_returnsprovider_dicts_when_keywords_match(
     db: Session, monkeypatch: pytest.MonkeyPatch
 ) -> None:
     monkeypatch.setenv(disclosure_render.FEATURE_FLAG_ENV_VAR, "true")

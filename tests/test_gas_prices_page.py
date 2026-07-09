@@ -68,12 +68,13 @@ def _get_gas(result: CacheReadResult | None) -> str:
     return resp.text
 
 
-def test_gas_page_extends_desert_and_loads_page_css() -> None:
-    # Desert Modern reskin: /gas extends desert_base + its own page stylesheet.
+def test_gas_page_extends_v4_shell_and_loads_v4_css() -> None:
+    # v4.5 PR-2: /gas is in the v4 language (base_redesign + lake_redesign.css); the
+    # old base_lake sheet and the page-specific lake_conditions.css are gone.
     body = _get_gas(_result(_payload(), fetched_at=_now() - timedelta(minutes=5)))
-    assert "/static/styles/desert.css" in body  # from desert_base
-    assert "/static/styles/desert_home.css" in body  # page-specific, separate file
-    assert "/static/styles/lake_light.css" not in body  # old skin gone
+    assert "/static/styles/lake_redesign.css" in body  # the v4 shell stylesheet
+    assert "/static/styles/lake_conditions.css" not in body  # old page sheet gone
+    assert "/static/styles/lake.css" not in body  # old base_lake sheet gone
 
 
 def test_no_source_column_and_no_google_feed_line() -> None:
@@ -91,7 +92,10 @@ def test_no_source_column_and_no_google_feed_line() -> None:
 def test_freshness_label_and_timestamp_share_one_clock() -> None:
     """Fix 2: the banner's staleness label and the displayed timestamp both
     derive from row.fetched_at, so they cannot disagree."""
-    fetched = datetime(2026, 6, 2, 14, 30, 0)
+    # Relative + recent so the v4.4 >7d honest-hide rule (PR-1) keeps the board
+    # live; the test only cares that the label/timestamp track fetched_at, not the
+    # payload's bogus 2099 updated_at_iso.
+    fetched = _now() - timedelta(hours=3)
     body = _get_gas(_result(_payload(), fetched_at=fetched))
     # The header timestamp is rendered from fetched_at, NOT the payload's bogus
     # updated_at_iso (2099) — proving a single source of truth.
@@ -101,23 +105,36 @@ def test_freshness_label_and_timestamp_share_one_clock() -> None:
     assert "Updated" in body
 
 
-def test_shows_six_cheapest_not_five() -> None:
-    """Fix 3: up to 6 cheapest cards render (no cut-off top 5)."""
+def test_all_stations_table_is_regular_sorted_cheapest_first() -> None:
+    """M12 (2026-07-08): the "Cheapest today" ranked-card strip was removed; the
+    price-sorted "All stations" table is the only cheapest view. The route sorts
+    it regular-cheapest-first by construction, so a shuffled payload still renders
+    the cheapest regular price ahead of the dearer ones."""
     fetched = _now() - timedelta(minutes=5)
-    # Route slices data["stations"]... actually it slices data["cheapest"]; give 6+.
-    payload = _payload(8)
-    payload["cheapest"] = payload["stations"][:8]
-    body = _get_gas(_result(payload, fetched_at=fetched))
-    # Six ranked cards => #1..#6 present, #7 absent.
-    for n in range(1, 7):
-        assert f"#{n}" in body
-    assert "#7" not in body
+    payload = _payload(3)
+    # Deliberately out of price order; the route must sort regular-ascending.
+    # Distinctive names (no collision with grade-column headers like "Mid").
+    payload["stations"] = [
+        {"name": "Zephyr", "address": "1 St", "prices": {"regular": 4.99}},
+        {"name": "Yonder", "address": "2 St", "prices": {"regular": 3.11}},
+        {"name": "Xavier", "address": "3 St", "prices": {"regular": 4.00}},
+    ]
+    body = _body_only(_get_gas(_result(payload, fetched_at=fetched)))
+    assert "Cheapest today" not in body  # the ranked-card strip is gone
+    assert body.index("Yonder") < body.index("Xavier") < body.index("Zephyr")
 
 
-def test_city_average_rendered_prominently() -> None:
-    body = _get_gas(_result(_payload(), fetched_at=_now() - timedelta(minutes=5)))
-    assert "City average" in body
-    assert "$3.69" in body  # regular city avg, formatted
+def test_typical_price_is_the_median_not_the_mean() -> None:
+    # 2026-07-08 re-audit: the "city average" was a simple mean that high-price
+    # outliers (a marina/highway station) skewed above the pump most drivers see.
+    # It's now the MEDIAN across the board's stations, labelled "Typical price".
+    payload = _payload(1)
+    payload["stations"] = [_station("Cheap", 3.55), _station("Mid", 3.69), _station("Dear", 4.39)]
+    payload["station_count"] = 3
+    body = _get_gas(_result(payload, fetched_at=_now() - timedelta(minutes=5)))
+    assert "Typical price" in body  # relabelled (median, not "average")
+    assert "$3.69" in body  # median of 3.55 / 3.69 / 4.39
+    assert "$3.88" not in body  # the outlier-skewed mean ($3.876) must NOT show
 
 
 def test_no_data_renders_honest_empty_state_never_a_price() -> None:
@@ -138,50 +155,63 @@ def test_stale_banner_flags_out_of_date() -> None:
 
 
 # -- WP-8: humanized timestamp, 2-decimal avg, copy + single "Updated" -------
-
-
-def test_cheapest_heading_is_today_as_of_time() -> None:
-    """N-27 / M-10: the cheapest strip heading reads 'Cheapest today (as of
-    {time})' on the live render path, not 'Cheapest right now'."""
-    # 21:30 UTC -> 2:30 PM Lake Havasu (America/Phoenix, UTC-7).
-    fetched = datetime(2026, 6, 2, 21, 30, 0)
-    body = _get_gas(_result(_payload(), fetched_at=fetched))
-    assert "Cheapest today (as of" in body
-    assert "Cheapest right now" not in body
-    # The "as of" clause carries a time-only label derived from fetched_at.
-    assert "as of 2:30 PM" in body
+# (The "Cheapest today (as of …)" strip-heading test was retired with the strip
+# itself — M12, 2026-07-08. The price-sorted "All stations" table is the only
+# cheapest view now.)
 
 
 def test_single_updated_phrasing() -> None:
     """M-11: the page says 'Updated' exactly once (the freshness banner), so the
     header's absolute timestamp and the banner can't read as two updates."""
-    fetched = datetime(2026, 6, 2, 14, 30, 0)
+    fetched = _now() - timedelta(hours=3)  # recent -> board stays live post-PR-1
     body = _body_only(_get_gas(_result(_payload(), fetched_at=fetched)))
     assert body.count("Updated") == 1
 
 
-def test_city_average_two_decimals() -> None:
-    """M-10: averages render with exactly two decimals on the live render path."""
-    payload = _payload()
-    payload["city_avg"] = {"regular": 3.7, "midgrade": 3.999, "premium": 4.0}
+def test_typical_price_two_decimals() -> None:
+    """M-10: the typical price renders with exactly two decimals on the live path."""
+    payload = _payload(1)
+    # A single station → median = its own price; midgrade = 3.70 + 0.30 = 4.00.
+    payload["stations"] = [_station("A", 3.70)]
+    payload["station_count"] = 1
     body = _get_gas(_result(payload, fetched_at=_now() - timedelta(minutes=5)))
-    assert "$3.70" in body  # 3.7 -> two decimals
-    assert "$4.00" in body  # 4.0 -> two decimals
+    assert "$3.70" in body  # regular median, tenths trailing zero
+    assert "$4.00" in body  # midgrade median (3.70 + 0.30), whole-dollar trailing zeros
 
 
-def test_gas_page_carries_sandstone_shell_nav() -> None:
-    """The /gas page wears the full Sandstone shell: the route now supplies
-    primary_nav + mega_columns, so the header nav links render (they were
-    absent before WP-8 added the shell context)."""
+def test_board_median_price_is_robust_to_outliers() -> None:
+    from app.gas.service import board_from_cache
+
+    now = _now()
+    payload = {
+        "updated_at_iso": now.isoformat(),
+        "station_count": 3,
+        "stations": [
+            {"name": "A", "address": "1", "prices": {"regular": 3.55}},
+            {"name": "B", "address": "2", "prices": {"regular": 3.69}},
+            {"name": "C", "address": "3", "prices": {"regular": 4.39}},  # outlier
+        ],
+    }
+    board = board_from_cache(_result(payload, fetched_at=now), now=now)
+    # Median ignores the $4.39 outlier the mean would let pull the figure up.
+    assert board.median_price("reg") == 3.69
+    assert board.city_avg("reg") == round((3.55 + 3.69 + 4.39) / 3, 3)  # the old mean
+    assert board.median_price("dsl") is None  # no diesel anywhere → None
+
+
+def test_gas_page_carries_shell_nav() -> None:
+    """The /gas page wears the full Lake shell: the header nav links render."""
     body = _get_gas(_result(_payload(), fetched_at=_now() - timedelta(minutes=5)))
-    assert 'href="/categories/on-the-water"' in body  # a primary-nav link
+    assert 'href="/events-ui"' in body  # a primary-nav link from the lake header
 
 
-def test_gas_page_renders_conditions_ribbon_with_gas_chip() -> None:
-    """The conditions ribbon renders on /gas with the cheapest-gas chip.
+def test_gas_page_renders_v4_cond_strip_with_plain_gas_tile() -> None:
+    """v4.5 PR-2: /gas wears the v4 cond-tile strip. Its gas tile is a PLAIN span
+    here (no caret/panel — you're already on the gas page), so the expandable
+    #gasPanel never renders.
 
-    The home ribbon builder reads gas via its own ``read_source`` import, so we
-    patch that one too (alongside the gas-route patch) to feed it live data."""
+    The strip's gas tile reads gas via the home builder's own ``read_source``
+    import, so we patch that one too (alongside the gas-route patch)."""
     from app.home import router as home_router
 
     payload = _payload()
@@ -190,8 +220,9 @@ def test_gas_page_renders_conditions_ribbon_with_gas_chip() -> None:
         with patch.object(home_router, "read_source", return_value=result):
             with TestClient(app) as client:
                 body = client.get("/gas").text
-    assert 'class="d-conditions"' in body  # Desert conditions strip
-    assert "Cheapest gas" in body
+    assert 'class="cond"' in body  # v4 conditions strip
+    assert 'id="gasPanel"' not in body  # no expandable panel on the gas page
+    assert 'id="gasTile"' not in body  # gas tile is a plain span, not the toggle button
 
 
 def test_format_fetched_at_helpers_are_lake_local() -> None:

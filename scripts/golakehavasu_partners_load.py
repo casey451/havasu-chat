@@ -38,7 +38,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 import httpx
 from rapidfuzz import fuzz
-from sqlalchemy import select
+from sqlalchemy import or_, select
 
 from app.bootstrap_env import ensure_dotenv_loaded
 
@@ -61,6 +61,7 @@ from app.contrib.ingest_reconciler import (  # noqa: E402
     reconcile_hit,
     slugify,
 )
+from app.contrib.ingest_suppression import is_suppressed_business  # noqa: E402
 from app.db.database import SessionLocal  # noqa: E402
 from app.db.entity_dual_write import (  # noqa: E402
     create_provider_and_entity,
@@ -78,6 +79,21 @@ logger = logging.getLogger(__name__)
 # real overlaps; a high fuzzy floor at <=50m recovers them without merging
 # distinct neighbours. Tune via --fuzzy-threshold.
 FUZZY_NAME_THRESHOLD = 88
+
+# Per-listing category overrides, keyed by the provider NAME slug
+# (``slugify(payload.name)``) -> ``(legacy Provider.category string, Tier-1
+# Category slug)``. The CVB partner pages tag a few businesses with a category
+# that maps to the WRONG Hava bucket, so each ingest re-bucketed a hand-set
+# category away on every run. Cabana Boat Rentals is the known case: its CVB
+# pages are "Activities"/"Things To Do" (-> ``entertainment_attractions`` /
+# ``uncategorized``), never "Boating", so the boat_rental tag kept getting
+# clobbered. An override pins both the legacy string and the Tier-1 slug used to
+# resolve ``category_id``; the slug -> id lookup happens per-environment via
+# ``_cat_id_for`` so no hardcoded category ids leak in. Keep this map tiny and
+# only for listings whose CVB category is provably mis-mapped.
+CATEGORY_OVERRIDES: dict[str, tuple[str, str]] = {
+    "cabana-boat-rentals": ("boat_rental", "on-the-water"),
+}
 
 
 def _norm_web(url: str | None) -> str | None:
@@ -125,12 +141,14 @@ def _provider_kwargs(
     *,
     category_slug: str,
     category_id: int | None,
+    provenance: str | None = None,
 ) -> dict[str, Any]:
     legacy = payload.legacy_category or "uncategorized"
     return {
         "provider_name": payload.name,
         "category": legacy,
         "category_id": category_id,
+        "category_provenance": provenance,
         "address": payload.address,
         "phone": payload.phone,
         "website": payload.website,
@@ -270,6 +288,33 @@ def _provider_to_payload(prov: Provider) -> EntityPayload:
     )
 
 
+# Action counters -> their dry-run ``would_*`` label. On a dry-run the loop runs
+# in full (so the numbers are exactly what a real apply would do) but the
+# transaction is rolled back, so every action is a "would".
+_WOULD_RENAME = {
+    "inserted": "would_insert",
+    "inserted_pending": "would_inserted_pending",
+    "updated": "would_update",
+    "updated_fuzzy": "would_update_fuzzy",
+    "updated_contact": "would_update_contact",
+    "idempotent_updated": "would_idempotent_update",
+    "reactivated": "would_reactivate",
+    "skipped_reactivate_live_twin": "would_skip_reactivate_live_twin",
+    "skipped_reactivate_pending_review": "would_skip_reactivate_pending_review",
+    "retired_duplicates": "would_retire",
+    "reconcile_skipped_ambiguous": "would_reconcile_skipped_ambiguous",
+    "recategorized_leaf": "would_recategorize_leaf",
+}
+
+
+def _dry_view(counts: dict[str, int]) -> dict[str, int]:
+    """Re-label action counts as ``would_*`` for a dry-run (nothing was committed)."""
+    view = {k: counts[k] for k in ("urls", "parsed", "skipped_unnamed")}
+    for src, dst in _WOULD_RENAME.items():
+        view[dst] = counts.get(src, 0)
+    return view
+
+
 def ingest_partners(
     *,
     category_slug: str,
@@ -282,14 +327,19 @@ def ingest_partners(
         "urls": 0,
         "parsed": 0,
         "skipped_unnamed": 0,
+        "skipped_suppressed": 0,
         "inserted": 0,
         "inserted_pending": 0,
         "updated": 0,
         "updated_fuzzy": 0,
         "updated_contact": 0,
         "idempotent_updated": 0,
+        "reactivated": 0,
+        "skipped_reactivate_live_twin": 0,
+        "skipped_reactivate_pending_review": 0,
         "retired_duplicates": 0,
         "reconcile_skipped_ambiguous": 0,
+        "recategorized_leaf": 0,
     }
 
     def _run(client: httpx.Client) -> dict[str, int]:
@@ -314,8 +364,8 @@ def ingest_partners(
             counts["parsed"] += 1
             payloads.append(partner_to_entity_payload(listing, category_slug=category_slug))
 
-        if dry_run or not payloads:
-            return counts
+        if not payloads:
+            return _dry_view(counts) if dry_run else counts
 
         with SessionLocal() as session:
             # Per-slug Category.id cache (categories are per-listing now, Task C).
@@ -344,6 +394,28 @@ def ingest_partners(
                 if w:
                     cvb_by_web.setdefault(w, prov)
 
+            # Live-catalog index (ALL sources, active + non-draft) keyed by the
+            # same identity signals the CVB snapshot uses. Consulted only when a
+            # CVB listing matches an idempotency row that is itself hidden
+            # (inactive or draft): if some OTHER live row -- typically the
+            # business's Google Places listing -- already represents it, we must
+            # NOT reactivate the hidden CVB row, or we mint a visible duplicate.
+            # Built once; the reactivate path keeps it consistent by only
+            # surfacing rows that have no live twin here (see the heal block).
+            live_name_idx: set[str] = set()
+            live_web_idx: set[str] = set()
+            for prov in session.scalars(
+                select(Provider).where(
+                    Provider.is_active.is_(True), Provider.draft.is_(False)
+                )
+            ).all():
+                s = slugify(prov.provider_name or "")
+                if s:
+                    live_name_idx.add(s)
+                w = _norm_web(prov.website)
+                if w:
+                    live_web_idx.add(w)
+
             def _register_cvb(prov: Provider) -> None:
                 """Register a freshly-inserted CVB row into the in-batch
                 idempotency snapshot.
@@ -367,9 +439,25 @@ def ingest_partners(
                 # Per-listing category (Task C): payload.category_slug carries the
                 # CVB->Hava mapped slug, or the --category-slug default when the
                 # CVB category had no confident mapping.
+                # Durable do-not-import: a suppressed identity is skipped on every
+                # run so a re-scrape can neither insert nor reactivate it (a bare
+                # is_active=False gets undone by the reactivate path below).
+                if is_suppressed_business(payload.name):
+                    counts["skipped_suppressed"] += 1
+                    continue
+
                 row_slug = payload.category_slug or category_slug
                 row_cat_id = _cat_id_for(row_slug)
-                kwargs = _provider_kwargs(payload, category_slug=row_slug, category_id=row_cat_id)
+                # Provenance: a confident CVB category (truthy legacy_category)
+                # means the leaf came from the source crosswalk, not the
+                # --category-slug default. Used to gate the re-file on reconcile.
+                provenance = "source_crosswalk" if payload.legacy_category else None
+                kwargs = _provider_kwargs(
+                    payload,
+                    category_slug=row_slug,
+                    category_id=row_cat_id,
+                    provenance=provenance,
+                )
 
                 # CVB-to-CVB idempotency: already ingested this listing?
                 name_slug = slugify(payload.name)
@@ -380,16 +468,64 @@ def ingest_partners(
                 if cvb_matches:
                     canonical = _pick_canonical(cvb_matches)
                     _fill_gaps(canonical, kwargs)
-                    # CVB owns these rows: re-bucket category in place on re-run
-                    # when a confident per-listing mapping exists.
-                    if payload.category_slug:
-                        canonical.category = payload.legacy_category or "uncategorized"
+                    # CVB owns these rows, but a re-run must never DOWNGRADE a
+                    # more-specific category. Two cases:
+                    #   1. A per-listing override (CATEGORY_OVERRIDES) pins the
+                    #      correct bucket for listings the CVB pages tag wrong
+                    #      (Cabana Boat Rentals: "Activities" -> entertainment_
+                    #      attractions, never boat_rental). Re-assert every run.
+                    #   2. Otherwise re-bucket ONLY from a confident scrape
+                    #      mapping (legacy_category truthy). A falsy mapping would
+                    #      set "uncategorized" -- never clobber an existing,
+                    #      more-specific tag with that (the Cabana clobber bug).
+                    override = CATEGORY_OVERRIDES.get(name_slug)
+                    if override is not None:
+                        canonical.category = override[0]
+                        ov_id = _cat_id_for(override[1])
+                        if ov_id is not None:
+                            canonical.category_id = ov_id
+                    elif payload.legacy_category:
+                        canonical.category = payload.legacy_category
                         canonical.category_id = row_cat_id
+                        canonical.category_provenance = provenance
                     sync_provider_entity_from_legacy(session, canonical)
                     for other in cvb_matches:
                         if other is not canonical and other.is_active:
                             other.is_active = False
                             counts["retired_duplicates"] += 1
+                    # Heal a hidden survivor. A partner still present in today's
+                    # partnerDirectory sitemap is, by that presence, one the CVB
+                    # still actively lists -- so if the surviving canonical is
+                    # inactive or held as draft/pending, SURFACE it. Without this
+                    # the loader silently routes the listing here ("idempotent")
+                    # and leaves it invisible forever (the Cabana Boat Rentals
+                    # no-op). Guard: skip when a live twin already represents the
+                    # business (e.g. a Google Places row) so we never create a
+                    # visible duplicate; merging CVB enrichment onto that twin is
+                    # a separate follow-up.
+                    if not (canonical.is_active and not canonical.draft):
+                        if canonical.pending_review:
+                            # Still held for FIRST human review (draft+pending) --
+                            # typically a row just inserted via the ambiguous
+                            # pending path. The heal pass only resurfaces rows that
+                            # were APPROVED and later went hidden; auto-promoting a
+                            # pending row would bypass review (the Guy's New Age
+                            # Galley bug). Leave genuinely-held rows held.
+                            counts["skipped_reactivate_pending_review"] += 1
+                        else:
+                            has_live_twin = (name_slug and name_slug in live_name_idx) or (
+                                web_key is not None and web_key in live_web_idx
+                            )
+                            if has_live_twin:
+                                counts["skipped_reactivate_live_twin"] += 1
+                            else:
+                                canonical.is_active = True
+                                canonical.draft = False
+                                canonical.pending_review = False
+                                live_name_idx.add(name_slug)
+                                if web_key:
+                                    live_web_idx.add(web_key)
+                                counts["reactivated"] += 1
                     counts["idempotent_updated"] += 1
                     continue
 
@@ -453,6 +589,21 @@ def ingest_partners(
                         counts["reconcile_skipped_ambiguous"] += 1
                         continue
                     _fill_gaps(prov, kwargs)
+                    # Source-parity re-file (2026-07-03): when the CVB tag maps to
+                    # a confident leaf, the source category is authoritative — so
+                    # re-file this row (typically a Google-derived provider) onto
+                    # the crosswalk leaf instead of discarding the CVB category.
+                    # This closes the "CVB category thrown away on reconcile" gap:
+                    # charters/tours/fishing-guides matched to a Google row were
+                    # left in whatever leaf the Google types picked. Guarded on
+                    # ``legacy_category`` (truthy only for confident CVB tags) so a
+                    # default-slug fallback never clobbers a good category.
+                    if payload.legacy_category and row_cat_id is not None:
+                        if prov.category_id != row_cat_id:
+                            counts["recategorized_leaf"] += 1
+                        prov.category = payload.legacy_category
+                        prov.category_id = row_cat_id
+                        prov.category_provenance = provenance
                     sync_provider_entity_from_legacy(session, prov)
                     if rec.merge_fields:
                         ent = session.get(Entity, rec.existing_id)
@@ -466,8 +617,16 @@ def ingest_partners(
                 create_provider_and_entity(session, provider)
                 _register_cvb(provider)
                 counts["inserted"] += 1
-            session.commit()
-        return counts
+            # Dry-run honesty: the loop above ran in full against the live DB
+            # (reads + in-session mutations) so the counts equal a real apply;
+            # roll the transaction back so NOTHING persists. Previously dry-run
+            # returned before this block (all-zeros), hiding real gaps -- the
+            # Cabana Boat Rentals no-op that prompted this fix.
+            if dry_run:
+                session.rollback()
+            else:
+                session.commit()
+        return _dry_view(counts) if dry_run else counts
 
     if http_client is not None:
         return _run(http_client)
@@ -555,6 +714,95 @@ def reconcile_pending(
     return counts
 
 
+def reconcile_dormant(
+    *,
+    dry_run: bool,
+    limit: int | None,
+    fuzzy_threshold: float = FUZZY_NAME_THRESHOLD,
+) -> dict[str, int]:
+    """Cleanup pass for DORMANT-DUPLICATE CVB rows.
+
+    A "dormant duplicate" is a hidden ``go_lake_havasu`` row -- inactive, or held
+    as draft -- that sits beside an active twin, typically the business's Google
+    Places listing. The audit found 16 of these (Lake Havasu Marina, London
+    Bridge Resort, HEAT Hotel, ...): the business is visible via the Google row,
+    but the CVB row's enrichment is stranded on a hidden duplicate.
+
+    Parallels :func:`reconcile_pending` but widens the scan from draft+pending to
+    EVERY hidden CVB row (``not (is_active and not draft)``). For each, if a
+    single confident Google-backed twin exists (exact website/phone, or fuzzy
+    name within 50m), fill contact gaps onto the twin, record CVB provenance on
+    the surviving entity, and retire the hidden CVB row (``is_active=False``,
+    ``pending_review=False``). Rows with NO confident twin are left untouched --
+    those are the genuinely twinless partners that the ingest reactivation path
+    (:func:`ingest_partners`) surfaces instead. Idempotent; honour ``--dry-run``.
+
+    Deliberately uses the high-precision contact/fuzzy tiers (NOT the broad
+    name-slug index the ingest reactivation guard uses): retiring a row is more
+    consequential than declining to reactivate one, so it demands a precise twin.
+    """
+    counts: dict[str, int] = {
+        "scanned": 0,
+        "merged": 0,
+        "merged_contact": 0,
+        "merged_fuzzy": 0,
+        "retired": 0,
+        "left_alone": 0,
+    }
+    with SessionLocal() as session:
+        rows = session.scalars(
+            select(Provider).where(
+                Provider.source.like("%go_lake_havasu%"),
+                or_(Provider.is_active.is_(False), Provider.draft.is_(True)),
+            )
+        ).all()
+        if limit is not None:
+            rows = rows[:limit]
+
+        for prov in rows:
+            counts["scanned"] += 1
+            payload = _provider_to_payload(prov)
+            contact_id = _contact_match(session, payload)
+            match_id = contact_id or _fuzzy_geo_match(session, payload, threshold=fuzzy_threshold)
+            if match_id is None:
+                counts["left_alone"] += 1
+                continue
+            target = session.scalars(
+                select(Provider).where(Provider.entity_id == match_id).limit(1)
+            ).first()
+            if target is None or target.id == prov.id:
+                counts["left_alone"] += 1
+                continue
+            tier = "contact" if contact_id is not None else "fuzzy"
+
+            kwargs = _provider_kwargs(
+                payload,
+                category_slug=payload.category_slug or "things-to-do",
+                category_id=None,
+            )
+            _fill_gaps(target, kwargs)
+            sync_provider_entity_from_legacy(session, target)
+            ent = session.get(Entity, match_id)
+            ent_name = ent.name if ent is not None else "?"
+            if ent is not None:
+                ent.source = _combine_sources(ent.source, "go_lake_havasu")[:64]
+            # Already-inactive rows are not re-retired (no double count); active
+            # draft rows get retired now that their data is safe on the twin.
+            if prov.is_active:
+                prov.is_active = False
+                counts["retired"] += 1
+            prov.pending_review = False
+            counts["merged"] += 1
+            counts[f"merged_{tier}"] += 1
+            print(
+                f"  MERGE[{tier}] dormant '{prov.provider_name}' "
+                f"[{prov.address or 'no addr'}] -> entity {match_id} '{ent_name}'"
+            )
+        if not dry_run:
+            session.commit()
+    return counts
+
+
 def main() -> int:
     logging.basicConfig(level=logging.INFO, format="%(levelname)s %(message)s")
     p = argparse.ArgumentParser(description="Ingest golakehavasu partner listings")
@@ -576,6 +824,12 @@ def main() -> int:
         action="store_true",
         help="Cleanup mode: re-match existing draft+pending CVB rows onto Google rows",
     )
+    p.add_argument(
+        "--reconcile-dormant",
+        action="store_true",
+        help="Cleanup mode: fold hidden CVB rows (inactive/draft) that have a "
+        "confident Google twin onto that twin and retire them",
+    )
     args = p.parse_args()
 
     if args.reconcile_pending:
@@ -585,6 +839,13 @@ def main() -> int:
             fuzzy_threshold=args.fuzzy_threshold,
         )
         print("--- golakehavasu_partners_load --reconcile-pending summary ---")
+    elif args.reconcile_dormant:
+        counts = reconcile_dormant(
+            dry_run=bool(args.dry_run),
+            limit=args.limit,
+            fuzzy_threshold=args.fuzzy_threshold,
+        )
+        print("--- golakehavasu_partners_load --reconcile-dormant summary ---")
     else:
         counts = ingest_partners(
             category_slug=args.category_slug,

@@ -28,12 +28,10 @@ from __future__ import annotations
 import math
 from dataclasses import dataclass
 from datetime import datetime, time, timedelta
-from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 from fastapi.responses import RedirectResponse
-from fastapi.templating import Jinja2Templates
 from sqlalchemy import and_, or_, select
 from sqlalchemy.orm import Session, joinedload
 
@@ -41,8 +39,9 @@ from app.categories.trades import needles_for_trade as _needles_for_trade  # noq
 from app.categories.trades import provider_matches_trade as _provider_matches_trade
 from app.core.conditions_temperature import read_current_temperature_f
 from app.core.liveness import liveness_dampener
-from app.core.provider_name import register_template_filters, register_template_globals
 from app.core.ranking import CardRankInput, compute_card_rank
+from app.core.rate_limit import limiter, public_html_rate_limit
+from app.core.templates import make_templates
 from app.db.entity_types import ENTITY_TYPE_COMMERCIAL
 from app.db.models import Category, District, Entity, EntityCategory, Provider
 from app.events import series as event_series
@@ -52,10 +51,7 @@ from app.providers.queries import _parse_hours_time, is_open_now
 
 router = APIRouter(tags=["category"])
 
-_TEMPLATES_DIR = Path(__file__).resolve().parents[2] / "templates"
-templates = Jinja2Templates(directory=str(_TEMPLATES_DIR))
-register_template_filters(templates)
-register_template_globals(templates)
+templates = make_templates()
 
 
 @dataclass(frozen=True)
@@ -195,9 +191,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
             {"param": "boat", "value": "1", "label": "Boat-friendly"},
-            {"param": "family", "value": "1", "label": "Family-friendly"},
-            {"param": "free", "value": "1", "label": "Free"},
-            {"param": "paid", "value": "1", "label": "Paid"},
         ),
         sort_default="closest_now",
     ),
@@ -218,7 +211,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
             {"param": "open", "value": "now", "label": "Open now"},
             {"param": "verified", "value": "1", "label": "Verified"},
             {"param": "mobile", "value": "1", "label": "Mobile-service"},
-            {"param": "emergency", "value": "1", "label": "Emergency 24h"},
         ),
         sort_default="editorial_pick",
     ),
@@ -238,8 +230,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
             {"param": "npi", "value": "1", "label": "NPI-verified"},
-            {"param": "new-patients", "value": "1", "label": "Accepting new patients"},
-            {"param": "insurance", "value": "1", "label": "Insurance accepted"},
         ),
         sort_default="closest_now",
     ),
@@ -257,8 +247,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
             {"param": "mobile", "value": "1", "label": "Mobile-service"},
-            {"param": "tow", "value": "1", "label": "Tow available"},
-            {"param": "rv", "value": "1", "label": "RV-friendly"},
         ),
         sort_default="closest_now",
     ),
@@ -278,8 +266,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
             {"param": "late", "value": "1", "label": "Open past 9pm"},
-            {"param": "drive", "value": "1", "label": "Drive-through"},
-            {"param": "curbside", "value": "1", "label": "Curbside pickup"},
         ),
         sort_default="closest_now",
     ),
@@ -313,10 +299,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         ),
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
-            {"param": "free", "value": "1", "label": "Free"},
-            {"param": "family", "value": "1", "label": "Family-friendly"},
-            {"param": "dog", "value": "1", "label": "Dog-friendly"},
-            {"param": "seasonal", "value": "1", "label": "Seasonal access"},
         ),
         sort_default="closest_now",
     ),
@@ -331,12 +313,11 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
             Chip("adult_sports", "Adult sports"),
         ),
         operational_chips=(
-            {"param": "drop_in", "value": "1", "label": "Drop-in OK"},
-            {"param": "registration", "value": "1", "label": "Registration required"},
-            {"param": "kids", "value": "1", "label": "Kids (0-12)"},
-            {"param": "teens", "value": "1", "label": "Teens (13-17)"},
-            {"param": "adults", "value": "1", "label": "Adults (18+)"},
-            {"param": "55_plus", "value": "1", "label": "55+"},
+            # Audience filters — collapsed from Kids/Teens/Adults/55+ to Youth
+            # (under 18) / Adult (Casey 2026-06-29). Drop-in / Registration chips
+            # were removed: nothing populates the crowd_notes flag they filtered on.
+            {"param": "youth", "value": "1", "label": "Youth"},
+            {"param": "adults", "value": "1", "label": "Adult"},
         ),
         sort_default="closest_now",
     ),
@@ -345,15 +326,13 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
             Chip("hotels", "Hotels"),
             Chip("motels", "Motels"),
             Chip("resorts", "Resorts"),
-            Chip("vacation-rentals", "Vacation rentals"),
+            # §6.4: Vacation Rentals tab removed for now — Airbnb/short-term-rental
+            # integration is a future feature. The subcategory + ingest mappings
+            # stay intact so the tab can return when that feature ships.
             Chip("bed-breakfast", "Bed & breakfast"),
         ),
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
-            {"param": "waterfront", "value": "1", "label": "Waterfront"},
-            {"param": "pool", "value": "1", "label": "Pool"},
-            {"param": "pet", "value": "1", "label": "Pet-friendly"},
-            {"param": "parking", "value": "1", "label": "Free parking"},
         ),
         sort_default="closest_now",
     ),
@@ -367,9 +346,7 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         ),
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
-            {"param": "walkins", "value": "1", "label": "Walk-ins"},
             {"param": "mobile", "value": "1", "label": "Mobile service"},
-            {"param": "emergency", "value": "1", "label": "Emergency"},
         ),
         sort_default="closest_now",
     ),
@@ -386,9 +363,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         ),
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
-            {"param": "free", "value": "1", "label": "Free"},
-            {"param": "appointment", "value": "1", "label": "Appointment required"},
-            {"param": "always", "value": "1", "label": "24/7 access"},
         ),
         sort_default="closest_now",
     ),
@@ -404,7 +378,6 @@ _CATEGORY_PAGE_CONFIG: dict[str, CategoryPageConfig] = {
         operational_chips=(
             {"param": "open", "value": "now", "label": "Open now"},
             {"param": "verified", "value": "1", "label": "Verified"},
-            {"param": "appointment", "value": "1", "label": "Appointment required"},
         ),
         sort_default="closest_now",
     ),
@@ -556,6 +529,38 @@ def _distance_km_for_entity(ent: Entity, ref_lat: float, ref_lng: float) -> floa
     return _haversine_km(ref_lat, ref_lng, float(loc.lat), float(loc.lng))
 
 
+def _overlay_category_placements(
+    ordered: list[Entity],
+    prov_by_eid: dict[str, Provider],
+    db: Session,
+    category_slug: str,
+) -> list[Entity]:
+    """Phase F §7.2: pin active sticky-tier placements to the top of an
+    organic-ordered entity list. No-op (returns the input unchanged) when no
+    placements are sold for this category — which is the case until the business
+    portal can sell them, so this has zero effect on the live site today."""
+    from app.monetization.serving import active_category_tiers, apply_category_order
+
+    tiers = active_category_tiers(db, category_slug)
+    if not tiers:
+        return ordered
+
+    entity_by_pid: dict[str, Entity] = {}
+    ordered_pids: list[str] = []
+    no_provider: list[Entity] = []
+    for e in ordered:
+        p = prov_by_eid.get(e.id)
+        if p is None:
+            no_provider.append(e)
+            continue
+        entity_by_pid.setdefault(p.id, e)
+        ordered_pids.append(p.id)
+
+    new_order = apply_category_order(ordered_pids, tiers)
+    reordered = [entity_by_pid[pid] for pid in new_order if pid in entity_by_pid]
+    return reordered + no_provider
+
+
 def _sort_entity_ids(
     entities: list[Entity],
     *,
@@ -596,12 +601,12 @@ def _sort_entity_ids(
         return (-rating, (e.name or "").lower())
 
     if sort_key == "alphabetical":
-        return sorted(entities, key=lambda e: (e.name or "").lower())
-    if sort_key == "top_rated":
-        return sorted(entities, key=top_rated_key)
-    if sort_key == "editorial_pick":
-        return sorted(entities, key=editorial_key)
-    if sort_key == "closest_now":
+        ordered = sorted(entities, key=lambda e: (e.name or "").lower())
+    elif sort_key == "top_rated":
+        ordered = sorted(entities, key=top_rated_key)
+    elif sort_key == "editorial_pick":
+        ordered = sorted(entities, key=editorial_key)
+    elif sort_key == "closest_now":
         rank_inp = rank_inputs_for_category(
             entities,
             category_slug=category_slug,
@@ -618,11 +623,15 @@ def _sort_entity_ids(
             score = compute_card_rank(inp, now=now, temperature_f=temp_f)
             return (-score, (e.name or "").lower())
 
-        return sorted(entities, key=closest_key)
-    return sorted(
-        entities,
-        key=lambda e: (_distance_km_for_entity(e, ref_lat, ref_lng), (e.name or "").lower()),
-    )
+        ordered = sorted(entities, key=closest_key)
+    else:
+        ordered = sorted(
+            entities,
+            key=lambda e: (_distance_km_for_entity(e, ref_lat, ref_lng), (e.name or "").lower()),
+        )
+
+    # Phase F §7.2: pin paid sticky-tier placements to the top (dormant until sold).
+    return _overlay_category_placements(ordered, prov_by_eid, db, category_slug)
 
 
 def rank_inputs_for_category(
@@ -760,6 +769,7 @@ def _apply_python_filters(
     mobile_only: bool,
     boat_only: bool,
     free_only: bool,
+    npi_only: bool = False,
     now: datetime,
 ) -> list[Entity]:
     if not entities:
@@ -806,6 +816,8 @@ def _apply_python_filters(
             attrs = (prov.attributes if prov else {}) or {}
             if not attrs.get("free_admission") and not attrs.get("free"):
                 continue
+        if npi_only and not (prov is not None and prov.verification_method == "npi_registry"):
+            continue
         out.append(ent)
     return out
 
@@ -834,6 +846,9 @@ def _program_matches_age_band(prog, band: str) -> bool:
         return False
     amin = int(amin) if amin is not None else 0
     amax = int(amax) if amax is not None else 99
+    if band == "youth":
+        # Anyone under 18 the program serves (folds the old kids + teens bands).
+        return amin <= 17
     if band == "kids":
         return amin <= 12 and amax >= 0
     if band == "teens":
@@ -862,12 +877,13 @@ def _apply_classes_sports_filters(
     db: Session,
     drop_in: bool,
     registration: bool,
-    kids: bool,
-    teens: bool,
-    adults: bool,
-    senior_55: bool,
+    kids: bool = False,
+    teens: bool = False,
+    adults: bool = False,
+    senior_55: bool = False,
+    youth: bool = False,
 ) -> list[Entity]:
-    if not any((drop_in, registration, kids, teens, adults, senior_55)):
+    if not any((drop_in, registration, kids, teens, adults, senior_55, youth)):
         return entities
     eids = [e.id for e in entities]
     prog_map = _programs_for_entities(db, eids)
@@ -890,6 +906,8 @@ def _apply_classes_sports_filters(
         if adults and not any(_program_matches_age_band(p, "adults") for p in progs):
             continue
         if senior_55 and not any(_program_matches_age_band(p, "55_plus") for p in progs):
+            continue
+        if youth and not any(_program_matches_age_band(p, "youth") for p in progs):
             continue
         out.append(ent)
     return out
@@ -1030,16 +1048,17 @@ SINGULAR_TO_PLURAL_REDIRECTS: dict[str, str] = {
     "auto-rv-fuel": "/categories/auto-rv-and-marine",
     "shopping-essentials": "/categories/shopping-and-retail",
     "events": "/categories/things-to-do-and-attractions",
-    "outdoors-parks-trails": "/categories/outdoors-and-recreation",
+    "outdoors-parks-trails": "/categories/things-to-do-and-attractions",
     "classes-sports-recreation": "/categories/fitness-and-wellness",
     "lodging-vacation-rentals": "/categories/lodging",
     "pets": "/categories/pets",
-    "public-civic-resources": "/categories/community-and-civic",
+    "public-civic-resources": "/categories/city-and-government",
     "professional-services": "/categories/professional-and-financial",
 }
 
 
 @router.get("/category/{slug}")
+@limiter.limit(public_html_rate_limit)
 def category_landing(request: Request, slug: str) -> RedirectResponse:
     """301 the retired singular surface to the canonical plural page."""
     cat_slug = slug.strip().lower()

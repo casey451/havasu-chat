@@ -22,6 +22,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
+from functools import lru_cache
 from typing import Any
 
 from sqlalchemy import or_
@@ -33,12 +34,75 @@ from app.conditions.cache import read_source
 from app.conditions.constants import SOURCE_GAS
 from app.core.liveness import liveness_dampener
 from app.core.timezone import now_lake_havasu
-from app.db.models import Event, Offering, Program, Provider
+from app.db.models import Category, EntityCategory, Event, Offering, Program, Provider
+from app.events.time_labels import format_full_time
 from app.programs.pricing import format_offering_price, format_program_price
 from app.providers.queries import is_open_now
 
 _PROVIDER_LIMIT = 12
 _EVENT_LIMIT = 24
+
+
+# ---------------------------------------------------------------------------
+# Within-category relevance ranking (P1-1)
+# ---------------------------------------------------------------------------
+#
+# The Tier-2 listing path returned the same per-category top-N for every query
+# in a bucket ("which launch ramp", "fish from shore", "sunset cruise" all got
+# the same on-water list, ordered purely by rating). P1-1 re-orders a bucket by
+# how many of the query's *distinctive* terms appear in each row's searchable
+# text, breaking ties with the existing rating sort. Empty ``rank_terms`` keeps
+# today's exact behavior (zero regression for existing callers/tests).
+
+# Tokens that carry no within-category signal: intent/question/filler words plus
+# locality and the generic bucket words ("boat"/"water"/"spot"/"place"). Dropping
+# them keeps ranking driven by what actually distinguishes rows in a bucket
+# ("launch", "ramp", "fishing", "sunset", "kayak") instead of words every row or
+# every query shares.
+_RANK_STOP_TERMS: frozenset[str] = frozenset(
+    """a an and any anywhere are around at be best buy can cheap cheapest close
+    closed could do does find for from get going good great hava have help here
+    hey how i id im into is it its just like list local me my near nearby need
+    new now of off ok okay on open or our out place places please right show some
+    something spot spots that the their them there these they this those to today
+    tonight tomorrow top town up us use want we week weekend what when where which
+    while who whose why will with would you your
+    lake havasu city arizona az lhc
+    boat boats water""".split()
+)
+
+
+def _derive_rank_terms(raw_query: str | None) -> frozenset[str]:
+    """Distinctive lowercase terms from a raw query, for within-category ranking.
+
+    Tokenize, then drop stop/locality/bucket words (``_RANK_STOP_TERMS``), bare
+    numbers (ages/sizes/counts — "8 year old", "28-foot"), and tokens shorter
+    than three characters. The remainder are the terms that distinguish one row
+    in a bucket from another. Returns ``frozenset()`` for an empty/None query,
+    which makes ``relevance`` a no-op and preserves the legacy sort.
+    """
+    if not raw_query:
+        return frozenset()
+    terms: set[str] = set()
+    for tok in re.split(r"[^a-z0-9]+", raw_query.lower()):
+        if len(tok) < 3 or tok.isdigit() or tok in _RANK_STOP_TERMS:
+            continue
+        terms.add(tok)
+    return frozenset(terms)
+
+
+def relevance(searchable: str, rank_terms: frozenset[str]) -> int:
+    """Count how many distinctive query terms appear in a row's searchable text.
+
+    Pure and substring-based (``"ramp"`` matches the leaf slug
+    ``"marinas-and-launch-ramps"``); ``searchable`` is expected lowercase. Used
+    as the PRIMARY sort key ahead of the rating sort, so a row that matches more
+    of the query's distinctive terms outranks a higher-rated row that matches
+    fewer — within the same already-filtered bucket.
+    """
+    if not rank_terms:
+        return 0
+    return sum(1 for t in rank_terms if t in searchable)
 
 
 @dataclass
@@ -77,6 +141,48 @@ def _provider_sort_key(p: Provider) -> tuple:
     )
 
 
+def _leaf_slugs_for_entities(
+    db: Session, entity_ids: list[str]
+) -> dict[str, list[str]]:
+    """Batched ``entity_id -> [category slug, ...]`` for the candidate rows.
+
+    The within-category ranking signal for several buckets lives ONLY in the
+    curated taxonomy slug (e.g. ``marinas-and-launch-ramps`` carries "launch"
+    and "ramp", which appear nowhere on the ``Provider`` row — not in the name,
+    google categories, category, or subcategory). One ``EntityCategory`` ->
+    ``Category`` join, keyed by ``entity_id``, pulls every linked slug so the
+    searchable string can include it. Returns ``{}`` for an empty input.
+    """
+    if not entity_ids:
+        return {}
+    out: dict[str, list[str]] = {}
+    for eid, slug in (
+        db.query(EntityCategory.entity_id, Category.slug)
+        .join(Category, Category.id == EntityCategory.category_id)
+        .filter(EntityCategory.entity_id.in_(entity_ids))
+        .all()
+    ):
+        if slug:
+            out.setdefault(eid, []).append(slug)
+    return out
+
+
+def _provider_searchable(p: Provider, leaf_slugs: list[str] | tuple[str, ...]) -> str:
+    """Lowercase blob of everything a query term can match a provider against:
+    name, google primary/secondary categories, legacy category + subcategory,
+    and the entity's taxonomy slugs (the only place "launch"/"ramp" etc. live).
+    """
+    parts = [
+        p.provider_name or "",
+        p.google_primary_category or "",
+        " ".join(p.google_categories or []),
+        p.category or "",
+        p.subcategory or "",
+        " ".join(leaf_slugs),
+    ]
+    return " ".join(parts).lower()
+
+
 def _query_providers(
     db: Session,
     *,
@@ -84,14 +190,22 @@ def _query_providers(
     legacy_categories: tuple[str, ...] = (),
     name_tokens: tuple[str, ...] = (),
     exclude_name_tokens: tuple[str, ...] = (),
+    exclude_google_categories: tuple[str, ...] = (),
     district: str | None = None,
     open_now: bool = False,
+    rank_terms: frozenset[str] = frozenset(),
     limit: int = _PROVIDER_LIMIT,
     now: datetime | None = None,
 ) -> list[Provider]:
     q = db.query(Provider).filter(
         Provider.is_active.is_(True),
         Provider.draft.is_(False),
+        # [ASK #8] (2026-07-01, Casey: region-tag + exclude): rows classified
+        # out-of-area are already excluded from leaf pages via ``is_local``;
+        # honor the same flag on the chat bucket queries so a Kingman golf
+        # course or Parker casino can't ride into a Lake Havasu answer.
+        # NULL/unknown is kept — never assume an un-geocoded row is far.
+        Provider.is_local.isnot(False),
     )
     bucket_conds = []
     if subcats:
@@ -100,6 +214,17 @@ def _query_providers(
         bucket_conds.append(Provider.category.in_(legacy_categories))
     if bucket_conds:
         q = q.filter(or_(*bucket_conds))
+
+    if exclude_google_categories:
+        # Drop rows whose Google primary category is a definitely-wrong type for
+        # this bucket (storage / auto / RV-park rows that ride in on a broad
+        # legacy tag). NULL/blank is kept -- real rows often have no Google type.
+        q = q.filter(
+            or_(
+                Provider.google_primary_category.is_(None),
+                Provider.google_primary_category.notin_(exclude_google_categories),
+            )
+        )
 
     if name_tokens:
         token_conds = []
@@ -118,15 +243,33 @@ def _query_providers(
         for tok in exclude_name_tokens:
             q = q.filter(~Provider.provider_name.ilike(f"%{tok}%"))
 
+    rows = list(q.all())
     if district:
         # District is sparsely populated (Phase-0 audit: ~0% on the dev DB), so
-        # treat area as a soft preference: filter by it, but fall back to the
-        # un-filtered set rather than erasing all results.
-        district_rows = list(q.filter(Provider.district.ilike(f"%{district}%")).all())
-        rows = district_rows if district_rows else list(q.all())
+        # treat area as a soft preference: narrow to it, but fall back to the
+        # un-filtered set rather than erasing all results. One fetch either way
+        # (this used to run the full bucket query twice when the district
+        # matched nothing — audit 2026-07-01).
+        d = district.lower()
+        district_rows = [p for p in rows if d in (p.district or "").lower()]
+        if district_rows:
+            rows = district_rows
+
+    if rank_terms:
+        # Re-order this already-filtered bucket by within-category relevance:
+        # primary key = count of distinctive query terms in the row's searchable
+        # text; ties fall back to the existing rated-first/rating/reviews sort.
+        slugs_by_eid = _leaf_slugs_for_entities(
+            db, [p.entity_id for p in rows if p.entity_id]
+        )
+
+        def _rank_key(p: Provider) -> tuple:
+            searchable = _provider_searchable(p, slugs_by_eid.get(p.entity_id, ()))
+            return (relevance(searchable, rank_terms), *_provider_sort_key(p))
+
+        rows.sort(key=_rank_key, reverse=True)
     else:
-        rows = list(q.all())
-    rows.sort(key=_provider_sort_key, reverse=True)
+        rows.sort(key=_provider_sort_key, reverse=True)
 
     if open_now:
         kept: list[Provider] = []
@@ -149,16 +292,72 @@ def _thumb_url(p: Provider) -> str | None:
         return None
 
 
+
+# Marine-signal de-rank for boat_repair. The water bucket is exempt from the
+# auto-repair exclusion (a boat ask wants repair shops), so big auto/RV "Car
+# Repair" yards ride in on name tokens ("repair"/"service") and, ranked by
+# review count, bury the genuine marine shop. We stable-partition so providers
+# with a marine signal lead, preserving the existing rank within each group.
+_MARINE_SIGNAL_RE = re.compile(
+    r"\b(marine|boat|watercraft|outboard|pontoon|jet[\s-]?ski)\b",
+    re.IGNORECASE,
+)
+
+
+def _has_marine_signal(p: Provider) -> bool:
+    hay = " ".join(
+        str(v or "")
+        for v in (p.provider_name, p.google_primary_category, p.category)
+    )
+    return bool(_MARINE_SIGNAL_RE.search(hay))
+
+
+def _marine_first(rows: list[Provider]) -> list[Provider]:
+    """Stable: marine-signal providers first, others (auto/RV) after."""
+    marine = [p for p in rows if _has_marine_signal(p)]
+    rest = [p for p in rows if not _has_marine_signal(p)]
+    return marine + rest
+
+
+@lru_cache(maxsize=1)
+def _primary_leaf_name_by_entity() -> dict[str, str]:
+    """``entity_id -> primary-leaf Category.name`` — the authoritative per-listing
+    category label (2026-06-30 search audit 3B). Preferred over the unreliable
+    ``google_primary_category`` ("Rv Park", "Indoor Playground") / legacy
+    ``category`` for the card tag. Cached once per process (categories are
+    near-static; a reclass shows after the next deploy). Best-effort: ``{}`` on
+    any failure so the label falls back to the legacy heuristics."""
+    try:
+        from app.db.database import SessionLocal
+
+        with SessionLocal() as db:
+            rows = (
+                db.query(EntityCategory.entity_id, Category.name)
+                .join(Category, Category.id == EntityCategory.category_id)
+                .filter(EntityCategory.is_primary.is_(True))
+                .all()
+            )
+        return {eid: name for eid, name in rows if eid and name}
+    except Exception:  # pragma: no cover - defensive; label just falls back
+        return {}
+
+
 def _provider_to_row(p: Provider) -> dict[str, Any]:
     """Tier2 provider-row shape consumed by build_business_list."""
+    from app.contrib.ingest_suppression import clean_placeholder_address
+
     return {
         "type": "provider",
         "id": p.id,
         "name": p.provider_name,
         "slug": p.slug,
         "phone": p.phone,
-        "address": p.address,
+        # The CVB visitor-center placeholder is never a business location —
+        # render nothing rather than a shared fake address (2026-07-01 Phase 3;
+        # ingest + the data op null it at the source, this is the render guard).
+        "address": clean_placeholder_address(p.address),
         "category": p.category,
+        "primary_category_label": _primary_leaf_name_by_entity().get(p.entity_id),
         "google_primary_category": p.google_primary_category,
         "google_rating": p.google_rating,
         "google_review_count": p.google_review_count,
@@ -213,17 +412,32 @@ def _event_to_row(event, occ: date) -> dict[str, Any]:
 def _query_events(
     db: Session, window: str, *, today: date, activity: str | None
 ) -> list[dict[str, Any]]:
+    from app.events.event_type_tags import (
+        EVENT_TYPE_LABELS,
+        LIVE_MUSIC,
+        event_type_label,
+        is_civic_meeting,
+    )
     from app.events.queries import events_in_window
 
     start, end = _event_window_dates(window, today)
     pairs = events_in_window(db, window_start=start, window_end=end, limit=_EVENT_LIMIT)
     rows: list[dict[str, Any]] = []
     for event, occ in pairs:
+        title = event.title
+        venue = getattr(event, "location_name", "") or ""
+        desc = getattr(event, "description", "") or ""
         if activity == "live_music":
-            tags = [str(x).lower() for x in (event.tags or [])]
-            blob = f"{event.title} {' '.join(tags)}".lower()
-            if not any(k in blob for k in ("music", "concert", "band", "dj", "acoustic")):
+            # 2026-06-30 audit A2: "live music tonight" must return only ACTUAL
+            # live music -- a real performance signal, not a paint-and-sip that
+            # merely sits at a brewery. event_type_label requires that signal.
+            if event_type_label(title, event.tags, venue, desc) != EVENT_TYPE_LABELS[LIVE_MUSIC]:
                 continue
+        elif is_civic_meeting(title, desc, venue):
+            # Generic "things to do" / "what's happening" browse: government
+            # meetings (City Council, P&Z, Board of Adjustment) are not leisure
+            # activities -- keep them out of the concierge's events list.
+            continue
         rows.append(_event_to_row(event, occ))
     return rows
 
@@ -232,13 +446,6 @@ def _query_events(
 # Programs (kids lessons / classes) -- cost + age live here, not on Event.
 # ---------------------------------------------------------------------------
 
-
-def _safe_time_label(t) -> str:
-    if t is None:
-        return ""
-    suffix = "AM" if t.hour < 12 else "PM"
-    h12 = t.hour % 12 or 12
-    return f"{h12}:{t.minute:02d} {suffix}" if t.minute else f"{h12} {suffix}"
 
 
 def _offering_by_program(db: Session, programs: list[Program]) -> dict[str, Offering]:
@@ -290,12 +497,9 @@ def _venue_core_tokens(venue: str) -> list[str]:
 
 
 def _fmt_time(t: time) -> str:
-    """12-hour 'H:MM AM' label. Cross-platform — ``%-I`` is glibc-only and
-    raises ``ValueError: Invalid format string`` on Windows (and ``%#I`` is the
-    MSVC spelling), so compute the hour/meridiem directly instead of strftime."""
-    hour12 = t.hour % 12 or 12
-    meridiem = "AM" if t.hour < 12 else "PM"
-    return f"{hour12}:{t.minute:02d} {meridiem}"
+    """12-hour 'H:MM AM' label — delegates to the shared time_labels formatter
+    (consolidated 2026-07-02)."""
+    return format_full_time(t)
 
 
 def _query_venue_schedule(
@@ -388,6 +592,147 @@ def _query_programs(
 
 
 # ---------------------------------------------------------------------------
+# classes_find topical guard (2026-06-30 search audit A1)
+# ---------------------------------------------------------------------------
+# A bare "what classes are offered" browse legitimately lists every active
+# program. But "golf lessons" / "wake surf lessons" / "wakeboard lessons" name a
+# SPECIFIC activity the catalog doesn't teach -- and the old handler, finding no
+# resolver topic, dumped the full Parks & Rec after-school roster (ASP Oro
+# Grande, Camp Iwannago...) as if it answered the query. The guard below pulls
+# the activity nouns a class query carries; when it names one, a program must
+# actually match it, else we return nothing so the honest gap template answers.
+_CLASS_BROWSE_FILLER: frozenset[str] = frozenset(
+    """a an and any are around at available browse camp camps class classes
+    clinic clinics course courses do does enroll find for get go going have has
+    here how i im in is it join learn lesson lessons list local looking me my
+    near nearby need now of offer offered offering offerings offers on or our
+    program programs provide provided provides register registration session
+    sessions sign signup some take taught teach teaches teaching the their there
+    this to town up us want we what whats when where which who with workshop
+    workshops would you your""".split()
+) | frozenset({"lake", "havasu", "city", "arizona", "az", "lhc"})
+
+
+def _class_activity_terms(raw_query: str | None) -> list[str]:
+    """Distinctive activity nouns in a class/lesson query ("golf lessons" ->
+    ["golf"]). Empty for a generic browse ("what classes are offered") whose
+    every token is a class/schedule/filler/locality word -- that still lists all."""
+    toks = re.split(r"[^a-z0-9]+", (raw_query or "").lower())
+    return [t for t in toks if t and t not in _CLASS_BROWSE_FILLER and not t.isdigit()]
+
+
+def _program_row_matches_terms(row: dict[str, Any], terms: list[str]) -> bool:
+    """True when any activity term appears in the program row's name/subtitle."""
+    hay = f"{row.get('name', '')} {row.get('subtitle', '')}".lower()
+    return any(t in hay for t in terms)
+
+
+# ---------------------------------------------------------------------------
+# Broad-bucket topical gate (2026-07-01 consolidated search audit A1 / 2.B)
+# ---------------------------------------------------------------------------
+# The classes_find guard above, generalized to PROVIDER buckets. A broad-bucket
+# intent ("shopping", "on the water", "places to stay") legitimately lists its
+# whole bucket -- but "gun store" resolved to shopping_find on the bare "store"
+# token and answered with golf carts and a fabric shop, "tubing" surfaced an
+# RV-parts store, and "golf cart rental" returned boat companies. The gate
+# extracts the topical nouns a bucket query carries; when it names one and NO
+# returned row matches it, the bucket answer is wrong -- return nothing so the
+# honest gap template answers instead of Tier 3 guessing an out-of-area business.
+
+#: Intents whose result set is a broad category bucket, where an unmatched
+#: topical noun means the rows do NOT answer the query. find_service /
+#: urgent_care are deliberately absent -- their SERVICE_DICT / SYMPTOM_MAP hit
+#: IS the topical match ("plumber" is not a substring of "plumbing").
+TOPIC_GATED_PROVIDER_INTENTS: frozenset[str] = frozenset(
+    {
+        "shopping_find",
+        "lodging_find",
+        "on_the_water",
+        "boat_rental",
+        "boat_repair",
+        "gym_fitness",
+        "yoga_pilates",
+        "martial_arts",
+        "pickleball",
+    }
+)
+
+# Generic bucket nouns on top of the ranking stopwords: naming the bucket
+# ("store", "hotel", "rental", "restaurant") carries no topical signal -- every
+# row in the bucket is one. What survives is the activity/product noun that
+# must actually appear somewhere on a row ("gun", "tubing", "kayak", "weight").
+_PROVIDER_BROWSE_FILLER: frozenset[str] = _RANK_STOP_TERMS | frozenset(
+    """store stores shop shops rental rentals rent rented renting hire hotel
+    hotels motel motels stay staying place places business businesses company
+    companies buy shopping eat eats food dining dine restaurant restaurants
+    meal meals dinner lunch brunch supper snack snacks grab bite bites hungry
+    repair repairs service services
+    should shall anything anywhere somewhere someplace
+    exist exists available availability offer offers offering options option
+    recommend recommends recommendation recommendations suggest suggestions""".split()
+)
+
+# Per-intent bucket trigger nouns: the words that RESOLVED the query to this
+# bucket describe the bucket itself, not a narrower topic within it ("gym" must
+# not topical-gate the gyms list; "pickleball" must not gate the courts list).
+_INTENT_BUCKET_NOUNS: dict[str, frozenset[str]] = {
+    "gym_fitness": frozenset(
+        "gym gyms fitness crossfit workout workouts weights".split()
+    ),
+    "yoga_pilates": frozenset("yoga pilates barre studio studios".split()),
+    "martial_arts": frozenset(
+        "martial arts karate jiu jitsu bjj judo taekwondo dojo".split()
+    ),
+    "pickleball": frozenset("pickleball tennis racquet court courts".split()),
+}
+
+
+def _provider_activity_terms(raw_query: str | None, intent_key: str = "") -> list[str]:
+    """Distinctive topical nouns in a bucket query ("gun store" -> ["gun"]).
+
+    Mirrors :func:`_class_activity_terms`: tokenize, drop filler / bucket nouns /
+    short tokens / digits. Empty for a generic bucket browse ("shopping in lake
+    havasu", "places to stay") -- those still list the whole bucket."""
+    skip = _PROVIDER_BROWSE_FILLER | _INTENT_BUCKET_NOUNS.get(intent_key, frozenset())
+    out: list[str] = []
+    for tok in re.split(r"[^a-z0-9]+", (raw_query or "").lower()):
+        if len(tok) < 3 or tok.isdigit() or tok in skip or tok in out:
+            continue
+        out.append(tok)
+    return out
+
+
+def _topic_pattern(term: str) -> re.Pattern[str]:
+    """Word-boundary matcher with singular/plural tolerance ("gym" matches
+    "gyms", "church" matches "churches"). Substring matching would false-pass
+    ("side" in "Riverside"), so the boundary is required."""
+    stem = term[:-1] if term.endswith("s") and len(term) > 3 else term
+    return re.compile(rf"\b{re.escape(stem)}(?:e?s)?\b")
+
+
+def _topical_gate(
+    db: Session, rows: list[Provider], raw_query: str | None, intent_key: str
+) -> list[Provider]:
+    """Empty a broad-bucket result whose rows never mention the query's topic.
+
+    All-or-nothing: if ANY row matches a topical term the whole list survives
+    (the relevance ranking already floats the matches); if none does, the
+    bucket does not answer the query and the honest gap template should."""
+    terms = _provider_activity_terms(raw_query, intent_key)
+    if not terms or not rows:
+        return rows
+    slugs_by_eid = _leaf_slugs_for_entities(
+        db, [p.entity_id for p in rows if p.entity_id]
+    )
+    patterns = [_topic_pattern(t) for t in terms]
+    for p in rows:
+        hay = _provider_searchable(p, slugs_by_eid.get(p.entity_id, ()))
+        if any(pat.search(hay) for pat in patterns):
+            return rows
+    return []
+
+
+# ---------------------------------------------------------------------------
 # Gas
 # ---------------------------------------------------------------------------
 
@@ -440,11 +785,16 @@ def run_query(
     *,
     today: date | None = None,
     now: datetime | None = None,
+    raw_query: str | None = None,
 ) -> QueryResult:
     key = resolved.intent_key
     slots = resolved.slots
     if today is None:
         today = now_lake_havasu().date()
+    # Within-category ranking (P1-1): distinctive query terms used to re-order
+    # listing buckets. Empty (no raw_query, or all-generic query) is a no-op and
+    # keeps the legacy rating-only sort.
+    rank_terms = _derive_rank_terms(raw_query)
 
     if key == "cheapest_gas":
         return QueryResult(key, "gas", _query_gas(db), None, "Cheapest gas in town right now:")
@@ -481,6 +831,7 @@ def run_query(
             name_tokens=name_tokens,
             district=_area(slots),
             open_now=bool(slots.get("open_now")),
+            rank_terms=rank_terms,
             now=now,
         )
         return QueryResult(
@@ -505,8 +856,13 @@ def run_query(
             name_tokens=name_tokens,
             district=_area(slots),
             open_now=bool(slots.get("open_now")) or key == "eat_open_now",
+            rank_terms=rank_terms,
             now=now,
         )
+        if key == "eat_find" and not cuisine:
+            # No cuisine slot narrowed the bucket, so a topical noun the rows
+            # never mention means the generic restaurant list is not the answer.
+            rows = _topical_gate(db, rows, raw_query, key)
         return QueryResult(
             key,
             "providers",
@@ -533,8 +889,10 @@ def run_query(
             db,
             subcats=(subcat,),
             legacy_categories=("fitness_sports", "fitness"),
+            rank_terms=rank_terms,
             now=now,
         )
+        rows = _topical_gate(db, rows, raw_query, key)
         return QueryResult(
             key,
             "providers",
@@ -567,6 +925,14 @@ def run_query(
     if key == "classes_find":
         topic = str(slots.get("topic") or "") or None
         rows = _query_programs(db, age_band=None, activity_category=topic)
+        if topic is None:
+            # 2026-06-30 audit A1: a query naming a specific activity the catalog
+            # doesn't teach ("golf lessons", "wake surf lessons") must return
+            # nothing -- never the full Parks & Rec after-school roster. Only a
+            # true topic-less browse ("what classes are offered") lists them all.
+            terms = _class_activity_terms(raw_query)
+            if terms:
+                rows = [r for r in rows if _program_row_matches_terms(r, terms)]
         lead = f"{topic.title()} classes around town:" if topic else "Classes and programs around town:"
         return QueryResult(key, "programs", rows, "classes_sports_recreation", lead)
 
@@ -576,8 +942,10 @@ def run_query(
             subcats=dicts.STAY_SUBCATS,
             legacy_categories=dicts.STAY_LEGACY_CATEGORIES,
             district=_area(slots),
+            rank_terms=rank_terms,
             now=now,
         )
+        rows = _topical_gate(db, rows, raw_query, key)
         return QueryResult(
             key,
             "providers",
@@ -593,8 +961,10 @@ def run_query(
             subcats=dicts.SHOPPING_SUBCATS,
             legacy_categories=dicts.SHOPPING_LEGACY_CATEGORIES,
             district=_area(slots),
+            rank_terms=rank_terms,
             now=now,
         )
+        rows = _topical_gate(db, rows, raw_query, key)
         return QueryResult(
             key,
             "providers",
@@ -624,15 +994,25 @@ def run_query(
         else:
             lead = "Out on the water:"
             label = "spot"
+        # The general "on the water" + "rent a boat" asks must not surface storage
+        # yards / auto-RV repair / RV parks that ride in on the broad legacy
+        # lake_recreation tag. boat_repair is exempt -- that ask wants repair shops.
+        water_exclude_google = () if key == "boat_repair" else dicts.WATER_EXCLUDE_GOOGLE
         rows = _query_providers(
             db,
             subcats=dicts.WATER_SUBCATS,
             legacy_categories=dicts.WATER_LEGACY_CATEGORIES,
             name_tokens=name_tokens,
             exclude_name_tokens=exclude_name_tokens,
+            exclude_google_categories=water_exclude_google,
             district=_area(slots),
+            rank_terms=rank_terms,
             now=now,
         )
+        if key == "boat_repair":
+            # Float genuine marine shops above auto/RV "Car Repair" yards.
+            rows = _marine_first(rows)
+        rows = _topical_gate(db, rows, raw_query, key)
         return QueryResult(
             key,
             "providers",
@@ -647,7 +1027,9 @@ def run_query(
             db,
             subcats=dicts.RECREATION_SUBCATS,
             legacy_categories=dicts.RECREATION_LEGACY_CATEGORIES,
+            exclude_google_categories=dicts.RECREATION_EXCLUDE_GOOGLE,
             district=_area(slots),
+            rank_terms=rank_terms,
             now=now,
         )
         return QueryResult(
@@ -665,6 +1047,7 @@ def run_query(
             subcats=dicts.CIVIC_SUBCATS,
             legacy_categories=dicts.CIVIC_LEGACY_CATEGORIES,
             district=_area(slots),
+            rank_terms=rank_terms,
             now=now,
         )
         return QueryResult(

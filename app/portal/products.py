@@ -1,129 +1,168 @@
-"""Ad-product catalog for the business portal (Phase 2 §5b).
+"""Monetization product + ranking config (P4).
 
-Prices are the monetization-model ranges, used as defaults (an admin can refine
-them later). Scarcity is the pricing model: slot-backed exclusive products show
-**live** availability computed from the active-sponsor count, so a sold-out
-surface offers a waitlist, never a second slot. Nothing here is fabricated — the
-availability for capped slots is a real query; uncapped products say so plainly.
+Single home for the *tunable numbers* the monetization layer reads, so none of
+them are hardcoded at a call site (brief §4.1 / plan §2.1–§2.2: "build prices as
+configurable values, not hardcoded"):
+
+* **Prices** stay DATA in the ``placement_prices`` table (admin-editable without a
+  deploy) — :func:`app.monetization.serving.price_for` reads them. This module
+  only describes the sellable *catalog* (labels/blurbs, the same shape
+  :data:`app.portal.placements.PURCHASABLE_TYPES` exposes) and an optional
+  default price book the operator can seed once.
+* **The non-paid ranking knobs** (the >4.0 quality gate, the mobile paid cap, and
+  the daily-shuffle master switch) live here as env-overridable constants so they
+  can be tuned at rollout, not in code (plan §2.2 R8: "make the >4.0 gate config
+  so you can drop to ~3.8 per category").
+
+Nothing here moves money or imports Stripe; it is pure config.
 """
 
 from __future__ import annotations
 
-from typing import Any
+import os
 
-from sqlalchemy.orm import Session
+from app.bootstrap_env import ensure_dotenv_loaded
 
-from app.db.models import AdSlot, Sponsor
-from app.home.sponsor_store import _live_filter_for_slot
+# --------------------------------------------------------------------------- #
+# Non-paid ranking config (plan §2.2). All env-overridable so the operator can
+# tune at rollout without a deploy.
+# --------------------------------------------------------------------------- #
 
-# (key, name, price range, blurb, backing AdSlot | None, cap | None)
-# cap=None  -> uncapped (per-listing / per-event): always available.
-# cap=int   -> exclusive surface: availability = cap - live active count.
-_PRODUCTS: tuple[dict[str, Any], ...] = (
+# The Google-rating quality gate for the *top* (rated) organic pool. A business
+# with rating STRICTLY GREATER than this and at least one review rides the
+# daily-shuffled rated pool; one with reviews but at/below it sinks below the
+# new/unrated tail (visible, never excluded). 4.0 per the brief; tunable down to
+# ~3.8 in a thin small-town category so a page never empties.
+_DEFAULT_RATING_GATE = 4.0
+
+# Never show more than this many *guaranteed* paid cards before the first organic
+# result (plan §2.1: cap the guaranteed block at 3 so a phone page never reads
+# "all ads"). You can still SELL five sticky tiers — the overflow stays labeled
+# "Sponsored" but is no longer pinned above the fold.
+_DEFAULT_MOBILE_PAID_CAP = 3
+
+_TRUE = {"1", "true", "yes", "on"}
+
+
+def _env(name: str) -> str:
+    ensure_dotenv_loaded()
+    return (os.environ.get(name) or "").strip()
+
+
+def rating_gate() -> float:
+    """The >rating quality gate for the rated organic pool (env ``RATING_GATE``)."""
+    raw = _env("RATING_GATE")
+    if raw:
+        try:
+            return float(raw)
+        except ValueError:
+            pass
+    return _DEFAULT_RATING_GATE
+
+
+def mobile_paid_cap() -> int:
+    """Max guaranteed paid cards pinned above the first organic result
+    (env ``MOBILE_PAID_CAP``)."""
+    raw = _env("MOBILE_PAID_CAP")
+    if raw.isdigit() and int(raw) > 0:
+        return int(raw)
+    return _DEFAULT_MOBILE_PAID_CAP
+
+
+def daily_shuffle_enabled() -> bool:
+    """Master switch for the seeded daily organic shuffle (plan §2.2).
+
+    Defaults ON so category pages rotate fairly day-to-day. Set
+    ``RANKING_DAILY_SHUFFLE=0`` to instantly revert to the legacy
+    rating-sorted order (the safety valve for the rollout)."""
+    raw = _env("RANKING_DAILY_SHUFFLE")
+    if not raw:
+        return True
+    return raw.lower() in _TRUE
+
+
+# --------------------------------------------------------------------------- #
+# Sellable catalog (labels/blurbs only — prices are DATA in placement_prices).
+# Mirrors the merchant-facing PURCHASABLE_TYPES so the storefront and the buy
+# form describe the same products. Default prices below are a one-time seed the
+# operator can load; the live price is always whatever the price book holds.
+# --------------------------------------------------------------------------- #
+
+# (placement_type, rank_tier) -> default price in cents, for the optional seed.
+# Numbers track docs/monetization-research.md; the operator edits them in admin.
+DEFAULT_PRICE_BOOK: dict[tuple[str, int | None], int] = {
+    ("homepage_rotating", None): 9900,   # "share of home" rotating unit
+    ("page_ad", None): 7900,             # one ad at the top of a category page
+    ("category_rank", 1): 17900,         # #1 sticky tier
+    ("category_rank", 2): 15900,
+    ("category_rank", 3): 13900,
+    ("category_rank", 4): 12900,
+    ("category_rank", 5): 11900,
+}
+
+# Public storefront catalog (the three self-serve products), label + blurb.
+STOREFRONT_OFFERS: tuple[dict, ...] = (
     {
-        "key": "enriched",
-        "name": "Verified & Enriched Listing",
-        "price": "$39 / mo",
-        "price_note": "founding rate · $390/yr",
-        "blurb": "Claim your listing, then add photos, hours, menu and links — and wear the verified mark.",
-        "slot": None,
-        "cap": None,
-        "cta": "/portal/claim",
-        "cta_label": "Claim your listing",
+        "key": "category_rank",
+        "rank_tier": 1,
+        "label": "Category top spot",
+        "blurb": "Pin your business to the top of its category page, clearly "
+        "labeled Sponsored. Up to three spots per category.",
     },
     {
-        "key": "category",
-        "name": "Category Sponsorship",
-        "price": "$129–179 / mo",
-        "price_note": "founding rate, 12-mo lock · premium categories (Eat & Drink, On the Water, Lodging, Home Services) $179",
-        "blurb": "Own your category: one clearly-labeled spot pinned atop a category page. Exclusive — one per category.",
-        "slot": AdSlot.SPOTLIGHT,
-        "cap": None,  # per-category cap; shown as a note rather than a global count
-        "note": "1 slot per category",
-        "cta": "/portal/reserve?product=category",
-        "cta_label": "Reserve this spot",
+        "key": "page_ad",
+        "rank_tier": None,
+        "label": "Category page ad",
+        "blurb": "The single labeled ad unit at the top of a category page.",
     },
     {
-        "key": "featured",
-        "name": "Homepage / Mode Featured",
-        "price": "$99–199 / mo",
-        "price_note": "founding rate · marquee $199, spotlight $99",
-        "blurb": "A featured card on the home page or a mode landing (Lake / Night / Family).",
-        "slot": AdSlot.PROMOTED,
-        "cap": None,
-        "note": "Few slots — limited",
-        "cta": "/portal/reserve?product=featured",
-        "cta_label": "Reserve this spot",
-    },
-    {
-        "key": "event",
-        "name": "Event Boost",
-        "price": "$19 / event",
-        "price_note": "or $49 / mo unlimited",
-        "blurb": "Lift your event in the month calendar and the Today module for its run.",
-        "slot": None,
-        "cap": None,
-        "cta": "/portal/reserve?product=event",
-        "cta_label": "Reserve this spot",
-    },
-    {
-        "key": "gas",
-        "name": "Gas / Utility Sponsor",
-        "price": "$149 / mo",
-        "price_note": "founding rate",
-        "blurb": "The single exclusive sponsor on the high-traffic gas page.",
-        "slot": AdSlot.MARQUEE,
-        "cap": 1,
-        "cta": "/portal/reserve?product=gas",
-        "cta_label": "Reserve this spot",
-    },
-    {
-        "key": "founding",
-        "name": "Founding Partner",
-        "price": "$149 / mo",
-        "price_note": "10 founding spots · 12-mo lock",
-        "blurb": "The launch bundle: the Verified & Enriched Listing + homepage spotlight rotation + 2 event boosts a month + first dibs on your category sponsorship.",
-        "slot": None,
-        "cap": None,
-        "note": "10 founding spots",
-        "cta": "/portal/reserve?product=founding",
-        "cta_label": "Reserve this spot",
+        "key": "homepage_rotating",
+        "rank_tier": None,
+        "label": "Home rotating spot",
+        "blurb": "A share of the home page rotation — one advertiser shown per "
+        "visit, cycling across the pool.",
     },
 )
 
 
-def get(key: str) -> dict[str, Any] | None:
-    """Return the raw catalog entry for ``key`` (no live availability), or None.
+def resolve_offer(db, key: str, rank_tier: int | None = None) -> dict | None:
+    """Resolve a single storefront offer (label/blurb/price) by its product key
+    + tier, or ``None`` when the key isn't one of the public self-serve products.
 
-    Used by the reservation flow to render a product summary (name/price) and
-    snapshot the product name onto the reservation. Strips the internal
-    ``slot``/``cap`` fields the public surface never needs.
+    Used to carry a chosen Buy-button product through the advertise funnel (F2):
+    the sponsor storefront links to ``/portal/placements/new?placement_type=…``,
+    and both the buy form and the claim-first interstitial name the exact product
+    and live price the visitor picked, instead of dropping them on a context-free
+    page.
     """
-    for p in _PRODUCTS:
-        if p["key"] == key:
-            return {k: v for k, v in p.items() if k not in ("slot", "cap")}
+    if not key:
+        return None
+    for o in storefront_offers(db):
+        if o["key"] == key and o.get("rank_tier") == rank_tier:
+            return o
     return None
 
 
-def _availability(db: Session, slot: AdSlot | None, cap: int | None, note: str | None) -> dict[str, Any]:
-    """Live availability for a product. Capped slots query the real active count."""
-    if cap is None:
-        return {"label": note or "Available", "sold_out": False, "scarce": bool(note)}
-    active = _live_filter_for_slot(db.query(Sponsor), slot).count() if slot else 0
-    remaining = max(0, cap - active)
-    if remaining == 0:
-        return {"label": "Sold out · join the waitlist", "sold_out": True, "scarce": True}
-    return {"label": f"{remaining} of {cap} available", "sold_out": False, "scarce": True}
+def storefront_offers(db) -> list[dict]:
+    """The public rate card: each product with a display price.
 
+    Uses the live, admin-editable price book first
+    (:func:`app.monetization.serving.price_for`); falls back to
+    :data:`DEFAULT_PRICE_BOOK` (still config, never a template literal) as an
+    indicative "starting at" price when the operator hasn't seeded the book yet.
+    ``price_cents`` is ``None`` only when neither source has a number — the
+    template then shows "Price on request" rather than inventing one.
+    """
+    from app.monetization.serving import price_for
 
-def catalog(db: Session) -> list[dict[str, Any]]:
-    """The ad catalog with live availability for exclusive slots."""
-    out: list[dict[str, Any]] = []
-    for p in _PRODUCTS:
-        out.append(
-            {
-                **{k: v for k, v in p.items() if k not in ("slot", "cap")},
-                "availability": _availability(db, p.get("slot"), p.get("cap"), p.get("note")),
-            }
-        )
-    return out
+    offers: list[dict] = []
+    for o in STOREFRONT_OFFERS:
+        live = None
+        try:
+            live = price_for(db, o["key"], rank_tier=o["rank_tier"])
+        except Exception:  # noqa: BLE001 — a price lookup must never 500 the page
+            live = None
+        indicative = live is None
+        price = live if live is not None else DEFAULT_PRICE_BOOK.get((o["key"], o["rank_tier"]))
+        offers.append({**o, "price_cents": price, "indicative": indicative})
+    return offers

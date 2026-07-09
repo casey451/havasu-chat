@@ -192,6 +192,57 @@ def test_usage_sums_input_output_tokens(db: Session) -> None:
     assert tin == 350 and tout == 40
 
 
+def test_fabricated_phone_is_stripped_from_tier3_answer(db: Session) -> None:
+    """F1: a phone number the LLM invents that isn't in Context gets dropped."""
+    db.add(
+        Provider(
+            provider_name="Grounded Biz",
+            category="misc",
+            phone="928-855-1223",
+            verified=True,
+            draft=False,
+            is_active=True,
+        )
+    )
+    db.commit()
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value = _resp(
+        "Go with Grounded Biz. Their number is (775) 848-5418.",
+        prompt_tokens=10,
+        completion_tokens=8,
+    )
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake_client):
+            text, _tokens, _tin, _tout = answer_with_tier3("who's good?", _intent(), db)
+    assert "775" not in text
+    assert "(775) 848-5418" not in text
+
+
+def test_grounded_phone_survives_tier3_answer(db: Session) -> None:
+    """F1 guard must not eat a phone that IS in Context (no false positives)."""
+    db.add(
+        Provider(
+            provider_name="Phone Biz",
+            category="misc",
+            phone="928-855-1223",
+            verified=True,
+            draft=False,
+            is_active=True,
+        )
+    )
+    db.commit()
+    fake_client = MagicMock()
+    fake_client.chat.completions.create.return_value = _resp(
+        "Call Phone Biz at 928-855-1223.",
+        prompt_tokens=10,
+        completion_tokens=8,
+    )
+    with patch.dict(os.environ, {"OPENAI_API_KEY": "k"}):
+        with patch.object(llm_messages, "OpenAI", return_value=fake_client):
+            text, _tokens, _tin, _tout = answer_with_tier3("number?", _intent(), db)
+    assert "928-855-1223" in text
+
+
 def test_compact_onboarding_user_context_line() -> None:
     assert compact_onboarding_user_context_line(None) is None
     assert compact_onboarding_user_context_line({}) is None

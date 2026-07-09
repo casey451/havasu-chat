@@ -1,0 +1,80 @@
+name: parks-rec-quarantine
+
+# GATED, MANUAL-ONLY quarantine of already-published Parks & Rec vision events
+# that the ingest guards / WS6.3 lint would now hold (instructor-as-venue, bare
+# room venue, 12 AM–8 AM AM/PM flip). Runs scripts/parks_rec_quarantine_2026_07_08.py
+# (generalized; drives off app/events/lint), which flips matching LIVE events to
+# status=pending_review (out of the public calendar/ICS, into the /admin review
+# queue). Fully reversible via the uploaded undo CSV.
+#
+# DRY-RUN unless the `confirm` input is exactly APPLY: a bare dispatch only
+# PRINTS the old-vs-new diff and writes nothing.
+#
+# Why a workflow: the repo .env DATABASE_URL is Railway's INTERNAL host,
+# unreachable from a laptop, so the write runs where the DB secret resolves. It
+# stays deliberate — workflow_dispatch ONLY (never push/schedule).
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type APPLY to write. Anything else = dry-run (no DB writes)."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: parks-rec-quarantine
+  cancel-in-progress: false
+
+jobs:
+  quarantine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Quarantine bad P&R vision events (dry-run unless confirm=APPLY)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is empty — refusing to run."
+            exit 1
+          fi
+          if [ "${CONFIRM}" = "APPLY" ]; then
+            echo "CONFIRM=APPLY -> writing (gated, reversible)."
+            python scripts/parks_rec_quarantine_2026_07_08.py --apply
+          else
+            echo "confirm != APPLY -> DRY-RUN (no DB writes)."
+            python scripts/parks_rec_quarantine_2026_07_08.py
+          fi
+
+      - name: Purge CDN cache after a write (no-op on dry-run / without CF creds)
+        if: ${{ github.event.inputs.confirm == 'APPLY' }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
+
+      - name: Upload undo CSV (apply runs only)
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: parks-rec-quarantine-undo
+          path: parks_rec_quarantine_undo_2026-07-08.csv
+          if-no-files-found: ignore

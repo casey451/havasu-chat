@@ -31,12 +31,14 @@ when it is genuinely empty (0 listings).
 
 from __future__ import annotations
 
+import re
 from dataclasses import dataclass
 from datetime import datetime
 from typing import Any
 
-from sqlalchemy.orm import Session, joinedload
+from sqlalchemy.orm import Session, joinedload, selectinload
 
+from app.categories import cross_listing
 from app.categories import queries as cat_queries
 from app.db.models import Category, Entity, EntityCategory, Provider
 
@@ -141,6 +143,10 @@ def _leaf_provider_query(db: Session, leaf_id: int):
             Entity.is_active.is_(True),
             Provider.is_active.is_(True),
             Provider.draft.is_(False),
+            # Locality (2026-06-19, Casey): Lake Havasu-local only. Drop providers
+            # classified out-of-area (Bullhead/Parker/Kingman/Laughlin/Needles…);
+            # keep True and unknown/NULL (never assume an un-geocoded row is far).
+            Provider.is_local.isnot(False),
         )
     )
 
@@ -172,16 +178,35 @@ def _leaf_entity_rows(db: Session, leaf_id: int) -> list[Entity]:
             EntityCategory.is_primary.is_(True),
             Entity.is_active.is_(True),
         )
-        .options(joinedload(Entity.location))
+        .options(
+            joinedload(Entity.location),
+            selectinload(Entity.contact_points),
+        )
         .limit(cat_queries._MATERIALIZE_CAP)
         .all()
     )
 
 
+def _place_website(entity: Entity) -> str:
+    """First website-shaped contact point for a Provider-less place entity.
+
+    A civic place (the Aquatic Center, a library) has no ``/provider/{slug}``
+    detail page but often has an official page (city Parks & Rec, etc.). When a
+    ``contact_points`` row carries a web URL, the place card links out to it
+    instead of rendering inert. Empty string when there is none."""
+    for cp in getattr(entity, "contact_points", None) or []:
+        if (getattr(cp, "kind", "") or "").strip().lower() in {"website", "web", "url"}:
+            val = (getattr(cp, "value", "") or "").strip()
+            if val:
+                return val
+    return ""
+
+
 def _place_card(entity: Entity) -> dict[str, Any]:
     """A listing card for a Provider-less place entity, built from its own
-    fields. ``slug`` is None so the template renders it non-linking — a place
-    like a trail or beach has no ``/provider/{slug}`` detail page. Same
+    fields. ``slug`` is None (no ``/provider/{slug}`` detail page); when the
+    entity has an official website (``contact_points``), ``website`` is set and
+    the card links OUT to it — otherwise it renders non-linking. Same
     "New / few reviews yet" state as a Provider with no Google rating."""
     loc = getattr(entity, "location", None)
     area = ""
@@ -189,6 +214,7 @@ def _place_card(entity: Entity) -> dict[str, Any]:
         area = (loc.district or loc.city or "").strip()
     return {
         "slug": None,
+        "website": _place_website(entity),
         "name": entity.name,
         "image_url": None,
         "neighborhood": area,
@@ -202,33 +228,240 @@ def _place_card(entity: Entity) -> dict[str, Any]:
         "subcategory": "",
         "cuisine": "",
         "is_open": None,
+        # Place entities are never paid placements (no Provider to sell against).
+        "is_sponsored": False,
     }
 
 
+def _leaf_provider_backed_entity_ids(db: Session, leaf_id: int) -> set[str]:
+    """Entity ids on this leaf that have an active, non-draft provider, regardless
+    of locality. Used so a provider dropped by the is_local filter does NOT leak
+    back into the place-card fallback as a "Visit" card (2026-06-20)."""
+    rows = (
+        db.query(EntityCategory.entity_id)
+        .join(Provider, Provider.entity_id == EntityCategory.entity_id)
+        .filter(
+            EntityCategory.category_id == leaf_id,
+            EntityCategory.is_primary.is_(True),
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+        )
+    )
+    return {eid for (eid,) in rows.all()}
+
+
+# Query-aware relevance (2026-07-01): a niche search ("wake surfing") 302s to a
+# broad leaf ("jet-ski-and-watersports"), which otherwise renders in dampened-
+# rating order and buries newer on-topic shops below high-review generic ones.
+# When the leaf is reached WITH the originating ``?q=``, on-topic providers float
+# to the top — ahead of the shuffle's new/unrated tail — then the normal order
+# follows. Generic/stop tokens are dropped so "jet ski rentals" still leads with
+# the rental shops (they match "jet"/"ski") and a no-match query is a no-op.
+_RELEVANCE_STOP_TERMS: frozenset[str] = frozenset(
+    """a an and any are at best find for get good great in local me my near nearby
+    new of on or our place places rent rental rentals service services shop shops
+    the to top with company companies lake havasu city arizona az lhc""".split()
+)
+_RELEVANCE_TOKEN_RE = re.compile(r"[^a-z0-9]+")
+
+
+def _relevance_terms(query: str | None) -> list[str]:
+    """Distinctive lowercase search terms for floating on-topic providers."""
+    toks = _RELEVANCE_TOKEN_RE.split((query or "").lower())
+    return [t for t in toks if len(t) >= 3 and t not in _RELEVANCE_STOP_TERMS]
+
+
+def _provider_matches_terms(p: Provider, terms: list[str]) -> bool:
+    """True when any distinctive query term appears in the provider's name /
+    subcategory / category / Google types. Matches on substring, or a shared
+    4-char stem, so "wake"~"wakesurf" (substring) and "surfing"~"wakesurf"
+    ("surf" stem) both hit.
+
+    Google types joined 2026-07-01 (Phase 6): the niche signal often lives ONLY
+    there — "oil change" matches a quick-lube's ``oil_change_service`` type and
+    "mini golf" a venue's ``miniature_golf_course`` while neither appears in
+    the name. NULL/absent types cost nothing.
+    """
+    google_types = getattr(p, "google_categories", None) or []
+    hay = " ".join(
+        str(v or "").lower()
+        for v in (
+            p.provider_name,
+            getattr(p, "subcategory", ""),
+            getattr(p, "category", ""),
+            getattr(p, "google_primary_category", ""),
+            *google_types,
+        )
+    )
+    for t in terms:
+        if t in hay:
+            return True
+        if len(t) >= 4 and t[:4] in hay:  # stem: "surfing" -> "surf" in "wakesurf"
+            return True
+    return False
+
+
+def _float_query_matches(
+    providers: list[Provider], query: str | None, pinned_ids: set[str]
+) -> tuple[list[Provider], frozenset[str]]:
+    """Stable-partition ``providers`` so query-relevant rows lead (paid pins stay
+    first). No-op when there's no query, no distinctive term, or nothing matches.
+
+    Also returns the matched provider ids so the render layer can keep the
+    float through its own Featured re-sort (``_apply_list_controls`` demotes
+    closed/unreviewed cards — without the flag, a closed or low-review query
+    match sank right back under the generic open/reviewed rows #666 floated
+    it above).
+    """
+    terms = _relevance_terms(query)
+    if not terms:
+        return providers, frozenset()
+    rest = [p for p in providers if p.id not in pinned_ids]
+    matches = [p for p in rest if _provider_matches_terms(p, terms)]
+    if not matches:
+        return providers, frozenset()
+    match_ids = frozenset(p.id for p in matches)
+    pinned = [p for p in providers if p.id in pinned_ids]
+    nonmatch = [p for p in rest if p.id not in match_ids]
+    return pinned + matches + nonmatch, match_ids
+
+
 def leaf_listing(
-    db: Session, leaf: Leaf, *, now: datetime
+    db: Session, leaf: Leaf, *, now: datetime, sort: str | None = None, query: str | None = None
 ) -> tuple[list[dict[str, Any]], int, list[Provider]]:
     """``(cards, total, providers)`` for a leaf page.
 
     Provider-backed entities render first (the existing dampened-rating ranking);
     Provider-less place entities follow as place cards, alphabetically. ``total``
-    is the full renderable count (the gate input). ``providers`` carries only the
-    Provider-backed rows for the ItemList JSON-LD (place cards aren't linkable).
+    is the count of this leaf's PRIMARY members (providers + places) — the gate
+    input, and the same basis the department landing (``_gate_counts``) and the
+    sitemap count — so it EXCLUDES curated cross-listed reference cards. Those
+    still render (appended after), but their canonical home is their own primary
+    leaf, so counting them here would over-state the header vs the landing.
+    ``providers`` likewise carries only this leaf's Provider-backed primary rows
+    for the ItemList JSON-LD (place cards aren't linkable; cross-listings aren't
+    members of this leaf).
+
+    ``sort`` is the user's chip selection. ``"favorites"`` ("Top rated")
+    suppresses the daily Featured shuffle so the dampened-rating order is kept;
+    every other value (default/"top"/"az") gets the shuffled Featured order.
     """
     providers = leaf_provider_rows(db, leaf)
-    provider_eids = {p.entity_id for p in providers}
+    # Exclude EVERY provider-backed entity (not just the locality-surviving ones)
+    # from the place-card fallback, so a provider dropped by the is_local filter
+    # does not reappear here as a "Visit" place card.
+    backed_eids = _leaf_provider_backed_entity_ids(db, leaf.id)
     try:
         place_entities = [
-            e for e in _leaf_entity_rows(db, leaf.id) if e.id not in provider_eids
+            e for e in _leaf_entity_rows(db, leaf.id) if e.id not in backed_eids
         ]
     except Exception:
         place_entities = []
     place_entities.sort(key=lambda e: (e.name or "").lower())
 
-    cards = [cat_queries._provider_card(db, p, now=now) for p in providers]
+    # Phase F §7.2 honesty gate: pin active paid sticky-tier placements to the
+    # top of this niche and label them Sponsored. No-op (organic order, no
+    # badges) until a placement is sold for this leaf — zero effect on the live
+    # site today. (Shared ordering helper — consolidated 2026-07-02.)
+    from app.monetization.serving import apply_placements_and_shuffle
+
+    providers, sponsored_ids, new_unrated_ids, creatives = apply_placements_and_shuffle(
+        db, providers, category_slug=leaf.slug, now=now, sort=sort
+    )
+
+    # Query-aware relevance: float providers matching the originating search to
+    # the top (ahead of the shuffle's new/unrated tail), paid pins kept first.
+    providers, query_match_ids = _float_query_matches(providers, query, sponsored_ids)
+
+    cards = []
+    for p in providers:
+        card = cat_queries._provider_card(
+            db,
+            p,
+            now=now,
+            sponsored_provider_ids=sponsored_ids,
+            new_unrated_ids=new_unrated_ids,
+            creatives=creatives,
+        )
+        if p.id in query_match_ids:
+            # Carried through to _apply_list_controls so the Featured re-sort
+            # keeps query matches ahead of the open/has_reviews demotion.
+            card["is_query_match"] = True
+        cards.append(card)
     cards += [_place_card(e) for e in place_entities]
-    total = len(providers) + len(place_entities)
+
+    # Canonical members of THIS leaf = its primary-linked providers + places.
+    # That count is what the "N Best X" header, the thin-page gate, the
+    # department landing (``_gate_counts``), and the sitemap all key on (the
+    # PRIMARY entity_categories link → a business belongs to exactly one leaf).
+    # Snapshot it BEFORE appending cross-listings so those references can't
+    # inflate the header above the landing count for the same leaf.
+    total = len(cards)
+
+    # Curated hybrid cross-listings (e.g. "The Spot" on the arcade leaf, or the
+    # auto+marine repair shops on boat-repair). They render here as references —
+    # their canonical home is their OWN primary leaf — so they're additive to the
+    # cards but deliberately excluded from ``total`` / the gate / the ItemList
+    # (``providers``). De-duplicated against what's already shown; empty unless
+    # explicitly curated.
+    shown_eids = backed_eids | {e.id for e in place_entities}
+    extra_cards, _ = _cross_listed_cards(
+        db, leaf, now=now, exclude_entity_ids=shown_eids
+    )
+    cards += extra_cards
+
     return cards, total, providers
+
+
+def _cross_listed_cards(
+    db: Session, leaf: Leaf, *, now: datetime, exclude_entity_ids: set[str]
+) -> tuple[list[dict[str, Any]], list[Provider]]:
+    """Cards for entities curated to also appear on ``leaf`` (hybrid venues).
+
+    Returns ``([], [])`` immediately when the leaf has no curated cross-listings
+    (the common case — zero added DB cost). A cross-listed entity with an active
+    Provider renders the rich Provider card; otherwise a place card."""
+    slugs = cross_listing.cross_listed_slugs_for_leaf(leaf.slug)
+    if not slugs:
+        return [], []
+    try:
+        entities = (
+            db.query(Entity)
+            .filter(Entity.slug.in_(slugs), Entity.is_active.is_(True))
+            .options(
+                joinedload(Entity.location),
+                selectinload(Entity.contact_points),
+            )
+            .all()
+        )
+    except Exception:
+        return [], []
+    cards: list[dict[str, Any]] = []
+    providers: list[Provider] = []
+    # One Provider IN(...) fetch for the whole curated set — this used to
+    # issue one query per cross-listed slug (13 on the boat-repair leaf,
+    # audit 2026-07-01).
+    prov_by_entity = {
+        p.entity_id: p
+        for p in db.query(Provider)
+        .filter(
+            Provider.entity_id.in_([e.id for e in entities]),
+            Provider.is_active.is_(True),
+            Provider.draft.is_(False),
+            Provider.is_local.isnot(False),
+        )
+        .all()
+    }
+    for e in entities:
+        if e.id in exclude_entity_ids:
+            continue
+        prov = prov_by_entity.get(e.id)
+        if prov is not None:
+            cards.append(cat_queries._provider_card(db, prov, now=now))
+            providers.append(prov)
+        else:
+            cards.append(_place_card(e))
+    return cards, providers
 
 
 def leaf_renderable_count(db: Session, leaf: Leaf) -> int:
@@ -238,10 +471,15 @@ def leaf_renderable_count(db: Session, leaf: Leaf) -> int:
         return (
             db.query(EntityCategory)
             .join(Entity, EntityCategory.entity_id == Entity.id)
+            # Locality: keep places (no Provider row → NULL → kept) and local /
+            # unknown providers; drop explicit out-of-area providers so the gate
+            # count matches what leaf_listing renders.
+            .outerjoin(Provider, Provider.entity_id == Entity.id)
             .filter(
                 EntityCategory.category_id == leaf.id,
                 EntityCategory.is_primary.is_(True),
                 Entity.is_active.is_(True),
+                Provider.is_local.isnot(False),
             )
             .count()
         )
@@ -278,10 +516,14 @@ def _gate_counts(db: Session, *, dept_id: int | None = None) -> dict[int, int]:
         .select_from(EntityCategory)
         .join(Entity, EntityCategory.entity_id == Entity.id)
         .join(Category, Category.id == EntityCategory.category_id)
+        # Locality: outerjoin so places (no Provider) stay; drop out-of-area
+        # providers so department/sitemap counts match the rendered pages.
+        .outerjoin(Provider, Provider.entity_id == Entity.id)
         .filter(
             EntityCategory.is_primary.is_(True),
             Entity.is_active.is_(True),
             Category.level == 1,
+            Provider.is_local.isnot(False),
         )
     )
     if dept_id is not None:
@@ -361,7 +603,12 @@ def all_departments(db: Session) -> list[tuple[Category, int, int]]:
         )
     except Exception:
         return []
-    return [(d, by_dept[d.id][0], by_dept[d.id][1]) for d in depts]
+    rows = [(d, by_dept[d.id][0], by_dept[d.id][1]) for d in depts]
+    # Phase E §3.1: kids/family-first ordering when TAXONOMY_REORG_ENABLED is on
+    # (dormant otherwise — returns rows in taxonomy sort_order unchanged).
+    from app.categories.taxonomy_overlay import reorder_departments
+
+    return reorder_departments(rows, slug_of=lambda row: (row[0].slug or "").lower())
 
 
 def resolve_department(db: Session, dept_slug: str) -> Category | None:

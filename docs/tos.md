@@ -130,8 +130,8 @@ providers process your messages — are on our
 Hours, prices, schedules, and locations change constantly in a
 seasonal town. The catalog and the concierge's answers are not
 guaranteed to be complete, current, or error-free (see §3). If you
-spot something wrong, please tell us — the feedback control in the
-chat or hello@askhava.com is the fastest route.
+spot something wrong, please tell us — the feedback form at
+[/feedback](/feedback) or hello@askhava.com is the fastest route.
 
 ## 10. Intellectual property
 
@@ -187,9 +187,9 @@ law allows.
 
 ## 14. Contact
 
-Email us at **hello@askhava.com**, or use the feedback control in
-the chat when something looks wrong. This Terms page works together
-with our [Privacy page](/privacy) for data practices.
+Email us at **hello@askhava.com**, or use the feedback form at
+[/feedback](/feedback) when something looks wrong. This Terms page
+works together with our [Privacy page](/privacy) for data practices.
 
 ## 15. Reporting problems with catalog content
 

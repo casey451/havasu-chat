@@ -13,6 +13,88 @@ Ship log entries at the bottom record what shipped per session. New ones are app
 
 ---
 
+# P6 Production hardening & owner handoff (2026-06-23) — branch `p6-hardening-handoff`, held for push
+
+Production-readiness P6 (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P6). Commits held for Casey's push. Gate: pytest (see closeout) / 0 failed, ruff clean.
+
+- **Staleness monitor (all feeds)** — **RESOLVED.** `app/monitoring/freshness.py` grades events + **gas** + **movies** against per-feed budgets (the gas/movies feeds whose silent staleness caused the P0 date-desync). `scripts/data_freshness_monitor.py` exits non-zero on STALE/MISSING; wired into `data-freshness-check.yml` so the Actions failure email pages. Surfaced in `/admin/overview` as a "Feed freshness" table. Demonstrably-fires test in `tests/test_data_freshness_monitor.py`.
+- **Carried-forward: rollup-count consistency** — **RESOLVED.** `_occurrence_group_keys` is the single source of truth for day-view placement; `week_rows` rollup counts now replay the same Seniors/Kids/Happening-today re-routes, so the week strip can't disagree with the day groups. Test in `test_events_ui_views.py`.
+- **Carried-forward: "Troy's Alligator Feed" → Music** — **RESOLVED.** Food/novelty guard in `sandstone._event_tier` demotes a food one-off that inherited a venue's coarse `music` tag, unless it carries a real (strong) live-music signal. Tests in `test_event_tier_classifier.py`.
+- **Carried-forward: "Roatary" venue typo** — **RESOLVED (display) + GATED (DB).** Durable display fix via `title_clean.fix_venue_spelling` (corrects the calendar + survives re-scrape). `scripts/fix_venue_typos.py` repairs the underlying row(s) — **--dry-run by default, held for Casey's approval** (prod DB write).
+- **Carried-forward: residual "Other classes" (Star Search / Stitchers / Pickleball)** — **RESOLVED (verified).** Pickleball types correctly; Star Search / Stitchers hit FALLBACK → day-view re-route to "Happening today" (never a stranded "Other classes"). Test in `test_activity_taxonomy.py`.
+- **Carried-forward: N1 recurring detail "passed" banner** — **VERIFIED (already fixed).** `_event_is_past`/`_display_date`/`next_occurrence` handle the 2024-anchored recurring seed; covered by `test_event_permalink_context.py::test_is_past_recurring_rrule_anchor_in_past_not_past`. No change needed.
+- **Security H1 (creative URLs)** — **RESOLVED.** Merchant `cta_url`/`image_url`/`image_url_mobile` validated server-side (`_creative_url_errors` + `safe_href`) before persisting onto public cards. Test in `test_creative_url_safety.py`.
+- **Security/perf M1/M2 (analytics dashboards)** — **RESOLVED.** Added `analytics_events(slot, created_at)` + `(slot_origin, created_at)` indexes (model + migration `p6analyticsidx01`) for the placement/traffic group-bys; de-wildcarded the impression/click counters to the `.impression`/`.click` suffix convention.
+
+P6 carry-forward / deferred:
+- **Curated page-less-venue link map → entity-level `website` (P6 maintainability).** `app/events/class_occurrences.py:_PAGELESS_VENUE_WEBSITES` (Desert Bloom / Havasu Pilates / Havasu Horseback) is a hardcoded map; migrate to data-driven `Entity.website` so it isn't hand-maintained. Low priority — the map self-deactivates once a real directory listing exists. **DEFERRED** (not cheap: needs a gated prod write + loader change).
+- **PR #493 (Summer Free Movies backfill exclusion)** — **OPEN, not merged.** The exclusion is a one-line regex in a backfill *script* (`scripts/backfill_event_descriptions_2026_06_23.py`, commit `965eb484`) on the unmerged #493 branch; it has no runtime/served effect. #492 (description backfill) merged `17e88c73`. Recommend Casey merge #493 to retire the carry; not duplicated here.
+- **Security low-priority** (none exploitable; recorded in `docs/OWNER_HANDOFF.md` §7): Stripe `success/cancel_url` from `request.base_url` (safe behind Railway's fixed host; prefer configured `BASE_URL`); admin audit actor is static `"admin"` (single shared password — move to per-user role if multiple operators); feedback rate limit is per-process/IP.
+- **Owner handoff runbook** — **RESOLVED.** `docs/OWNER_HANDOFF.md`: admin tour, the freshness monitor, owner-only Stripe go-live (`STRIPE_*` vars), feedback inbox/Resend (`RESEND_*` + `FEEDBACK_NOTIFY_EMAIL`).
+
+# Event minimum-info gate + description backfill (2026-06-23) — branch `fix/event-minimum-info`, held for push
+
+"No event/class with no information." Investigation flipped remedy from remove → find descriptions. Gate: pytest 11769 passed / 0 failed, ruff clean.
+
+- **Minimum-info validators** — **RESOLVED.** `app/contrib/event_min_info.py` (event: title/date/real-venue/link; class: title/venue/days/time). `REQUIRE_DESCRIPTION=False` (description-less events are enriched, not dropped).
+- **Ingest guard** — **RESOLVED.** `ingest_event_records` skips genuinely-empty records (`skipped_no_info`); `attach_schedule_to_entity` skips no-title/days/time classes.
+- **Description backfill** — **BUILT; HELD (run in prod).** `scripts/backfill_event_descriptions_2026_06_23.py` re-fetches descriptions (+venue for 4 title-as-venue) from each event's riverscenemagazine.com `source_url`. 45 description fills + 4 venue fixes verified as targets. Dry-run→review→`--apply --confirm`. Must run via `railway run` (sandbox has no outbound HTTPS).
+- **Decision/finding:** the chosen "core+description" bar would have removed 45 REAL events (Farmers Market ×27, Fireworks, parade, Taste of Havasu) — so removal was abandoned; descriptions are backfilled instead.
+# Calendar classification fix-up (2026-06-23) — branch `fix/calendar-classification`, held for push
+
+Comprehensive events/classes calendar classification + routing + dedup fix. Commits held for Casey's push. Gate: pytest 11775 passed / 0 failed, ruff clean.
+
+- **Provider-aware class classification** — **RESOLVED.** "Other classes" **58 → 10** (render + live-verified). `provider_activity_label` + `ClassOccurrence.provider_activity` + `classify_class_subgroup(provider_activity=…)`. Title-keyword adds (line dancing, fit & flex, swim lessons).
+- **Event-vs-class routing** — **RESOLVED.** `group_for_tier` no longer sweeps recurring music/social events into Fitness; "trivia" added; comedy/live-music event-type beats incidental "class" keyword. Fixes `/events-ui` + home feed.
+- **Dedup matcher** — **RESOLVED (code).** Pre-dawn (1–4 AM, no end) placeholder guard collapses the alligator AM/PM twin.
+- **Dedup existing-row collapse** — **DRY-RUN DONE; HELD for Casey.** `scripts/collapse_event_dups_2026_06_23.py`: 5 groups → 5 rows to `status='duplicate'` (4 same-time cross-source twins + 1 AM/PM twin). Snapshot-first, `--apply --confirm` gated.
+- **Age/youth routing** — **RESOLVED.** "boys athletics"/"rec gym" → Kids & Family; `_family_subgroup` types youth classes by provider activity (Youth Gymnastics/Dance). Swivel & Sway adult ballroom correctly stays adult.
+- **Home today-feed** — **RESOLVED.** `_home_group` provider-activity aware (physical classes → Fitness).
+- **OPEN / can't auto-classify:** 6 provider-less rows (Desert Bloom "Afternoon Enrichment", "Pony / Lead Line Rides") — their Schedule rows have no Provider link, so provider inference can't reach them; remain "Other classes" until the provider association is restored in data. Title-as-venue rows (4) noted, not fixed (cosmetic).
+
+# P5 Admin portal, analytics & feedback (2026-06-22) — branch `p5-admin-analytics-feedback`, held for push
+
+Production-readiness P5 (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P5). Commits held for Casey's push. Gate: pytest 11760 passed / 0 failed, ruff clean.
+
+- **Wire admin portal + audit migration** — **ALREADY DONE on main (reconciled).** Registration (`app/main.py:44`/`:704`) and the audit migration (`e9b5d7f3a1c6`) shipped with P4; no `migrations_draft/` exists. Stale `migrations_draft/` references in `audit_models.py` + `portal_audit.html` corrected.
+- **Owner dashboards (traffic / search / placements)** — **RESOLVED.** `app/admin_portal/analytics.py` + three templates, SQL-backed on first-party tables (no PostHog). Nav items added.
+- **Placement cancel/refund→status** — **RESOLVED (mock-tested; live refund pending Stripe keys).** `service.cancel_placement` + webhook `payment_intent` capture + `charge.refunded` attribution/release + admin `POST /admin/placements/{id}/cancel`.
+- **DB-backed feedback** — **RESOLVED.** `Feedback` model + `/feedback` form (footer + per-listing controls) + admin queue + Resend forward (mocked). Phantom privacy/terms refs fixed.
+- **12-month query_log retention** — **RESOLVED (code); prod run Casey-gated.** `purge_old_query_logs` + `scripts/purge_query_log_retention.py` (dry-run default).
+- **Prod-DB op HELD for Casey:** migrations `p5feedback01` + `p5payint02` = CREATE TABLE feedback (+2 idx) + ALTER placements ADD stripe_payment_intent_id; additive, 0 rows touched; applies on deploy.
+- **OPEN follow-ups (not blocking acceptance):** (1) listing-grain query→click flow needs an anonymized `session_id` on both `query_log` + `analytics_events` (+ emit-site threading) — built at category grain for now. (2) Placement-backed ad slots emit impressions but no click events, so per-placement CTR is impressions-only; add click instrumentation in `app/monetization/serving.py` for true paid-slot CTR. (3) `lake_admin.css` cache-bust hygiene (pre-existing, admin-only).
+- **DEFERRED:** wiring `FEEDBACK_NOTIFY_EMAIL` to a Cloudflare Email Routing alias + the retention cron are owner ops.
+
+# P2 Content & metadata enrichment (2026-06-21) — branch `p2-content-enrichment`, held for push
+
+Production-readiness P2 (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P2). Commits held for Casey's push.
+
+- **Event-type tags + label** — **RESOLVED.** New `app/events/event_type_tags.py` classifies live_music / comedy / car_show (curated act names + venue + keywords, with civic/automotive/family guards), used at BOTH ingest (`event_ingest._tags` stamps the durable tag, additive) and render (`event_type_label`, tag-first with title/venue fallback so existing rows signal their type with no backfill). A scannable `type_label` badge ("Live Music"/"Comedy"/"Car Show") rides beside the title on the /events-ui day + week views, the home feed, and the detail eyebrow — the real title is never mangled.
+- **Live Music / Comedy & Theater subsections** — **RESOLVED.** `activity_taxonomy.split_music_subgroups` splits the "Music & nightlife" group into typed subsections (mirrors the P1 class subgroups; empties omitted = "where volume warrants"); DJ/karaoke fall to an honest "More music & nightlife" residual. Wired into `events_views.day_groups`; no template change (the subgroup loop is group-agnostic). "theater/improv/stand-up" added to the music tier hints so plays route to the music bucket.
+- **Source-verification sweep** — **DRY-RUN DONE; prod removals HELD for Casey.** `valid_event_url` now rejects internal `askhava.com` self-links (the ingest fallback). `scripts/verify_event_sources_2026_06.py` (dry-run default) classifies every live event: OK / WEAK_OK (report-only, Lighthouse FB profiles) / RESOURCE (swap real source in) / RELABEL_SOURCE (clear wrong Sonic byline) / REMOVE (retire → status=deleted/410). **Read-only prod dry-run: live 545 · OK 527 · WEAK_OK 7 · RESOURCE 1 · RELABEL_SOURCE 2 · REMOVE 8.** The `--apply` is a Casey-gated prod-DB write (snapshot first).
+- **Note:** the P1 `#program-*` self-anchors are render-time ids on recurring Schedule occurrences, NOT stored on any Event row, so the events sweep doesn't touch them (separate concern). A durable backfill of the new type tags onto existing rows is **deferred** (display already works via the render classifier; the backfill is an optional gated prod write).
+- **DEFERRED (not P2):** dedup row cleanup, placeholder-time parser fixes (RiverScene noon / 3 AM alligator / movie doors), flyer backfill — a separate gated prod-data session / P6.
+
+---
+
+# P0 Stabilization (2026-06-21) — branch `p0-stabilization`, held for push
+
+Production-readiness P0 (`relay/PRODUCTION_READINESS_PLAN_2026-06-21.md` §P0). Commits held for Casey's approval (not pushed/deployed).
+
+- **N1 recurring-event "passed" bug** — **RESOLVED.** Recurring detail pages stamped the 2024 RRULE anchor + a false "This event has passed." `app/main._event_is_past`/`_format_event_datetime` + Event JSON-LD now resolve the next occurrence via new `app/events/recurrence.next_occurrence`. Tests in `tests/test_event_permalink_context.py`.
+- **Advertise login-wall** — **RESOLVED.** Footer + home "Advertise" CTAs repointed from the auth-gated `/portal/placements` to the public `/sponsor` (`base_lake.html`, `desert_base.html`, `home_lake.html`, `home_sandstone.html`; new `tests/test_advertise_cta_public.py`). `/portal/advertise` was intentionally removed in #334 — not resurrected.
+- **Header/footer consolidation** — **RESOLVED.** Lake chrome extracted to `app/templates/_partials/site_header.html` + `site_footer.html`, included from `base_lake.html` (single source for P3). Lake confirmed canonical.
+- **Directory-first positioning note** — **RESOLVED.** Appended to `docs/persona-brief.md`, `HAVA_CONCIERGE_HANDOFF.md`, `docs/START_HERE.md` (plan §2.7).
+- **Blank-page + render-bug hardening** — **RESOLVED.** Guarded `_chrome_context` in `app/categories/router.py` + guard tests (`tests/test_faq_copy_no_markdown.py`, single-CTA/non-blank asserts in `tests/test_leaf_pages.py`).
+- **Date desync / blank pages / `havasuchat.com` `/terms` binding + gas email / brand titles** — **NOT REPRODUCED on `origin/main`** (captured from a stale prod deploy). Resolved by deploying `origin/main` + the hub's post-deploy crawl; the only `havasuchat.com` strings in `app/` are the *functional* `DEAD_EVENT_LINK_HOSTS` filter (keeps the string to filter the dead host) + a reddit User-Agent handle — neither is a user-facing leak.
+- **`/chat` desert-chrome leak** — **DEFERRED to P3.** A Lake `/chat` twin is entangled with the Ask-demotion / nav redesign (plan §2.7); building a throwaway lake chat skin now would exceed P0 intent.
+
+**Fix-up (hub confirmation crawl, 2026-06-21) — two home data-binding bugs:**
+- **Home date-chip number (Finding 30)** — **RESOLVED.** Day-picker chip bound the events+recurring-classes total (`day.count`, 40-60/weekday); rebound to the per-day one-off `day.event_count`. `app/templates/home_lake.html`; `tests/test_lake_home.py`.
+- **Home gas chip ≠ /gas cheapest (Finding 29)** — **RESOLVED.** `_gas_snapshot` re-sorted raw `stations`; now reads the same pull-curated `data["cheapest"]` `/gas` renders, so they always match. `app/home/router.py`; `tests/test_home_gas_parity.py`.
+
+---
+
 # Multi-day events - Tier 2 backlog
 
 **Context:** Multi-day schema/retrieval work and parser prompt updates are now shipped together and verified in production.
@@ -2521,3 +2603,73 @@ purged in the same pass.
 
 **Filed by:** Cowork session (2026-06-04, backlog-execution day; spotted during live
 spot-check of /categories/on-the-water after queue approvals).
+
+
+---
+
+## P1 deferred items (categorization/dedup phase, 2026-06-21)
+
+The P1 worker shipped the routing/taxonomy core (recurring-banner removal, the
+City & Government events bucket, the retired "Classes" catch-all with typed +
+age-aware subsections, seniors routing) plus the safe data-quality slice
+(bare-noon dedup at ingest, title-as-venue guard). These remain, each needing
+its own focused pass and most gated behind dry-run -> counts -> approval:
+
+- **Existing duplicate ROWS** (prod data op, gated): directory dupes
+  (Rusty's/Denny's/Filiberto's/Shugrue's), Iron Wolf double-provider, and any
+  surviving event twins. Render-time collapse hides same-title display dupes;
+  cleaning the rows needs merge_existing_dups dry-run + approval.
+- **Different-title same-venue dupes** (code, judgment): Altitude open-hours tile
+  vs "Junior Jump" event — collapse a venue open-hours tile when the same venue
+  has a specific timed event. Needs a venue+time render rule (risk of over-merge).
+- **Placeholder/parser times** (per-source code): RiverScene fabricates a noon
+  start when no Time row (river_scene.py:401) — emit TBD instead, but guard the
+  `start_time.strftime` sites (river_scene.py:474,500) first. Trace the 3 AM
+  alligator-feed source. Movie "doors vs showtime" cross-source dup.
+- **Source-link enforcement** (code + data, judgment): suppress/relabel
+  unverifiable permalink-less programs (pony rides, self-referential #program-*
+  anchors) without gutting legitimate venue-schedule classes; fix wrong-target
+  links (Clifford->Sonic URL; shared generic Lighthouse FB across distinct
+  events — prefer the per-event article URL over the shared venue FB).
+- **Flyer image backfill** (prod data op, gated): the detail page already renders
+  `image_url` when present; thin twin records lack it — a backfill, not a code fix.
+
+**Decision (Casey-confirmed 2026-06-21):** the 2026-06-19 youth-class overlay-dup
+(youth classes surfaced under BOTH their activity bucket and Kids & Family) is
+**superseded by P1** — youth classes are now single-listed under Kids & Family
+only (its typed Youth subsection); senior fitness stays dual. KEEP, no revert.
+Encoded in `app/events/activity_taxonomy.py` + `tests/test_event_buckets_overlay_2026_06_19.py`.
+
+**Decision SUPERSEDED (2026-06-23 calendar-completeness brief):** the "senior
+fitness stays dual" clause above is reversed. EVERY senior item — social, fitness,
+senior-center program — now renders under the top-level **Seniors** group and ONLY
+there (no dual-listing into Fitness & classes; fixed the live "Water Wellness under
+both" bug). Senior membership is decided by tag + provider/venue (Senior Center) +
+senior-program title words; a bare game name ("Bunco") is no longer senior on its
+own. Encoded in `app/events/senior_filter.py` + `app/home/events_views.py`
+(`_route_occurrence`) + `tests/test_seniors_phase4.py`. Branch
+`fix/calendar-completeness` (held for Casey's merge).
+
+**RESOLVED — page-less class venues (Casey 2026-06-23):** Desert Bloom Learning
+Center (14 scheds), Havasu Pilates Studio (31), Havasu Horseback Rides (2) had
+class schedules on the calendar but NO directory Provider row, so their rows
+rendered link-less. Casey chose unpublish (soft-delete) UNLESS a real website
+exists. All three turned out to have verified official sites, so the website
+exception applied to all → **none unpublished; each linked to its real site** via
+a render-time curated `Entity.slug → website` fallback in
+`app/events/class_occurrences.py` (`_PAGELESS_VENUE_WEBSITES`; self-deactivates if
+a real Provider listing is later added). No prod-DB write, no unpublish script
+needed. Aqua Beginnings was separate — its Provider already existed on a sibling
+entity; the 1-schedule re-point was **APPLIED to prod** (Casey-approved) via
+`scripts/repoint_aqua_beginnings_schedule.py` (schedule 795 → entity
+`aqua-beginnings-swim-lessons`; row now links `/provider/aqua-beginnings-swim-lessons`;
+snapshot `snapshot_aqua_beginnings_repoint_795.json`). Shipped on PR #494.
+
+**DEFERRED (P6 maintainability) — migrate the curated venue-website map.** The
+`_PAGELESS_VENUE_WEBSITES` dict in `app/events/class_occurrences.py` is a small
+hand-maintained surface (3 hardcoded outbound URLs on a live directory). It is the
+cleanest option for now and self-deactivates per-venue once a real Provider
+listing is added, but the durable fix is to carry the link in data — an
+entity-level `website` field (needs a migration; Entity currently has none) or
+real directory Provider listings for the three venues. Revisit when touching the
+schedule-ingest / directory model.

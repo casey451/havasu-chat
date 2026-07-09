@@ -88,16 +88,20 @@ def _make_restaurant(name: str, primary: str) -> Provider:
 
 
 def test_cuisine_chips_and_facet_filter() -> None:
+    # Two providers per cuisine: chips gate on the cuisine RENDER gate
+    # (CUISINE_PAGE_MIN_PROVIDERS = 2, 2026-07-01 audit A4), not bare presence.
     suf = uuid.uuid4().hex[:8]
     mx = f"Los Test Tacos {suf}"
     it = f"Test Trattoria {suf}"
     with SessionLocal() as db:
         a = _make_restaurant(mx, "mexican_restaurant")
         b = _make_restaurant(it, "italian_restaurant")
-        db.add(a)
-        db.add(b)
+        a2 = _make_restaurant(f"Dos Test Tacos {suf}", "mexican_restaurant")
+        b2 = _make_restaurant(f"Test Osteria {suf}", "italian_restaurant")
+        for p in (a, b, a2, b2):
+            db.add(p)
         db.commit()
-        eids = [a.entity_id, b.entity_id]
+        eids = [a.entity_id, b.entity_id, a2.entity_id, b2.entity_id]
 
     try:
         with SessionLocal() as db:

@@ -300,18 +300,21 @@ def test_get_categories_index_renders_department_card(
     body = r.text
     assert seeded_departments["dept_a_name"] in body
     assert f'href="/categories/{seeded_departments["dept_a"]}"' in body
-    assert f"{seeded_departments['dept_a_count']} listings" in body
+    # Lake tile renders the live count as a bare badge (<span class="c">N</span>),
+    # the word "listings" is no longer printed per the count-clause removal.
+    assert f'<span class="c">{seeded_departments["dept_a_count"]}</span>' in body
 
 
 def test_get_categories_index_has_all_categories_topbar_link(
     client: TestClient,
 ) -> None:
-    """Categories index highlights Explore navigation.
+    """Categories index highlights the Directory location in its chrome.
 
-    Desert Modern chrome: the lit tab is the bottom-nav /categories link
-    carrying aria-current (was the Lake Light ``is-active`` topbar pill).
+    Lake Ink & Brass: the index marks its place via the breadcrumb's
+    ``<span aria-current="page">Directory</span>`` (the desert bottom-nav
+    /categories aria-current link was retired with the desert chrome).
     """
     r = client.get("/categories")
     assert r.status_code == 200
     body = r.text
-    assert 'aria-current="page" href="/categories"' in body
+    assert '<span aria-current="page">Directory</span>' in body

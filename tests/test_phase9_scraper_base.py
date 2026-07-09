@@ -61,6 +61,35 @@ def test_event_payload_roundtrip_fields() -> None:
     assert c.source == "chamber"
 
 
+def test_missing_start_time_is_allowed_not_dropped() -> None:
+    """A no-time payload ingests as TBD (NULL), not dropped via ValueError."""
+    p = EventPayload(
+        name="Pop-up Market",
+        start_date=date(2026, 6, 3),
+        start_time=None,
+        event_url="https://example.com/market",
+        source_stable_url="https://example.com/market",
+    )
+    c = event_payload_to_contribution(p, scrape_source="chamber")
+    assert c.event_date == date(2026, 6, 3)
+    assert c.event_time_start is None
+    assert c.event_time_end is None
+
+
+def test_missing_start_date_still_rejected() -> None:
+    import pytest
+
+    p = EventPayload(
+        name="No Date Event",
+        start_date=None,
+        start_time=time(9, 0),
+        event_url="https://example.com/x",
+        source_stable_url="https://example.com/x",
+    )
+    with pytest.raises(ValueError, match="start_date"):
+        event_payload_to_contribution(p, scrape_source="chamber")
+
+
 def test_normalize_event_title_strips_punctuation() -> None:
     assert normalize_event_title("AMI Trivia!!!") == "ami trivia"
 

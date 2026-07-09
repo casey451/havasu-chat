@@ -217,6 +217,11 @@ def postprocess(text, rows):
     if is_confidence_tier_enabled():
         annotated = _annotate_rows_with_confidence_hint(rows)
         out = _enforce_low_tier_phone(out, annotated)
+    # P1-3 / P2-1: scrub grounding-scaffold leaks ("...aren't listed in the provided
+    # rows") from Tier-2 LLM voices too — the Tier-3 scrubber didn't run on this path.
+    from app.chat.tier3_postprocess import scrub_scaffold_leak
+
+    out = scrub_scaffold_leak(out)
     return out
 
 

@@ -6,7 +6,8 @@ from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from fastapi.responses import HTMLResponse, RedirectResponse
 from sqlalchemy.orm import Session
 
-from app.categories.router import render_subcategory_landing
+from app.categories.router import render_cuisine_landing, render_subcategory_landing
+from app.core.rate_limit import limiter, public_html_rate_limit
 from app.db.database import get_db
 from app.providers import queries as provider_queries
 from app.v1.categories import BUCKET_SLUG_REDIRECTS
@@ -28,6 +29,7 @@ def lake_havasu_category(bucket: str) -> RedirectResponse:
 
 
 @router.get("/lake-havasu/{slug}", response_model=None)
+@limiter.limit(public_html_rate_limit)
 def lake_havasu_business(
     request: Request,
     slug: str,
@@ -58,6 +60,22 @@ def lake_havasu_business(
     )
     if landing is not None:
         return landing
+
+    # A cuisine token (``/lake-havasu/mexican``) renders the Eat & Drink listing
+    # filtered to that cuisine, when it clears the thin-page gate. Falls through
+    # to the provider alias when it isn't a (publishable) cuisine.
+    cuisine_landing = render_cuisine_landing(
+        request,
+        db,
+        cuisine_slug=slug,
+        open_now=open_now,
+        rating=rating,
+        sort=sort,
+        late=late,
+        weekends=weekends,
+    )
+    if cuisine_landing is not None:
+        return cuisine_landing
 
     provider = provider_queries.get_provider_by_slug(db, slug)
     if provider is None or not provider.is_active or provider.draft:

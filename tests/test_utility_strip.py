@@ -5,12 +5,9 @@ from __future__ import annotations
 from datetime import datetime
 from unittest.mock import patch
 
-from fastapi.testclient import TestClient
-
 from app.conditions.view_model import ConditionsStripViewModel, ConditionsTile
 from app.db.database import SessionLocal
 from app.home import router as home_router
-from app.main import app
 
 
 def _tile(kind: str, value: str) -> ConditionsTile:
@@ -34,8 +31,16 @@ def test_utility_chips_combines_gas_and_conditions() -> None:
         "is_stale": False,
         "cheapest": [{"station_name": "Loves", "prices": {"regular": 4.29}}],
     }
+    # Strip = temp · UV · wind · water · gas (water temp re-added 2026-06-29; it
+    # only reaches the view model when its gage feed is live). AQI stays excluded.
     vm = ConditionsStripViewModel(
-        tiles=(_tile("temp", "99°F"), _tile("aqi", "AQI 55"), _tile("water_temp", "72°F")),
+        tiles=(
+            _tile("temp", "99°F"),
+            _tile("aqi", "AQI 55"),
+            _tile("wind", "7 mph"),
+            _tile("uv", "UV 8"),
+            _tile("water_temp", "72°F"),
+        ),
         any_source_stale=False,
         rendered_at=datetime.now(),  # type: ignore[attr-defined]
         has_data=True,
@@ -47,49 +52,21 @@ def test_utility_chips_combines_gas_and_conditions() -> None:
         chips = home_router._utility_chips(SessionLocal())
 
     kinds = [c["kind"] for c in chips]
-    assert kinds[0] == "gas"  # gas leads
-    assert {"weather", "air", "water"} <= set(kinds)
-    gas_chip = chips[0]
+    # Fixed order temp · UV · wind · water · gas; gas closes the strip.
+    assert kinds == ["weather", "uv", "wind", "water_temp", "gas"]
+    # AQI is still dropped from the strip (surfaced on /today + the JSON).
+    assert "air" not in kinds
+    gas_chip = chips[-1]
     assert gas_chip["value"] == "$4.29"
     assert gas_chip["href"] == "/gas"
     assert "Loves" in gas_chip["detail"]
 
 
-def test_home_renders_slim_strip_and_drops_redundant_blocks() -> None:
-    sample = [
-        {
-            "kind": "gas",
-            "icon": "⛽",
-            "value": "$4.29",
-            "label": "Cheapest gas",
-            "detail": "Loves · regular, per gallon",
-            "source": None,
-            "freshness": "Updated 10m ago",
-            "is_stale": False,
-            "severity": "neutral",
-            "href": "/gas",
-        }
-    ]
-    with patch.object(home_router, "_utility_chips", return_value=sample):
-        with TestClient(app) as client:
-            body = client.get("/home").text
-    # Desert Modern conditions strip present, gas tile leading with its
-    # tap-through to the full gas list...
-    assert 'class="d-conditions"' in body
-    assert "$4.29" in body
-    assert 'href="/gas"' in body
-    # ...and no fabricated/redundant full-width blocks.
-    assert "Fuel before you head out" not in body
-    assert "All seven buckets" not in body
-
-
-def test_home_ribbon_absent_without_data() -> None:
-    """No ambient/gas data -> no empty conditions-strip shell (graceful omission)."""
-    with patch.object(home_router, "_utility_chips", return_value=[]):
-        with TestClient(app) as client:
-            body = client.get("/home").text
-    assert 'class="d-conditions"' not in body
-    assert "All seven buckets" not in body
+# (The pre-v4 home gas-chip render tests were deleted with the 2026-07-02
+# HOME_REDESIGN flag collapse: the v4 home reads gas via redesign.gas_top5 —
+# covered by test_home_redesign + test_home_gas_parity. _utility_chips/_gas_chip
+# remain live on the Night/Family mode landings and keep their unit tests
+# below.)
 
 
 def test_utility_chips_gracefully_empty_when_no_data() -> None:

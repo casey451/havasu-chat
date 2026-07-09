@@ -39,3 +39,13 @@ def test_incomplete_rejected() -> None:
 
 def test_default_sources_include_river_scene() -> None:
     assert "river_scene" in auto_approve_event_sources()
+
+
+def test_allday_structured_feed_event_auto_approves() -> None:
+    # §3C confirm: a structured feed's time-less (all-day / TBD) event still
+    # auto-approves rather than dumping to the pending queue — river_scene is in
+    # _ALLDAY_OK_SOURCES, so a missing start time is not treated as a parse fail.
+    assert should_auto_approve_event(_contrib(source="river_scene", event_time_start=None))
+    assert should_auto_approve_event(
+        _contrib(source="river_scene_import", event_time_start=None)
+    )
