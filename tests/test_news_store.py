@@ -16,7 +16,9 @@ _SEED = {
             "source": "news_herald",
             "source_label": "Havasu News-Herald",
             "title": "Council approves new lakefront park",
-            "url": "https://example.com/a",
+            # local URL path so it clears the homepage local-only gate (this test
+            # exercises tz handling, not sectioning)
+            "url": "https://havasunews.com/news/local/lakefront-park/",
             "published_at": "2026-06-29T12:00:00",
             "keywords": ["park"],
         }

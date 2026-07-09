@@ -26,7 +26,14 @@ from app.conditions.cache import read_source, record_fetch_failure, upsert_sourc
 from app.conditions.constants import SOURCE_NEWS_LOCAL
 from app.contrib import lhc_newsflash, mcso_press, news_herald, river_scene_news
 from app.contrib.news_item import NewsItem
-from app.news.sections import NON_LOCAL_SECTIONS, SECTION_LABELS, news_section
+from app.news.sections import (
+    NON_LOCAL_SECTIONS,
+    SECTION_LABELS,
+    SECTION_LOCAL,
+    has_local_signal,
+    is_trusted_local_source,
+    news_section,
+)
 
 logger = logging.getLogger(__name__)
 
@@ -209,6 +216,7 @@ def _view(
     limit: int | None,
     now: datetime | None,
     drop_sections: frozenset[str] = frozenset(),
+    local_only: bool = False,
 ) -> NewsView:
     now = _naive_utc(now)
     row = read_source(db, SOURCE_NEWS_LOCAL, now=now)
@@ -229,8 +237,25 @@ def _view(
         # M18: route into Local / City Hall / Opinion / Beyond Havasu. The
         # homepage module drops wire/nation/lifestyle before the limit so it
         # still fills with local headlines (no "Pringles" under a Havasu H1).
-        section = news_section(str(it.get("source") or ""), str(it.get("url") or ""), title)
+        url = str(it.get("url") or "")
+        source = str(it.get("source") or "")
+        summary = str(it.get("summary") or "")
+        section = news_section(source, url, title)
         if section in drop_sections:
+            continue
+        region_label = _region_label(title, summary)
+        # Homepage-only local gate: a catch-all "Local" item from a syndication-
+        # prone source (News-Herald wire) needs a positive Havasu or immediate-
+        # region signal to make the front page. Without it, bare-URL national
+        # stories ("Unstable NYC building…") ride the Local default onto /home.
+        # Trusted-local sources and labelled nearby-region items always pass.
+        if (
+            local_only
+            and section == SECTION_LOCAL
+            and not is_trusted_local_source(source)
+            and region_label is None
+            and not has_local_signal(url, title, summary)
+        ):
             continue
         title_key = _normalize_title(title)
         if title_key and title_key in seen_title:
@@ -239,7 +264,7 @@ def _view(
             seen_title.add(title_key)
         entry = dict(it)
         entry["published_label"] = _relative_label(it.get("published_at"), now)
-        entry["region_label"] = _region_label(title, str(it.get("summary") or ""))
+        entry["region_label"] = region_label
         entry["section"] = section
         entry["section_label"] = SECTION_LABELS.get(section, "Local")
         out.append(entry)
@@ -283,8 +308,12 @@ def ticker_view(db: Session, *, limit: int = 6, now: datetime | None = None) -> 
     """Top headlines for the home news ticker (honest-omit when empty).
 
     M18: local-first — the homepage never surfaces wire/nation/lifestyle
-    syndication (``Beyond Havasu``) as a Havasu headline."""
-    return _view(db, limit=limit, now=now, drop_sections=NON_LOCAL_SECTIONS)
+    syndication (``Beyond Havasu``) or op-eds (``Opinion``) as a Havasu headline,
+    and a catch-all ``Local`` item must carry a Havasu / immediate-region signal
+    (``local_only``) so bare-URL national wire can't ride the default onto /home."""
+    return _view(
+        db, limit=limit, now=now, drop_sections=NON_LOCAL_SECTIONS, local_only=True
+    )
 
 
 def page_view(db: Session, *, now: datetime | None = None) -> NewsView:
