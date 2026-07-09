@@ -46,8 +46,11 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .skip{position:absolute;left:-9999px;top:0;background:var(--ink);color:#fff;padding:10px 14px;border-radius:8px;z-index:60}
 .skip:focus{left:12px;top:12px}
 
-/* production shell: a centered column replacing the mockup's device frame */
-.rd-shell{max-width:1180px;margin:0 auto;position:relative}
+/* production shell: a centered column replacing the mockup's device frame.
+   Caps content width on wide monitors (the audit's >540px blind spot); header,
+   conditions strip, main and footer all live inside it, so they share one
+   centered column and one set of gutters at every width. */
+.rd-shell{max-width:1200px;margin:0 auto;position:relative}
 
 .head-stack{position:sticky;top:0;z-index:30}
 .util{display:flex;align-items:center;justify-content:space-between;padding:7px 20px;
@@ -510,7 +513,12 @@ a.gas-card:hover{border-color:var(--teal-line);box-shadow:var(--sh-sm)}
 @media(min-width:980px){
   .only-d,.sc-only-d{display:flex}
   .only-m,.sc-only-m{display:none}
-  .main{display:grid;grid-template-columns:1fr 320px;gap:24px;align-items:start;padding:8px 24px 0}
+  /* minmax(0,1fr) — NOT a bare 1fr — is load-bearing: a bare 1fr's implicit
+     min-width:auto refuses to shrink below the feed's min-content, so on a wide
+     monitor the feed track blew past the shell and shoved the rail off-screen
+     (clipped by body overflow-x:hidden). The (0,...) floor lets it shrink so the
+     340px rail always fits inside the shell. */
+  .main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px;align-items:start;padding:8px 24px 0}
   .rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:150px;margin-top:0}
   /* v4.4: desktop shows the rail news card and hides the mobile ticker. */
   .newsbar{display:none}
@@ -518,6 +526,11 @@ a.gas-card:hover{border-color:var(--teal-line);box-shadow:var(--sh-sm)}
   .cell{min-height:104px}
   .cell .chips{display:flex}
   .cell .dots{display:none}
+  /* Date strip: on a phone the cards flex:1 1 0 to fill the row; on a wide shell
+     that stretched 7 cards edge-to-edge with cavernous gaps. Let the row size to
+     its content and sit left-aligned, with comfortably-sized natural chips. */
+  .days{flex:0 1 auto}
+  .dcard{flex:0 0 auto;min-width:74px}
 }
 @media(max-width:430px){ .feature-marquee .frame{display:none} }
 
