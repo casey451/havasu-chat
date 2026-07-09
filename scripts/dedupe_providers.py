@@ -63,9 +63,13 @@ class MergeSpec:
 
     ``strategy``:
       * ``"names"`` — keeper is the lone candidate matching ``keep_contains``,
-        the duplicate(s) match ``dup_contains``. Use when the names differ.
+        the duplicate(s) match ``dup_contains`` (substring). Use when names differ.
       * ``"place_id"`` — names collide, so the keeper is the lone candidate WITH a
         ``google_place_id`` and the duplicate(s) are those without one.
+      * ``"slugs"`` — names AND place-ids collide (two Google records for one
+        business), so pick keeper/dup by EXACT slug: ``keep_contains`` is the
+        survivor slug, ``dup_contains`` the loser slug. Use when a human has
+        already chosen which of two equally-real listings to keep.
     """
 
     label: str
@@ -91,15 +95,19 @@ MERGE_SPECS: list[MergeSpec] = [
         strategy="place_id",
         reason="bare Next Gen MMA entry duplicates the real provider (the one with a place id)",
     ),
-    # 2026-07-08 re-audit (item 6): two "911 Mobile Mechanic" rows. Same name, so
-    # keeper = the one WITH a google_place_id; the bare/thin duplicate is retired.
-    # If the pair is ambiguous (both/neither carry a place id), _resolve skips it
-    # with a note — a safe no-op that surfaces in the dry-run for Casey's review.
+    # 2026-07-08 re-audit (item 6): two "911 Mobile Mechanic" rows — the SAME
+    # business (identical website 911mobilemechanic.com), but Google has two place
+    # records at different addresses, so BOTH carry a (distinct) google_place_id.
+    # The place_id strategy therefore skipped it (dry-run 2026-07-09); Casey chose
+    # to keep the 620 Lake Havasu Ave listing (`911-mobile-mechanic`) and retire
+    # the 2660 Sweetwater one (a gas-station geocode). Resolve by exact slug.
     MergeSpec(
         label="911 Mobile Mechanic dup",
         gather="911 mobile mechanic",
-        strategy="place_id",
-        reason="duplicate '911 Mobile Mechanic' listing — keep the one with a place id",
+        strategy="slugs",
+        keep_contains="911-mobile-mechanic",
+        dup_contains="911-mobile-mechanic-2",
+        reason="same business (same website), two Google records — keep 620 Lake Havasu Ave",
     ),
 ]
 
@@ -160,6 +168,15 @@ def _resolve(db: Session, spec: MergeSpec) -> tuple[Provider | None, list[Provid
         dups = [p for p in dups if p.id != keeps[0].id]
         if not dups:
             return None, [], "no distinct duplicate to merge"
+        return keeps[0], dups, "ok"
+
+    if spec.strategy == "slugs":
+        keeps = [p for p in cands if p.slug == spec.keep_contains]
+        dups = [p for p in cands if p.slug == spec.dup_contains]
+        if len(keeps) != 1:
+            return None, [], f"keeper slug not unique ({len(keeps)} matched {spec.keep_contains!r})"
+        if not dups:
+            return None, [], f"no duplicate matched slug {spec.dup_contains!r}"
         return keeps[0], dups, "ok"
 
     if spec.strategy == "place_id":
