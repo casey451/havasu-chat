@@ -195,6 +195,33 @@ def parks_rec_venue_unrecognized(venue: str | None) -> bool:
     return not is_known_facility(venue, strict=True)
 
 
+# ── landmark venue vs. the real venue in the prose ────────────────────────────
+# A Go Lake Havasu / CVB event is often tagged to the shared visitor-center
+# placeholder ("Go Lake Havasu Visitor Center") while its description names the
+# real venue ("Red, White and Blue Bunco Party" … Mudshark Public House). Ingest
+# recovery (field_recovery) auto-corrects when a LOCATION: line is present; this
+# lint is the POST-HOC signal for the rows that slipped through — a live event
+# whose venue is the placeholder while the prose names a distinct real venue is
+# worth a human glance (which is it — the visitor center, or Mudshark?). Source-
+# agnostic: any row with the placeholder venue is checked, GLH included.
+def landmark_venue_mismatch(venue: str | None, description: str | None) -> str | None:
+    """Return the real venue named in the description when ``venue`` is the shared
+    visitor-center placeholder but the prose names a distinct, real venue; else
+    ``None``. Lazily imports the venue helpers so this module stays import-light."""
+    from app.contrib.event_record import extract_venue_from_text
+    from app.contrib.ingest_suppression import is_placeholder_address
+
+    if not is_placeholder_address(venue):
+        return None
+    real = extract_venue_from_text(description)
+    if not real:
+        return None
+    # Don't flag when the "real" venue is the placeholder again, or the same string.
+    if is_placeholder_address(real) or real.strip().lower() == (venue or "").strip().lower():
+        return None
+    return real
+
+
 # ── aggregate over an event row ───────────────────────────────────────────────
 @dataclass(frozen=True)
 class LintFinding:
@@ -231,6 +258,14 @@ def lint_event(event: Any) -> list[LintFinding]:
             LintFinding(
                 "venue_not_facility",
                 f"venue {venue!r} is not a named P&R facility — probable room/instructor in the Where",
+            )
+        )
+    real_venue = landmark_venue_mismatch(venue, getattr(event, "description", None))
+    if real_venue:
+        findings.append(
+            LintFinding(
+                "landmark_venue_mismatch",
+                f"venue is the visitor-center placeholder; description names {real_venue!r}",
             )
         )
     return findings

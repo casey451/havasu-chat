@@ -35,6 +35,10 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "lap swim", "water aerobics", "water fitness", "water exercise",
         "aqua", "aquacise", "aquatic", "water polo", "deep water",
         "swim lesson", "swim league", "water wellness", "swim team",
+        # A named kids learn-to-swim program that carries no generic swim keyword —
+        # curated so it routes to swim, not the Around Town fallback (2026-07-08
+        # re-audit: "Big Fish Little Fish" ran under Around Town).
+        "big fish little fish",
     )),
     ("Martial Arts", (
         "martial", "karate", "jiu jitsu", "jiu-jitsu", "bjj", "taekwondo",
