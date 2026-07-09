@@ -43,12 +43,14 @@ def pytest_configure(config: pytest.Config) -> None:
     os.environ.setdefault("R2_ENDPOINT_URL", "https://test.r2.cloudflarestorage.com")
     os.environ.setdefault("R2_BUCKET_NAME", "test-bucket")
     os.environ.setdefault("R2_PUBLIC_URL_BASE", "https://pub-test.r2.dev")
-    # The business/advertiser surfaces ship OFF by default in prod, but the bulk
-    # of the suite asserts today's full behavior (For Business nav, /portal, the
-    # homepage claim card, etc.). Default the flag ON for tests so that suite
-    # keeps passing unchanged; test_business_surfaces_flag.py flips it OFF per
-    # test with monkeypatch to cover the launch (flag-off) state on both sides.
-    os.environ.setdefault("BUSINESS_SURFACES_ENABLED", "true")
+    # The business side is two tiers: claim (free, default ON) and ads (paid,
+    # default OFF in prod). The bulk of the suite asserts the FULL behavior — For
+    # Business nav, /portal, the homepage claim card, the sponsor storefront, the
+    # ad funnel, category sponsor cards — so default BOTH tiers ON for tests and
+    # that suite keeps passing unchanged. test_business_surfaces_flag.py flips them
+    # per test with monkeypatch to cover the launch (claim-on/ads-off) state.
+    os.environ.setdefault("CLAIM_SURFACES_ENABLED", "true")
+    os.environ.setdefault("ADS_ENABLED", "true")
     if os.environ.get("HAVASU_USE_DEV_DB_FOR_TESTS") == "1":
         return
     fd, path = tempfile.mkstemp(suffix=".sqlite", prefix="havasu_pytest_")

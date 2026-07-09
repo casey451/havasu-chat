@@ -98,10 +98,11 @@ NAV_PAGES: tuple[str, ...] = (
     "/categories",
     "/categories/eat-and-drink",
     # /portal + /sponsor stay here because they must always answer 200 with a
-    # non-empty <main>. While BUSINESS_SURFACES_ENABLED is off they serve the
-    # "For businesses — coming soon" stub (still 200 + real <main> + build-sha
-    # meta), and with the flag on they serve the live portal / rate card — the
-    # route-health assertion holds either way, which is exactly what we want.
+    # non-empty <main>, regardless of the CLAIM_SURFACES_ENABLED / ADS_ENABLED
+    # state. At launch (claim on, ads off) /portal is the live claim landing and
+    # /sponsor is the "advertising — coming soon" stub; a tier flip only swaps the
+    # rendered content (both still 200 + real <main> + build-sha meta). The
+    # route-health assertion holds in every combination, which is what we want.
     "/portal",
     "/sponsor",
     "/chat",

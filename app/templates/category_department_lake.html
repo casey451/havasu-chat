@@ -51,8 +51,8 @@
   </section>
   {% endfor %}
 
-  {# Advertiser surface — hidden while BUSINESS_SURFACES_ENABLED is off. #}
-  {% if business_surfaces_enabled() %}
+  {# Paid advertiser surface — hidden while ADS_ENABLED is off. #}
+  {% if ads_enabled() %}
   <aside class="cat-claim" aria-label="Advertise in this category">
     <div class="cc-body">
       <span class="stag">Advertise</span>

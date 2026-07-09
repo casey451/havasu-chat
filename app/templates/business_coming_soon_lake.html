@@ -1,16 +1,51 @@
 {% extends "base_plain.html" %}
-{#- Placeholder served on every business/advertiser route (/portal, /portal/*,
-   /sponsor, /advertise, /claim/*, /merchant/*) while BUSINESS_SURFACES_ENABLED is
-   off. The business side isn't finished yet, but an owner who lands here from
-   word-of-mouth should get a friendly 200 + a way to reach us — never a 404 or a
-   dead portal. Rendered by the BusinessSurfacesGateMiddleware in app/main.py.
-   noindex: this is a temporary stub, not something search should surface. -#}
-{% block title %}For businesses — coming soon · Ask Hava{% endblock %}
-{% block meta_description %}Business tools on Ask Hava are coming soon. In the meantime, email us and we'll help you get your Lake Havasu City listing right.{% endblock %}
+{#- Placeholder served on business routes whose tier is off, by the
+   BusinessSurfacesGateMiddleware in app/main.py. Two variants keyed on ``cs_kind``:
+
+   * "ads"      — the paid tier (/sponsor, /advertise, /portal/placements*,
+                  /portal/creatives*, /merchant/*) while ADS_ENABLED is off. Copy
+                  is advertising-specific, and when the free claim flow is live it
+                  points owners there instead of a dead end.
+   * "business" — the whole business side (/portal, /portal/claim, /claim/*) while
+                  CLAIM_SURFACES_ENABLED is off. Generic "business tools" copy.
+
+   An owner who lands here from word-of-mouth gets a friendly 200 + a way to reach
+   us — never a 404 or a login wall. noindex: this is a temporary stub. -#}
+{% set _ads = (cs_kind == "ads") %}
+{% block title %}{% if _ads %}Advertising — coming soon{% else %}For businesses — coming soon{% endif %} · Ask Hava{% endblock %}
+{% block meta_description %}{% if _ads %}Paid advertising on Ask Hava isn't open yet. Claiming your Lake Havasu listing is free in the meantime.{% else %}Business tools on Ask Hava are coming soon. Email us and we'll help you get your Lake Havasu City listing right.{% endif %}{% endblock %}
 {% block head_extra %}<meta name="robots" content="noindex, follow">{% endblock %}
 {% block main %}
 <section class="cs-wrap" style="max-width:640px;margin:0 auto;padding:56px 20px 72px;text-align:center">
   <p class="eyebrow" style="letter-spacing:.08em;text-transform:uppercase;font-size:.8rem;opacity:.7;margin:0 0 10px">For businesses</p>
+  {% if _ads %}
+  <h1 class="serif" style="font-size:2rem;line-height:1.15;margin:0 0 16px">Advertising is coming soon</h1>
+  <p style="font-size:1.05rem;line-height:1.6;margin:0 0 14px">
+    Paid placements on Ask Hava — clearly labeled, capped per page, never a wall of
+    ads — aren't open yet. We're building them carefully and will announce when
+    they go live.
+  </p>
+  {% if claim_surfaces_enabled() %}
+  <p style="font-size:1.05rem;line-height:1.6;margin:0 0 28px">
+    In the meantime, <strong>claiming your listing is free</strong> — add your
+    hours, photos, menu and links and earn the verified mark.
+  </p>
+  <p style="margin:0 0 8px">
+    <a class="btn btn-brass" href="/portal/claim" style="display:inline-block;padding:12px 22px;border-radius:8px">Claim your listing — free</a>
+  </p>
+  <p style="font-size:.95rem;opacity:.75;margin:18px 0 0">
+    Want to advertise later? Email <a href="mailto:hello@askhava.com?subject=Advertising%20on%20Ask%20Hava">hello@askhava.com</a> and we'll keep you posted.
+  </p>
+  {% else %}
+  <p style="font-size:1.05rem;line-height:1.6;margin:0 0 28px">
+    Want to advertise when it opens? Reach out and we'll keep you posted.
+  </p>
+  <p style="margin:0 0 8px">
+    <a class="btn btn-brass" href="mailto:hello@askhava.com?subject=Advertising%20on%20Ask%20Hava"
+       style="display:inline-block;padding:12px 22px;border-radius:8px">Email hello@askhava.com</a>
+  </p>
+  {% endif %}
+  {% else %}
   <h1 class="serif" style="font-size:2rem;line-height:1.15;margin:0 0 16px">Business tools are coming soon</h1>
   <p style="font-size:1.05rem;line-height:1.6;margin:0 0 14px">
     Ask Hava is Lake Havasu City's local directory for what's open, what's on, and
@@ -19,13 +54,13 @@
   </p>
   <p style="font-size:1.05rem;line-height:1.6;margin:0 0 28px">
     Own a Havasu business and want to be part of it? We'd love to hear from you.
-    Reach out and we'll make sure your listing is accurate in the meantime — and
-    let you know the moment self-serve tools go live.
+    Reach out and we'll make sure your listing is accurate in the meantime.
   </p>
   <p style="margin:0 0 8px">
     <a class="btn btn-brass" href="mailto:hello@askhava.com?subject=My%20Lake%20Havasu%20business"
        style="display:inline-block;padding:12px 22px;border-radius:8px">Email hello@askhava.com</a>
   </p>
+  {% endif %}
   <p style="font-size:.95rem;opacity:.75;margin:18px 0 0">
     Everything for visitors and locals is fully live — <a href="/home">explore the directory</a>.
   </p>

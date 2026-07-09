@@ -177,12 +177,13 @@ def _build_sitemap_pages_xml() -> str:
         "/help",
         "/contact",
     )
-    # Business portal pages are only crawlable while the business side is live.
-    # With BUSINESS_SURFACES_ENABLED off they serve a noindex "coming soon" stub,
-    # so they must not be advertised in the sitemap.
-    from app.core.feature_flags import business_surfaces_enabled
+    # The claim portal pages are only crawlable while the free claim flow is live.
+    # With CLAIM_SURFACES_ENABLED off they serve a noindex "coming soon" stub, so
+    # they must not be advertised in the sitemap. (The paid /sponsor rate card is
+    # never in the sitemap regardless.)
+    from app.core.feature_flags import claim_surfaces_enabled
 
-    if business_surfaces_enabled():
+    if claim_surfaces_enabled():
         static_paths = static_paths + ("/portal", "/portal/claim")
     for path in static_paths:
         entries.append(_sitemap_url_entry(f"{base}{path}"))
