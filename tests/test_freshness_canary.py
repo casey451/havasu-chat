@@ -18,6 +18,7 @@ from scripts.freshness_canary import (
     NAV_REDIRECTS,
     SAMPLE_UAS,
     Resp,
+    calendar_month_variants,
     extract_cheapest_gas,
     phoenix_today_label,
     run_checks,
@@ -227,6 +228,21 @@ def test_specific_date_day_view_is_freshness_checked() -> None:
     day = "/events-ui?date=" + _NOW.date().isoformat()
     failures = run_checks(_make_fetch({day: Resp(200, _page(sha="oldsha000000"))}), _NOW)
     assert any(day in f and "STALE render" in f for f in failures)
+
+
+def test_calendar_month_variants_are_current_and_next() -> None:
+    # 2099-07-06 Phoenix → current 2099-07, next 2099-08. December rolls the year.
+    assert calendar_month_variants(_NOW) == ("2099-07", "2099-08")
+    dec = datetime(2099, 12, 20, 19, 0, tzinfo=UTC)
+    assert calendar_month_variants(dec) == ("2099-12", "2100-01")
+
+
+def test_calendar_cal_month_variant_is_freshness_checked() -> None:
+    # The 2026-07-08 re-audit case: /calendar?cal=<month> frozen at an edge PoP
+    # (older build) while bare /calendar was fresh. The ?cal= key is checked now.
+    cal = "/calendar?cal=" + calendar_month_variants(_NOW)[0]
+    failures = run_checks(_make_fetch({cal: Resp(200, _page(sha="oldsha000000"))}), _NOW)
+    assert any(cal in f and "STALE render" in f for f in failures)
 
 
 def test_health_unreadable_disables_sha_match_but_flags() -> None:
