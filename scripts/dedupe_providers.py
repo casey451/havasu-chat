@@ -88,6 +88,16 @@ MERGE_SPECS: list[MergeSpec] = [
         strategy="place_id",
         reason="bare Next Gen MMA entry duplicates the real provider (the one with a place id)",
     ),
+    # 2026-07-08 re-audit (item 6): two "911 Mobile Mechanic" rows. Same name, so
+    # keeper = the one WITH a google_place_id; the bare/thin duplicate is retired.
+    # If the pair is ambiguous (both/neither carry a place id), _resolve skips it
+    # with a note — a safe no-op that surfaces in the dry-run for Casey's review.
+    MergeSpec(
+        label="911 Mobile Mechanic dup",
+        gather="911 mobile mechanic",
+        strategy="place_id",
+        reason="duplicate '911 Mobile Mechanic' listing — keep the one with a place id",
+    ),
 ]
 
 
