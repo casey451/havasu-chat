@@ -22,11 +22,11 @@
 
   {% if has_data %}
   {% if city_avg and city_avg.regular %}
-  <div class="card gas-avg" aria-label="City average">
+  <div class="card gas-avg" aria-label="Typical price">
     <div class="gas-avg-main">
-      <p class="eyebrow">City average · regular</p>
+      <p class="eyebrow">Typical price · regular</p>
       <div class="price tnum">${{ '%.2f'|format(city_avg.regular) }}</div>
-      <div class="gas-avg-sub">Average across all {{ data.station_count }} tracked stations</div>
+      <div class="gas-avg-sub">Median across all {{ data.station_count }} tracked stations</div>
     </div>
     <div class="gas-avg-grades">
       {% for g in grades %}{% if city_avg[g] %}

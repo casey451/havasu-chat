@@ -51,18 +51,25 @@ def _read_board(
 
     The board is the single source of truth (v4.4 PR-1) the strip tile and home
     panel also use, so /gas can never disagree with them on a station or a
-    cheapest figure. ``city_avg`` is a page-only aggregate read straight off the
-    stored payload (it is not a per-station price, so it cannot "disagree" across
-    surfaces). Both human timestamps derive from ``board.pulled_at`` — one clock.
+    cheapest figure. ``city_avg`` is the page-level "typical price" per grade — the
+    MEDIAN across the exact board stations shown, not the pull's stored mean (a
+    simple mean let the high-price outliers skew it above the pump most drivers
+    see; 2026-07-08 re-audit: mean $3.83 vs median $3.72). Computed off the board
+    so it can never disagree with the displayed table. Both human timestamps
+    derive from ``board.pulled_at`` — one clock.
     """
     now = datetime.now(UTC).replace(tzinfo=None)
     row = read_source(db, SOURCE_GAS, now=now)
     board = board_from_cache(row, now=now)
-    raw = row.data if (row is not None and isinstance(row.data, dict)) else {}
-    city_avg = raw.get("city_avg") if isinstance(raw.get("city_avg"), dict) else {}
+    _short_to_long = {"reg": "regular", "mid": "midgrade", "prem": "premium", "dsl": "diesel"}
+    city_avg: dict[str, Any] = {
+        lng: m
+        for sh, lng in _short_to_long.items()
+        if (m := board.median_price(sh)) is not None
+    }
     label = _format_fetched_at(board.pulled_at) if board.pulled_at else None
     time_label = _format_fetched_at_time(board.pulled_at) if board.pulled_at else None
-    return board, city_avg or {}, label, time_label
+    return board, city_avg, label, time_label
 
 
 def _local_fetched_at(fetched_at: datetime) -> datetime:

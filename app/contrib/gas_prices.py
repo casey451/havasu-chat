@@ -19,6 +19,7 @@ from __future__ import annotations
 import logging
 import re
 from datetime import UTC, datetime
+from statistics import median
 from typing import Any
 
 import httpx
@@ -261,12 +262,14 @@ def build_gas_payload(db: Session, *, now: datetime | None = None) -> dict[str, 
     if not cheapest:
         cheapest = stations[:5]
 
-    # City average per grade (mean of available station prices).
+    # City "typical price" per grade — the MEDIAN of available station prices
+    # (robust to the high-price outliers a mean lets skew the figure; the /gas page
+    # recomputes this off the live board too, so this stored value stays aligned).
     city_avg: dict[str, float] = {}
     for g in GRADES:
         vals = [s["prices"][g] for s in stations if g in (s.get("prices") or {})]
         if vals:
-            city_avg[g] = round(sum(vals) / len(vals), 3)
+            city_avg[g] = round(median(vals), 3)
 
     return {
         "updated_at_iso": _iso(now),

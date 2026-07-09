@@ -20,6 +20,7 @@ ASCII-only by project convention.
 from __future__ import annotations
 
 import logging
+import statistics
 import threading
 from dataclasses import dataclass
 from datetime import UTC, datetime, timedelta
@@ -96,6 +97,21 @@ class GasBoard:
             if isinstance((p := s.prices.get(grade)), (int, float))
         ]
         return round(sum(vals) / len(vals), 3) if vals else None
+
+    def median_price(self, grade: str = "reg") -> float | None:
+        """Median price for ``grade`` across stations that carry it, or None.
+
+        The "typical price" statistic the /gas page shows (2026-07-08 re-audit): a
+        simple mean lets the high-price outliers — a marina/highway station, a
+        brand's dearer locations — skew the figure well above the pump most drivers
+        see (mean $3.83 vs median $3.72 on the day). Median is robust to that.
+        Rounded to 3 dp like :meth:`city_avg`."""
+        vals = [
+            p
+            for s in self.stations
+            if isinstance((p := s.prices.get(grade)), (int, float))
+        ]
+        return round(statistics.median(vals), 3) if vals else None
 
 
 def _utc_now() -> datetime:
