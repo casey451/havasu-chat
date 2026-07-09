@@ -90,6 +90,15 @@ def _seed_nextgen(db: Session) -> tuple[Provider, Provider]:
     return keep, dup
 
 
+def _seed_911(db: Session) -> tuple[Provider, Provider]:
+    # Same business, two Google records: SAME name, BOTH carry a (distinct)
+    # place_id, so place_id can't disambiguate — the survivor is chosen by slug.
+    _seed_leaf(db, "auto-repair", 50)
+    keep = _provider(db, "911 Mobile Mechanic", leaf_id=50, google_place_id="PID_911_A")
+    dup = _provider(db, "911 Mobile Mechanic", leaf_id=50, google_place_id="PID_911_B")
+    return keep, dup
+
+
 # ------------------------------ resolve -------------------------------- #
 def test_resolve_bike_picks_correct_keeper(mod, db) -> None:
     keep, dup = _seed_bike(db)
@@ -108,6 +117,18 @@ def test_resolve_nextgen_keeps_the_one_with_place_id(mod, db) -> None:
     keeper, dups, note = mod._resolve(db, spec)
     assert note == "ok"
     assert keeper.id == keep.id and keeper.google_place_id == "PID_NG"
+    assert [d.id for d in dups] == [dup.id]
+
+
+def test_resolve_911_picks_keeper_by_slug(mod, db) -> None:
+    keep, dup = _seed_911(db)
+    db.commit()
+    # Both rows carry a place_id, so the survivor is picked by exact slug.
+    assert keep.slug == "911-mobile-mechanic" and dup.slug == "911-mobile-mechanic-2"
+    spec = next(s for s in mod.MERGE_SPECS if s.strategy == "slugs")
+    keeper, dups, note = mod._resolve(db, spec)
+    assert note == "ok"
+    assert keeper.id == keep.id
     assert [d.id for d in dups] == [dup.id]
 
 
