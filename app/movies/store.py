@@ -231,11 +231,32 @@ _MUTABLE_FIELDS = (
 # source keeps the quarantine behavior (Star Cinemas + its 9:30 AM kids whitelist).
 AUTO_CORRECT_SOURCES: frozenset[str] = frozenset({"movies_havasu"})
 AUTO_CORRECTED_TAG = "auto_corrected"
-_NOON = time(12, 0)
+# The theater's observed operating window — first show ~10 AM, last ~10 PM. A +12h
+# flip is only trusted when the corrected time lands inside it; anything else is a
+# sign the row isn't a simple PM-typed-as-AM matinee, so it quarantines instead.
+OPERATING_OPEN = time(10, 0)
+OPERATING_CLOSE = time(22, 0)
 
 
 def _shift_12h(t: time) -> time:
     return (datetime.combine(datetime(2000, 1, 1), t) + timedelta(hours=12)).time()
+
+
+def _autocorrect_target(t: time) -> time | None:
+    """The +12h-corrected time for an implausibly-early auto-flip source's
+    showtime, or ``None`` to quarantine instead. Two guards (Casey 2026-07-08):
+
+    1. **Never flip the midnight hour** (12:00–12:59 AM): a real midnight premiere
+       is legitimate, so it goes to review rather than becoming a noon show.
+    2. **Sanity-bound the result** to the theater's operating window (~10 AM–10 PM):
+       if +12h lands outside it, the row isn't a plain PM-matinee flip — quarantine.
+    """
+    if t.hour == 0:  # 12:00–12:59 AM — a legit midnight premiere, not a flip
+        return None
+    flipped = _shift_12h(t)
+    if OPERATING_OPEN <= flipped <= OPERATING_CLOSE:
+        return flipped
+    return None
 
 
 def showtime_record_is_suspect(r: ShowtimeRecord) -> bool:
@@ -255,7 +276,8 @@ def upsert_showtimes(db: Session, records: list[ShowtimeRecord]) -> dict[str, in
     (:data:`AUTO_CORRECT_SOURCES`) it is AUTO-CORRECTED +12h in place, tagged
     ``auto_corrected`` and logged, so the real matinee still shows. For every
     other source it is QUARANTINED — dropped here, never written — so a flip can't
-    reach /movies. The kids-series matinee is whitelisted from both."""
+    reach /movies. The kids-series matinee is whitelisted from both; the midnight
+    hour and out-of-operating-window flips also quarantine (see _autocorrect_target)."""
     kept: list[ShowtimeRecord] = []
     corrected: list[ShowtimeRecord] = []
     quarantined: list[ShowtimeRecord] = []
@@ -263,9 +285,10 @@ def upsert_showtimes(db: Session, records: list[ShowtimeRecord]) -> dict[str, in
         if not showtime_record_is_suspect(r):
             kept.append(r)
             continue
-        if r.source in AUTO_CORRECT_SOURCES and r.show_time < _NOON:
+        target = _autocorrect_target(r.show_time) if r.source in AUTO_CORRECT_SOURCES else None
+        if target is not None:
             old = r.show_time
-            r.show_time = _shift_12h(old)
+            r.show_time = target
             if AUTO_CORRECTED_TAG not in r.tags:
                 r.tags = [*r.tags, AUTO_CORRECTED_TAG]
             logger.warning(
@@ -325,3 +348,47 @@ def prune_past(db: Session, *, before: date | None = None) -> int:
     result = db.execute(delete(MovieShowtime).where(MovieShowtime.show_date < before))
     db.commit()
     return int(getattr(result, "rowcount", 0) or 0)
+
+
+def _hours(t: time) -> float:
+    return t.hour + t.minute / 60.0
+
+
+def cross_check_autocorrected(db: Session, *, tolerance_hours: float = 3.0) -> list[str]:
+    """The free cross-check (Casey 2026-07-08): for each auto-corrected Movies
+    Havasu showtime, if Star Cinemas shows the SAME film at a wildly different time
+    pattern — the corrected time lands outside Star Cinemas' showtime window for
+    that film, ± ``tolerance_hours`` — flag it. Star Cinemas has independent,
+    unflipped Veezi data, so a mismatch means our +12h may be wrong. Returns
+    human-readable flag lines for the nightly canary output (empty = all consistent).
+
+    Only films Star Cinemas also carries are checkable; the rest can't be
+    cross-checked and are silently skipped (never a false flag)."""
+    from app.movies.queries import normalize_film_title
+
+    auto = [
+        r
+        for r in db.scalars(
+            select(MovieShowtime).where(MovieShowtime.theater_slug == "movies-havasu")
+        ).all()
+        if AUTO_CORRECTED_TAG in (r.tags or [])
+    ]
+    sc_by_film: dict[str, list[time]] = {}
+    for s in db.scalars(
+        select(MovieShowtime).where(MovieShowtime.theater_slug == "star-cinemas")
+    ).all():
+        sc_by_film.setdefault(normalize_film_title(s.film_title), []).append(s.show_time)
+
+    flags: list[str] = []
+    for r in auto:
+        sc_times = sc_by_film.get(normalize_film_title(r.film_title))
+        if not sc_times:
+            continue  # not showing at Star Cinemas — no cross-check available
+        lo, hi = min(_hours(t) for t in sc_times), max(_hours(t) for t in sc_times)
+        if not (lo - tolerance_hours <= _hours(r.show_time) <= hi + tolerance_hours):
+            flags.append(
+                f"auto_corrected mismatch: {r.film_title!r} {r.show_date.isoformat()} "
+                f"Movies Havasu -> {r.show_time.isoformat()} but Star Cinemas shows it "
+                f"{min(sc_times).isoformat()}–{max(sc_times).isoformat()}"
+            )
+    return flags

@@ -10,7 +10,12 @@ from sqlalchemy import delete, select
 from app.db.database import SessionLocal
 from app.db.models import MovieShowtime
 from app.movies.queries import has_free_kids, movies_today
-from app.movies.store import ShowtimeRecord, prune_past, upsert_showtimes
+from app.movies.store import (
+    ShowtimeRecord,
+    cross_check_autocorrected,
+    prune_past,
+    upsert_showtimes,
+)
 
 SRC = "test_store"
 
@@ -106,6 +111,81 @@ def test_upsert_autocorrects_movies_havasu_flip():
             db.execute(
                 delete(MovieShowtime).where(MovieShowtime.source_stable_id == "mh-moana-flip")
             )
+            db.commit()
+
+
+def test_autocorrect_target_guards():
+    """The two guards on the +12h flip (Casey 2026-07-08)."""
+    from app.movies.store import _autocorrect_target
+
+    assert _autocorrect_target(time(4, 0)) == time(16, 0)    # normal flip → 4 PM
+    assert _autocorrect_target(time(8, 30)) == time(20, 30)  # in operating window
+    # Guard 1 — never flip the midnight hour (a legit premiere).
+    assert _autocorrect_target(time(0, 0)) is None
+    assert _autocorrect_target(time(0, 45)) is None
+    # Guard 2 — result must land inside the ~10 AM–10 PM operating window.
+    assert _autocorrect_target(time(10, 30)) is None  # +12h = 10:30 PM, past close
+    assert _autocorrect_target(time(11, 0)) is None   # +12h = 11 PM, past close
+
+
+def test_autoflip_quarantines_midnight_hour():
+    """A 12:xx AM Movies Havasu show (a real midnight premiere) is quarantined for
+    review, NOT flipped to noon."""
+    day = date(2099, 8, 8)
+    rec = ShowtimeRecord(
+        source="movies_havasu", source_stable_id="mh-midnight",
+        theater_slug="movies-havasu", theater_name="Movies Havasu",
+        film_title="Midnight Premiere", show_date=day, show_time=time(0, 30), booking_url="x",
+    )
+    try:
+        with SessionLocal() as db:
+            counts = upsert_showtimes(db, [rec])
+            assert counts == {"created": 0, "updated": 0, "quarantined": 1, "auto_corrected": 0}
+            gone = db.scalars(
+                select(MovieShowtime).where(MovieShowtime.source_stable_id == "mh-midnight")
+            ).first()
+            assert gone is None  # quarantined — never written
+    finally:
+        with SessionLocal() as db:
+            db.execute(delete(MovieShowtime).where(MovieShowtime.source_stable_id == "mh-midnight"))
+            db.commit()
+
+
+def test_cross_check_flags_wildly_off_correction():
+    """The free Star Cinemas cross-check: an auto-corrected time consistent with
+    Star Cinemas' window passes; one wildly outside it is flagged."""
+    day = date(2099, 8, 9)
+    film = "CrossCheck Film ZZ"
+    ids = ["cc-mh", "cc-sc1", "cc-sc2"]
+
+    def _seed(mh_time: time) -> None:
+        with SessionLocal() as db:
+            db.execute(delete(MovieShowtime).where(MovieShowtime.source_stable_id.in_(ids)))
+            db.add_all([
+                MovieShowtime(source="movies_havasu", source_stable_id="cc-mh",
+                    theater_slug="movies-havasu", theater_name="Movies Havasu",
+                    film_title=film, show_date=day, show_time=mh_time, tags=["auto_corrected"]),
+                MovieShowtime(source="star_cinemas", source_stable_id="cc-sc1",
+                    theater_slug="star-cinemas", theater_name="Star Cinemas",
+                    film_title=film, show_date=day, show_time=time(14, 0), tags=[]),
+                MovieShowtime(source="star_cinemas", source_stable_id="cc-sc2",
+                    theater_slug="star-cinemas", theater_name="Star Cinemas",
+                    film_title=film, show_date=day, show_time=time(18, 0), tags=[]),
+            ])
+            db.commit()
+
+    try:
+        # 4 PM is inside Star Cinemas' 2–6 PM window → no flag.
+        _seed(time(16, 0))
+        with SessionLocal() as db:
+            assert not any(film in f for f in cross_check_autocorrected(db))
+        # 9:30 PM is >3h past Star Cinemas' latest (6 PM) → flagged.
+        _seed(time(21, 30))
+        with SessionLocal() as db:
+            assert any(film in f for f in cross_check_autocorrected(db))
+    finally:
+        with SessionLocal() as db:
+            db.execute(delete(MovieShowtime).where(MovieShowtime.source_stable_id.in_(ids)))
             db.commit()
 
 
