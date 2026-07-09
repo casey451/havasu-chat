@@ -78,6 +78,19 @@ def _permalinkless_title(suf: str) -> str:
     return f"Permalinkless{suf}"
 
 
+def _unique_saturday(suf: str) -> date:
+    """A per-run-unique FAR-FUTURE Saturday.
+
+    ``day_groups(day=X)`` reads EVERY event on date X from the shared per-worker
+    DB, so the December-2026 dates several tests here share let one test's leaked
+    same-day event contaminate another's query — the xdist flake. A far-future
+    date derived from the fixture's uuid is contamination-proof: no other test
+    plants anything there. The venue Schedule is a weekly recurrence with no end,
+    so it still yields an occurrence on any future Saturday."""
+    base = date(2099, 1, 1) + timedelta(days=int(suf[:6], 16) % 20000)
+    return base + timedelta(days=(5 - base.weekday()) % 7)  # snap forward to Saturday
+
+
 def _make_permalinkless_program(title: str, days: list[str]) -> str:
     """Active venue Entity + recurring Schedule but NO Provider — a program with
     no permalink (occ.url == ""), like "Havasu Horseback Rides". Returns the
@@ -417,9 +430,10 @@ def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
     # another xdist worker can't drop this row via drop_event_duplicates (the old
     # "Pony Lead Line Rides" fixture flaked exactly that way — see
     # test_permalinkless_program_survives_generic_same_day_event).
-    title = _permalinkless_title(uuid.uuid4().hex[:8])
+    suf = uuid.uuid4().hex[:8]
+    title = _permalinkless_title(suf)
     venue = _make_permalinkless_program(title, ["saturday"])
-    day = date(2026, 12, 5)  # a Saturday
+    day = _unique_saturday(suf)  # far-future + unique → no xdist same-day contamination
     try:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=day, events_only=False)
@@ -484,18 +498,20 @@ def test_permalinkless_program_survives_generic_same_day_event() -> None:
     suf = uuid.uuid4().hex[:8]
     title = _permalinkless_title(suf)  # uniquely tokened — cannot subset-match
     venue = _make_permalinkless_program(title, ["saturday"])
-    day = date(2026, 12, 5)  # a Saturday
+    day = _unique_saturday(suf)  # far-future + unique → only THIS test's data on it
     with SessionLocal() as db:
         # A generic same-day event whose tokens WOULD suppress a common-worded
         # class ("Pony Rides" once dropped a "Pony Lead Line Rides" fixture).
-        db.add(Event(
+        interfering = Event(
             title="Pony Rides", normalized_title="pony rides",
             date=day, start_time=time(10, 0), end_time=time(11, 0),
             location_name="Somewhere", location_normalized="somewhere",
             description="interfering same-day event", source="allevents",
             tags=["community"], status="live",
-        ))
+        )
+        db.add(interfering)
         db.commit()
+        interfering_id = interfering.id
     try:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=day, events_only=False)
@@ -503,3 +519,6 @@ def test_permalinkless_program_survives_generic_same_day_event() -> None:
         assert row is not None, "unique-titled program must not be dropped by a generic event"
     finally:
         _delete_permalinkless_program(venue)
+        with SessionLocal() as db:  # hermetic: don't leak the planted event
+            db.query(Event).filter(Event.id == interfering_id).delete()
+            db.commit()
