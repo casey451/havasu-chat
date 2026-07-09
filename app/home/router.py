@@ -215,7 +215,6 @@ def serve_home(
             "feed_day_label": _long_day_label(feed_day),
             "is_today": feed_day == now.date(),
             "cond_tiles": redesign.conditions_tiles(db, now=now),
-            "gas": redesign.gas_panel_data(db, now=now),
             "week": sandstone.week_strip(db, today=now.date(), selected=feed_day),
             "feed": redesign.feed_view_model(db, day=feed_day, now=now),
             # (F6 2026-07-01: the headline now reads feed.total — the same
@@ -253,7 +252,6 @@ def _serve_night_landing(request: Request, db: Session) -> HTMLResponse:
         "utility_chips": _utility_chips(db),
         "current_mode": "night",
         "cond_tiles": redesign.conditions_tiles(db, now=now),
-        "gas": redesign.gas_panel_data(db, now=now),
         "active_tab": None,
         "late_kitchens": redesign.late_night_kitchens(db),
         "music_tonight": redesign.night_music_rows(db, day=now.date(), now=now),
@@ -293,7 +291,6 @@ def serve_lake(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
         name="lake_redesign.html",
         context={
             "cond_tiles": redesign.conditions_tiles(db, now=now),
-            "gas": redesign.gas_panel_data(db, now=now),
             "conditions": payload["fields"],
             "any_conditions": payload["any_available"],
             "local_time_label": format_now_lake_havasu(now),
@@ -333,7 +330,6 @@ def serve_family(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
         context={
             **family_hub.FAMILY_HERO,
             "cond_tiles": redesign.conditions_tiles(db, now=now),
-            "gas": redesign.gas_panel_data(db, now=now),
             "kids_today": family_hub.kids_today_rows(db, day=day, now=now),
             "open_today": family_venues.open_today_rows(day),
             "camps": family_hub.camps_index(db, today=day, limit=6),
@@ -355,7 +351,6 @@ def serve_family_camps(request: Request, db: Session = Depends(get_db)) -> HTMLR
         name="family_camps.html",
         context={
             "cond_tiles": redesign.conditions_tiles(db, now=now),
-            "gas": redesign.gas_panel_data(db, now=now),
             "camps": family_hub.camps_index(db, today=now.date()),
             "active_tab": "family",
         },
@@ -638,7 +633,6 @@ def serve_events_ui(
         "active_tab": "events",
         "today_label": now.strftime("%A, %B ") + str(now.day),
         "cond_tiles": redesign.conditions_tiles(db, now=now),
-        "gas": redesign.gas_panel_data(db, now=now),
         "family_mode": family_on,
         "seniors_mode": seniors_on,
         # WS9c chip states + toggles.

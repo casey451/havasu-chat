@@ -102,7 +102,6 @@ def serve_movies(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
             "theaters": showtimes_for_day(db, day=selected, now=now),
             "free_kids": has_free_kids(db, day=selected),
             "cond_tiles": redesign.conditions_tiles(db, now=now),
-            "gas": redesign.gas_panel_data(db, now=now),
             "active_tab": "movies",
         },
     )

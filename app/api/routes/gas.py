@@ -108,8 +108,15 @@ def _shell_context(db: Session) -> dict[str, Any]:
 @limiter.limit(public_html_rate_limit)
 def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
     board, city_avg, fetched_at_label, fetched_at_time_label = _read_board(db)
-    stations = [to_legacy_station_dict(s) for s in board.stations]
-    cheapest = [to_legacy_station_dict(s) for s in board.cheapest("reg", _CHEAPEST_SHOWN)]
+    # M12 (2026-07-08 re-audit): the price-sorted table is the only cheapest view
+    # now (the "Cheapest today" card was removed), so sort it regular-cheapest-first
+    # by construction rather than relying on the pull's stored order. Stations
+    # without a regular price sink to the bottom (they still show under their grade).
+    ranked = sorted(
+        board.stations,
+        key=lambda s: (s.prices.get("reg") is None, s.prices.get("reg") or 0.0),
+    )
+    stations = [to_legacy_station_dict(s) for s in ranked]
     long_labels = {"regular": "Regular", "midgrade": "Midgrade", "premium": "Premium", "diesel": "Diesel"}
     short_to_long = {"reg": "regular", "mid": "midgrade", "prem": "premium", "dsl": "diesel"}
     # v4.4 PR-6: the grade segment offers only the grades the data actually has
@@ -128,7 +135,6 @@ def gas_page(request: Request, db: Session = Depends(get_db)) -> HTMLResponse:
             "fetched_at_time_label": fetched_at_time_label,
             "has_data": bool(stations),
             "stations": stations,
-            "cheapest": cheapest,
             "city_avg": city_avg,
             "grades": ["regular", "midgrade", "premium", "diesel"],
             "grades_available": grades_available,

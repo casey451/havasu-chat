@@ -40,7 +40,6 @@ def _chrome(db: Session, now: datetime) -> dict[str, Any]:
 
     return {
         "cond_tiles": _safe(lambda: redesign.conditions_tiles(db, now=now)),
-        "gas": _safe(lambda: redesign.gas_panel_data(db, now=now)) or None,
     }
 
 

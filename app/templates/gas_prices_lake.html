@@ -36,21 +36,8 @@
   </div>
   {% endif %}
 
-  {% if cheapest %}
-  <div class="sec-head"><h2 class="serif">Cheapest today{% if fetched_at_time_label %} (as of {{ fetched_at_time_label }}){% endif %}</h2></div>
-  <div class="gas-cheap">
-    {% for s in cheapest %}
-    {% if s.provider_slug %}<a class="card gas-card" href="/provider/{{ s.provider_slug }}">{% else %}<div class="card gas-card">{% endif %}
-      {% set brand_matches = s.brand and s.name and (s.brand | lower in s.name | lower or s.name | lower in s.brand | lower) %}
-      <div class="rank">#{{ loop.index }}{% if brand_matches or (s.brand and not s.name) %} · {{ s.brand }}{% elif s.name %} · {{ s.name }}{% endif %}{% if loop.first %} <span class="chp">Cheapest</span>{% endif %}</div>
-      <div class="price tnum">{% if s.prices and s.prices.regular %}${{ '%.2f'|format(s.prices.regular) }}{% else %}&mdash;{% endif %}</div>
-      <div class="name">{{ s.name }}{% if s.brand and s.name and not brand_matches %} <span class="brand-note">({{ s.brand }} pumps)</span>{% endif %}</div>
-      {% if s.address %}<div class="addr">{{ s.address }}</div>{% endif %}
-    {% if s.provider_slug %}</a>{% else %}</div>{% endif %}
-    {% endfor %}
-  </div>
-  {% endif %}
-
+  {# M12 (2026-07-08 re-audit): the "Cheapest today" card strip was removed — it
+     duplicated the top rows of the price-sorted "All stations" table below. #}
   <div class="sec-head"><h2 class="serif">All stations</h2></div>
   {% if not single_grade %}
   <div class="gsegwrap">

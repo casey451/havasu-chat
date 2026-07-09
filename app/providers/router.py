@@ -106,7 +106,6 @@ def serve_provider_profile(
             "venue_events": venue_events,
             "provider_name": vm.provider_name,
             "cond_tiles": redesign.conditions_tiles(db, now=now),
-            "gas": redesign.gas_panel_data(db, now=now),
             "active_tab": None,
         },
     )

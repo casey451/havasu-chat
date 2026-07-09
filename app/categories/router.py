@@ -89,7 +89,6 @@ def _chrome_context(db: Session, now: datetime) -> dict[str, Any]:
     return {
         "utility_chips": _safe(lambda: _home_utility_chips(db)),
         "cond_tiles": _safe(lambda: redesign.conditions_tiles(db, now=now)),
-        "gas": _safe(lambda: redesign.gas_panel_data(db, now=now)) or None,
     }
 
 

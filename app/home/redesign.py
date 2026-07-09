@@ -257,68 +257,6 @@ def gas_top5(db: Session, *, now: datetime | None = None) -> dict[str, Any]:
     }
 
 
-# ── gas grade switch (v4.4 PR-6 panel + /gas) ──────────────────────────────────
-# Compact panel labels vs the large /gas-page labels (DESIGN_SPEC §5.1). "reg"
-# carries no tile-echo suffix (regular is the default, un-annotated state).
-# Session 1 (Casey 2026-07-04): one clean label per grade — Regular / Mid /
-# Premium / Diesel — for the strip-panel segment. The tile-echo suffix is now
-# blank for every grade (see gas_panel_data) so the Gas tile never crams into
-# "gas · Mid" / "gas · Premium"; the selected grade reads from the segment button.
-GAS_GRADE_LABELS_SHORT: dict[str, str] = {"reg": "Regular", "mid": "Mid", "prem": "Premium", "dsl": "Diesel"}
-GAS_GRADE_LABELS_LONG: dict[str, str] = {
-    "reg": "Regular", "mid": "Midgrade", "prem": "Premium", "dsl": "Diesel",
-}
-
-
-def _grade_rows(board: Any, grade: str, n: int | None) -> list[dict[str, Any]]:
-    return [
-        {
-            "price": f"${s.prices[grade]:.2f}",
-            "name": s.name,
-            "cross_street": s.address,
-            "directions_url": s.directions_url,
-        }
-        for s in board.cheapest(grade, n)
-    ]
-
-
-def gas_panel_data(db: Session, *, now: datetime | None = None) -> dict[str, Any]:
-    """Home gas panel with the grade switch (v4.4 PR-6).
-
-    Server renders the Regular top-5 (``cheapest``); ``by_grade`` carries every
-    available grade's top-5 so the client-side switch is a pure list swap (no
-    re-fetch, progressive enhancement). ``echo`` gives the strip-tile echo per
-    grade (suffix + cheapest value) while the panel is open. When only one grade
-    exists the segment is suppressed everywhere (``single_grade``)."""
-    now_utc = now or datetime.now(UTC).replace(tzinfo=None)
-    if now_utc.tzinfo is not None:
-        now_utc = now_utc.astimezone(UTC).replace(tzinfo=None)
-    board = board_from_cache(read_source(db, SOURCE_GAS, now=now_utc), now=now_utc)
-    grades = board.grades_available
-    by_grade = {g: _grade_rows(board, g, 5) for g in grades}
-    echo = {
-        g: {
-            # Session 1 (2026-07-04): blank suffix — the Gas tile shows only the
-            # price for the selected grade, never "gas · Mid" cramming. The grade
-            # is read from the highlighted segment button instead.
-            "suffix": "",
-            "value": by_grade[g][0]["price"] if by_grade[g] else "",
-        }
-        for g in grades
-    }
-    return {
-        "cheapest": by_grade.get("reg", []),
-        "grades": grades,
-        "grade_labels": {g: GAS_GRADE_LABELS_SHORT[g] for g in grades},
-        "by_grade": by_grade,
-        "echo": echo,
-        "single_grade": len(grades) <= 1,
-        "station_count": len(board.stations),
-        "is_stale": board.is_stale,
-        "staleness_label": board.label,
-    }
-
-
 # ── directory launcher (v4.4 PR-5 rail card) ───────────────────────────────────
 # The 8 launcher categories (DESIGN_SPEC §4.1): department slug → short label
 # (exact — they truncate otherwise) + monoline icon. Counts come from the cached

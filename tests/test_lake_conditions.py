@@ -67,13 +67,10 @@ _GAS = {
     "city_avg": {"regular": 3.51, "midgrade": 3.71, "premium": 3.91, "diesel": 3.61},
     "grades": ["regular", "midgrade", "premium", "diesel"],
     "grade_labels": {"regular": "Regular", "midgrade": "Mid", "premium": "Premium", "diesel": "Diesel"},
-    "cheapest": [
-        {"provider_slug": "shell-main", "brand": "Shell", "prices": {"regular": 3.45}, "name": "Shell Main", "address": "123 Main St"},
-        {"provider_slug": None, "brand": None, "prices": {"regular": 3.49}, "name": "Costco", "address": None},
-    ],
     "stations": [
         {"provider_slug": "shell-main", "name": "Shell Main", "address": "123 Main St",
          "prices": {"regular": 3.45, "midgrade": 3.65, "premium": 3.85, "diesel": 3.55}},
+        {"provider_slug": None, "name": "Costco", "address": None, "prices": {"regular": 3.49}},
     ],
 }
 
@@ -82,9 +79,9 @@ def test_lake_gas_populated() -> None:
     b = _gas_templates.env.get_template("gas_prices_lake.html").render(request=_req("/gas"), **_GAS)
     assert 'data-theme="lake"' in b
     assert "$3.51" in b  # city average regular
-    assert "Cheapest today" in b
-    assert '/provider/shell-main' in b  # provider-backed station links out
-    assert "Costco" in b  # non-linked station still renders
+    assert "Cheapest today" not in b  # M12: the "Cheapest today" card was removed
+    assert '/provider/shell-main' in b  # provider-backed station links out (table)
+    assert "Costco" in b  # non-linked station still renders (table)
     assert "Updated Jun 18, 2026 2:30 PM" in b  # single freshness phrasing
     assert b.count("<h1") == 1
     assert not _a11y(b)
