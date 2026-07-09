@@ -51,6 +51,8 @@
   </section>
   {% endfor %}
 
+  {# Advertiser surface — hidden while BUSINESS_SURFACES_ENABLED is off. #}
+  {% if business_surfaces_enabled() %}
   <aside class="cat-claim" aria-label="Advertise in this category">
     <div class="cc-body">
       <span class="stag">Advertise</span>
@@ -59,5 +61,6 @@
     </div>
     <a class="btn btn-brass" href="/sponsor">Sponsor this category</a>
   </aside>
+  {% endif %}
 </div>
 {% endblock %}

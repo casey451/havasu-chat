@@ -18,8 +18,8 @@
     <p><a href="mailto:hello@askhava.com">hello@askhava.com</a></p>
     <h2>Report wrong info</h2>
     <p>See an error on a listing or event? Email <a href="mailto:hello@askhava.com?subject=Report%20wrong%20info">hello@askhava.com</a> with the page and what's off, and we'll fix it.</p>
-    <h2>Add or claim a business</h2>
-    <p>Want your business on Ask Hava? <a href="/contribute">Add it to Hava</a>, or sign in to <a href="/account">your account</a> to claim an existing listing.</p>
+    <h2>Add {% if business_surfaces_enabled() %}or claim {% endif %}a business</h2>
+    <p>Want your business on Ask Hava? <a href="/contribute">Add it to Hava</a>{% if business_surfaces_enabled() %}, or sign in to <a href="/account">your account</a> to claim an existing listing{% endif %}.</p>
   </article>
 </div>
 {% endblock %}

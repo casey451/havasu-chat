@@ -8,11 +8,11 @@
 <footer class="foot">
   <div class="ft">Ask <span class="b">Hava</span></div>
   <div class="fl">
-    <a href="/home">Home</a><a href="/events-ui">Events</a><a href="/calendar">Calendar</a><a href="/movies">Movies</a><a href="/gas">Gas</a><a href="/categories">Explore</a><a class="biz" href="/portal">For Business</a><a class="biz" href="/sponsor">Advertise</a><a href="/about">About</a><a href="/help">Help</a><a href="/contact">Contact</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a>
+    <a href="/home">Home</a><a href="/events-ui">Events</a><a href="/calendar">Calendar</a><a href="/movies">Movies</a><a href="/gas">Gas</a><a href="/categories">Explore</a>{% if business_surfaces_enabled() %}<a class="biz" href="/portal">For Business</a><a class="biz" href="/sponsor">Advertise</a>{% endif %}<a href="/about">About</a><a href="/help">Help</a><a href="/contact">Contact</a><a href="/privacy">Privacy</a><a href="/terms">Terms</a>
   </div>
   <div class="rule"></div>
   {# Trust line (kept from the prior footer, UX review §2.3): the phrases + their
      substantiating links. #}
-  <div class="ftrust"><a href="/about">Real public reviews</a> · <a href="/sponsor">Sponsored clearly labeled</a> · <a href="/about">Built in Lake Havasu</a></div>
+  <div class="ftrust"><a href="/about">Real public reviews</a>{% if business_surfaces_enabled() %} · <a href="/sponsor">Sponsored clearly labeled</a>{% endif %} · <a href="/about">Built in Lake Havasu</a></div>
   <div class="fc">Lake Havasu City, Arizona · The local directory for what's open, what's on &amp; where to go · © Ask Hava</div>
 </footer>

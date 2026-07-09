@@ -114,7 +114,7 @@
           {% endif %}
         </div>
         {% if vm.directions_url %}<a class="pmap" href="{{ vm.directions_url }}" target="_blank" rel="noopener noreferrer" aria-label="Open map and directions for {{ _name }}">{{ icon('pin', 16) }}View on the map →</a>{% endif %}
-        <div class="pclaim">{% if vm.show_claim_cta %}Own this business? <a href="{{ vm.claim_url or '/contribute' }}">Claim &amp; manage it →</a>{% else %}Listing kept fresh from public data.{% endif %}</div>
+        <div class="pclaim">{% if business_surfaces_enabled() and vm.show_claim_cta %}Own this business? <a href="{{ vm.claim_url or '/contribute' }}">Claim &amp; manage it →</a>{% else %}Listing kept fresh from public data.{% endif %}</div>
       </div>
     </aside>
   </section>
@@ -183,10 +183,12 @@
       {% if vm.freshness_copy %}<p class="prow"><span class="lab">Fresh</span> {{ vm.freshness_copy }}</p>{% endif %}
       {% if vm.verification_method_copy %}<p class="prow"><span class="lab">Verified</span> {{ vm.verification_method_copy }}</p>{% endif %}
 
+      {% if business_surfaces_enabled() %}
       {% if vm.show_claim_cta %}
       <div class="pclaim-block"><b>Claim this listing to add photos, details, and offers.</b><div class="pcb-sub">It's free. A real person reviews every claim. <a href="{{ vm.claim_url or '/contribute' }}">Claim this listing →</a></div></div>
       {% elif vm.show_upgrade_cta %}
       <div class="pclaim-block"><b>Local offer:</b> show this screen for a featured-local welcome offer this week.</div>
+      {% endif %}
       {% endif %}
       <a class="ask-hava-cta" href="/chat?q={{ ('Tell me about ' ~ _name)|urlencode }}">Ask Hava about this business</a>
     </aside>

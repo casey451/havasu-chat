@@ -48,7 +48,9 @@
 {% include "_partials/news_ticker.html" %}
 
 {# ── Top marquee: sold sponsor creative, else the big buyable placeholder
-   (never a fake business). ───────────────────────────────────────────── #}
+   (never a fake business). Whole block is an advertiser surface — hidden while
+   BUSINESS_SURFACES_ENABLED is off. ───────────────────────────────────── #}
+{% if business_surfaces_enabled() %}
 {% if marquee %}
 <a class="feature-marquee sold rise" href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}">
   <span class="glow"></span>
@@ -76,6 +78,7 @@
   </div>
 </a>
 <p class="marquee-alt">Want premium placement? <a href="/sponsor">Advertise on Ask&nbsp;Hava →</a></p>
+{% endif %}
 {% endif %}
 
 {# ── Hero search ─────────────────────────────────────────────────────── #}

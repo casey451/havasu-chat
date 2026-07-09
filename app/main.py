@@ -64,6 +64,7 @@ from app.categories.router import router as direction_c_categories_router
 from app.chat.entity_matcher import refresh_entity_matcher
 from app.core.build_info import build_sha
 from app.core.event_quality import friendly_errors
+from app.core.feature_flags import business_surfaces_enabled
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.jobs_store import count_stale_running, requeue_stale_claims
@@ -428,6 +429,55 @@ class AdminLakeSkinMiddleware(BaseHTTPMiddleware):
 # the standalone v4 shell (base_redesign / base_plain → lake_redesign.css), so no
 # response-body reskinning remains except the admin lake_admin.css injection above.
 app.add_middleware(AdminLakeSkinMiddleware)
+
+
+# ---------------------------------------------------------------------------
+# Business-surfaces kill switch (BUSINESS_SURFACES_ENABLED, default off).
+# ---------------------------------------------------------------------------
+#
+# While the flag is off the consumer site is fully live but the advertiser /
+# business-owner side is hidden: the header/footer/homepage/category/provider CTAs
+# are gated in the templates (via the ``business_surfaces_enabled()`` global), and
+# the OWNER-FACING ROUTES below are intercepted here to serve ONE friendly
+# "coming soon" page (200, noindex, contact mailto) instead of their real content.
+# No 404s — an owner who lands on /portal or /sponsor from word-of-mouth gets a
+# way to reach us, not a wall. Flag ON passes every request straight through, so
+# re-enabling the whole business side is a single config flip.
+#
+# Prefix match is boundary-safe (``== p`` or ``startswith(p + "/")``) so an
+# unrelated path like ``/sponsorships-guide`` could never be swept in. ``/billing``
+# is intentionally NOT listed — it is separately dormant behind
+# STRIPE_BILLING_ENABLED (Stripe work is on hold).
+_BUSINESS_ROUTE_PREFIXES = ("/portal", "/sponsor", "/advertise", "/claim", "/merchant")
+
+
+def _is_business_route(path: str) -> bool:
+    return any(path == p or path.startswith(p + "/") for p in _BUSINESS_ROUTE_PREFIXES)
+
+
+class BusinessSurfacesGateMiddleware(BaseHTTPMiddleware):
+    """Serve the "coming soon" stub on owner-facing routes while the flag is off.
+
+    Sits INSIDE ``SecurityHeadersMiddleware`` (added just before it) so the stub
+    response still gets the standard no-store + security headers on the way out.
+    Any method is answered with the same 200 stub — a stray POST from a bookmarked
+    form lands softly rather than erroring."""
+
+    async def dispatch(self, request: Request, call_next):  # type: ignore[override]
+        if business_surfaces_enabled() or not _is_business_route(request.url.path):
+            return await call_next(request)
+        response = templates.TemplateResponse(
+            request=request,
+            name="business_coming_soon_lake.html",
+            context={"active_tab": ""},
+        )
+        # Belt-and-suspenders with the <meta robots> in the template: a header
+        # keeps the stub out of the index even for non-HTML crawlers.
+        response.headers["X-Robots-Tag"] = "noindex, follow"
+        return response
+
+
+app.add_middleware(BusinessSurfacesGateMiddleware)
 
 
 # Launch hardening (v48): minimal security headers on HTML responses. CSP is

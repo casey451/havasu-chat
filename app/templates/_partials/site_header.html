@@ -45,7 +45,7 @@
         <summary aria-label="Open menu">{{ icon('menu', 18) }}</summary>
         <div class="navdrawer-menu">
           {% for href, label, keys in _nav_full %}<a href="{{ href }}"{% if active_tab in keys %} class="active" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
-          <a class="biz{% if active_tab == 'portal' %} active{% endif %}" href="/portal">For Business</a>
+          {% if business_surfaces_enabled() %}<a class="biz{% if active_tab == 'portal' %} active{% endif %}" href="/portal">For Business</a>{% endif %}
           <a class="{% if active_tab == 'account' %}active{% endif %}" href="/account">Account</a>
           {#- Session 1 (2026-07-04): drawer "Sign in" hidden — auth isn't in use
              yet. The /login route + login_lake.html template are kept; restore
@@ -55,7 +55,7 @@
       <a class="brand" href="/home" aria-label="Ask Hava — home">{{ logo_nav(26, cls="rdlogo") }}<span class="wm">Ask <span class="b">Hava</span></span></a>
       <span class="navlinks sc-only-d">
         {% for href, label, keys in _nav_primary %}<a href="{{ href }}"{% if active_tab in keys %} class="active" aria-current="page"{% endif %}>{{ label }}</a>{% endfor %}
-        <a class="biz{% if active_tab == 'portal' %} active{% endif %}" href="/portal">For Business</a>
+        {% if business_surfaces_enabled() %}<a class="biz{% if active_tab == 'portal' %} active{% endif %}" href="/portal">For Business</a>{% endif %}
       </span>
       <span class="nav-sp"></span>
       <a class="ico sc-only-d" href="/chat" aria-label="Ask Hava">{{ icon('search', 17) }}</a>

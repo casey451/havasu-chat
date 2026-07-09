@@ -87,7 +87,9 @@
     {# P3: the category ad slot lives at the TOP, above the listing grid, on every
        template. A sold placement renders the Sponsored unit; when unsold, a slim
        labeled claim CTA holds the same top spot (real-or-claim, never a fake
-       sponsor) so the slot is consistent across categories. #}
+       sponsor) so the slot is consistent across categories. The whole slot is
+       an advertiser surface — hidden while BUSINESS_SURFACES_ENABLED is off. #}
+    {% if business_surfaces_enabled() %}
     {% if sponsored %}
     <aside class="cat-sponsor" aria-label="Category sponsor">
       <a class="adbar" href="{% if sponsored.click_url %}{{ sponsored.click_url }}{% else %}/sponsor/click?id={{ sponsored.id }}&slot=promoted{% endif %}">
@@ -104,6 +106,7 @@
         <span class="ar"><span class="btn btn-ghost">Advertise</span></span>
       </a>
     </aside>
+    {% endif %}
     {% endif %}
 
     <div class="listcard" id="bizGrid">

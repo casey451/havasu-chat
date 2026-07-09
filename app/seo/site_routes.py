@@ -155,7 +155,7 @@ def _build_sitemap_pages_xml() -> str:
     # Static surfaces. /home is the canonical editorial home; bare / 301s to it
     # and so is intentionally NOT listed. No <lastmod>: these are stable pages
     # and the element is optional — omitting beats fabricating daily churn.
-    static_paths = (
+    static_paths: tuple[str, ...] = (
         "/home",
         "/chat",
         "/map",
@@ -176,9 +176,14 @@ def _build_sitemap_pages_xml() -> str:
         "/about",
         "/help",
         "/contact",
-        "/portal",
-        "/portal/claim",
     )
+    # Business portal pages are only crawlable while the business side is live.
+    # With BUSINESS_SURFACES_ENABLED off they serve a noindex "coming soon" stub,
+    # so they must not be advertised in the sitemap.
+    from app.core.feature_flags import business_surfaces_enabled
+
+    if business_surfaces_enabled():
+        static_paths = static_paths + ("/portal", "/portal/claim")
     for path in static_paths:
         entries.append(_sitemap_url_entry(f"{base}{path}"))
 

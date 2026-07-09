@@ -107,6 +107,14 @@ def register_template_globals(templates_or_env: "object") -> None:
     env = getattr(templates_or_env, "env", templates_or_env)
     raw = (os.getenv("PLAUSIBLE_DOMAIN") or "").strip()
     env.globals["plausible_domain"] = raw or None
+    # Business-surfaces kill switch (BUSINESS_SURFACES_ENABLED, default off).
+    # Registered as the CALLABLE itself — templates invoke
+    # ``business_surfaces_enabled()`` so the flag is read at render time, not
+    # baked in at ``make_templates()`` construction. That keeps a config flip
+    # (and test monkeypatch) live without rebuilding the templates instance.
+    from app.core.feature_flags import business_surfaces_enabled
+
+    env.globals["business_surfaces_enabled"] = business_surfaces_enabled
     # SEO P1.0/P1.3: absolute-https canonical / og:url builders, shared with the
     # base layout so every page emits one self-canonical from one origin source.
     from app.seo.urls import absolute_url, canonical_url
