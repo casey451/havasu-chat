@@ -142,6 +142,17 @@ def phoenix_today_label(now_utc: datetime) -> str:
     return local.strftime("%A, %B ") + str(local.day)
 
 
+def calendar_month_variants(now_utc: datetime) -> tuple[str, ...]:
+    """Current + next Phoenix month as ``YYYY-MM`` for the ``?cal=`` canary.
+
+    Computed from the clock (never hard-coded) so the probed months roll forward
+    on their own — a hard-coded month would silently stop covering the live one.
+    """
+    local = now_utc.astimezone(LAKE_HAVASU_TZ)
+    nxt_year, nxt_month = (local.year + 1, 1) if local.month == 12 else (local.year, local.month + 1)
+    return (f"{local.year:04d}-{local.month:02d}", f"{nxt_year:04d}-{nxt_month:02d}")
+
+
 def _main_len(html: str) -> int:
     m = _MAIN_RE.search(html)
     return len(m.group(1).strip()) if m else 0
@@ -288,6 +299,15 @@ def run_checks(fetch, now_utc: datetime) -> list[str]:
     #     no "today" label to lean on, so build-sha + render-ts are the only guard.
     specific_day = "/events-ui?date=" + now_utc.astimezone(LAKE_HAVASU_TZ).date().isoformat()
     _sweep_freshness(fetch, specific_day, expected_sha, now_utc, failures)
+
+    # 1c. Month-partitioned calendar variants (?cal=YYYY-MM) — a DISTINCT edge-cache
+    #     key from bare /calendar. The 2026-07-08 re-audit found a July-1-vintage
+    #     /calendar?cal= render frozen at a PoP (no build-sha meta) while bare
+    #     /calendar was fresh; the bare-/calendar check above can't see it. Current
+    #     + next month; a non-today month carries no date label, so build-sha +
+    #     render-ts across UAs are the guard.
+    for cal_month in calendar_month_variants(now_utc):
+        _sweep_freshness(fetch, f"/calendar?cal={cal_month}", expected_sha, now_utc, failures)
 
     # 2. One cheapest-gas price everywhere (edge divergence = the '5 prices' bug).
     if len(gas_prices) > 1:
