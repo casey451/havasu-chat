@@ -63,8 +63,11 @@ SEO_NOUNS: dict[str, str] = {
     "boat-sales": "Boat Dealers",
     "powersports-and-atv": "Powersports & ATV Dealers",
     "towing-and-roadside": "Towing & Roadside Assistance",
-    # Cleaner searcher nouns than the slash-bearing taxonomy names.
-    "auto-marine-detailing": "Boat & Auto Detailing",
+    # Cleaner searcher nouns than the slash-bearing taxonomy names; agent-noun
+    # plurals ("detailers") read naturally in the shared FAQ grammar and match
+    # what searchers actually type.
+    "auto-marine-detailing": "Boat & Auto Detailers",
+    "auto-detailing": "Auto Detailers",
     "boat-and-rv-storage-service": "Boat & RV Storage",
     # Professional & Financial
     "real-estate": "Real Estate Agents",
@@ -100,6 +103,17 @@ SEO_NOUNS: dict[str, str] = {
     "golf-courses": "Golf",
     # On the Water
     "kayak-and-paddle": "Kayak & Paddleboard Rentals",
+    # Thin-leaf batch (2026-06-11): plural/agent nouns so the slug name doesn't
+    # read awkwardly in the shared FAQ grammar ("how many notaries…").
+    "casinos-and-gaming": "Casinos",
+    "nutrition-and-wellness": "Nutrition & Wellness Providers",
+    "shipping-and-postal": "Shipping & Postal Stores",
+    "event-planning": "Event Planners",
+    "notary": "Notaries",
+    "title-and-escrow": "Title & Escrow Companies",
+    "tutoring-and-test-prep": "Tutors & Test Prep",
+    "music-lessons": "Music Teachers",
+    "post-office": "Post Offices",
     "scuba-and-dive": "Scuba & Dive Shops",
     # Lodging — pin the searcher noun so the leaf's displayed term stays
     # "Vacation Rentals" even if the taxonomy ``Category.name`` is ever relabeled.

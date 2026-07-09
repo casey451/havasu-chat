@@ -406,11 +406,11 @@ def test_cross_listed_cards_render_but_do_not_inflate_count(
 def test_wave1_leaf_copy_intros_and_faq_counts() -> None:
     from app.categories.leaf_copy import LEAF_COPY
 
-    # 14 Wave-1 entries + 5 ported from the consolidated trade pages (PR-B)
-    # + 1 lodging vacation-rentals leaf (new leaf, 2026-06-13)
-    # + 1 tattoo-and-piercing leaf (P7 polish, 2026-06-17)
-    # + 1 mortgage-lenders leaf (T3.3 bank/mortgage split, 2026-07-06).
-    assert len(LEAF_COPY) == 23
+    # This branch's SEO-copy batch — 9 Auto/RV/Marine + 9 Health + 6 Pets + 12
+    # thin (36 leaves) — on top of the 14 Wave-1 + 5 trade entries, MERGED with the
+    # leaves main added since it opened (vacation-rentals, tattoo-and-piercing,
+    # mortgage-lenders, …). 59 total, no duplicate keys.
+    assert len(LEAF_COPY) == 59
     for slug, copy in LEAF_COPY.items():
         words = len(copy.intro.split())
         assert 40 <= words <= 100, f"{slug}: intro is {words} words"
