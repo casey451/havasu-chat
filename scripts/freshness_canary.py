@@ -97,6 +97,11 @@ NAV_PAGES: tuple[str, ...] = (
     "/seniors",
     "/categories",
     "/categories/eat-and-drink",
+    # /portal + /sponsor stay here because they must always answer 200 with a
+    # non-empty <main>. While BUSINESS_SURFACES_ENABLED is off they serve the
+    # "For businesses — coming soon" stub (still 200 + real <main> + build-sha
+    # meta), and with the flag on they serve the live portal / rate card — the
+    # route-health assertion holds either way, which is exactly what we want.
     "/portal",
     "/sponsor",
     "/chat",

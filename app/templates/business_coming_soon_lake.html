@@ -1,0 +1,33 @@
+{% extends "base_plain.html" %}
+{#- Placeholder served on every business/advertiser route (/portal, /portal/*,
+   /sponsor, /advertise, /claim/*, /merchant/*) while BUSINESS_SURFACES_ENABLED is
+   off. The business side isn't finished yet, but an owner who lands here from
+   word-of-mouth should get a friendly 200 + a way to reach us — never a 404 or a
+   dead portal. Rendered by the BusinessSurfacesGateMiddleware in app/main.py.
+   noindex: this is a temporary stub, not something search should surface. -#}
+{% block title %}For businesses — coming soon · Ask Hava{% endblock %}
+{% block meta_description %}Business tools on Ask Hava are coming soon. In the meantime, email us and we'll help you get your Lake Havasu City listing right.{% endblock %}
+{% block head_extra %}<meta name="robots" content="noindex, follow">{% endblock %}
+{% block main %}
+<section class="cs-wrap" style="max-width:640px;margin:0 auto;padding:56px 20px 72px;text-align:center">
+  <p class="eyebrow" style="letter-spacing:.08em;text-transform:uppercase;font-size:.8rem;opacity:.7;margin:0 0 10px">For businesses</p>
+  <h1 class="serif" style="font-size:2rem;line-height:1.15;margin:0 0 16px">Business tools are coming soon</h1>
+  <p style="font-size:1.05rem;line-height:1.6;margin:0 0 14px">
+    Ask Hava is Lake Havasu City's local directory for what's open, what's on, and
+    where to go. We're still building the tools for owners to claim their listing,
+    manage their details, and advertise — they aren't quite ready yet.
+  </p>
+  <p style="font-size:1.05rem;line-height:1.6;margin:0 0 28px">
+    Own a Havasu business and want to be part of it? We'd love to hear from you.
+    Reach out and we'll make sure your listing is accurate in the meantime — and
+    let you know the moment self-serve tools go live.
+  </p>
+  <p style="margin:0 0 8px">
+    <a class="btn btn-brass" href="mailto:hello@askhava.com?subject=My%20Lake%20Havasu%20business"
+       style="display:inline-block;padding:12px 22px;border-radius:8px">Email hello@askhava.com</a>
+  </p>
+  <p style="font-size:.95rem;opacity:.75;margin:18px 0 0">
+    Everything for visitors and locals is fully live — <a href="/home">explore the directory</a>.
+  </p>
+</section>
+{% endblock %}
