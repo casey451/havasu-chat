@@ -35,7 +35,9 @@ MAP_MARKER_CAP = 500
 # ``reset_map_cache()`` is the canonical test seam. 600s (not 3600) because
 # marker status lines ("Open now") are time-sensitive.
 _MAP_TTL_SECONDS = 600
-_map_cache: dict[tuple[str, bool], tuple[float, dict[str, Any]]] = {}
+# Key carries the running build_sha (first tuple slot) so a deploy invalidates
+# every cached payload by construction, in addition to the 600s TTL.
+_map_cache: dict[tuple[str, str, bool], tuple[float, dict[str, Any]]] = {}
 
 
 def reset_map_cache() -> None:
@@ -129,7 +131,9 @@ def map_data(
 
     boat_only = boat is not None and str(boat).strip() in {"1", "true", "yes"}
 
-    cache_key = (scope_slug.strip().lower(), boat_only)
+    from app.core.build_info import build_sha
+
+    cache_key = (build_sha(), scope_slug.strip().lower(), boat_only)
     cached = _map_cache.get(cache_key)
     if cached is not None and (_time.time() - cached[0]) < _MAP_TTL_SECONDS:
         return cached[1]

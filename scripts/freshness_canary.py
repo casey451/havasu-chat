@@ -33,6 +33,7 @@ from __future__ import annotations
 
 import argparse
 import json
+import random
 import re
 import sys
 import urllib.error
@@ -238,6 +239,42 @@ def _sweep_freshness(
         _check_page_freshness(f"{path} [{uaname}]", r.text, expected_sha, now_utc, failures)
 
 
+# Bare long-tail subcategory URLs: /categories/{dept}/{leaf} with NO query string
+# — the exact shape that froze at an edge PoP on 2026-07-09 (bare frozen while the
+# ?param variant was fresh, because Cloudflare's default cache key bypasses on
+# query string). We can't enumerate every leaf each run, so we sample a few at
+# random from the live sitemap and freshness-check them across the full UA matrix;
+# over successive runs the whole long tail gets covered, and a frozen PoP copy of
+# an older build turns this red.
+_BARE_SUBCAT_RE = re.compile(r"<loc>[^<]*?(/categories/[^/<?#]+/[^/<?#]+)</loc>")
+_BARE_SUBCAT_SAMPLE = 3
+
+
+def bare_subcategory_urls(sitemap_xml: str) -> list[str]:
+    """Every bare two-segment ``/categories/{dept}/{leaf}`` path in a sitemap doc,
+    de-duplicated in first-seen order."""
+    seen: dict[str, None] = {}
+    for path in _BARE_SUBCAT_RE.findall(sitemap_xml):
+        seen.setdefault(path, None)
+    return list(seen)
+
+
+def sample_bare_subcategory_urls(
+    fetch, rng: random.Random | None = None, n: int = _BARE_SUBCAT_SAMPLE
+) -> list[str]:
+    """Up to ``n`` random bare leaf URLs from ``/sitemap-pages.xml``.
+
+    Returns ``[]`` on any hiccup (non-200 sitemap, no leaves) — the sampler must
+    never manufacture a failure when it simply couldn't pick URLs."""
+    r = fetch("/sitemap-pages.xml")
+    if r.status != 200:
+        return []
+    urls = bare_subcategory_urls(r.text)
+    if len(urls) <= n:
+        return urls
+    return (rng or random).sample(urls, n)
+
+
 def _check_gas_freshness(fetch, now_utc: datetime, failures: list[str]) -> None:
     r = fetch("/api/gas")
     if r.status != 200:
@@ -339,6 +376,11 @@ def run_checks(fetch, now_utc: datetime) -> list[str]:
         )
         if not ok:
             failures.append(f"nav {path}: unhealthy status {r.status}")
+
+    # 5. Random bare long-tail subcategory URLs (the 2026-07-09 frozen-PoP class):
+    #    build-sha presence + match across every UA, on a few sampled leaves/run.
+    for path in sample_bare_subcategory_urls(fetch):
+        _sweep_freshness(fetch, path, expected_sha, now_utc, failures)
 
     return failures
 

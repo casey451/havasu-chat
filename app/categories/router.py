@@ -170,12 +170,13 @@ LEAF_SLUG_ALIASES: dict[str, str] = {
 #
 # Walks the live taxonomy departments (one grouped gate query) and runs one
 # top-rated peek-provider fetch per department (~15 small queries on a cold
-# cache). The cache key is global -- no per-request variance -- so a single
-# ``(timestamp, payload)`` tuple is enough. Mirrors
-# ``app.main._sitemap_cache``. ``reset_index_cache()`` is the canonical
-# test seam; tests should never poke ``_index_cache`` directly.
+# cache). The cache key carries the running build_sha (no per-request variance
+# otherwise) so a deploy invalidates the payload BY CONSTRUCTION — a
+# ``(build_sha, timestamp, payload)`` tuple. Mirrors ``app.main._sitemap_cache``.
+# ``reset_index_cache()`` is the canonical test seam; tests should never poke
+# ``_index_cache`` directly.
 _INDEX_TTL_SECONDS = 3600
-_index_cache: tuple[float, list[dict[str, Any]]] | None = None
+_index_cache: tuple[str, float, list[dict[str, Any]]] | None = None
 
 # Defensive fallback blurb for any department missing from _DEPT_BLURBS.
 _FALLBACK_BLURB = "Local picks in Lake Havasu."
@@ -367,12 +368,19 @@ def _get_index_payload(db: Session) -> list[dict[str, Any]]:
     window get the exact same list object.
     """
     global _index_cache  # noqa: PLW0603 -- module-level cache by design
+    from app.core.build_info import build_sha
+
     now_ts = _time.time()
+    sha = build_sha()
     cached = _index_cache
-    if cached is not None and (now_ts - cached[0]) < _INDEX_TTL_SECONDS:
-        return cached[1]
+    if (
+        cached is not None
+        and cached[0] == sha  # build_sha in the key: a deploy is a guaranteed miss
+        and (now_ts - cached[1]) < _INDEX_TTL_SECONDS
+    ):
+        return cached[2]
     payload = _build_index_payload(db)
-    _index_cache = (now_ts, payload)
+    _index_cache = (sha, now_ts, payload)
     return payload
 
 

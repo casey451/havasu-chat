@@ -149,6 +149,28 @@ def test_redirect_nav_url_404_fails_but_3xx_passes() -> None:
     assert any("/ask" in f for f in bad)
 
 
+def test_stale_sampled_subcategory_leaf_fails() -> None:
+    # The 2026-07-09 class: a bare /categories/{dept}/{leaf} frozen at an edge PoP
+    # (older build-sha). The canary samples leaves from the sitemap and sweeps them
+    # across UAs, so a stale one turns red. Here the sitemap advertises one leaf and
+    # that leaf serves a wrong build-sha for every UA.
+    leaf = "/categories/eat-and-drink/quick-bites"
+    sitemap = Resp(200, f"<url><loc>https://askhava.com{leaf}</loc></url>")
+    stale_leaf = Resp(200, _page(sha="oldbuild0000"))
+    failures = run_checks(
+        _make_fetch({"/sitemap-pages.xml": sitemap, leaf: stale_leaf}), _NOW
+    )
+    assert any(leaf in f and "STALE" in f for f in failures)
+
+
+def test_fresh_sampled_subcategory_leaf_passes() -> None:
+    # Same sampling path, but the leaf is fresh (current build-sha) → no complaint.
+    leaf = "/categories/auto/boat-repair"
+    sitemap = Resp(200, f"<url><loc>https://askhava.com{leaf}</loc></url>")
+    failures = run_checks(_make_fetch({"/sitemap-pages.xml": sitemap}), _NOW)
+    assert not any(leaf in f for f in failures)
+
+
 def test_old_gas_feed_fails() -> None:
     old = Resp(200, _gas_json(hours_old=30))
     failures = run_checks(_make_fetch({"/api/gas": old}), _NOW)
