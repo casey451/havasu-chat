@@ -210,13 +210,17 @@ def conditions_tiles(db: Session, *, now: datetime | None = None) -> list[dict[s
 
     gas = gas_top5(db, now=now)
     if gas["cheapest"]:
-        top = gas["cheapest"][0]
+        # The one headline gas number is the TYPICAL (median) price, not the
+        # cheapest — a lone cheapest ($3.59 when most pumps are $3.6x–3.8x) read as
+        # a misleadingly-low "average" (Casey, 2026-07-09). Falls back to the
+        # cheapest only if the median is somehow unavailable. /gas lists the
+        # cheapest, sorted.
         tiles.append(
             {
                 "key": "gas",
                 "icon": "fuel",
                 "label": "Gas",
-                "value": top["price"],
+                "value": gas.get("typical") or gas["cheapest"][0]["price"],
                 "unit": None,
                 "color": None,
                 "is_gas": True,
@@ -250,8 +254,12 @@ def gas_top5(db: Session, *, now: datetime | None = None) -> dict[str, Any]:
                 "directions_url": s.directions_url,
             }
         )
+    # The typical (median) regular price — the headline number the conditions-strip
+    # gas chip shows (see conditions_tiles), robust to the cheapest/dearest tails.
+    typical = board.median_price("reg")
     return {
         "cheapest": out,
+        "typical": f"${typical:.2f}" if typical is not None else None,
         "is_stale": board.is_stale,
         "staleness_label": board.label,
     }
