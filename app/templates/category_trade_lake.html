@@ -54,9 +54,9 @@
      on every template. A sold page_ad renders the Sponsored unit; when unsold, a
      slim labeled claim CTA holds the same top spot (real-or-claim, never a fake
      sponsor). In-grid paid placements stay pinned within the list below.
-     The whole slot is an advertiser surface — hidden while
-     BUSINESS_SURFACES_ENABLED is off. #}
-  {% if business_surfaces_enabled() %}
+     The whole slot is a paid advertiser surface — hidden while
+     ADS_ENABLED is off. #}
+  {% if ads_enabled() %}
   {% if sponsored %}
   <aside class="cat-sponsor" aria-label="Category sponsor">
     <a class="adbar" href="{% if sponsored.click_url %}{{ sponsored.click_url }}{% else %}/sponsor/click?id={{ sponsored.id }}&slot=promoted{% endif %}">

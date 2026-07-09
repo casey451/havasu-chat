@@ -66,13 +66,13 @@ def _pick_micro_ad(db: Session, slot: AdSlot) -> dict[str, Any] | None:
     Read-only: reuses ``sponsor_store.live_filter_for_slot`` but does NOT call
     the impression-bumping ``active_*`` helpers (see module docstring).
 
-    Returns None while BUSINESS_SURFACES_ENABLED is off — the micro-ad is an
-    advertiser surface, so the overlay never shows a sponsor line during the
-    consumer-only launch (today it's already empty since billing is dormant).
+    Returns None while ADS_ENABLED is off — the micro-ad is a paid advertiser
+    surface, so the overlay never shows a sponsor line before advertising launches
+    (today it's already empty since billing is dormant).
     """
-    from app.core.feature_flags import business_surfaces_enabled
+    from app.core.feature_flags import ads_enabled
 
-    if not business_surfaces_enabled():
+    if not ads_enabled():
         return None
     row = (
         sponsor_store.live_filter_for_slot(db.query(Sponsor), slot)

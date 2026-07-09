@@ -104,8 +104,15 @@ def portal_claim(request: Request, db: Session = Depends(get_db)) -> HTMLRespons
     price and offers a resume link back to the buy form, so the purchase intent
     isn't silently dropped on a context-free claim page.
     """
-    offer_params = _clean_offer_params(request)
-    advertise = bool(offer_params) or request.query_params.get("advertise") == "1"
+    # ADS off (launch): no paid funnel — the claim page shows zero paid-product
+    # copy. The advertise resume-banner + offer only appear once ADS_ENABLED is on.
+    from app.core.feature_flags import ads_enabled
+
+    ads_on = ads_enabled()
+    offer_params = _clean_offer_params(request) if ads_on else {}
+    advertise = ads_on and (
+        bool(offer_params) or request.query_params.get("advertise") == "1"
+    )
     offer = None
     resume_url = None
     if offer_params:

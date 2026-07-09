@@ -64,7 +64,7 @@ from app.categories.router import router as direction_c_categories_router
 from app.chat.entity_matcher import refresh_entity_matcher
 from app.core.build_info import build_sha
 from app.core.event_quality import friendly_errors
-from app.core.feature_flags import business_surfaces_enabled
+from app.core.feature_flags import ads_enabled, claim_surfaces_enabled
 from app.core.rate_limit import RATE_LIMIT_MESSAGE, limiter
 from app.db.database import SessionLocal, get_db, init_db
 from app.db.jobs_store import count_stale_running, requeue_stale_claims
@@ -432,44 +432,71 @@ app.add_middleware(AdminLakeSkinMiddleware)
 
 
 # ---------------------------------------------------------------------------
-# Business-surfaces kill switch (BUSINESS_SURFACES_ENABLED, default off).
+# Business-tier route gate — claim (free, default on) + ads (paid, default off).
 # ---------------------------------------------------------------------------
 #
-# While the flag is off the consumer site is fully live but the advertiser /
-# business-owner side is hidden: the header/footer/homepage/category/provider CTAs
-# are gated in the templates (via the ``business_surfaces_enabled()`` global), and
-# the OWNER-FACING ROUTES below are intercepted here to serve ONE friendly
-# "coming soon" page (200, noindex, contact mailto) instead of their real content.
-# No 404s — an owner who lands on /portal or /sponsor from word-of-mouth gets a
-# way to reach us, not a wall. Flag ON passes every request straight through, so
-# re-enabling the whole business side is a single config flip.
+# Owner routes are split so the free claim flow can be live while paid ads stay
+# hidden. Each route belongs to exactly one tier; when that tier's flag is off the
+# route is intercepted here and answered with a friendly "coming soon" stub (200,
+# noindex, contact) instead of its real content — never a 404/login wall. The tier
+# on → the request passes straight through to the real handler.
 #
-# Prefix match is boundary-safe (``== p`` or ``startswith(p + "/")``) so an
-# unrelated path like ``/sponsorships-guide`` could never be swept in. ``/billing``
-# is intentionally NOT listed — it is separately dormant behind
-# STRIPE_BILLING_ENABLED (Stripe work is on hold).
-_BUSINESS_ROUTE_PREFIXES = ("/portal", "/sponsor", "/advertise", "/claim", "/merchant")
+# CLAIM tier (``/portal``, ``/portal/claim``, ``/claim/*``): the free claim flow.
+# ADS tier (``/sponsor``, ``/advertise``, ``/merchant/*``, and the paid PORTAL
+# subpaths ``/portal/placements*`` + ``/portal/creatives*``): paid advertising.
+#
+# The paid ``/portal/...`` subpaths are matched BEFORE the general ``/portal``
+# claim rule so the buy flow stays gated by ADS even while claim is live. Prefix
+# match is boundary-safe (``== p`` or ``startswith(p + "/")``) so an unrelated path
+# like ``/sponsorships-guide`` can't be swept in. ``/billing`` is intentionally NOT
+# listed — it is separately dormant behind STRIPE_BILLING_ENABLED (Stripe on hold).
+_ADS_ROUTE_PREFIXES = (
+    "/portal/placements",
+    "/portal/creatives",
+    "/sponsor",
+    "/advertise",
+    "/merchant",
+)
+_CLAIM_ROUTE_PREFIXES = ("/portal", "/claim")
 
 
-def _is_business_route(path: str) -> bool:
-    return any(path == p or path.startswith(p + "/") for p in _BUSINESS_ROUTE_PREFIXES)
+def _matches(path: str, prefixes: tuple[str, ...]) -> bool:
+    return any(path == p or path.startswith(p + "/") for p in prefixes)
+
+
+def _route_tier(path: str) -> str | None:
+    """Which tier gates this path: ``"ads"``, ``"claim"``, or None (ungated).
+
+    ADS is checked first so the paid ``/portal/...`` subpaths win over the general
+    ``/portal`` claim rule."""
+    if _matches(path, _ADS_ROUTE_PREFIXES):
+        return "ads"
+    if _matches(path, _CLAIM_ROUTE_PREFIXES):
+        return "claim"
+    return None
 
 
 class BusinessSurfacesGateMiddleware(BaseHTTPMiddleware):
-    """Serve the "coming soon" stub on owner-facing routes while the flag is off.
+    """Serve a "coming soon" stub on any owner route whose tier is off.
 
     Sits INSIDE ``SecurityHeadersMiddleware`` (added just before it) so the stub
-    response still gets the standard no-store + security headers on the way out.
-    Any method is answered with the same 200 stub — a stray POST from a bookmarked
-    form lands softly rather than erroring."""
+    still gets the standard no-store + security headers on the way out. Any method
+    is answered with the same 200 stub — a stray POST from a bookmarked buy/claim
+    form lands softly rather than erroring. The ADS stub carries advertising-
+    specific copy (and points owners to the free claim flow when claim is live)."""
 
     async def dispatch(self, request: Request, call_next):  # type: ignore[override]
-        if business_surfaces_enabled() or not _is_business_route(request.url.path):
+        tier = _route_tier(request.url.path)
+        if tier == "ads" and not ads_enabled():
+            kind = "ads"
+        elif tier == "claim" and not claim_surfaces_enabled():
+            kind = "business"
+        else:
             return await call_next(request)
         response = templates.TemplateResponse(
             request=request,
             name="business_coming_soon_lake.html",
-            context={"active_tab": ""},
+            context={"active_tab": "", "cs_kind": kind},
         )
         # Belt-and-suspenders with the <meta robots> in the template: a header
         # keeps the stub out of the index even for non-HTML crawlers.

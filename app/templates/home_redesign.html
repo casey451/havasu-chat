@@ -47,11 +47,10 @@
    the pull has nothing stored yet. Casey 2026-06-29. ────────────────────────── #}
 {% include "_partials/news_ticker.html" %}
 
-{# ── Top marquee: sold sponsor creative, else the big buyable placeholder
-   (never a fake business). Whole block is an advertiser surface — hidden while
-   BUSINESS_SURFACES_ENABLED is off. ───────────────────────────────────── #}
-{% if business_surfaces_enabled() %}
-{% if marquee %}
+{# ── Top marquee: a SOLD sponsor creative (paid — ADS_ENABLED) takes the slot;
+   otherwise the FREE "claim your listing" card (CLAIM_SURFACES_ENABLED). Never a
+   fake business. The "premium placement" advertise line only shows with ads on. ─ #}
+{% if ads_enabled() and marquee %}
 <a class="feature-marquee sold rise" href="{% if marquee.click_url %}{{ marquee.click_url }}{% else %}/sponsor/click?id={{ marquee.id }}&slot=marquee{% endif %}">
   <span class="glow"></span>
   <div class="inner"><div class="txt">
@@ -62,9 +61,8 @@
   </div></div>
 </a>
 {% else %}
-{# P3 (WS3.4): an unsold marquee is house inventory, not a consumer-facing empty
-   ad slot. Promote the FREE listing claim (useful to every local business owner)
-   and keep a small, honest "Advertise here" link for the paid rate card. #}
+{% if claim_surfaces_enabled() %}
+{# P3 (WS3.4): the free listing claim — useful to every local business owner. #}
 <a class="feature-marquee rise" href="/portal/claim" aria-label="Claim your free business listing">
   <span class="glow"></span>
   <div class="inner">
@@ -77,6 +75,8 @@
     <div class="frame only-d"><span>{{ icon('plus', 20) }}</span><span class="pl">Free listing</span></div>
   </div>
 </a>
+{% endif %}
+{% if ads_enabled() %}
 <p class="marquee-alt">Want premium placement? <a href="/sponsor">Advertise on Ask&nbsp;Hava →</a></p>
 {% endif %}
 {% endif %}
