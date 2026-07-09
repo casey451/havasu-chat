@@ -41,9 +41,10 @@ _SITEMAP_TTL_SECONDS = 3600
 #   - providers: Provider.updated_at (as before).
 #   - events: Event.created_at (no updated_at column).
 # Each section is cached independently for one hour (same TTL/shape rationale
-# as the original single-document cache). ``_sitemap_cache`` keys are section
-# names; tests reset the whole dict between cases.
-_sitemap_cache: dict[str, tuple[float, str]] = {}
+# as the original single-document cache). ``_sitemap_cache`` keys are
+# ``(build_sha, section)`` so a deploy invalidates every cached document by
+# construction; tests reset the whole dict between cases.
+_sitemap_cache: dict[tuple[str, str], tuple[float, str]] = {}
 
 _SITEMAP_SECTIONS = ("pages", "providers", "events")
 
@@ -367,15 +368,18 @@ def _build_sitemap_index_xml() -> str:
 
 
 def _get_cached_sitemap_xml(section: str) -> str:
+    from app.core.build_info import build_sha
+
     now = datetime.now(timezone.utc).timestamp()
-    cache = _sitemap_cache.get(section)
+    key = (build_sha(), section)  # build_sha in the key → a deploy is a guaranteed miss
+    cache = _sitemap_cache.get(key)
     if cache is not None and (now - cache[0]) < _SITEMAP_TTL_SECONDS:
         return cache[1]
     if section == "index":
         xml = _build_sitemap_index_xml()
     else:
         xml = _SITEMAP_BUILDERS[section]()
-    _sitemap_cache[section] = (now, xml)
+    _sitemap_cache[key] = (now, xml)
     return xml
 
 

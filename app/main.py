@@ -549,14 +549,23 @@ class SecurityHeadersMiddleware(BaseHTTPMiddleware):
         content_type = (response.headers.get("content-type") or "").lower()
         if content_type.startswith("text/html"):
             # ``no-store`` (not just ``no-cache``) — the 2026-07-07 stale-day-view
-            # was a Cloudflare edge copy frozen at one PoP. no-store tells every
-            # cache to never STORE the HTML, so a broad "cache everything" rule
-            # can't silently freeze a per-URL copy again. (A CF rule with "override
-            # origin" still wins, but the standing config now correctly signals
-            # uncacheable; the deploy/data-op CDN purge is the active backstop.)
+            # AND the 2026-07-09 frozen bare /categories/{dept}/{leaf} renders were
+            # Cloudflare edge copies frozen at a PoP. no-store tells every cache to
+            # never STORE the HTML.
             response.headers.setdefault(
                 "Cache-Control", "no-store, no-cache, max-age=0, must-revalidate"
             )
+            # CDN-tier cache-control (RFC 9213 ``CDN-Cache-Control`` + Cloudflare's
+            # vendor override ``Cloudflare-CDN-Cache-Control``). These bind the CDN
+            # SPECIFICALLY and take precedence over ``Cache-Control`` at the edge —
+            # crucially, Cloudflare honors ``Cloudflare-CDN-Cache-Control`` even
+            # under a "Cache Everything" Cache Rule, which is exactly the gap that
+            # let a per-PoP copy freeze while the origin said no-store. With this a
+            # PoP can no longer STORE an HTML render, so the class can't recur by
+            # construction. (Lingering PRE-existing frozen entries still need a
+            # one-time zone purge — see scripts/purge_cdn_cache.py, needs CF creds.)
+            response.headers.setdefault("CDN-Cache-Control", "no-store")
+            response.headers.setdefault("Cloudflare-CDN-Cache-Control", "no-store")
             # Launch hardening (audit M1): start CSP in Report-Only to inventory
             # inline scripts/styles + image sources, then rename the header to
             # "Content-Security-Policy" to enforce. Report-Only blocks nothing.
