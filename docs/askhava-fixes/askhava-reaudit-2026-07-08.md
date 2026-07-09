@@ -8,14 +8,19 @@ Live evidence was gathered with a cold, cookieless Googlebot-UA fetch against
 `https://askhava.com` (per the "verified live = cold fetch" rule). Build in
 production at audit time: `build_sha = 1db980b6057e` (matches `main` #788).
 
-| # | Item | Disposition | Branch / PR |
-|---|------|-------------|-------------|
-| 1 | `/calendar?cal=` stale renders | Not reproducing live; ship canary coverage | `fix/calendar-cal-canary` |
-| 2 | Styled 404 for `/provider/` | **Already live** — no change needed | — (verified) |
-| 3 | Gas M12 (Cheapest-today + expander) | Ship UI change | `fix/gas-m12-dedupe` |
-| 4 | Homepage "Local news" = Local only | Ship classifier + homepage gate | `fix/news-homepage-local-only` |
-| 5 | GLH event-venue lint + Big Fish routing | Ship lint/routing (code); re-venue rows gated | `fix/glh-venue-lint` |
-| 6 | 911 Mobile Mechanic ×2 dedup; search-rank v2 | Dedup gated (dry-run first); rank v2 = backlog | data-op + backlog |
+| # | Item | Disposition | PR |
+|---|------|-------------|----|
+| 1 | `/calendar?cal=` stale renders | Not reproducing live; ship canary coverage | #791 |
+| 2 | Styled 404 for `/provider/` | **Already live** — no change needed | — (verified cold) |
+| 3 | Gas M12 (Cheapest-today + expander) | Ship UI change | #790 |
+| 4 | Homepage "Local news" = Local only | Ship classifier + homepage gate | #789 (this PR) |
+| 5 | GLH event-venue lint + Big Fish routing | Ship lint/routing (code); existing rows self-heal on next GLH pull or gated backfill | #792 (code) + data op |
+| 6 | 911 Mobile Mechanic ×2 dedup; search-rank v2 | Dedup queued (gated dry-run→apply); rank v2 = backlog | #793 (spec) + backlog |
+
+**Casey-gated tails after the PRs merge/deploy:**
+- **Item 5 data:** after #792 deploys, verify the existing "Red, White and Blue Bunco Party" row re-venues to Mudshark and "Big Fish Little Fish" re-routes to swim on the next scheduled `golakehavasu-events.yml` pull (the scraper re-runs `recover_event_fields` + re-tags). If the reconciler doesn't overwrite on update, run the gated `backfill_event_fields` (venue) + `backfill_event_activity_tags` (Big Fish) backfills — dry-run → counts → approve → apply.
+- **Item 6 dedup:** `python scripts/dedupe_providers.py --dry-run` → review the diff → `--apply`. The dry-run is the validation (skips safely if ambiguous).
+- **Search ranking v2:** logged as a backlog task (weight name/tag matches + review count).
 
 ---
 
