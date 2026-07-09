@@ -419,12 +419,18 @@ def api_search(
     feat = _featured_case_expr()
     order_cols: list[Any] = []
     if is_pg:
+        # Ranking v2 (flag-gated, default off): boost a listing FILED under the
+        # query's resolved leaf (reuse the same EXISTS the WHERE used) and add a
+        # bounded review-count lift. Off → the v1 order is byte-for-byte unchanged.
+        v2 = search_ranking.search_ranking_v2_enabled()
         rank_expr = search_ranking.build_rank_score_expr_for_filters(
             filters,
             last_verified_col=Entity.last_verified_at,
             featured_col=feat,  # type: ignore[arg-type]
             ref_now=ref_now,
             liveness_col=Entity.liveness_score,
+            category_match_cond=(leaf_link if v2 else None),
+            review_count_col=(Provider.google_review_count if v2 else None),
         )
         if rank_expr is not None:
             order_cols.append(rank_expr.desc())
