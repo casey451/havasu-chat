@@ -35,6 +35,7 @@ import argparse
 import json
 import re
 import sys
+import time
 import urllib.error
 import urllib.request
 from dataclasses import dataclass
@@ -363,13 +364,53 @@ def _live_fetcher(base: str):
     return fetch
 
 
+# A first-pass failure is most often a DEPLOY-WINDOW transient: the CDN edge and
+# origin briefly disagree on build_sha (and a fresh render hasn't propagated to
+# every PoP) for a few seconds while a Railway deploy rolls out. Retry ONCE after
+# a short settle and report only what PERSISTS, so a deploy window doesn't page us.
+# Alert fatigue from deploy-window noise is exactly how the original site's
+# staleness went unnoticed — a canary that cries wolf every deploy trains us to
+# ignore it, defeating the point.
+RETRY_SETTLE_SECONDS = 25
+
+
+def run_checks_with_retry(
+    fetch,
+    now_utc: datetime,
+    *,
+    sleep=time.sleep,
+    clock=None,
+) -> list[str]:
+    """:func:`run_checks`, but a NON-EMPTY first result is re-checked once after a
+    short settle; only the second pass's failures are returned. A deploy-window
+    transient clears on the retry; a persistent staleness fails both passes.
+
+    ``sleep``/``clock`` are injectable so the retry path is unit-tested offline.
+    """
+    failures = run_checks(fetch, now_utc)
+    if not failures:
+        return failures
+    sleep(RETRY_SETTLE_SECONDS)
+    return run_checks(fetch, clock() if clock is not None else datetime.now(UTC))
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--base", default=DEFAULT_BASE, help="Origin to probe.")
+    parser.add_argument(
+        "--no-retry",
+        action="store_true",
+        help="Fail on the first pass (skip the deploy-window settle+retry).",
+    )
     args = parser.parse_args(argv)
 
     now_utc = datetime.now(UTC)
-    failures = run_checks(_live_fetcher(args.base.rstrip("/")), now_utc)
+    fetch = _live_fetcher(args.base.rstrip("/"))
+    failures = (
+        run_checks(fetch, now_utc)
+        if args.no_retry
+        else run_checks_with_retry(fetch, now_utc)
+    )
 
     label = phoenix_today_label(now_utc)
     if failures:
