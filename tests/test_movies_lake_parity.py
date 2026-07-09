@@ -23,11 +23,14 @@ _LAKE_MARKER = 'data-theme="lake"'
 
 
 def _seed(film_title: str, sid: str) -> str:
-    # Seed the showtime at "now" (today) rather than a fixed 18:30. Movies are
-    # hidden ~1 hour AFTER they start (#506), so a fixed evening time made this test
-    # fail every day after ~19:30 Lake Havasu time. A start of "now" is always
-    # inside the visible window, at any time of day.
-    when = now_lake_havasu().replace(second=0, microsecond=0)
+    # Seed the showtime at "now" (today) so it's inside the visible window on every
+    # surface (/movies, /home, /events-ui) at any time of day — movies are hidden
+    # ~1 hour AFTER they start (#506), so a fixed evening time failed every night.
+    # BUT clamp UP to a 9 AM floor: the early-AM showtime quarantine (#785, added
+    # later) hides any showtime before 9 AM as a probable PM-typed-as-AM, so a
+    # pre-9-AM "now" (an early-morning CI run) otherwise dropped the row entirely.
+    base = now_lake_havasu().replace(second=0, microsecond=0)
+    when = max(base, base.replace(hour=9, minute=0))
     with SessionLocal() as db:
         row = MovieShowtime(
             source="test_movies_lake",
