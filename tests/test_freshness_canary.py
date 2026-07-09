@@ -22,6 +22,7 @@ from scripts.freshness_canary import (
     extract_cheapest_gas,
     phoenix_today_label,
     run_checks,
+    run_checks_with_retry,
 )
 
 # A fixed instant: 2099-07-06 19:00 UTC == 12:00 Phoenix (MST, no DST) → the
@@ -278,3 +279,40 @@ def test_url_sets_are_disjoint_and_nonempty() -> None:
     assert not (set(DATED_PAGES) & set(NAV_PAGES))
     assert not (set(NAV_PAGES) & set(NAV_REDIRECTS))
     assert not (set(DATED_PAGES) & set(NAV_REDIRECTS))
+
+
+# ── retry-once-before-fail (deploy-window transient suppression) ──────────────
+def test_retry_clears_a_deploy_window_transient() -> None:
+    # Pass 1: /events-ui served from an OLD build (a PoP the deploy hasn't reached
+    # yet). The "settle" flips the deploy to done, so pass 2 is fresh → no alert.
+    state = {"deployed": False}
+
+    def fetch(path: str, ua: str | None = None) -> Resp:
+        if not state["deployed"] and path == "/events-ui":
+            return Resp(200, _page(sha="oldsha000000"))
+        return _make_fetch()(path, ua)
+
+    def settle(_seconds: float) -> None:
+        state["deployed"] = True
+
+    failures = run_checks_with_retry(fetch, _NOW, sleep=settle, clock=lambda: _NOW)
+    assert failures == []  # the deploy-window transient cleared on the retry
+
+
+def test_retry_still_reports_a_persistent_failure() -> None:
+    # /events-ui is stale on BOTH passes — a real, persistent staleness must page.
+    def fetch(path: str, ua: str | None = None) -> Resp:
+        if path == "/events-ui":
+            return Resp(200, _page(sha="oldsha000000"))
+        return _make_fetch()(path, ua)
+
+    failures = run_checks_with_retry(fetch, _NOW, sleep=lambda _s: None, clock=lambda: _NOW)
+    assert any("/events-ui" in f and "STALE render" in f for f in failures)
+
+
+def test_retry_skipped_when_first_pass_is_clean() -> None:
+    slept: list[float] = []
+    failures = run_checks_with_retry(
+        _make_fetch(), _NOW, sleep=lambda s: slept.append(s), clock=lambda: _NOW
+    )
+    assert failures == [] and slept == []  # a clean first pass never retries/sleeps

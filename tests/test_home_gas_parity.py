@@ -65,7 +65,7 @@ def _fake_read(payload: dict):
     return _inner
 
 
-def test_home_and_gas_agree_on_cheapest_by_construction() -> None:
+def test_home_and_gas_agree_on_typical_by_construction() -> None:
     fake = _fake_read(_divergent_payload())
     with (
         patch("app.home.redesign.read_source", side_effect=fake),
@@ -75,10 +75,12 @@ def test_home_and_gas_agree_on_cheapest_by_construction() -> None:
             home = client.get("/home").text
             gas = client.get("/gas").text
 
-    # Both surfaces derive the cheapest from the same board -> both show the true
-    # minimum ($3.95). The pre-v4.4 split (home $3.95 vs /gas $4.19) is gone.
-    assert "$3.95" in home  # header chip (conditions strip)
-    assert "$3.95" in gas
+    # The headline gas number is the TYPICAL (median) price on BOTH surfaces, from
+    # the one board so they can't diverge — median of 3.95/4.19/4.25 = $4.19.
+    # /gas still surfaces the true cheapest ($3.95) in its sorted table.
+    assert "$4.19" in home  # header chip = typical (median), not the lone cheapest
+    assert "$4.19" in gas  # /gas "Typical price" block
+    assert "$3.95" in gas  # /gas still lists the cheapest, in the price-sorted table
     assert 'id="gasPanel"' not in home  # M12: the per-page gas expander was removed
 
 

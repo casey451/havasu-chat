@@ -124,10 +124,17 @@ def test_all_stations_table_is_regular_sorted_cheapest_first() -> None:
     assert body.index("Yonder") < body.index("Xavier") < body.index("Zephyr")
 
 
-def test_city_average_rendered_prominently() -> None:
-    body = _get_gas(_result(_payload(), fetched_at=_now() - timedelta(minutes=5)))
-    assert "City average" in body
-    assert "$3.69" in body  # regular city avg, formatted
+def test_typical_price_is_the_median_not_the_mean() -> None:
+    # 2026-07-08 re-audit: the "city average" was a simple mean that high-price
+    # outliers (a marina/highway station) skewed above the pump most drivers see.
+    # It's now the MEDIAN across the board's stations, labelled "Typical price".
+    payload = _payload(1)
+    payload["stations"] = [_station("Cheap", 3.55), _station("Mid", 3.69), _station("Dear", 4.39)]
+    payload["station_count"] = 3
+    body = _get_gas(_result(payload, fetched_at=_now() - timedelta(minutes=5)))
+    assert "Typical price" in body  # relabelled (median, not "average")
+    assert "$3.69" in body  # median of 3.55 / 3.69 / 4.39
+    assert "$3.88" not in body  # the outlier-skewed mean ($3.876) must NOT show
 
 
 def test_no_data_renders_honest_empty_state_never_a_price() -> None:
@@ -161,13 +168,35 @@ def test_single_updated_phrasing() -> None:
     assert body.count("Updated") == 1
 
 
-def test_city_average_two_decimals() -> None:
-    """M-10: averages render with exactly two decimals on the live render path."""
-    payload = _payload()
-    payload["city_avg"] = {"regular": 3.7, "midgrade": 3.999, "premium": 4.0}
+def test_typical_price_two_decimals() -> None:
+    """M-10: the typical price renders with exactly two decimals on the live path."""
+    payload = _payload(1)
+    # A single station → median = its own price; midgrade = 3.70 + 0.30 = 4.00.
+    payload["stations"] = [_station("A", 3.70)]
+    payload["station_count"] = 1
     body = _get_gas(_result(payload, fetched_at=_now() - timedelta(minutes=5)))
-    assert "$3.70" in body  # 3.7 -> two decimals
-    assert "$4.00" in body  # 4.0 -> two decimals
+    assert "$3.70" in body  # regular median, tenths trailing zero
+    assert "$4.00" in body  # midgrade median (3.70 + 0.30), whole-dollar trailing zeros
+
+
+def test_board_median_price_is_robust_to_outliers() -> None:
+    from app.gas.service import board_from_cache
+
+    now = _now()
+    payload = {
+        "updated_at_iso": now.isoformat(),
+        "station_count": 3,
+        "stations": [
+            {"name": "A", "address": "1", "prices": {"regular": 3.55}},
+            {"name": "B", "address": "2", "prices": {"regular": 3.69}},
+            {"name": "C", "address": "3", "prices": {"regular": 4.39}},  # outlier
+        ],
+    }
+    board = board_from_cache(_result(payload, fetched_at=now), now=now)
+    # Median ignores the $4.39 outlier the mean would let pull the figure up.
+    assert board.median_price("reg") == 3.69
+    assert board.city_avg("reg") == round((3.55 + 3.69 + 4.39) / 3, 3)  # the old mean
+    assert board.median_price("dsl") is None  # no diesel anywhere → None
 
 
 def test_gas_page_carries_shell_nav() -> None:
