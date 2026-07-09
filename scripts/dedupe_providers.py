@@ -1,8 +1,9 @@
 """Dedupe known duplicate providers via ``provider_merge.merge_providers``.
 
-Source of truth: ``relay/ASK_HAVA_NEXT_SESSION_2026-06-17.md`` §2. Two known
-duplicates, both gated like every prod data op (``--dry-run`` default / ``--apply``,
-per-pair diff, undo snapshot to ``relay/``, dry-run asserts zero merges):
+Source of truth: ``relay/ASK_HAVA_NEXT_SESSION_2026-06-17.md`` §2 (+ the 2026-07-08
+re-audit). Known duplicates, all gated like every prod data op (``--dry-run``
+default / ``--apply``, per-pair diff, undo snapshot to ``relay/``, dry-run asserts
+zero merges):
 
   python scripts/dedupe_providers.py            # preview (default)
   python scripts/dedupe_providers.py --dry-run  # explicit preview
@@ -15,6 +16,8 @@ Pairs:
   2. "Next Generation Mixed Martial Arts" appears twice on the martial-arts leaf:
      one real provider (has a ``google_place_id``) and a bare/thin duplicate
      (no place id). Same name -> keeper is the one WITH a ``google_place_id``.
+  3. "911 Mobile Mechanic" appears twice (2026-07-08 re-audit). Same name ->
+     keeper is the one WITH a ``google_place_id``; ambiguous pairs skip safely.
 
 ``merge_providers`` soft-retires the loser (``is_active=False``, ``draft=True``)
 and stamps a ``merged_into_slug`` redirect, gap-fills the keeper's empty scalars,
