@@ -86,6 +86,40 @@ def test_family_camps_page_renders() -> None:
     assert "chat?q=" not in r.text
 
 
+def test_family_camps_card_renders_inline_detail_and_register() -> None:
+    """End-to-end: a booking camp renders the inline detail line + a Register
+    button linking the external source_ref, on the actual page HTML."""
+    from datetime import date as _date
+
+    suf = uuid.uuid4().hex[:8]
+    title = f"ZZ Activity Camp Full Day {suf}"
+    booking = "https://lakehavasu.altitudetrampolinepark.com/activitycamps/en-us/home?product=1&date=x"
+    # camps_index anchors on the real "today", so seed at a near-future date.
+    on = _date.today() + timedelta(days=3)
+    with SessionLocal() as db:
+        ev = Event(
+            title=title, normalized_title=title.lower(), date=on, end_date=None,
+            start_time=time(9, 0), end_time=time(16, 0), location_name="Altitude Trampoline Park",
+            location_normalized="altitude trampoline park",
+            description="Full Day Activity Camp Ages 5–12. From $26.99 per day.",
+            event_url=booking, source_url=booking, tags=[], status="live",
+            source="test-ws10-family", verified=True, is_recurring=False,
+        )
+        db.add(ev)
+        db.flush()
+        eid = ev.entity_id
+        db.commit()
+    try:
+        with TestClient(app) as client:
+            html = client.get("/family/camps").text
+        assert title in html
+        assert "9 AM–4 PM" in html and "Ages 5–12" in html and "From $26.99" in html
+        # The `&` in the booking URL renders HTML-escaped in the href.
+        assert "activitycamps/en-us/home?product=1" in html and ">Register" in html
+    finally:
+        _cleanup([eid])
+
+
 # --- camps_index -------------------------------------------------------------
 
 
@@ -175,6 +209,64 @@ def test_camps_index_separate_weeks_are_separate_cards() -> None:
         assert any("13" in r["when"] and "17" in r["when"] for r in rows)
     finally:
         _cleanup(eids)
+
+
+def _add_full_event(db, *, title, desc, start, end, source_url, event_url):
+    ev = Event(
+        title=title, normalized_title=title.lower(), date=_FUTURE, end_date=None,
+        start_time=start, end_time=end, location_name="Altitude Trampoline Park",
+        location_normalized="altitude trampoline park", description=desc,
+        event_url=event_url, source_url=source_url, tags=[], status="live",
+        source="test-ws10-family", verified=True, is_recurring=False,
+    )
+    db.add(ev)
+    db.flush()
+    return ev.entity_id
+
+
+def test_camps_index_inline_detail_and_register() -> None:
+    """A booking-platform camp card carries time · ages · price + a Register link
+    to the external source_ref (Casey 2026-07-10)."""
+    suf = uuid.uuid4().hex[:8]
+    title = f"ZZ Activity Camp Full Day {suf}"
+    booking = "https://lakehavasu.altitudetrampolinepark.com/activitycamps/en-us/home?product=1&date=x"
+    with SessionLocal() as db:
+        eid = _add_full_event(
+            db, title=title,
+            desc="Full Day Activity Camp Ages 5–12. From $26.99 per day. Register.",
+            start=time(9, 0), end=time(16, 0), source_url=booking, event_url=booking,
+        )
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            card = next(r for r in family_hub.camps_index(db, today=_FUTURE) if r["title"] == title)
+        assert card["time"] == "9 AM–4 PM"
+        assert card["ages"] == "Ages 5–12"
+        assert card["price"] == "From $26.99"
+        assert card["register_url"] == booking
+    finally:
+        _cleanup([eid])
+
+
+def test_camps_index_graceful_omission_when_fields_absent() -> None:
+    """A camp with no times/ages/price and no external link omits every inline
+    field (empty strings → the template shows no empty separators)."""
+    suf = uuid.uuid4().hex[:8]
+    title = f"ZZ Church VBS {suf}"
+    with SessionLocal() as db:
+        eid = _add_full_event(
+            db, title=title, desc="Vacation Bible School week.",
+            start=time(0, 0), end=None, source_url=None,  # 0:00 = time-TBD sentinel
+            event_url="https://askhava.com/events-ui",  # internal fallback → not a register link
+        )
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            card = next(r for r in family_hub.camps_index(db, today=_FUTURE) if r["title"] == title)
+        assert card["time"] == "" and card["ages"] == "" and card["price"] == ""
+        assert card["register_url"] == ""
+    finally:
+        _cleanup([eid])
 
 
 def test_kids_today_rows_lists_kid_event() -> None:

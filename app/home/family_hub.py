@@ -26,6 +26,7 @@ from sqlalchemy import or_, select
 from sqlalchemy.orm import Session
 
 from app.db.models import Event
+from app.events.time_labels import format_short_time, is_time_tbd
 from app.home import events_views
 
 # Hub hero copy (single-sourced here so the route doesn't depend on the retired
@@ -107,6 +108,43 @@ def kids_today_rows(
     return out[:limit]
 
 
+# Inline camps-card detail (Casey 2026-07-10): time · ages · price · Register,
+# each shown only when the data is really present (graceful omission — no empty
+# separators). Age + price come from the connector's own description text
+# (structured Event columns don't carry them); a camp without them just omits.
+_AGES_RE = re.compile(r"\bages?\s*(\d{1,2})\s*(?:[–-]|to)\s*(\d{1,2})\b", re.IGNORECASE)
+_PRICE_RE = re.compile(r"\bfrom\s*\$\s*(\d{1,4}(?:\.\d{2})?)\b", re.IGNORECASE)
+
+
+def _time_range_label(start: time | None, end: time | None) -> str:
+    """"9 AM–4 PM" / "10 AM" / "" — never a fabricated midnight."""
+    if is_time_tbd(start, end) or start is None:
+        return ""
+    lo = format_short_time(start)
+    if end and end != start:
+        return f"{lo}–{format_short_time(end)}"
+    return lo
+
+
+def _ages_label(description: str | None) -> str:
+    m = _AGES_RE.search(description or "")
+    return f"Ages {m.group(1)}–{m.group(2)}" if m else ""
+
+
+def _price_label(description: str | None) -> str:
+    m = _PRICE_RE.search(description or "")
+    return f"From ${m.group(1)}" if m else ""
+
+
+def _register_url(ev: Event) -> str:
+    """The external booking/registration link (the connector's source_ref), or ""."""
+    for u in (ev.source_url, ev.event_url):
+        s = (u or "").strip()
+        if s.startswith("http") and "askhava.com" not in s:
+            return s
+    return ""
+
+
 def _date_range_label(start: date, end: date | None, *, recurring: bool) -> str:
     """"Jul 6", "Jul 6–10", "Jul 28 – Aug 2", or "Jul 6 onward" for a series."""
     s = f"{_MON[start.month - 1]} {start.day}"
@@ -184,6 +222,11 @@ def camps_index(
                         ),
                         "venue": (first.location_name or "").strip(),
                         "url": f"/events/{first.id}",
+                        # Inline detail — each empty-string when the data is absent.
+                        "time": _time_range_label(first.start_time, first.end_time),
+                        "ages": _ages_label(first.description),
+                        "price": _price_label(first.description),
+                        "register_url": _register_url(first),
                     },
                 )
             )
