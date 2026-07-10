@@ -19,7 +19,7 @@ bowling) rendered straight in the route — real venue hours, honest-omit.
 from __future__ import annotations
 
 import re
-from datetime import date, datetime, timedelta
+from datetime import date, datetime, time, timedelta
 from typing import Any
 
 from sqlalchemy import or_, select
@@ -125,11 +125,14 @@ def camps_index(
     """Upcoming day camps / clinics / VBS from the events DB, one card per camp.
 
     Selected by a camp/clinic/VBS keyword in the title (the clearest seasonal-
-    program signal), deduped by title (keeping the earliest occurrence), and
-    limited to the summer-ahead window. Each carries a date-range label + venue +
-    internal ``/events/<id>`` link (which holds the external "Register" button,
-    WS5 M7). Empty list → the page shows an honest "nothing scheduled yet" state,
-    never a fabricated camp. A WS12 connector's camp rows appear here for free.
+    program signal). Same-title occurrences on consecutive days collapse into ONE
+    card with a date-range label ("Jul 13–17") — so a booking-platform camp that
+    lands as five single-day rows reads as one week, matching the WS5 series /
+    Rainforest Rush presentation (a separate later week is its own card). Each
+    carries the range label + venue + internal ``/events/<id>`` link (which holds
+    the external "Register" button, WS5 M7). Empty list → the page shows an honest
+    "nothing scheduled yet" state, never a fabricated camp. A WS12 connector's
+    camp rows appear here for free.
     """
     horizon = today + timedelta(days=window_days)
     stmt = (
@@ -150,8 +153,10 @@ def camps_index(
         .order_by(Event.date, Event.start_time)
     )
     rows = db.execute(stmt).scalars().all()
-    seen: set[str] = set()
-    out: list[dict[str, str]] = []
+    # Group eligible events by title (rows already date-sorted), then split each
+    # title into consecutive-day runs so five single-day camp rows read as one
+    # "Jul 13–17" week while a distinct later week stays a separate card.
+    by_title: dict[str, list[Event]] = {}
     for ev in rows:
         title = (ev.title or "").strip()
         if not title or not _CAMP_RE.search(title):
@@ -161,21 +166,51 @@ def camps_index(
             continue
         if {str(t).strip().lower() for t in (ev.tags or [])} & _ADULT_TAGS:
             continue
-        key = (ev.normalized_title or title).strip().casefold()
-        if key in seen:
-            continue
-        seen.add(key)
-        out.append(
-            {
-                "title": title,
-                "when": _date_range_label(ev.date, ev.end_date, recurring=bool(ev.is_recurring)),
-                "venue": (ev.location_name or "").strip(),
-                "url": f"/events/{ev.id}",
-            }
-        )
-        if len(out) >= limit:
-            break
-    return out
+        by_title.setdefault((ev.normalized_title or title).strip().casefold(), []).append(ev)
+
+    cards: list[tuple[date, dict[str, str]]] = []
+    for events in by_title.values():
+        for run in _consecutive_runs(events):
+            first = run[0]
+            run_start = first.date
+            run_end = max((e.end_date or e.date) for e in run)
+            cards.append(
+                (
+                    run_start,
+                    {
+                        "title": (first.title or "").strip(),
+                        "when": _date_range_label(
+                            run_start, run_end, recurring=any(e.is_recurring for e in run)
+                        ),
+                        "venue": (first.location_name or "").strip(),
+                        "url": f"/events/{first.id}",
+                    },
+                )
+            )
+    cards.sort(key=lambda c: c[0])
+    return [card for _, card in cards[:limit]]
+
+
+def _consecutive_runs(events: list[Event]) -> list[list[Event]]:
+    """Split date-sorted same-title events into runs of consecutive days.
+
+    A new run starts when the gap from the previous occurrence's end exceeds one
+    day (so Mon–Fri stays one run, but the next week — Fri→Mon is a 3-day gap —
+    is its own run). A multi-day event is a run of one.
+    """
+    ordered = sorted(events, key=lambda e: (e.date, e.start_time or time.min))
+    runs: list[list[Event]] = []
+    cur: list[Event] = []
+    for ev in ordered:
+        if cur and ev.date <= (cur[-1].end_date or cur[-1].date) + timedelta(days=1):
+            cur.append(ev)
+        else:
+            if cur:
+                runs.append(cur)
+            cur = [ev]
+    if cur:
+        runs.append(cur)
+    return runs
 
 
 # The hub's subcategory tiles → real filtered leaf / department lists (verified in

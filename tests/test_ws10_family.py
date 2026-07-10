@@ -140,20 +140,39 @@ def test_camps_index_excludes_adult_programming() -> None:
         _cleanup(eids)
 
 
-def test_camps_index_dedupes_by_title_with_date_range() -> None:
+def test_camps_index_collapses_consecutive_single_days_to_one_range() -> None:
+    """Five single-day rows Mon–Fri (a booking-platform camp week) → ONE card
+    with a "Jul 13–17" range, not five rows and not just the first day."""
+    suf = uuid.uuid4().hex[:8]
+    title = f"ZZ Activity Camp Full Day {suf}"
+    with SessionLocal() as db:
+        eids = [_add_event(db, title=title, on=_FUTURE + timedelta(days=i)) for i in range(5)]
+        db.commit()
+    try:
+        with SessionLocal() as db:
+            rows = [r for r in family_hub.camps_index(db, today=_FUTURE) if r["title"] == title]
+        assert len(rows) == 1
+        assert "13" in rows[0]["when"] and "17" in rows[0]["when"]  # "Jul 13–17"
+    finally:
+        _cleanup(eids)
+
+
+def test_camps_index_separate_weeks_are_separate_cards() -> None:
+    """A multi-day week and a distinct later session are two cards (not deduped
+    down to one) — so a real 2nd camp week isn't hidden."""
     suf = uuid.uuid4().hex[:8]
     title = f"ZZ Camp I Wanna Go {suf}"
     with SessionLocal() as db:
         eids = [
-            _add_event(db, title=title, on=_FUTURE, end=_FUTURE + timedelta(days=4)),
-            _add_event(db, title=title, on=_FUTURE + timedelta(days=14)),  # 2nd session
+            _add_event(db, title=title, on=_FUTURE, end=_FUTURE + timedelta(days=4)),  # Jul 13–17
+            _add_event(db, title=title, on=_FUTURE + timedelta(days=14)),  # separate session
         ]
         db.commit()
     try:
         with SessionLocal() as db:
             rows = [r for r in family_hub.camps_index(db, today=_FUTURE) if r["title"] == title]
-        assert len(rows) == 1  # one card per camp
-        assert "Jul 13" in rows[0]["when"]  # earliest occurrence, date-range label
+        assert len(rows) == 2
+        assert any("13" in r["when"] and "17" in r["when"] for r in rows)
     finally:
         _cleanup(eids)
 
