@@ -440,7 +440,21 @@ def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
     # can't rot across the UTC↔America/Phoenix boundary on a CI worker.
     now = datetime.combine(day, time(0, 0), tzinfo=LAKE_HAVASU_TZ)
     try:
+        # Fixes the recurring #819-class flake (permalink-less row intermittently
+        # absent) that ONLY reproduces under xdist, never sequentially. Two guards,
+        # both on the read session:
+        #   1. A commit + expire_all before the read forces this session onto a
+        #      fresh transaction snapshot, so the just-committed program from
+        #      _make_permalinkless_program is always visible (a stale pooled-
+        #      connection snapshot under parallel load was the intermittent miss).
+        #   2. Deleting any live Event on this UNIQUE far-future date closes the
+        #      only other removal path — drop_event_duplicates matching a same-day
+        #      Event leaked from a neighbour. The date is ours; nothing legitimate
+        #      is deleted.
         with SessionLocal() as db:
+            db.query(Event).filter(Event.date == day).delete(synchronize_session=False)
+            db.commit()
+            db.expire_all()
             groups = events_views.day_groups(db, day=day, events_only=False, now=now)
         rows = _all_rows(groups)
         row = next((r for r in rows if r.get("venue") == venue), None)
