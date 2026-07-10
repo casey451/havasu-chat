@@ -18,12 +18,17 @@
   {% if camps %}
   <div class="famgrid">
     {% for c in camps %}
-    <a class="famtile" href="{{ c.url }}">
+    <div class="famtile camp">
+      {#- Stretched link → the detail page (unchanged); the Register button below
+         sits above it so both are clickable without nesting anchors. -#}
+      <a class="ftlink" href="{{ c.url }}" aria-label="{{ c.title }} — dates &amp; how to register"></a>
       <div class="ft serif">{{ c.title }}</div>
       {% set meta = [c.when, c.venue]|select|join(' · ') %}
       {% if meta %}<div class="fn">{{ meta }}</div>{% endif %}
-      <span class="fgo" aria-hidden="true">{{ icon('arrow', 14) }}</span>
-    </a>
+      {% set detail = [c.time, c.ages, c.price]|select|join(' · ') %}
+      {% if detail %}<div class="fd">{{ detail }}</div>{% endif %}
+      {% if c.register_url %}<a class="fbtn" href="{{ c.register_url }}" target="_blank" rel="noopener nofollow">Register {{ icon('arrow', 13) }}</a>{% endif %}
+    </div>
     {% endfor %}
   </div>
   {% else %}

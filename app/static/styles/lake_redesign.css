@@ -832,6 +832,16 @@ h2.also-sec{font-family:var(--disp);font-weight:500;font-size:19px;letter-spacin
 .famtile .ft{font-family:var(--disp);font-weight:500;font-size:17px;letter-spacing:-.01em;color:var(--ink);padding-right:20px}
 .famtile .fn{font-size:13px;color:var(--ink3);line-height:1.45;margin-top:5px}
 .famtile .fgo{position:absolute;top:16px;right:16px;color:var(--teal-br)}
+/* /family/camps — inline detail (time · ages · price) + Register (2026-07-10).
+   The tile is a div with a stretched link to the detail page; the Register
+   button sits above it so both are clickable without nesting anchors. */
+.famtile.camp{display:flex;flex-direction:column}
+.famtile .ftlink{position:absolute;inset:0;z-index:1;border-radius:var(--rad)}
+.famtile .ftlink:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(12,90,96,.34)}
+.famtile.camp .fd{position:relative;z-index:0;font-size:13px;color:var(--ink2);line-height:1.5;margin-top:4px;font-variant-numeric:tabular-nums}
+.famtile.camp .fbtn{position:relative;z-index:2;align-self:flex-start;margin-top:12px;display:inline-flex;align-items:center;gap:5px;min-height:44px;padding:9px 16px;border-radius:999px;background:var(--teal-br);color:#fff;font-size:13px;font-weight:600;text-decoration:none}
+.famtile.camp .fbtn:hover{filter:brightness(1.08)}
+.famtile.camp .fbtn:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(12,90,96,.34)}
 
 /* business profile (/provider/{slug}) */
 .prof-wrap{max-width:940px;margin:0 auto;padding:0 16px 64px}
