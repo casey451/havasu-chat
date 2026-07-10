@@ -1,0 +1,38 @@
+name: residue-classify
+
+# READ-ONLY. Classifies the remaining pending event contributions (default:
+# parks_rec_calendar + allevents) into 3 triage buckets — duplicate-of-live
+# (WS5 matcher), spam/off-mission, and genuinely-new residue — so the human
+# review list is only the residue. Writes nothing; no production-writes gate.
+# The bucket-1/2 ids it prints feed triage-pending-events-apply.yml (--ids).
+
+on:
+  workflow_dispatch:
+    inputs:
+      sources:
+        description: 'Sources to classify (space-separated)'
+        required: false
+        default: 'parks_rec_calendar allevents'
+
+jobs:
+  classify:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Classify pending residue into triage buckets
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          ARGS=""
+          for s in ${{ inputs.sources }}; do ARGS="$ARGS --source $s"; done
+          python scripts/classify_residue_pending.py $ARGS
