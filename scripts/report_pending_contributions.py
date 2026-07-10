@@ -40,15 +40,30 @@ def _venue_from_notes(notes: str | None) -> str:
     return ""
 
 
-def _rows(sources: list[str] | None) -> list[dict]:
+def _rows(
+    sources: list[str] | None,
+    *,
+    sample: int | None = None,
+    limit: int | None = None,
+) -> list[dict]:
+    from sqlalchemy import func
+
     with SessionLocal() as db:
-        stmt = (
-            select(Contribution)
-            .where(Contribution.status == "pending", Contribution.entity_type == "event")
-            .order_by(Contribution.source, Contribution.event_date, Contribution.event_time_start)
+        stmt = select(Contribution).where(
+            Contribution.status == "pending", Contribution.entity_type == "event"
         )
         if sources:
             stmt = stmt.where(Contribution.source.in_(sources))
+        # --sample draws N random rows (best with a single --source); --limit
+        # takes the first N in the normal ordering. Otherwise ordered for review.
+        if sample:
+            stmt = stmt.order_by(func.random()).limit(sample)
+        else:
+            stmt = stmt.order_by(
+                Contribution.source, Contribution.event_date, Contribution.event_time_start
+            )
+            if limit:
+                stmt = stmt.limit(limit)
         out: list[dict] = []
         for c in db.scalars(stmt):
             out.append(
@@ -68,10 +83,12 @@ def _rows(sources: list[str] | None) -> list[dict]:
 def main(argv: list[str] | None = None) -> int:
     ap = argparse.ArgumentParser(description="Report pending event contributions")
     ap.add_argument("--source", action="append", dest="sources", metavar="SOURCE")
+    ap.add_argument("--sample", type=int, help="draw N random rows (best with one --source)")
+    ap.add_argument("--limit", type=int, help="first N rows in review order")
     ap.add_argument("--json", dest="as_json", action="store_true")
     args = ap.parse_args(argv)
 
-    rows = _rows(args.sources)
+    rows = _rows(args.sources, sample=args.sample, limit=args.limit)
     if args.as_json:
         print(json.dumps(rows, indent=2))
         return 0

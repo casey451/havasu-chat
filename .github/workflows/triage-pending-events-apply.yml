@@ -1,0 +1,109 @@
+name: triage-pending-events-apply
+
+# Approval-gated bulk-triage of pending event contributions (WS12 review-queue
+# backlog cleanup — quarantine wrong-year OCR rows, drop past aggregator rows).
+# Fenced like every prod-write op here:
+#   * manual trigger only (workflow_dispatch)
+#   * dry_run defaults TRUE: previews the selection, writes nothing
+#   * to apply: set dry_run=false AND type CORRECT in `confirm`
+#   * runs in the `production-writes` Environment
+#   * reversible: reject sets status=rejected; undo via set_status=pending +
+#     from_status=rejected (or the ids the apply prints). Idempotent.
+
+on:
+  workflow_dispatch:
+    inputs:
+      source:
+        description: 'Source to triage, e.g. parks_rec_calendar or allevents'
+        required: false
+        default: ''
+      before:
+        description: 'Only rows with event_date < YYYY-MM-DD (optional)'
+        required: false
+        default: ''
+      year:
+        description: 'Only rows whose event_date year == YYYY (optional)'
+        required: false
+        default: ''
+      ids:
+        description: 'Explicit contribution ids (space/comma-separated, optional)'
+        required: false
+        default: ''
+      set_status:
+        description: 'Target status'
+        type: choice
+        options: [rejected, pending]
+        default: rejected
+      from_status:
+        description: 'Only act on rows currently in this status'
+        type: choice
+        options: [pending, rejected]
+        default: pending
+      reason:
+        description: 'Rejection reason (when set_status=rejected)'
+        type: choice
+        options: [unverifiable, duplicate, out_of_area, spam, incomplete, other]
+        default: unverifiable
+      dry_run:
+        description: 'Preview only (no writes). Uncheck to apply.'
+        type: boolean
+        default: true
+      confirm:
+        description: 'Type CORRECT to apply (ignored on dry run)'
+        required: false
+        default: ''
+
+concurrency:
+  group: triage-pending-events-apply
+  cancel-in-progress: false
+
+jobs:
+  triage:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-writes
+    steps:
+      - name: Guard — confirm phrase required to apply
+        if: ${{ !inputs.dry_run && inputs.confirm != 'CORRECT' }}
+        run: |
+          echo "::error::apply requested but confirm was '${{ inputs.confirm }}', expected 'CORRECT'. Aborting before any write."
+          exit 1
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Build args
+        id: args
+        run: |
+          ARGS=""
+          [ -n "${{ inputs.source }}" ] && ARGS="$ARGS --source ${{ inputs.source }}"
+          [ -n "${{ inputs.before }}" ] && ARGS="$ARGS --before ${{ inputs.before }}"
+          [ -n "${{ inputs.year }}" ] && ARGS="$ARGS --year ${{ inputs.year }}"
+          [ -n "${{ inputs.ids }}" ] && ARGS="$ARGS --ids '${{ inputs.ids }}'"
+          ARGS="$ARGS --set-status ${{ inputs.set_status }} --from-status ${{ inputs.from_status }} --reason ${{ inputs.reason }}"
+          echo "args=$ARGS" >> "$GITHUB_OUTPUT"
+
+      - name: Preview selection (DRY RUN — no writes)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: eval "python scripts/triage_pending_events.py ${{ steps.args.outputs.args }}"
+
+      - name: Apply triage
+        if: ${{ !inputs.dry_run && inputs.confirm == 'CORRECT' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: eval "python scripts/triage_pending_events.py ${{ steps.args.outputs.args }} --apply"
+
+      - name: Purge CDN cache after the write (no-op without CF creds)
+        if: ${{ !inputs.dry_run && inputs.confirm == 'CORRECT' }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
