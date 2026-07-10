@@ -1012,6 +1012,36 @@ class Category(Base):
     )
 
 
+class IngestRun(Base):
+    """Per-connector scrape-run heartbeat (WS12 §1 / freshness canary V2).
+
+    One row is written every time a scrape source runs, **regardless of whether
+    it produced new rows** (created / merged / skipped_duplicate / queued). This
+    is the piece the existing row-recency freshness check
+    (``scripts/freshness_check.py``) explicitly punted to "V2": a source that
+    legitimately finds nothing (a museum with no upcoming events, a speedway in
+    the off-season) still stamps ``ran_at`` here, so the canary can tell "ran,
+    found nothing" apart from "silently broke / never ran". ``counts`` is the
+    action→count map the runner produced; ``status`` is ``ok`` | ``error``.
+    """
+
+    __tablename__ = "ingest_runs"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True, autoincrement=True)
+    source: Mapped[str] = mapped_column(String(64), nullable=False, index=True)
+    ran_at: Mapped[datetime] = mapped_column(
+        DateTime,
+        default=lambda: datetime.now(UTC).replace(tzinfo=None),
+        nullable=False,
+        index=True,
+    )
+    status: Mapped[str] = mapped_column(String(16), nullable=False, default="ok")
+    dry_run: Mapped[bool] = mapped_column(Boolean, nullable=False, default=False)
+    payloads_total: Mapped[int] = mapped_column(Integer, nullable=False, default=0)
+    counts: Mapped[dict[str, Any]] = mapped_column(JSON, nullable=False, default=dict)
+    note: Mapped[str | None] = mapped_column(String, nullable=True)
+
+
 class Entity(Base):
     """Unified core entity table — one row per directory thing.
 

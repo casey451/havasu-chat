@@ -14,6 +14,7 @@ import argparse
 import sys
 from datetime import date
 from pathlib import Path
+from typing import cast
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
@@ -91,21 +92,57 @@ def _persist_payload(
     return "queued"
 
 
+def _record_run(source_key: str, counts: dict[str, int], *, dry_run: bool, errored: bool) -> None:
+    """Write a per-run heartbeat (WS12 §1). Best-effort: never fail the scrape.
+
+    Recorded for every run regardless of yield, so the freshness canary can tell
+    "ran, found nothing" apart from "silently broke". Dry-runs are recorded with
+    ``dry_run=True`` and are ignored by the freshness check.
+    """
+    from app.db.models import IngestRun
+
+    total = sum(counts.values())
+    status = "error" if errored or counts.get("error") or counts.get("fatal") else "ok"
+    try:
+        with SessionLocal() as db:
+            db.add(
+                IngestRun(
+                    source=source_key,
+                    status=status,
+                    dry_run=dry_run,
+                    payloads_total=total,
+                    counts=dict(counts),
+                )
+            )
+            db.commit()
+    except Exception as exc:  # pragma: no cover - telemetry must never break ingest
+        print(f"warn: could not record ingest_run for {source_key}: {exc}", file=sys.stderr)
+
+
 def run_source(source_key: str, *, dry_run: bool) -> dict[str, int]:
     client_cls = SOURCE_REGISTRY[source_key]
     client = client_cls()
     counts: dict[str, int] = {}
-    payloads = client.run({"today": date.today()})
-    for payload in payloads:
-        try:
-            with SessionLocal() as db:
-                action = _persist_payload(
-                    db, payload, scrape_source=client.scrape_source, dry_run=dry_run
-                )
-        except Exception as exc:
-            print(f"error: {source_key} payload {payload.name!r}: {exc}", file=sys.stderr)
-            action = "error"
-        counts[action] = counts.get(action, 0) + 1
+    errored = False
+    try:
+        # Every EventIngestClient.to_event_payload yields an EventPayload; the
+        # base run() is only typed as the parent EntityPayload.
+        payloads = cast("list[EventPayload]", client.run({"today": date.today()}))
+        for payload in payloads:
+            try:
+                with SessionLocal() as db:
+                    action = _persist_payload(
+                        db, payload, scrape_source=client.scrape_source, dry_run=dry_run
+                    )
+            except Exception as exc:
+                print(f"error: {source_key} payload {payload.name!r}: {exc}", file=sys.stderr)
+                action = "error"
+            counts[action] = counts.get(action, 0) + 1
+    except Exception:
+        errored = True
+        _record_run(source_key, counts, dry_run=dry_run, errored=True)
+        raise
+    _record_run(source_key, counts, dry_run=dry_run, errored=errored)
     return counts
 
 

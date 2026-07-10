@@ -73,12 +73,24 @@ from app.db.models import Event  # noqa: E402
 # ---------------------------------------------------------------------------
 
 
+# Two freshness modes:
+#   "event_rows"  — max(created_at/scraped_at) over Event.source. For the
+#                   established auto-approve pipelines whose runs reliably land
+#                   published Event rows; MISSING == broken (pages).
+#   "ingest_run"  — max(ran_at) over the ingest_runs heartbeat (WS12). For the
+#                   review-queue-first connectors: a run that finds nothing (or
+#                   whose rows sit pending) still stamps ran_at, so this tracks
+#                   the SCRAPE not the publish. A connector that has never run
+#                   (cron not wired yet) reports PENDING (informational, does NOT
+#                   page); one that ran before and then went quiet reports STALE
+#                   (pages) — that is the "cron broke" signal.
 @dataclass(frozen=True)
 class SourceCheck:
     label: str
     source: str
     cadence: str
     max_age_hours: float
+    mode: str = "event_rows"
 
 
 SOURCE_CHECKS: list[SourceCheck] = [
@@ -95,6 +107,31 @@ SOURCE_CHECKS: list[SourceCheck] = [
         cadence="Tue/Thu/Sat (golakehavasu-events.yml)",
         # Longest gap Sat->Tue = 3 days; +1 cycle of slack = 5 days.
         max_age_hours=120.0,
+    ),
+    # --- WS12 connectors (ingest_run heartbeat) -----------------------------
+    # These are review-queue-first and low/seasonal-cadence, so they are tracked
+    # by the run-heartbeat, not by published rows. PENDING until their first
+    # cron run — that is expected, not a failure.
+    SourceCheck(
+        label="WS12: Museum (Squarespace)",
+        source="havasu_museum",
+        cadence="Weekly Mon (museum-events.yml)",
+        max_age_hours=336.0,  # 7d cadence + 1 cycle slack = 14d
+        mode="ingest_run",
+    ),
+    SourceCheck(
+        label="WS12: LHC BMX",
+        source="lhc_bmx",
+        cadence="(cron pending) scrape_events --source lhc_bmx",
+        max_age_hours=120.0,
+        mode="ingest_run",
+    ),
+    SourceCheck(
+        label="WS12: Havasu Youth fixtures",
+        source="havasu_youth",
+        cadence="(cron pending) scrape_events --source havasu_youth",
+        max_age_hours=120.0,
+        mode="ingest_run",
     ),
 ]
 
@@ -131,6 +168,19 @@ def newest_activity(db: Session, source: str) -> datetime | None:
     return max(candidates) if candidates else None
 
 
+def newest_run(db: Session, source: str) -> datetime | None:
+    """Most recent non-dry-run ingest_runs heartbeat for ``source`` (naive UTC)."""
+    from app.db.models import IngestRun
+
+    ran = db.scalar(
+        select(func.max(IngestRun.ran_at)).where(
+            IngestRun.source == source,
+            IngestRun.dry_run.is_(False),
+        )
+    )
+    return _to_naive_utc(ran)
+
+
 def evaluate(
     db: Session,
     checks: list[SourceCheck],
@@ -143,9 +193,19 @@ def evaluate(
     """
     results: list[Result] = []
     for chk in checks:
-        freshest = newest_activity(db, chk.source)
+        if chk.mode == "ingest_run":
+            freshest = newest_run(db, chk.source)
+            # A connector that has never run (cron not wired / not yet fired) is
+            # PENDING — informational, never a page. Only a source that ran and
+            # then went quiet is STALE.
+            missing_status = "PENDING"
+        else:
+            freshest = newest_activity(db, chk.source)
+            missing_status = "MISSING"
         if freshest is None:
-            results.append(Result(chk.label, chk.source, "MISSING", None, None, chk.max_age_hours))
+            results.append(
+                Result(chk.label, chk.source, missing_status, None, None, chk.max_age_hours)
+            )
             continue
         age_hours = (now - freshest).total_seconds() / 3600.0
         status = "STALE" if age_hours > chk.max_age_hours else "OK"
@@ -175,7 +235,9 @@ def main(argv: list[str] | None = None) -> int:
     args = ap.parse_args(argv)
 
     results = run()
-    failed = [r for r in results if r.status != "OK"]
+    # PENDING (an ingest_run connector that has never fired) is informational,
+    # not a page — only STALE / MISSING fail the canary.
+    failed = [r for r in results if r.status in ("STALE", "MISSING")]
 
     if args.as_json:
         print(
@@ -201,7 +263,12 @@ def main(argv: list[str] | None = None) -> int:
         width = max(len(r.label) for r in results)
         print("Pipeline freshness heartbeat\n" + "-" * (width + 40))
         for r in results:
-            mark = {"OK": "OK   ", "STALE": "STALE", "MISSING": "MISS "}[r.status]
+            mark = {
+                "OK": "OK   ",
+                "STALE": "STALE",
+                "MISSING": "MISS ",
+                "PENDING": "PEND ",
+            }[r.status]
             budget = f"budget {r.max_age_hours / 24:.0f}d"
             print(f"  [{mark}] {r.label.ljust(width)}  {_fmt_age(r.age_hours).ljust(10)} ({budget})")
         print("-" * (width + 40))
