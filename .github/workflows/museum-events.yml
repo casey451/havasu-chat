@@ -1,0 +1,43 @@
+name: museum-events
+
+# WS12 connector C5 — Lake Havasu Museum of History (Squarespace events).
+#
+# The museum posts events infrequently, so this runs weekly (Mondays). It reads
+# the Squarespace collection JSON (?format=json), normalizes each event, and
+# files it into the CONTRIBUTIONS REVIEW QUEUE — havasu_museum is NOT in the
+# auto-approve registry (WS12 §4 training wheels), so nothing publishes without
+# Casey approving it in /admin. A week with zero upcoming events is correct
+# (0 rows created), not a failure.
+#
+# NOTE: GitHub only runs scheduled workflows from the DEFAULT branch, so the
+# cron is dormant until this file is merged to main. Use "Run workflow"
+# (workflow_dispatch) to exercise it on this branch first.
+
+on:
+  schedule:
+    # Monday 06:50 AM Arizona (MST/UTC-7, no DST). Staggered off the daily
+    # event scrapes. Weekly is plenty for a low-cadence source.
+    - cron: "50 13 * * 1"
+  workflow_dispatch: {}
+
+jobs:
+  scrape-museum:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape Havasu Museum of History events into the review queue
+        env:
+          # Same Railway Postgres secret the other scrape crons use. Set in:
+          # GitHub repo -> Settings -> Secrets and variables -> Actions
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m scripts.scrape_events --source havasu_museum
