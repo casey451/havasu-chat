@@ -46,17 +46,28 @@ _UNDO_CSV = "parks_rec_venue_backfill_undo_2026-07-10.csv"
 _GENERIC = "lake havasu"  # the specific generic value to replace (NOT the dept default)
 # "Title. At <venue>. For <audience>. Cost: …" — capture the venue between "At " and the next period.
 _AT_RE = re.compile(r"\bAt\s+([^.]+?)\.", re.IGNORECASE)
+# A bare room code ("Room 153/154") or a single generic word ("Pool", "Gym") is
+# NOT a navigable venue — it's no better than the generic city name, so reject it
+# even though is_known_facility(non-strict) would accept it. Real named
+# sub-facilities ("Rotary Park Swim Area") have a proper name and pass.
+_ROOM_CODE_RE = re.compile(r"^room\s*\d", re.IGNORECASE)
+_TOO_GENERIC = {"pool", "gym", "gymnasium", "kitchen", "field", "park", "room",
+                "court", "courts", "lobby", "patio", "office"}
 
 
 def facility_from_description(description: str | None) -> str | None:
-    """Return the description's "At {venue}." value when it validates as a real P&R
-    facility; else None (instructor-scramble / non-facility venues are rejected)."""
+    """Return the description's "At {venue}." value when it validates as a real,
+    NAMED P&R facility; else None. Instructor-scramble ("Jane Camlin"),
+    non-facility partnership venues ("Relics & Rods"), bare room codes
+    ("Room 153/154") and single generic words ("Pool") are all rejected."""
     if not description:
         return None
     m = _AT_RE.search(description)
     if not m:
         return None
     venue = m.group(1).strip()
+    if _ROOM_CODE_RE.match(venue) or venue.lower() in _TOO_GENERIC:
+        return None
     return venue if is_known_facility(venue, strict=False) else None
 
 
