@@ -54,6 +54,10 @@ ContributionSource = Literal[
     # WS12 public-feed connector: Squarespace events collections (Lake Havasu
     # Museum of History; reusable base for other Squarespace venues). Review-gated.
     "havasu_museum",
+    # WS12 booking-platform connector: Altitude Trampoline Park's ROLLER
+    # storefront (day camps). Review-gated; authority over the havasu_youth
+    # fixtures for camps.
+    "altitude_booking",
     # Vision-LLM image scrapers (2026-06-24): Parks & Rec monthly calendar +
     # event flyers, and Senior Center flyers, wired through event_ingest.py. NOT in
     # the auto-approve registry, so every row lands PENDING for /admin review.

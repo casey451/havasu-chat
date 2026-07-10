@@ -97,3 +97,42 @@ queue.
 "Zero rows today" for C4/C5/C6 is the expected state, not a failure: it is
 mid-summer and these are low-cadence/seasonal sources. The connectors exist so
 that the *moment* those sources post, the events flow into the review queue.
+
+---
+
+## Addendum 2026-07-10 — Altitude booking connector (ROLLER) ✅ BUILT
+
+Altitude Trampoline Park has "no events calendar" but a first-party **ROLLER**
+booking storefront (`lakehavasu.altitudetrampolinepark.com/activitycamps`). Its
+public JSON API gives the day-camp product + bookable dates + price directly.
+
+**Endpoint contract (discovered via a one-shot Playwright XHR capture — pure curl
+alone 404'd because the `/api/` path segment + the `x-api-key` header were only
+visible in the live request):**
+- base: `https://api.roller.app/api/checkout/activitycamps`
+- headers: `x-api-key: altitudelakehavasu` (public storefront key = the subdomain,
+  shipped to every browser — not a secret), `x-cell-id: a`
+- `GET {base}/products` → catalog (list). Only "Activity Camp- Full Day" is
+  event-worthy (ages 5–12, 9 AM–4 PM, member $26.99 / non-member $36.99); the
+  rest are memberships / socks / cups.
+- `GET {base}/availability?dateIndex=YYYYMMDD&days=N` → `[{date, availability}]`.
+  **`days` is capped at 31** (42 → 400), so the connector pages the horizon.
+
+**Connector `altitude_booking`** (`app/events/scrapers/altitude_booking.py`):
+pure-HTTP, review-queue-first, price captured, `source_ref` = the booking URL
+(doubles as the registration link). Emits one event per available **weekday**
+camp date (day camps are M–F; availability is storefront-level). Live smoke:
+returns real camp dates. Registered in the freshness canary + `ws12-connectors`
+cron. Name contains "Camp" → lands on `/family/camps`.
+
+**Reconcile with `havasu_youth` fixtures:** the weekly Glow / Junior Jump
+*open-jump* sessions are **not** on this storefront — sibling checkout slugs
+(`book-now`, `general-admission`, `openjump`, …) all return empty product lists.
+So the hand fixtures **stay authoritative** for Glow/Junior Jump; `altitude_booking`
+is authority for the **camps** (booking-platform > fixture, the WebTrac>flyer
+pattern). If a general-admission slug is later found, retire the fixture overlap.
+
+**Pattern for other watchlist venues:** a venue with "no events calendar" often
+has a **bookable-products subdomain** (ROLLER / RunSwift / etc.), discoverable via
+the booking links on their site or FB (`fbclid` URLs). Worth a probe before
+assuming a venue needs the FB connector or a hand fixture.
