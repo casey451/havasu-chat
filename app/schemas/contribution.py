@@ -45,6 +45,12 @@ ContributionSource = Literal[
     # Captured class schedules imported from the schedule-hunt dataset
     # (scripts/import_captured_schedules.py) as draft program contributions.
     "schedule_scrape",
+    # WS12 youth/family connectors (salvaged from PR #302): USA BMX live API +
+    # hand-maintained recurring fixtures (bowling / trampoline / glow). NOT in
+    # the auto-approve registry — every row lands PENDING for /admin review
+    # (training wheels). Provenance is stamped on approval via _SCRAPE_EVENT_SOURCES.
+    "lhc_bmx",
+    "havasu_youth",
     # Vision-LLM image scrapers (2026-06-24): Parks & Rec monthly calendar +
     # event flyers, and Senior Center flyers, wired through event_ingest.py. NOT in
     # the auto-approve registry, so every row lands PENDING for /admin review.
