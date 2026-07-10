@@ -5,6 +5,7 @@ from __future__ import annotations
 import uuid
 from datetime import UTC, date, datetime, time, timedelta
 
+from app.core.timezone import LAKE_HAVASU_TZ
 from app.db.database import SessionLocal
 from app.db.models import Entity, Event, Provider, Schedule
 from app.events.class_occurrences import (
@@ -434,9 +435,13 @@ def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
     title = _permalinkless_title(suf)
     venue = _make_permalinkless_program(title, ["saturday"])
     day = _unique_saturday(suf)  # far-future + unique → no xdist same-day contamination
+    # Pin the render clock to the start of ``day`` so every "now" read inside
+    # day_groups (projection horizon, expiry, today-cutoff) is deterministic and
+    # can't rot across the UTC↔America/Phoenix boundary on a CI worker.
+    now = datetime.combine(day, time(0, 0), tzinfo=LAKE_HAVASU_TZ)
     try:
         with SessionLocal() as db:
-            groups = events_views.day_groups(db, day=day, events_only=False)
+            groups = events_views.day_groups(db, day=day, events_only=False, now=now)
         rows = _all_rows(groups)
         row = next((r for r in rows if r.get("venue") == venue), None)
         assert row is not None, "permalink-less program should still appear in the feed"
