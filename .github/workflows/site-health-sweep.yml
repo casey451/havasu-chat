@@ -1,0 +1,60 @@
+name: site-health-sweep
+
+# Whole-site health canary — cold-fetches EVERY public URL (pages + all providers +
+# events, from the sitemaps) and asserts each is 200, build-sha-current, non-empty,
+# error-marker-free. READ-ONLY, DB-FREE (hits the live site over cold HTTP), so it
+# needs no secrets. Exits non-zero on any HARD breakage (a 5xx / empty / errored
+# page), so a broken page turns the run red.
+#
+# Weekly (the surface is ~3k URLs — heavier than the nightly event verify) + on
+# demand. NOTE: the cron only fires once merged to the default branch.
+
+on:
+  schedule:
+    - cron: "0 15 * * 1"  # Mondays 15:00 UTC (08:00 AM Arizona)
+  workflow_dispatch:
+    inputs:
+      base_url:
+        description: "Site to sweep"
+        default: "https://askhava.com"
+      sections:
+        description: "Comma list: pages,categories,lake-havasu,provider,events"
+        default: "pages,categories,lake-havasu,provider,events"
+
+permissions:
+  contents: read
+
+jobs:
+  sweep:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install httpx
+
+      - name: Whole-site health sweep (cold-curl, no DB)
+        run: |
+          python scripts/site_health_sweep.py \
+            --base-url "${BASE_URL:-https://askhava.com}" \
+            --sections "${SECTIONS:-pages,categories,lake-havasu,provider,events}" \
+            --out site_health_anomalies.txt
+        env:
+          BASE_URL: ${{ inputs.base_url }}
+          SECTIONS: ${{ inputs.sections }}
+
+      - name: Upload anomalies (if any)
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: site-health-anomalies
+          path: site_health_anomalies.txt
+          if-no-files-found: ignore
