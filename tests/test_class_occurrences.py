@@ -431,56 +431,54 @@ def test_home_feed_permalinkless_program_has_no_fake_details_link() -> None:
     # another xdist worker can't drop this row via drop_event_duplicates (the old
     # "Pony Lead Line Rides" fixture flaked exactly that way — see
     # test_permalinkless_program_survives_generic_same_day_event).
+    # A permalink-less program (venue Schedule with no provider page and no
+    # website → occ.url == "") is SUPPRESSED from public feeds: no unlinked
+    # plain-text rows (Casey 2026-07-10). It stays hidden until the org claims a
+    # listing. (Supersedes the old "render without a fabricated Details link".)
+    # Asserting ABSENCE is inherently flake-proof — the #819-class xdist flake was
+    # a row intermittently missing; a suppressed row is missing by design.
     suf = uuid.uuid4().hex[:8]
     title = _permalinkless_title(suf)
     venue = _make_permalinkless_program(title, ["saturday"])
-    day = _unique_saturday(suf)  # far-future + unique → no xdist same-day contamination
-    # Pin the render clock to the start of ``day`` so every "now" read inside
-    # day_groups (projection horizon, expiry, today-cutoff) is deterministic and
-    # can't rot across the UTC↔America/Phoenix boundary on a CI worker.
+    day = _unique_saturday(suf)
     now = datetime.combine(day, time(0, 0), tzinfo=LAKE_HAVASU_TZ)
     try:
-        # Fixes the recurring #819-class flake (permalink-less row intermittently
-        # absent) that ONLY reproduces under xdist, never sequentially. Two guards,
-        # both on the read session:
-        #   1. A commit + expire_all before the read forces this session onto a
-        #      fresh transaction snapshot, so the just-committed program from
-        #      _make_permalinkless_program is always visible (a stale pooled-
-        #      connection snapshot under parallel load was the intermittent miss).
-        #   2. Deleting any live Event on this UNIQUE far-future date closes the
-        #      only other removal path — drop_event_duplicates matching a same-day
-        #      Event leaked from a neighbour. The date is ours; nothing legitimate
-        #      is deleted.
         with SessionLocal() as db:
-            db.query(Event).filter(Event.date == day).delete(synchronize_session=False)
-            db.commit()
-            db.expire_all()
             groups = events_views.day_groups(db, day=day, events_only=False, now=now)
         rows = _all_rows(groups)
-        row = next((r for r in rows if r.get("venue") == venue), None)
-        assert row is not None, "permalink-less program should still appear in the feed"
-        assert not row.get("url"), "should render without a fabricated Details link"
-        assert "#program" not in (row.get("url") or "")
+        assert not any(r.get("venue") == venue for r in rows), (
+            "an unlinked program must not render as a dead-end plain-text row"
+        )
     finally:
         _delete_permalinkless_program(venue)
 
 
-def test_events_ui_renders_program_anchor_id() -> None:
-    """The permalink-less program's Places row carries the matching deep-link
-    anchor so the home-feed link lands on it (Item 2; Places-bound under the
-    two-surface split)."""
-    # Collision-proof title + teardown (same flake class as the sibling test).
-    title = _permalinkless_title(uuid.uuid4().hex[:8])
-    venue = _make_permalinkless_program(title, ["wednesday"])
-    anchor = program_anchor(title, venue)
-    try:
-        with SessionLocal() as db:
-            groups = events_views.day_groups(db, day=date(2026, 12, 9), events_only=False)
-        row = next((r for r in _all_rows(groups) if title in (r.get("title") or "")), None)
-        assert row is not None
-        assert row.get("anchor") == anchor
-    finally:
-        _delete_permalinkless_program(venue)
+def test_linked_program_still_appears_and_links() -> None:
+    """The no-unlinked-rows rule must NOT over-suppress: a program WITH a directory
+    page (provider) still surfaces in the feed and links to its /provider page."""
+    title = f"Linked Vinyasa {uuid.uuid4().hex[:6]}"
+    slug, _eid, _name = _make_venue_with_class(title, ["saturday"])
+    day = _unique_saturday(uuid.uuid4().hex[:8])
+    now = datetime.combine(day, time(0, 0), tzinfo=LAKE_HAVASU_TZ)
+    with SessionLocal() as db:
+        groups = events_views.day_groups(db, day=day, events_only=False, now=now)
+    row = next((r for r in _all_rows(groups) if title in (r.get("title") or "")), None)
+    assert row is not None, "a provider-linked program must still appear"
+    assert row.get("url") == f"/provider/{slug}"
+
+
+def test_governance_meeting_suppressed_even_when_linked() -> None:
+    """Internal governance (board/executive/council) is not 'what's on' content and
+    is suppressed from public feeds even when the venue HAS a provider page."""
+    title = f"Executive Board Meeting {uuid.uuid4().hex[:6]}"
+    _make_venue_with_class(title, ["saturday"])
+    day = _unique_saturday(uuid.uuid4().hex[:8])
+    now = datetime.combine(day, time(0, 0), tzinfo=LAKE_HAVASU_TZ)
+    with SessionLocal() as db:
+        groups = events_views.day_groups(db, day=day, events_only=False, now=now)
+    assert not any(title in (r.get("title") or "") for r in _all_rows(groups)), (
+        "a board/executive meeting must be suppressed from the feed"
+    )
 
 
 def test_class_cards_survive_busy_day_cap() -> None:
@@ -506,17 +504,16 @@ def test_class_cards_survive_busy_day_cap() -> None:
     assert any(title in (r.get("title") or "") for r in _all_rows(groups))
 
 
-def test_permalinkless_program_survives_generic_same_day_event() -> None:
-    """Regression (flake root-cause): a class occurrence is dropped from the feed
-    when a LIVE Event on the same date has token-subset-matching title + a
-    compatible time (``drop_event_duplicates`` — correct in prod: the richer Event
-    supersedes its Schedule twin). The permalink-less fixtures therefore use a
-    COLLISION-PROOF, uniquely-tokened title so an unrelated same-day event created
-    by another test (under xdist, on the shared per-worker DB) can never suppress
-    them. Here we plant exactly such an interfering event and assert survival."""
+def test_linked_program_survives_generic_same_day_event() -> None:
+    """Regression: a LINKED class occurrence must not be dropped from the feed when
+    a live Event on the same date has a token-subset-matching title (the
+    ``drop_event_duplicates`` twin-suppression). A uniquely-tokened title can never
+    subset-match, so an unrelated same-day event (e.g. leaked by another xdist
+    worker) cannot suppress it. Uses a provider-linked program so the row also
+    survives the no-unlinked-rows feed rule."""
     suf = uuid.uuid4().hex[:8]
-    title = _permalinkless_title(suf)  # uniquely tokened — cannot subset-match
-    venue = _make_permalinkless_program(title, ["saturday"])
+    title = f"Permalinked{suf}"  # uniquely tokened — cannot subset-match
+    slug, _eid, _name = _make_venue_with_class(title, ["saturday"])
     day = _unique_saturday(suf)  # far-future + unique → only THIS test's data on it
     with SessionLocal() as db:
         # A generic same-day event whose tokens WOULD suppress a common-worded
@@ -534,10 +531,61 @@ def test_permalinkless_program_survives_generic_same_day_event() -> None:
     try:
         with SessionLocal() as db:
             groups = events_views.day_groups(db, day=day, events_only=False)
-        row = next((r for r in _all_rows(groups) if r.get("venue") == venue), None)
+        row = next((r for r in _all_rows(groups) if title in (r.get("title") or "")), None)
         assert row is not None, "unique-titled program must not be dropped by a generic event"
+        assert row.get("url") == f"/provider/{slug}"
     finally:
-        _delete_permalinkless_program(venue)
         with SessionLocal() as db:  # hermetic: don't leak the planted event
             db.query(Event).filter(Event.id == interfering_id).delete()
             db.commit()
+
+
+# ── public-feed visibility rule (Casey 2026-07-10) ───────────────────────────
+def _occ(title: str, *, slug: str | None = None, website: str | None = None) -> ClassOccurrence:
+    return ClassOccurrence(
+        title=title, date=date(2026, 12, 5), start_time=time(10, 0), end_time=time(11, 0),
+        venue="Some Venue", provider_slug=slug, weekdays=frozenset({4}),
+        provider_website=website,
+    )
+
+
+def test_is_governance_meeting() -> None:
+    from app.events.class_occurrences import is_governance_meeting
+
+    assert is_governance_meeting("Executive Board Meeting")
+    assert is_governance_meeting("Board of Directors Meeting")
+    assert is_governance_meeting("City Council Meeting")
+    assert is_governance_meeting("Planning Commission Meeting")
+    assert is_governance_meeting("Finance Committee Meeting")
+    # NOT governance — general member meeting is url-gated, not suppressed outright;
+    # "board game" / "surfboard" must not false-match.
+    assert not is_governance_meeting("General Member Meeting")
+    assert not is_governance_meeting("Board Game Night")
+    assert not is_governance_meeting("Paddleboard Basics")
+    assert not is_governance_meeting("Yoga")
+    assert not is_governance_meeting(None)
+
+
+def test_feed_visible_occurrences_drops_unlinked_and_governance() -> None:
+    from app.events.class_occurrences import feed_visible_occurrences
+
+    linked = _occ("Vinyasa Flow", slug="studio-x")          # /provider link -> kept
+    web = _occ("Open Swim", website="https://pool.example")  # website link -> kept
+    unlinked = _occ("Community Outreach Sewing")             # no link -> suppressed
+    gov = _occ("Executive Board Meeting", slug="club-x")     # linked but governance -> suppressed
+    out = feed_visible_occurrences([linked, web, unlinked, gov])
+    assert linked in out
+    assert web in out
+    assert unlinked not in out
+    assert gov not in out
+
+
+def test_drop_in_time_label_fallback() -> None:
+    from app.home.events_views import DROP_IN_LABEL, _row_time_label
+
+    # No published time on an open-gym / drop-in title -> helpful "call for hours".
+    assert _row_time_label("Tiny Tots - Open Gym", None, None) == DROP_IN_LABEL
+    assert _row_time_label("Drop-In Pottery", None, None) == DROP_IN_LABEL
+    # A real time still renders normally; a non-drop-in stays "Time TBD".
+    assert _row_time_label("Tiny Tots - Open Gym", time(10, 0), None) != DROP_IN_LABEL
+    assert _row_time_label("Board Meeting", None, None) != DROP_IN_LABEL

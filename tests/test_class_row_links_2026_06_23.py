@@ -1,12 +1,12 @@
-"""Empty-url class rows render as plain text, never <a href="">.
+"""Page-less class rows are SUPPRESSED from public feeds — no unlinked rows.
 
-Phase 2.2 (FIX_SPEC_2026-06-23). Live bug: page-less class rows (e.g. Havasu
-Pilates) linked back to ``/events-ui`` — a browser resolves ``href=""`` to the
-current URL. Tracing into code shows it's already handled: ``ClassOccurrence.url``
-returns ``""`` when there is no provider slug/website, and BOTH events templates
-(``events_lake.html:78-82``, ``events_sandstone.html:69-85``) wrap such rows in a
-``--nolink`` ``<div>``, not an ``<a>``. The live self-link was the stale deploy.
-These regressions lock the render-time guard on both themes.
+Originally (Phase 2.2, FIX_SPEC_2026-06-23) the guard was that a page-less class
+row (``ClassOccurrence.url == ""`` — no provider slug/website, e.g. Havasu
+Pilates) rendered as PLAIN TEXT rather than a dead ``<a href="">`` self-link.
+Casey 2026-07-10 superseded that: a public feed has NO unlinked plain-text rows
+at all, so a page-less program is now suppressed entirely (which satisfies the
+old no-dead-link guard even more strongly — the row doesn't render). These
+regressions lock the new suppression on both themes.
 """
 
 from __future__ import annotations
@@ -44,11 +44,12 @@ def _seed_pageless_program(title: str, weekday: str) -> None:
         db.commit()
 
 
-def _assert_pageless_row_is_not_a_dead_link(theme_qs: str) -> None:
-    # UNIFY (Rule 0b 2026-06-26): recurring classes now render inline on the one
-    # unified calendar (the ?view=places tab is retired). The page-less program
-    # recurs every Wednesday, so it shows on a Wednesday day view; the render-time
-    # dead-link guard must still hold there.
+def _assert_pageless_program_suppressed(theme_qs: str) -> None:
+    # Casey 2026-07-10: no unlinked plain-text rows in public feeds — a page-less
+    # program (occ.url == "") is suppressed entirely (superseding the earlier
+    # "render as plain text, never a dead <a href="">"). The recurring program
+    # would land on a Wednesday day view; assert it does NOT, and that no dead
+    # self-link renders anywhere.
     title = f"Pageless Pilates {uuid.uuid4().hex[:6]}"
     _seed_pageless_program(title, "wednesday")
     today = date.today()
@@ -56,15 +57,14 @@ def _assert_pageless_row_is_not_a_dead_link(theme_qs: str) -> None:
     wed = today + timedelta(days=days_ahead)
     r = TestClient(app).get(f"/events-ui?date={wed.isoformat()}{theme_qs}")
     assert r.status_code == 200
-    assert title in r.text, "page-less program should render on the unified calendar"
-    # The exact live bug: an empty/self href the browser resolves to /events-ui.
+    assert title not in r.text, "a page-less program must be suppressed, not rendered"
     assert 'href=""' not in r.text
     assert 'href="#"' not in r.text
 
 
-def test_pageless_class_row_has_no_dead_link_lake() -> None:
-    _assert_pageless_row_is_not_a_dead_link("&theme=lake")
+def test_pageless_program_suppressed_lake() -> None:
+    _assert_pageless_program_suppressed("&theme=lake")
 
 
-def test_pageless_class_row_has_no_dead_link_sandstone() -> None:
-    _assert_pageless_row_is_not_a_dead_link("&theme=desert")
+def test_pageless_program_suppressed_sandstone() -> None:
+    _assert_pageless_program_suppressed("&theme=desert")

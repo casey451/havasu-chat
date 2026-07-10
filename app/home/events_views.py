@@ -59,6 +59,7 @@ from app.events.activity_taxonomy import (
 from app.events.class_occurrences import (
     class_occurrences_in_window,
     drop_event_duplicates,
+    feed_visible_occurrences,
 )
 from app.events.event_type_tags import event_type_label
 from app.events.family_filter import is_family_event, is_youth_event
@@ -142,6 +143,13 @@ ALL_DAY_LABEL = "All day"
 # pickleball open play. Everything else keeps the honest "Time TBD".
 _ALL_DAY_TITLE_RE = re.compile(r"\b(?:pickleball|open play)\b", re.IGNORECASE)
 
+# A drop-in / open-gym program with no published clock time: show a helpful
+# "call for hours" chip instead of a bare/blank one (Casey 2026-07-10). Distinct
+# from the all-day case above — "Open Gym" isn't all-day, its hours just weren't
+# captured, so the honest ask is to call.
+DROP_IN_LABEL = "Drop-in — call for hours"
+_DROP_IN_TITLE_RE = re.compile(r"\b(?:drop-?in|open\s+gym)\b", re.IGNORECASE)
+
 
 def _row_time_label(title: str, start_time: time | None, end_time: time | None) -> str:
     """Time chip for a day-view row.
@@ -155,6 +163,10 @@ def _row_time_label(title: str, start_time: time | None, end_time: time | None) 
         return label
     if _ALL_DAY_TITLE_RE.search(title or ""):
         return ALL_DAY_LABEL
+    # A drop-in / open-gym / open-play program with no published clock time reads
+    # "Drop-in — call for hours" rather than a bare/blank chip (Casey 2026-07-10).
+    if _DROP_IN_TITLE_RE.search(title or ""):
+        return DROP_IN_LABEL
     return TIME_TBD_LABEL
 
 
@@ -586,14 +598,16 @@ def day_groups(
     _sched_occs = (
         []
         if events_only
-        else drop_event_duplicates(
-            class_occurrences_in_window(
-                db,
-                window_start=day,
-                window_end=day,
-                horizon_today=now.date() if now is not None else None,
-            ),
-            event_keys,
+        else feed_visible_occurrences(
+            drop_event_duplicates(
+                class_occurrences_in_window(
+                    db,
+                    window_start=day,
+                    window_end=day,
+                    horizon_today=now.date() if now is not None else None,
+                ),
+                event_keys,
+            )
         )
     )
     for occ in _sched_occs:
@@ -888,8 +902,10 @@ def week_rows(
     _sched_occs = (
         []
         if events_only
-        else drop_event_duplicates(
-            class_occurrences_in_window(db, window_start=start, window_end=end), event_keys
+        else feed_visible_occurrences(
+            drop_event_duplicates(
+                class_occurrences_in_window(db, window_start=start, window_end=end), event_keys
+            )
         )
     )
     for occ in _sched_occs:
