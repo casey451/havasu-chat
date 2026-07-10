@@ -283,6 +283,7 @@ _SCRAPE_EVENT_SOURCES = frozenset(
         "lhc_bmx",
         "havasu_youth",
         "havasu_museum",
+        "altitude_booking",
     }
 )
 

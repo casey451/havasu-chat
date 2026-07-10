@@ -1,5 +1,6 @@
 """Phase 9b event source scrapers."""
 
+from app.events.scrapers.altitude_booking import AltitudeBookingClient
 from app.events.scrapers.base import EventIngestClient, EventPayload
 from app.events.scrapers.chamber import ChamberClient
 from app.events.scrapers.facebook_pages import FacebookPagesClient
@@ -24,9 +25,11 @@ SOURCE_REGISTRY: dict[str, type[EventIngestClient]] = {
     "havasu_youth": HavasuYouthClient,
     "havasu_museum": HavasuMuseumClient,
     "facebook": FacebookPagesClient,
+    "altitude_booking": AltitudeBookingClient,
 }
 
 __all__ = [
+    "AltitudeBookingClient",
     "ChamberClient",
     "EventIngestClient",
     "EventPayload",

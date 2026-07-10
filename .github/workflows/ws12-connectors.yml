@@ -45,7 +45,9 @@ jobs:
         if: github.event_name == 'schedule'
         env:
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python -m scripts.scrape_events --source lhc_bmx --source havasu_youth
+        run: >
+          python -m scripts.scrape_events
+          --source lhc_bmx --source havasu_youth --source altitude_booking
 
       - name: First-run all WS12 connectors (review queue)
         if: github.event_name == 'workflow_dispatch'
@@ -54,6 +56,7 @@ jobs:
         run: >
           python -m scripts.scrape_events
           --source lhc_bmx --source havasu_youth --source havasu_museum
+          --source altitude_booking
 
       - name: Report pending review-queue batches
         env:
