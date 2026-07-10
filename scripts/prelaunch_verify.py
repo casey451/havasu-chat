@@ -91,6 +91,18 @@ _SOURCE_MAP: list[tuple[str, str, bool]] = [
 ]
 
 
+# Origins that return an INTERMITTENT 404/challenge to a bot UA (observed flapping
+# 404<->200 run-to-run — e.g. usabmx). A dead-link reading here is not trustworthy,
+# so it routes to review (verify via the connector's own fetch), never an
+# auto-quarantine, and it keeps the nightly cron from false-alarming on flakiness.
+_FLAKY_SOURCE_DOMAINS = frozenset({"usabmx.com"})
+
+
+def _is_flaky_domain(url: str) -> bool:
+    host = (urlparse(url).netloc or "").lower().replace("www.", "")
+    return any(host == d or host.endswith("." + d) for d in _FLAKY_SOURCE_DOMAINS)
+
+
 def classify_source(url: str) -> tuple[str, bool]:
     host = (urlparse(url).netloc or "").lower().replace("www.", "")
     for needle, label, per_event in _SOURCE_MAP:
@@ -393,9 +405,14 @@ def _verify_once(client: httpx.Client, ev: CatEvent) -> dict:
     final_path = urlparse(str(r.url)).path.rstrip("/")
     if r.status_code >= 400:
         if r.status_code in (404, 410):
-            res.update(field="fetch", site_value=ev.url, source_value=f"HTTP {r.status_code}",
-                       detail=f"DEAD_LINK: HTTP {r.status_code} (source gone)",
-                       proposed_action="quarantine" if per_event_link else "review")
+            if _is_flaky_domain(ev.url):
+                res.update(field="fetch", site_value=ev.url, source_value=f"HTTP {r.status_code}",
+                           detail=f"FLAKY_SOURCE: HTTP {r.status_code} on a known-flaky origin — verify via connector",
+                           proposed_action="review")
+            else:
+                res.update(field="fetch", site_value=ev.url, source_value=f"HTTP {r.status_code}",
+                           detail=f"DEAD_LINK: HTTP {r.status_code} (source gone)",
+                           proposed_action="quarantine" if per_event_link else "review")
         else:  # 401/403/429/5xx — bot-block or transient, NOT proof the event is gone
             res.update(field="fetch", site_value=ev.url, source_value=f"HTTP {r.status_code}",
                        detail=f"UNREACHABLE: HTTP {r.status_code} (bot-block/transient — recheck)",
