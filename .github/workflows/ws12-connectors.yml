@@ -1,0 +1,61 @@
+name: ws12-connectors
+
+# WS12 coverage connectors that write into the CONTRIBUTIONS REVIEW QUEUE.
+# lhc_bmx + havasu_youth are review-queue-first (NOT auto-approved), so a
+# scheduled run only fills the queue for human approval in /admin — it never
+# auto-publishes. The scheduled slot also keeps each connector's ingest_runs
+# heartbeat fresh so the freshness canary can grade it (PENDING -> OK).
+#
+# - schedule: runs lhc_bmx + havasu_youth every other day.
+# - workflow_dispatch: first-run all three (incl. havasu_museum) + prints the
+#   pending review-queue batches so they can be reviewed before approval.
+#   (havasu_museum also has its own weekly cron in museum-events.yml.)
+#
+# NOTE: GitHub only runs scheduled workflows from the DEFAULT branch, so the cron
+# is dormant until this file is merged to main.
+
+on:
+  schedule:
+    # 6:40 AM Arizona (MST/UTC-7, no DST), every other day (odd days), staggered
+    # off the other scrape crons. 2-day cadence fits inside the 120h heartbeat
+    # budget for lhc_bmx / havasu_youth.
+    - cron: "40 13 1-31/2 * *"
+  workflow_dispatch: {}
+
+concurrency:
+  group: ws12-connectors
+  cancel-in-progress: false
+
+jobs:
+  scrape:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Scrape scheduled youth connectors (review queue)
+        if: github.event_name == 'schedule'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m scripts.scrape_events --source lhc_bmx --source havasu_youth
+
+      - name: First-run all WS12 connectors (review queue)
+        if: github.event_name == 'workflow_dispatch'
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: >
+          python -m scripts.scrape_events
+          --source lhc_bmx --source havasu_youth --source havasu_museum
+
+      - name: Report pending review-queue batches
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/report_pending_contributions.py
