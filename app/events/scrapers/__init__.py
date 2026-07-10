@@ -2,6 +2,7 @@
 
 from app.events.scrapers.base import EventIngestClient, EventPayload
 from app.events.scrapers.chamber import ChamberClient
+from app.events.scrapers.facebook_pages import FacebookPagesClient
 from app.events.scrapers.go_lake_havasu import GoLakeHavasuClient
 from app.events.scrapers.havasu_youth import HavasuYouthClient
 from app.events.scrapers.lhc_bmx import LhcBmxClient
@@ -22,12 +23,14 @@ SOURCE_REGISTRY: dict[str, type[EventIngestClient]] = {
     "lhc_bmx": LhcBmxClient,
     "havasu_youth": HavasuYouthClient,
     "havasu_museum": HavasuMuseumClient,
+    "facebook": FacebookPagesClient,
 }
 
 __all__ = [
     "ChamberClient",
     "EventIngestClient",
     "EventPayload",
+    "FacebookPagesClient",
     "GoLakeHavasuClient",
     "HavasuMuseumClient",
     "HavasuYouthClient",
