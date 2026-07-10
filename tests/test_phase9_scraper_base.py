@@ -112,4 +112,5 @@ def test_source_registry_keys() -> None:
         "lhc_bmx",
         "havasu_youth",
         "havasu_museum",
+        "facebook",
     }
