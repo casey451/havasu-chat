@@ -1,0 +1,75 @@
+name: prelaunch-polish-data-apply
+
+# GATED, MANUAL-ONLY pre-launch polish data fixes (Casey 2026-07-10 #2/#3/#4). Runs
+# scripts/prelaunch_polish_data_2026_07_10.py: retime the two missing-time rows
+# (Summer Free Movies TMNT → 09:30, Tiny Tots 07-22 → 10:00), rename the Telesis
+# venue (address → "Telesis Preparatory Academy"), and normalize the ~20 bare
+# "Lake Havasu" P&R venues → "Lake Havasu City Parks & Recreation". Title-guarded,
+# idempotent, reversible via undo CSV.
+#
+# DRY-RUN unless the `confirm` input is exactly APPLY. workflow_dispatch ONLY.
+
+on:
+  workflow_dispatch:
+    inputs:
+      confirm:
+        description: "Type APPLY to write. Anything else = dry-run (no DB writes)."
+        required: false
+        default: ""
+
+permissions:
+  contents: read
+
+concurrency:
+  group: prelaunch-polish-data-apply
+  cancel-in-progress: false
+
+jobs:
+  polish:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
+        with:
+          persist-credentials: false
+
+      - uses: actions/setup-python@a309ff8b426b58ec0e2a45f0f869d46889d02405 # v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Polish data fixes (dry-run unless confirm=APPLY)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+          CONFIRM: ${{ github.event.inputs.confirm }}
+        run: |
+          set -euo pipefail
+          if [ -z "${DATABASE_URL:-}" ]; then
+            echo "::error::DATABASE_URL secret is empty — refusing to run."
+            exit 1
+          fi
+          if [ "${CONFIRM}" = "APPLY" ]; then
+            echo "CONFIRM=APPLY -> writing (gated, reversible)."
+            python scripts/prelaunch_polish_data_2026_07_10.py --apply
+          else
+            echo "confirm != APPLY -> DRY-RUN (no DB writes)."
+            python scripts/prelaunch_polish_data_2026_07_10.py
+          fi
+
+      - name: Purge CDN cache after a write (no-op on dry-run / without CF creds)
+        if: ${{ github.event.inputs.confirm == 'APPLY' }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
+
+      - name: Upload undo CSV (apply runs only)
+        if: always()
+        uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
+        with:
+          name: prelaunch-polish-data-undo
+          path: prelaunch_polish_data_undo_2026-07-10.csv
+          if-no-files-found: ignore
