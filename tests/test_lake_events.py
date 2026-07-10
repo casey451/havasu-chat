@@ -74,8 +74,13 @@ def _sample_groups() -> list[dict]:
 
 
 def test_lake_events_day_bindings() -> None:
+    # Pin the day view: WS9c makes "weekend" the default landing Fri–Sun
+    # (app/home/router.py::_is_weekend_default_day), which renders a different
+    # path and bypasses the patched day_groups — so a bare "/events-ui" made this
+    # assertion date-rot (green Mon–Thu, red Fri–Sun). ?view=today forces the
+    # single-day render on any weekday.
     with patch("app.home.events_views.day_groups", return_value=_sample_groups()):
-        b = TestClient(app).get("/events-ui?theme=lake").text
+        b = TestClient(app).get("/events-ui?theme=lake&view=today").text
     assert 'class="sec' in b
     assert "Around town" in b and "Sunset Paddle" in b
     assert "Fitness &amp; classes" in b and "Sunrise Flow" in b  # subgroup row
