@@ -36,3 +36,8 @@ jobs:
           ARGS=""
           for s in ${{ inputs.sources }}; do ARGS="$ARGS --source $s"; done
           python scripts/classify_residue_pending.py $ARGS
+
+      - name: Residue triage (parks internal-dedup + lints; allevents 3-way)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/residue_triage.py
