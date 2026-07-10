@@ -277,11 +277,12 @@ _SCRAPE_EVENT_SOURCES = frozenset(
         "allevents",
         "legistar",
         "lhusd",
-        # WS12 youth connectors: stamp provenance on approval (cross-source
-        # dedup + analytics + per-connector freshness) even though they are
-        # review-gated, not auto-approved.
+        # WS12 connectors: stamp provenance on approval (cross-source dedup +
+        # analytics + per-connector freshness) even though they are review-gated,
+        # not auto-approved.
         "lhc_bmx",
         "havasu_youth",
+        "havasu_museum",
     }
 )
 

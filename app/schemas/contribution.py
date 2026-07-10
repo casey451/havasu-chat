@@ -51,6 +51,9 @@ ContributionSource = Literal[
     # (training wheels). Provenance is stamped on approval via _SCRAPE_EVENT_SOURCES.
     "lhc_bmx",
     "havasu_youth",
+    # WS12 public-feed connector: Squarespace events collections (Lake Havasu
+    # Museum of History; reusable base for other Squarespace venues). Review-gated.
+    "havasu_museum",
     # Vision-LLM image scrapers (2026-06-24): Parks & Rec monthly calendar +
     # event flyers, and Senior Center flyers, wired through event_ingest.py. NOT in
     # the auto-approve registry, so every row lands PENDING for /admin review.

@@ -8,6 +8,10 @@ from app.events.scrapers.lhc_bmx import LhcBmxClient
 from app.events.scrapers.lhc_library import LhcLibraryClient
 from app.events.scrapers.lhc_parks_rec import LhcParksRecClient
 from app.events.scrapers.river_scene_v2 import RiverSceneV2Client
+from app.events.scrapers.squarespace_events import (
+    HavasuMuseumClient,
+    SquarespaceEventsClient,
+)
 
 SOURCE_REGISTRY: dict[str, type[EventIngestClient]] = {
     "chamber": ChamberClient,
@@ -17,6 +21,7 @@ SOURCE_REGISTRY: dict[str, type[EventIngestClient]] = {
     "lhc_parks_rec": LhcParksRecClient,
     "lhc_bmx": LhcBmxClient,
     "havasu_youth": HavasuYouthClient,
+    "havasu_museum": HavasuMuseumClient,
 }
 
 __all__ = [
@@ -24,10 +29,12 @@ __all__ = [
     "EventIngestClient",
     "EventPayload",
     "GoLakeHavasuClient",
+    "HavasuMuseumClient",
     "HavasuYouthClient",
     "LhcBmxClient",
     "LhcLibraryClient",
     "LhcParksRecClient",
     "RiverSceneV2Client",
     "SOURCE_REGISTRY",
+    "SquarespaceEventsClient",
 ]
