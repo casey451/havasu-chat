@@ -189,7 +189,14 @@ def test_evaluate_boundary_just_inside_budget_is_ok() -> None:
 
 
 def test_configured_sources_match_live_workflow_strings() -> None:
-    """Guard against drift: the configured sources must be the exact strings the
-    scheduled *_pull.py workflows write (not the app/events/scrapers keys)."""
-    configured = {c.source for c in fc.SOURCE_CHECKS}
-    assert configured == {"river_scene_import", "go_lake_havasu"}
+    """Guard against drift: the event_rows-mode sources must be the exact strings
+    the scheduled *_pull.py workflows write (not the app/events/scrapers keys)."""
+    event_row_sources = {c.source for c in fc.SOURCE_CHECKS if c.mode == "event_rows"}
+    assert event_row_sources == {"river_scene_import", "go_lake_havasu"}
+
+
+def test_ws12_connectors_use_ingest_run_mode() -> None:
+    """WS12 connectors are tracked by the run-heartbeat, keyed on the
+    app/events/scrapers registry source names."""
+    run_sources = {c.source for c in fc.SOURCE_CHECKS if c.mode == "ingest_run"}
+    assert {"havasu_museum", "lhc_bmx", "havasu_youth"} <= run_sources
