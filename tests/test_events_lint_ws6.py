@@ -7,21 +7,27 @@ review, but we still keep it tight).
 
 from __future__ import annotations
 
-from datetime import time
+from datetime import date, time
 from types import SimpleNamespace
 
 import pytest
 
 from app.events.lint import (
+    category_keyword_contradiction,
+    generic_venue_reason,
     is_early_activity,
     is_kids_series,
+    is_shouting_title,
     landmark_venue_mismatch,
     lint_event,
+    missing_time,
     name_category_contradiction,
     parks_rec_venue_unrecognized,
     reads_as_venue_hours,
+    season_out_of_season,
     suspect_ampm_flip,
     suspect_showtime,
+    weekday_title_mismatch,
 )
 
 
@@ -260,3 +266,116 @@ def test_lint_event_flags_landmark_venue_mismatch_on_glh_row() -> None:
     )
     rules = {f.rule for f in lint_event(ev)}
     assert "landmark_venue_mismatch" in rules
+
+
+# ── weekday-in-title mismatch (pre-launch deep-verify battery) ────────────────
+@pytest.mark.parametrize("title,d,flag", [
+    ("Taco Tuesday", date(2026, 7, 14), False),   # 2026-07-14 IS a Tuesday — fine
+    ("Taco Tuesday", date(2026, 7, 15), True),    # a Wednesday — mismatch
+    ("Monday Night Trivia", date(2026, 7, 14), True),   # Tuesday
+    ("First Friday Art Walk", date(2026, 7, 3), False),  # 2026-07-03 IS a Friday
+    ("First Friday Art Walk", date(2026, 7, 4), True),   # a Saturday
+    ("Saturdays at the Market", date(2026, 7, 11), False),  # Saturday
+    # ambiguous / no single day → never flagged
+    ("Mon/Wed/Fri Bootcamp", date(2026, 7, 14), False),
+    ("Yoga Monday & Thursday", date(2026, 7, 15), False),
+    ("Summer Concert Series", date(2026, 7, 15), False),
+])
+def test_weekday_title_mismatch(title: str, d: object, flag: bool) -> None:
+    assert (weekday_title_mismatch(title, d) is not None) is flag
+
+
+def test_weekday_title_mismatch_guards() -> None:
+    assert weekday_title_mismatch(None, date(2026, 7, 14)) is None
+    assert weekday_title_mismatch("Taco Tuesday", None) is None
+
+
+# ── season / holiday out of season ───────────────────────────────────────────
+@pytest.mark.parametrize("title,d,flag", [
+    ("Summer Concert Series", date(2026, 7, 15), False),   # July is summer
+    ("Summer Concert Series", date(2026, 12, 15), True),   # December is not
+    ("Halloween Spooktacular", date(2026, 10, 20), False),
+    ("Halloween Spooktacular", date(2026, 7, 20), True),   # July Halloween — wrong
+    ("Christmas Market", date(2026, 4, 5), True),          # April Christmas — wrong
+    ("Winter Wonderland", date(2026, 1, 5), False),        # January is winter
+    ("4th of July Parade", date(2026, 7, 4), False),
+    ("4th of July Parade", date(2026, 9, 4), True),
+    # deliberate cross-season theme — title names the actual month → not flagged
+    ("Christmas in July Camp", date(2026, 7, 14), False),
+    ("Christmas Market", date(2026, 12, 5), False),
+    # precision: season words embedded in names/venues are not flagged
+    ("Springboard Diving Lessons", date(2026, 7, 1), False),
+    ("Waterfall Hike", date(2026, 7, 1), False),
+])
+def test_season_out_of_season(title: str, d: object, flag: bool) -> None:
+    assert (season_out_of_season(title, d) is not None) is flag
+
+
+# ── generic / address venue ──────────────────────────────────────────────────
+@pytest.mark.parametrize("venue,flag", [
+    ("2144 McCulloch Blvd N", True),           # bare street address
+    ("1350 McCulloch Blvd S, Lake Havasu City", True),
+    ("TBD", True),
+    ("Online", True),
+    ("Various Locations", True),
+    # named places / districts — not flagged
+    ("Lake Havasu City Aquatic Center", False),
+    ("Downtown Lake Havasu", False),
+    ("Mudshark Public House", False),
+    ("The KAWS", False),
+    (None, False),
+    ("", False),
+])
+def test_generic_venue_reason(venue: str | None, flag: bool) -> None:
+    assert (generic_venue_reason(venue) is not None) is flag
+
+
+# ── missing time ─────────────────────────────────────────────────────────────
+def test_missing_time() -> None:
+    assert missing_time(None) is True
+    assert missing_time(None, all_day=True) is False
+    assert missing_time(time(9, 0)) is False
+
+
+# ── ALL-CAPS shouting title ──────────────────────────────────────────────────
+@pytest.mark.parametrize("title,flag", [
+    ("SUMMER BLOWOUT SALE", True),
+    ("GLOW IN THE DARK PARTY", True),
+    ("BINGO NIGHT", True),
+    # brands/acronyms with <2 long-caps words — not flagged
+    ("USA BMX Race", False),
+    ("Summer Blowout Sale", False),
+    ("Live Music at The Foundry", False),
+    ("VBS Kickoff", False),
+    (None, False),
+])
+def test_is_shouting_title(title: str | None, flag: bool) -> None:
+    assert is_shouting_title(title) is flag
+
+
+# ── category ↔ title-keyword contradiction (shark → boating) ─────────────────
+def test_category_keyword_contradiction() -> None:
+    assert category_keyword_contradiction("Shark Week Splash", "Things to Do,boating") is not None
+    assert category_keyword_contradiction("Sunset Yoga", "Eat & Drink") is not None
+    assert category_keyword_contradiction("Kids Wine & Paint", "Family,kids") is not None
+    # precision negatives
+    assert category_keyword_contradiction("Shark Week Splash", "Family,kids") is None
+    assert category_keyword_contradiction("Sunset Yoga", "Fitness & Sports,yoga") is None
+    assert category_keyword_contradiction("Wine Walk", "Eat & Drink,wine") is None
+    assert category_keyword_contradiction(None, "boating") is None
+
+
+# ── new rules never fire on a legitimate, fully-populated row ─────────────────
+def test_new_rules_precision_on_clean_populated_event() -> None:
+    ev = SimpleNamespace(
+        title="Lake Havasu Farmers Market",
+        description="A community market downtown.",
+        start_time=time(8, 0),
+        end_time=time(12, 0),
+        location_name="Downtown Lake Havasu",
+        date=date(2026, 7, 11),        # a Saturday
+        category="Things to Do,market",
+        source="allevents",
+        event_url="https://www.lakehavasufarmersmarket.com/",
+    )
+    assert lint_event(ev) == []

@@ -222,6 +222,179 @@ def landmark_venue_mismatch(venue: str | None, description: str | None) -> str |
     return real
 
 
+# ── weekday-in-title mismatch ─────────────────────────────────────────────────
+# A title that names a weekday ("Taco Tuesday", "Monday Night Trivia", "First
+# Friday") asserts the day it happens. When the actual date falls on a DIFFERENT
+# weekday, the date (or the title) is wrong — a real class of ingest slip when a
+# recurring series is stamped onto the wrong occurrence. Fires only on a SINGLE,
+# unambiguous weekday token: a "Mon/Wed/Fri" listing or two different day names
+# names a schedule, not this date, so it's left alone.
+_WEEKDAY_INDEX: dict[str, int] = {
+    "monday": 0, "tuesday": 1, "wednesday": 2, "thursday": 3,
+    "friday": 4, "saturday": 5, "sunday": 6,
+}
+_WEEKDAY_RE = re.compile(
+    r"\b(monday|tuesday|wednesday|thursday|friday|saturday|sunday)s?\b", re.IGNORECASE
+)
+
+
+def weekday_title_mismatch(title: str | None, event_date: Any = None) -> str | None:
+    """Return a note when ``title`` names exactly one weekday that isn't the event's
+    actual weekday; else ``None``. Needs a ``date``-like with ``.weekday()``
+    (Mon=0…Sun=6). Multiple distinct day names → ``None`` (a recurring-schedule
+    label, not a claim about this date)."""
+    if not title or event_date is None or not callable(getattr(event_date, "weekday", None)):
+        return None
+    named = {m.group(1).lower() for m in _WEEKDAY_RE.finditer(title)}
+    if len(named) != 1:
+        return None
+    day = next(iter(named))
+    actual_idx = event_date.weekday()
+    if _WEEKDAY_INDEX[day] == actual_idx:
+        return None
+    actual = next(k for k, v in _WEEKDAY_INDEX.items() if v == actual_idx)
+    return f"title names {day.title()} but the date is a {actual.title()}"
+
+
+# ── season / holiday annotation out of season ─────────────────────────────────
+# A season or holiday word in the TITLE asserts a time of year. "Summer Concert"
+# in December, "Halloween Bash" in July, "Christmas Market" in April — the date is
+# almost certainly wrong (or the row is a stale duplicate from another season).
+# Title-only + word-boundaried so a venue/series name ("Springboard", a
+# "Waterfall" hike) is never caught.
+_SEASON_MONTHS: dict[str, frozenset[int]] = {
+    "spring": frozenset({3, 4, 5}),
+    "summer": frozenset({6, 7, 8}),
+    "fall": frozenset({9, 10, 11}),
+    "autumn": frozenset({9, 10, 11}),
+    "winter": frozenset({12, 1, 2}),
+}
+_SEASON_RE = re.compile(r"\b(spring|summer|fall|autumn|winter)\b", re.IGNORECASE)
+_HOLIDAY_MONTHS: list[tuple[re.Pattern[str], frozenset[int]]] = [
+    (re.compile(r"\b(?:halloween|trick[-\s]?or[-\s]?treat|spooktacular)\b", re.I), frozenset({10})),
+    (re.compile(r"\b(?:christmas|xmas|santa|festival of (?:trees|lights))\b", re.I), frozenset({11, 12})),
+    (re.compile(r"\bthanksgiving\b", re.I), frozenset({11})),
+    (re.compile(r"\bnew year'?s?\b", re.I), frozenset({12, 1})),
+    (re.compile(r"\bvalentine'?s?\b", re.I), frozenset({2})),
+    (re.compile(r"\b(?:st\.?\s*patrick'?s?|shamrock)\b", re.I), frozenset({3})),
+    (re.compile(r"\bcinco de mayo\b", re.I), frozenset({5})),
+    (re.compile(r"\beaster\b", re.I), frozenset({3, 4})),
+    (re.compile(r"\b(?:independence day|4th of july|fourth of july|july 4th?)\b", re.I), frozenset({7})),
+    (re.compile(r"\boktoberfest\b", re.I), frozenset({9, 10})),
+]
+
+
+_MONTH_NAMES = (
+    "january", "february", "march", "april", "may", "june",
+    "july", "august", "september", "october", "november", "december",
+)
+
+
+def season_out_of_season(title: str | None, event_date: Any = None) -> str | None:
+    """Return a note when a season/holiday word in ``title`` contradicts the event's
+    month; else ``None``. When the title also names the event's ACTUAL month (a
+    deliberate cross-season theme like 'Christmas in July'), it is not flagged."""
+    if not title or event_date is None or not isinstance(getattr(event_date, "month", None), int):
+        return None
+    month = event_date.month
+    if re.search(rf"\b{_MONTH_NAMES[month - 1]}\b", title, re.IGNORECASE):
+        return None
+    m = _SEASON_RE.search(title)
+    if m and month not in _SEASON_MONTHS[m.group(1).lower()]:
+        return f"title says {m.group(1).title()} but the date is in month {month:02d}"
+    for pat, months in _HOLIDAY_MONTHS:
+        if pat.search(title) and month not in months:
+            return f"title names a holiday/observance out of its season (date month {month:02d})"
+    return None
+
+
+# ── generic / address venue ───────────────────────────────────────────────────
+# The rendered venue should be a NAMED place. A bare street address ("2144
+# McCulloch Blvd N") means ingest never resolved a venue name; a contentless
+# placeholder ("TBD", "Online", "Various") means there's nothing for a visitor to
+# navigate to. Both warrant a review before launch. (An established DISTRICT like
+# "Downtown Lake Havasu" is a real, navigable answer — not flagged.)
+_GENERIC_VENUES: frozenset[str] = frozenset({
+    "tbd", "tba", "n/a", "na", "none", "online", "virtual", "various",
+    "various locations", "to be announced", "to be determined", "location tbd",
+    "location varies", "varies", "multiple locations", "citywide",
+})
+_STREET_ADDRESS_RE = re.compile(
+    r"^\s*\d{2,6}\s+.*\b(?:blvd|boulevard|st|street|ave|avenue|dr|drive|rd|road|"
+    r"way|ln|lane|hwy|highway|ct|court|pkwy|parkway|pl|place|cir|circle|"
+    r"loop|trail|terr|terrace)\b",
+    re.IGNORECASE,
+)
+
+
+def generic_venue_reason(venue: str | None) -> str | None:
+    """Return why a venue is non-navigable — a contentless placeholder or a bare
+    street address — else ``None``. An empty/absent venue is a different concern
+    (missing venue, checked at render) and returns ``None`` here."""
+    if not venue or not venue.strip():
+        return None
+    v = venue.strip()
+    if v.lower() in _GENERIC_VENUES:
+        return f"venue {v!r} is a generic placeholder, not a named place"
+    if _STREET_ADDRESS_RE.match(v):
+        return f"venue {v!r} is a bare street address, not a named place"
+    return None
+
+
+# ── missing start time ────────────────────────────────────────────────────────
+def missing_time(start_time: time | None, *, all_day: bool = False) -> bool:
+    """True when an event has no start time and isn't explicitly all-day — it will
+    render with a blank/'TBD' time, which reads as unfinished data."""
+    return start_time is None and not all_day
+
+
+# ── ALL-CAPS shouting title ───────────────────────────────────────────────────
+_TITLE_WORD_RE = re.compile(r"[A-Za-z][A-Za-z'&-]*")
+
+
+def is_shouting_title(title: str | None) -> bool:
+    """True when a title has two or more all-caps words of length ≥4 — a formatting
+    defect to normalize ('SUMMER BLOWOUT SALE'). Short acronyms/brands (USA, BMX,
+    VBS) never reach the 2×length-4 bar, so 'USA BMX Race' is not flagged."""
+    if not title:
+        return False
+    longcaps = [w for w in _TITLE_WORD_RE.findall(title) if len(w) >= 4 and w.isupper()]
+    return len(longcaps) >= 2
+
+
+# ── category ↔ title-keyword contradiction ────────────────────────────────────
+# The complement of name↔category: a TITLE keyword naming a clearly different
+# domain than the assigned category/tags. Seed case is the naive water→boating
+# classifier stamping "Shark" (a themed kids event) into Boating. Kept to a tight,
+# high-confidence table; matched against a lowercased "category + tags" haystack.
+_KEYWORD_CATEGORY_RULES: list[tuple[re.Pattern[str], frozenset[str], str]] = [
+    (re.compile(r"\bshark\b", re.I), frozenset({"boat", "marine", "watersport"}),
+     "'shark' theme in a boating/marine category"),
+    (re.compile(r"\b(?:yoga|pilates|zumba|spin\s+class)\b", re.I),
+     frozenset({"eat", "drink", "restaurant", "bar", "brew", "retail", "shopping"}),
+     "a fitness class in a food/drink/retail category"),
+    (re.compile(r"\b(?:story\s?time|book\s+club)\b", re.I),
+     frozenset({"boat", "marine", "nightlife", "bar"}),
+     "a library/story program in an unrelated category"),
+    (re.compile(r"\b(?:wine|beer|brew|cocktail|happy\s+hour|tequila|margarita)\b", re.I),
+     frozenset({"kids", "family"}),
+     "an alcohol-themed title in a family/kids category"),
+]
+
+
+def category_keyword_contradiction(title: str | None, category: str | None) -> str | None:
+    """Return a note when a title keyword names a domain that contradicts the
+    assigned ``category`` (a lowercased slug or 'category + tags' string); else
+    ``None``. Conservative by design."""
+    if not title or not category:
+        return None
+    slug = category.strip().lower()
+    for pat, bad_tokens, note in _KEYWORD_CATEGORY_RULES:
+        if pat.search(title) and any(tok in slug for tok in bad_tokens):
+            return note
+    return None
+
+
 # ── aggregate over an event row ───────────────────────────────────────────────
 @dataclass(frozen=True)
 class LintFinding:
@@ -268,4 +441,21 @@ def lint_event(event: Any) -> list[LintFinding]:
                 f"venue is the visitor-center placeholder; description names {real_venue!r}",
             )
         )
+    event_date = getattr(event, "date", None)
+    wd = weekday_title_mismatch(title, event_date)
+    if wd:
+        findings.append(LintFinding("weekday_mismatch", wd))
+    ssn = season_out_of_season(title, event_date)
+    if ssn:
+        findings.append(LintFinding("season_out_of_season", ssn))
+    gv = generic_venue_reason(venue)
+    if gv:
+        findings.append(LintFinding("generic_venue", gv))
+    if missing_time(start_time, all_day=bool(getattr(event, "all_day", False))):
+        findings.append(LintFinding("missing_time", "no start time — add a time or mark all-day"))
+    if is_shouting_title(title):
+        findings.append(LintFinding("allcaps_title", "title is ALL-CAPS — normalize casing"))
+    ck = category_keyword_contradiction(title, getattr(event, "category", None))
+    if ck:
+        findings.append(LintFinding("category_keyword_contradiction", ck))
     return findings
