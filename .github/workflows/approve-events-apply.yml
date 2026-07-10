@@ -1,0 +1,70 @@
+name: approve-events-apply
+
+# Approval-gated publish of specific PENDING event contributions by id (WS12
+# review-queue "training wheels" — a human approves, then this publishes).
+# Fenced like every prod-write op here:
+#   * manual trigger only (workflow_dispatch)
+#   * dry_run defaults TRUE: previews the rows, writes nothing
+#   * to apply: set dry_run=false AND type CORRECT in `confirm`
+#   * runs in the `production-writes` Environment
+#   * idempotent: a non-pending id is skipped, so a re-run is safe
+
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: 'Contribution ids to approve (space/comma-separated), e.g. "2371 2372"'
+        required: true
+        default: ''
+      dry_run:
+        description: 'Preview only (no writes). Uncheck to apply.'
+        type: boolean
+        default: true
+      confirm:
+        description: 'Type CORRECT to apply (ignored on dry run)'
+        required: false
+        default: ''
+
+concurrency:
+  group: approve-events-apply
+  cancel-in-progress: false
+
+jobs:
+  approve:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-writes
+    steps:
+      - name: Guard — confirm phrase required to apply
+        if: ${{ !inputs.dry_run && inputs.confirm != 'CORRECT' }}
+        run: |
+          echo "::error::apply requested but confirm was '${{ inputs.confirm }}', expected 'CORRECT'. Aborting before any write."
+          exit 1
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Preview approvals (DRY RUN — no writes)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/approve_pending_events.py --ids "${{ inputs.ids }}"
+
+      - name: Publish approvals
+        if: ${{ !inputs.dry_run && inputs.confirm == 'CORRECT' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/approve_pending_events.py --ids "${{ inputs.ids }}" --apply
+
+      - name: Purge CDN cache after the write (no-op without CF creds)
+        if: ${{ !inputs.dry_run && inputs.confirm == 'CORRECT' }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
