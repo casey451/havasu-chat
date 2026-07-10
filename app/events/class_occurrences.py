@@ -326,6 +326,32 @@ def drop_event_duplicates(
     return kept
 
 
+# ── public-feed visibility (Casey 2026-07-10) ─────────────────────────────────
+# Internal governance — a board / executive / council / commission meeting — is
+# not "what's on" content; it belongs in the org's policy log, not the calendar.
+_GOVERNANCE_MEETING_RE = re.compile(
+    r"\b(?:executive\s+(?:board|session|committee)|board\s+(?:meeting|of\s+directors)|"
+    r"(?:city\s+)?council\s+meeting|commission\s+meeting|committee\s+meeting)\b",
+    re.IGNORECASE,
+)
+
+
+def is_governance_meeting(title: str | None) -> bool:
+    """True for an internal governance meeting (board/executive/council/commission)
+    — suppressed from public feeds."""
+    return bool(title and _GOVERNANCE_MEETING_RE.search(title))
+
+
+def feed_visible_occurrences(occurrences: list[ClassOccurrence]) -> list[ClassOccurrence]:
+    """Render-level rule for public feeds: NO unlinked plain-text rows. Keep only
+    occurrences that resolve to a working link (a ``/provider`` page or the venue's
+    website — :attr:`ClassOccurrence.url`), and drop internal governance meetings
+    outright. A slugless, website-less program is suppressed until the org claims
+    its listing — never rendered as a dead-end plain-text row. (The venue's OWN
+    roster page is a different surface and does not use this filter.)"""
+    return [o for o in occurrences if o.url and not is_governance_meeting(o.title)]
+
+
 def _leading_words(title: str) -> list[str]:
     return [w for w in _NON_ALNUM_RE.split((title or "").lower()) if w]
 

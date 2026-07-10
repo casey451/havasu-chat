@@ -25,6 +25,7 @@ from app.db.models import Event
 from app.events.class_occurrences import (
     class_occurrences_in_window,
     drop_event_duplicates,
+    feed_visible_occurrences,
 )
 from app.events.dedup import dedup_cross_source_occurrences
 from app.events.recurrence import expand_event, occurrences_in_window
@@ -466,11 +467,13 @@ def week_strip(
                 ] += 1
 
     sched_classes_by_day: dict[date, int] = {}
-    for occ in drop_event_duplicates(
-        class_occurrences_in_window(
-            db, window_start=window_start, window_end=end, horizon_today=today
-        ),
-        event_keys,
+    for occ in feed_visible_occurrences(
+        drop_event_duplicates(
+            class_occurrences_in_window(
+                db, window_start=window_start, window_end=end, horizon_today=today
+            ),
+            event_keys,
+        )
     ):
         sched_classes_by_day[occ.date] = sched_classes_by_day.get(occ.date, 0) + 1
         day_cat_counts[occ.date][
@@ -800,14 +803,16 @@ def calendar_month(
     # recurring class pills, so they feed the "+N" overflow, never the two
     # visible one-off slots. Aquatic-style duplicates (classes that are ALSO
     # recurring events) are dropped by normalized title + date + time window.
-    class_occs = drop_event_duplicates(
-        class_occurrences_in_window(
-            db,
-            window_start=date(year, month, 1),
-            window_end=date(year, month, days_in_month),
-            horizon_today=today,
-        ),
-        event_keys,
+    class_occs = feed_visible_occurrences(
+        drop_event_duplicates(
+            class_occurrences_in_window(
+                db,
+                window_start=date(year, month, 1),
+                window_end=date(year, month, days_in_month),
+                horizon_today=today,
+            ),
+            event_keys,
+        )
     )
     for occ in class_occs:
         if family and not is_family_event(occ.title, None, occ.venue):
