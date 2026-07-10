@@ -109,4 +109,6 @@ def test_source_registry_keys() -> None:
         "river_scene",
         "lhc_library",
         "lhc_parks_rec",
+        "lhc_bmx",
+        "havasu_youth",
     }
