@@ -126,15 +126,46 @@ def test_supersede_when_webtrac_corrects_ampm_flip() -> None:
     assert "webtrac-corrects-ampm-flip" in v.reasons
 
 
-def test_glow_time_conflict_needs_human_confirmation() -> None:
-    # The open data question: WebTrac 5:00 PM vs flyer 5:30 PM — both plausible,
-    # not a flip. Never assume either; flag for a human to confirm with P&R.
-    flyer = _ev("Glow in the Dark Family Painting", date(2026, 7, 8), time(17, 30))
-    wts = [_webtrac("Glow in the Dark Family Painting", date(2026, 7, 8), time(17, 0))]
+def test_small_drift_auto_adopts_webtrac() -> None:
+    # WS6b authority (2026-07-11): a ≤60 min drift adopts WebTrac (supersede)
+    # without a human. Sunrise Kayak: flyer 5:30 AM vs WebTrac 6:00 AM (30 min).
+    flyer = _ev("Sunrise Kayak", date(2026, 7, 13), time(5, 30))
+    wts = [_webtrac("Sunrise Kayak", date(2026, 7, 13), time(6, 0))]
+    v = pr.classify_flyer(flyer, wts, lint_fn=lint_event)
+    assert v.action == pr.SUPERSEDE
+    assert v.time_delta_minutes == 30
+    assert "webtrac-auto-adopt-le60m" in v.reasons
+
+
+def test_sixty_minute_drift_is_within_auto_adopt_boundary() -> None:
+    # Kids Archery: flyer 10 AM vs WebTrac 9 AM (exactly 60 min) → still adopts.
+    flyer = _ev("Kids Archery", date(2026, 7, 15), time(10, 0))
+    wts = [_webtrac("Kids Archery", date(2026, 7, 15), time(9, 0))]
+    v = pr.classify_flyer(flyer, wts, lint_fn=lint_event)
+    assert v.action == pr.SUPERSEDE
+    assert v.time_delta_minutes == 60
+
+
+def test_large_drift_still_needs_human_confirmation() -> None:
+    # >60 min AND not a confirmed exception → never assume; flag for a human.
+    # Pickleball Round Robin: flyer 6 PM vs WebTrac 12:30 PM (330 min). Use a date
+    # NOT in CONFIRMED_SUPERSEDE so the general rule applies.
+    flyer = _ev("Pickleball Round Robin", date(2026, 7, 16), time(18, 0))
+    wts = [_webtrac("Pickleball Round Robin", date(2026, 7, 16), time(12, 30))]
     v = pr.classify_flyer(flyer, wts, lint_fn=lint_event)
     assert v.action == pr.NEEDS_CONFIRMATION
-    assert v.time_delta_minutes == 30
+    assert v.time_delta_minutes == 330
     assert "time-conflict" in v.reasons
+
+
+def test_confirmed_supersede_overrides_large_drift() -> None:
+    # The one human-confirmed exception: Round Robin 2026-07-09 (Δ5.5h) is in
+    # CONFIRMED_SUPERSEDE, so WebTrac wins despite exceeding AUTO_ADOPT_MINUTES.
+    flyer = _ev("Pickleball Round Robin", date(2026, 7, 9), time(18, 0))
+    wts = [_webtrac("Pickleball Round Robin", date(2026, 7, 9), time(12, 30))]
+    v = pr.classify_flyer(flyer, wts, lint_fn=lint_event)
+    assert v.action == pr.SUPERSEDE
+    assert "human-confirmed-supersede" in v.reasons
 
 
 def test_quarantine_flyer_only_that_fails_lint() -> None:
@@ -155,13 +186,13 @@ def test_keep_clean_flyer_only_residue() -> None:
 def test_reconcile_aggregate_counts() -> None:
     flyers = [
         _ev("Tiny Tots", date(2026, 7, 14), time(10, 0)),                       # supersede
-        _ev("Glow in the Dark Family Painting", date(2026, 7, 8), time(17, 30)),  # needs_conf
+        _ev("Pickleball Round Robin", date(2026, 7, 16), time(18, 0)),          # needs_conf (330m)
         _ev("Open 24/7 Simulators", date(2026, 7, 14), time(9, 0)),            # quarantine
         _ev("Free Craft Series", date(2026, 7, 14), time(10, 0), venue="Wheeler Park"),  # keep
     ]
     wts = [
         _webtrac("Tiny Tots", date(2026, 7, 14), time(10, 0)),
-        _webtrac("Glow in the Dark Family Painting", date(2026, 7, 8), time(17, 0)),
+        _webtrac("Pickleball Round Robin", date(2026, 7, 16), time(12, 30)),
     ]
     result = pr.reconcile(flyers, wts, lint_fn=lint_event)
     assert result.counts == {
