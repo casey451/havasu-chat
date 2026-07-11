@@ -136,3 +136,60 @@ pattern). If a general-admission slug is later found, retire the fixture overlap
 has a **bookable-products subdomain** (ROLLER / RunSwift / etc.), discoverable via
 the booking links on their site or FB (`fbclid` URLs). Worth a probe before
 assuming a venue needs the FB connector or a hand fixture.
+
+---
+
+## Addendum 2026-07-10 — Split Finger Athletics connector (RunSwift) ✅ BUILT
+
+The "full scraper, separate effort" flagged during WS12 (provider directory row
+added via `scripts/add_split_finger_athletics.py`; the dated camps/classes held
+for this pass — see `docs/prompts/PROMPT_CC_SPLIT_FINGER_SCRAPER_2026-06-24.md`).
+
+**Discovery surprise — the source moved, and improved.** The prompt doc assumed a
+RunSwift Next.js SPA with "no capturable XHR → needs Playwright." Probing live
+(2026-07-10, Browser/Playwright XHR capture + curl reproduction) found:
+
+1. `splitfingerathletics.com` is now a **Wix** single-pager. Its Wix Bookings
+   widget exposes exactly **one** service — an appointment-type "Private Lesson"
+   (no fixed date → a Program, not an event). The endpoint
+   (`POST /_api/bookings/v2/services/query`, `Authorization: <instance>` from the
+   public `/_api/v1/access-tokens`) works, but yields **no event-worthy data**.
+   Every "Camps / Classes / Lessons / Reserve A Cage" button on the Wix page
+   still deep-links out to RunSwift. So "their booking is Wix" is only half-true.
+2. **RunSwift now serves a clean first-party public JSON API** (the doc's
+   "no capturable XHR" is stale) — pure-HTTP reproducible with just a User-Agent,
+   **no key** (even simpler than ROLLER's `x-api-key`). This is where the events
+   live, so the connector targets RunSwift, not Wix.
+
+**Endpoint contract** (facility `760`, `getFacilityBySubdomain?subdomain=split-finger-athletics`):
+- base: `https://book.runswiftapp.com/api/public`
+- `GET {base}/camp?facilityId=760&registrationStatus=OPEN&…` → `[camp]`
+- `GET {base}/class?facilityId=760&registrationStatus=OPEN&…` → `[class]`
+- `GET {base}/lesson?facilityId=760&…` → private lessons (on-demand appointments)
+- Session dates live under each item's `service.bookingGroups[].bookings[]`
+  (UTC `startTime`/`endTime`; facility tz `America/Phoenix`, UTC-7 no DST);
+  price `prices.basePrice.cost`; ages `min/maxAgeLimit`.
+
+**Connector `split_finger`** (`app/events/scrapers/split_finger.py`): pure-HTTP,
+review-queue-first.
+- **Camps → one multi-day Event each.** RunSwift names ("Softball Summer Session
+  #1") carry no camp keyword, so the title gets a `— Camp` suffix — the gate the
+  `/family/camps` bucket filters on (`family_hub._CAMP_RE`), same trick as
+  `lhc_bmx`'s "BMX <name>". Description carries `Ages X–Y · From $N` so the
+  camps-card detail parser (`_AGES_RE`/`_PRICE_RE`) fills in.
+- **Classes → one Event per session occurrence**, bounded by `CLASS_HORIZON_DAYS`
+  (45). Recurring classes collapse at render time into one "runs regularly" feed
+  entry (WS5 series, keyed on title+location+start_time) — exactly how the gym /
+  pool schedules render — so the year-round Strength/Conditioning class doesn't
+  flood the feed. Each occurrence carries a distinct `?classId=&date=` URL so it
+  lands as its own contribution (and is the Register link) and dedups on re-run.
+- **Private lessons + cage rentals are NOT events** (on-demand appointments /
+  bookable inventory) — the provider directory row + the site's booking links
+  already cover those. Skipped on purpose.
+
+Registered in the freshness canary + `ws12-connectors` cron (schedule + dispatch).
+**Live dry-run 2026-07-10 (`today`):** 34 payloads — 4 camps (Jul 13–15 & 20–22,
+9 AM / 11:15 AM, $70) + 30 class occurrences across 4 classes
+(Strength/Conditioning 25 → collapses to one series card, TRX & Tabata 1,
+Team Speed & Agility 3, Mom's Softball Night 1). First batch sent to Casey for
+approval before any publish.

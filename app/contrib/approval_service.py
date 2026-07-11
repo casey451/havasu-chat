@@ -284,6 +284,7 @@ _SCRAPE_EVENT_SOURCES = frozenset(
         "havasu_youth",
         "havasu_museum",
         "altitude_booking",
+        "split_finger",
     }
 )
 

@@ -48,6 +48,7 @@ jobs:
         run: >
           python -m scripts.scrape_events
           --source lhc_bmx --source havasu_youth --source altitude_booking
+          --source split_finger
 
       - name: First-run all WS12 connectors (review queue)
         if: github.event_name == 'workflow_dispatch'
@@ -56,7 +57,7 @@ jobs:
         run: >
           python -m scripts.scrape_events
           --source lhc_bmx --source havasu_youth --source havasu_museum
-          --source altitude_booking
+          --source altitude_booking --source split_finger
 
       - name: Report pending review-queue batches
         env:
