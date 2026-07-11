@@ -9,14 +9,17 @@ the pure, tested core:
     date proximity (the grid off-by-one) + a soft venue signal. Recurring
     same-title series are guarded (an ambiguous near-date match is rejected).
   * ``classify_flyer`` — decide the action for a flyer event:
-      - ``supersede``          — a WebTrac twin exists and either agrees on time
-                                 or clearly corrects a flyer AM/PM flip → retire
+      - ``supersede``          — a WebTrac twin exists and either agrees on time,
+                                 clearly corrects a flyer AM/PM flip, drifts by at
+                                 most :data:`AUTO_ADOPT_MINUTES` (auto-adopt
+                                 WebTrac by authority), or is a human-confirmed
+                                 exception (:data:`CONFIRMED_SUPERSEDE`) → retire
                                  the flyer, keep WebTrac live.
-      - ``needs_confirmation`` — a WebTrac twin exists but they DISAGREE on time in
-                                 a way that is not an obvious flip (both plausible,
-                                 e.g. Glow in the Dark Family Painting: WebTrac
-                                 5:00 PM vs flyer 5:30 PM). Never assumed either
-                                 way — flagged for a human to confirm with P&R.
+      - ``needs_confirmation`` — a WebTrac twin exists but they DISAGREE on time by
+                                 MORE than :data:`AUTO_ADOPT_MINUTES` and it is not
+                                 a confirmed exception (both plausible, e.g. a
+                                 5.5-hour gap). Never assumed — flagged for a human
+                                 to confirm with P&R.
       - ``quarantine``         — no WebTrac twin AND the flyer trips the event lint
                                  (:mod:`app.events.lint`).
       - ``keep``               — no WebTrac twin and the flyer is clean residue.
@@ -44,6 +47,28 @@ TITLE_JACCARD_MIN = 0.6
 MAX_DATE_DELTA_DAYS = 1
 #: Start times within this many minutes are treated as agreeing (rounding slack).
 SAME_TIME_MINUTES = 15
+#: WS6b authority threshold (Casey 2026-07-11): a matched flyer whose start time
+#: drifts from its WebTrac twin by at most this many minutes is AUTO-ADOPTED to
+#: WebTrac (superseded — registration system > flyer) instead of paging a human.
+#: Above it the drift is large enough that the flyer might be a genuinely
+#: different occurrence, so it still lands as ``needs_confirmation``. This keeps
+#: the canary from nagging weekly over ±30–60 min flyer-vs-registration slips
+#: while still surfacing real disagreements (e.g. a 5.5-hour gap).
+AUTO_ADOPT_MINUTES = 60
+
+# Human-confirmed WebTrac-wins exceptions to the >AUTO_ADOPT_MINUTES rule: a
+# large-drift conflict a human has verified against P&R (WebTrac is right, retire
+# the flyer). Keyed by (normalized title, ISO date) so it survives a flyer
+# re-scrape (new row id) yet naturally expires once the dated event is past.
+# Add an entry only after confirming the correct time with Parks & Rec.
+CONFIRMED_SUPERSEDE: frozenset[tuple[str, str]] = frozenset(
+    {
+        # Pickleball Round Robin 2026-07-09: flyer 6:00 PM vs WebTrac 12:30 PM
+        # (Δ5.5h). Casey verified WebTrac 12:30 PM is authoritative (the live site
+        # already renders it); retire the stale 6 PM flyer duplicate.
+        ("pickleball round robin", "2026-07-09"),
+    }
+)
 
 # The catch-all default venue, normalized the same way _venue_tokens normalizes
 # (``&`` → space): it carries no venue signal, so it never contradicts.
@@ -249,6 +274,19 @@ def classify_flyer(
         if looks_like_ampm_flip(flyer.start_time, match.start_time):
             return FlyerVerdict(
                 flyer, SUPERSEDE, match, dt, venue_conflict, ("webtrac-corrects-ampm-flip",)
+            )
+        if dt <= AUTO_ADOPT_MINUTES:
+            # Small drift (≤ AUTO_ADOPT_MINUTES): WebTrac wins by authority; adopt
+            # it without a human. Logged with a distinct reason so the review CSV
+            # shows these were auto-resolved, not exact duplicates.
+            return FlyerVerdict(
+                flyer, SUPERSEDE, match, dt, venue_conflict, ("webtrac-auto-adopt-le60m",)
+            )
+        key = (_norm_title(flyer.title), flyer.date.isoformat() if flyer.date else "")
+        if key in CONFIRMED_SUPERSEDE:
+            # Large drift, but a human has confirmed WebTrac is authoritative here.
+            return FlyerVerdict(
+                flyer, SUPERSEDE, match, dt, venue_conflict, ("human-confirmed-supersede",)
             )
         # Genuine disagreement, both plausible → never assume; a human confirms.
         return FlyerVerdict(
