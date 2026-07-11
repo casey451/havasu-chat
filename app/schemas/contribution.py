@@ -58,6 +58,10 @@ ContributionSource = Literal[
     # storefront (day camps). Review-gated; authority over the havasu_youth
     # fixtures for camps.
     "altitude_booking",
+    # WS12 booking-platform connector: Split Finger Athletics' RunSwift public
+    # JSON API (youth baseball/softball camps + recurring strength/agility
+    # classes). Review-gated.
+    "split_finger",
     # Vision-LLM image scrapers (2026-06-24): Parks & Rec monthly calendar +
     # event flyers, and Senior Center flyers, wired through event_ingest.py. NOT in
     # the auto-approve registry, so every row lands PENDING for /admin review.

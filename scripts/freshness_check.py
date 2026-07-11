@@ -140,6 +140,13 @@ SOURCE_CHECKS: list[SourceCheck] = [
         max_age_hours=120.0,
         mode="ingest_run",
     ),
+    SourceCheck(
+        label="WS12: Split Finger (RunSwift)",
+        source="split_finger",
+        cadence="every other day (ws12-connectors.yml)",
+        max_age_hours=120.0,
+        mode="ingest_run",
+    ),
 ]
 
 

@@ -114,4 +114,5 @@ def test_source_registry_keys() -> None:
         "havasu_museum",
         "facebook",
         "altitude_booking",
+        "split_finger",
     }

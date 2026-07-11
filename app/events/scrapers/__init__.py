@@ -10,6 +10,7 @@ from app.events.scrapers.lhc_bmx import LhcBmxClient
 from app.events.scrapers.lhc_library import LhcLibraryClient
 from app.events.scrapers.lhc_parks_rec import LhcParksRecClient
 from app.events.scrapers.river_scene_v2 import RiverSceneV2Client
+from app.events.scrapers.split_finger import SplitFingerClient
 from app.events.scrapers.squarespace_events import (
     HavasuMuseumClient,
     SquarespaceEventsClient,
@@ -26,6 +27,7 @@ SOURCE_REGISTRY: dict[str, type[EventIngestClient]] = {
     "havasu_museum": HavasuMuseumClient,
     "facebook": FacebookPagesClient,
     "altitude_booking": AltitudeBookingClient,
+    "split_finger": SplitFingerClient,
 }
 
 __all__ = [
@@ -42,5 +44,6 @@ __all__ = [
     "LhcParksRecClient",
     "RiverSceneV2Client",
     "SOURCE_REGISTRY",
+    "SplitFingerClient",
     "SquarespaceEventsClient",
 ]
