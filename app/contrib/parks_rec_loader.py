@@ -39,6 +39,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass, field
 from datetime import date, datetime, time, timedelta
+from pathlib import Path
 from typing import Any, Iterable
 
 from sqlalchemy import select
@@ -567,7 +568,9 @@ def load_aquatic_records(
 # ---------------------------------------------------------------------------
 
 
-def load_latest_snapshots(*, dry_run: bool = False) -> list[LoaderStats]:
+def load_latest_snapshots(
+    *, dry_run: bool = False, snapshots_dir: Path = scrape_runner.SCRAPES_DIR
+) -> list[LoaderStats]:
     """Load the newest snapshot from each source into the catalog.
 
     Idempotent: re-running over an unchanged snapshot results in 0
@@ -575,8 +578,8 @@ def load_latest_snapshots(*, dry_run: bool = False) -> list[LoaderStats]:
     """
     results: list[LoaderStats] = []
 
-    webtrac_records = scrape_runner.load_latest_records(WEBTRAC_SOURCE)
-    aquatic_records = scrape_runner.load_latest_records(AQUATIC_SOURCE)
+    webtrac_records = scrape_runner.load_latest_records(WEBTRAC_SOURCE, snapshots_dir=snapshots_dir)
+    aquatic_records = scrape_runner.load_latest_records(AQUATIC_SOURCE, snapshots_dir=snapshots_dir)
 
     with SessionLocal() as db:
         if webtrac_records:
@@ -586,15 +589,21 @@ def load_latest_snapshots(*, dry_run: bool = False) -> list[LoaderStats]:
 
         if aquatic_records:
             results.append(load_aquatic_records(aquatic_records, db=db, dry_run=dry_run))
+        elif scrape_runner.latest_snapshot_path(AQUATIC_SOURCE, snapshots_dir=snapshots_dir):
+            # A snapshot WAS written but held zero records. The aquatic schedule
+            # is a SEASONAL source that legitimately empties off-season (the
+            # summer session ends; the next PDF isn't posted yet), and
+            # scrape_runner only writes a snapshot when the pull SUCCEEDS. So an
+            # empty-but-present snapshot means "ran fine, nothing to load" — a
+            # clean 0-import, NOT a breakage that should redden the whole
+            # parks-rec-scrapes cron (which otherwise still loaded WebTrac). A
+            # genuinely broken scraper writes NO snapshot (its pull raises), which
+            # falls through to the "no snapshot found" error below.
+            results.append(LoaderStats(source=AQUATIC_SOURCE))
         else:
-            # Restored 2026-05-22 alongside the PDF-parser rewrite: the
-            # aquatic source is back in scripts/run_scrapes.py::SOURCES
-            # (fed by app.contrib.lhcaz_aquatic_pdf instead of the
-            # legacy HTML scraper). A missing snapshot is now a real
-            # error again -- surfaces as a parks-rec-scrapes cron
-            # failure if both PDF fetches succeed but write fails, or
-            # if the loader runs before the scraper has populated the
-            # directory.
+            # No snapshot file at all: the scraper never wrote one (it errored, or
+            # the loader ran before the scrape populated the directory). Restored
+            # 2026-05-22 with the PDF-parser rewrite; a real error worth a cron red.
             results.append(LoaderStats(source=AQUATIC_SOURCE, errors=["no snapshot found"]))
 
     return results
