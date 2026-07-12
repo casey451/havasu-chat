@@ -579,19 +579,31 @@ def calendar_month_view(
                 continue
             iso = cell["iso"]
             d = date.fromisoformat(iso)
-            chips = [
-                {
-                    "title": ev["title"],
-                    "time": ev.get("time"),
-                    "color": category_color(ev.get("type", "events")),
-                }
-                for ev in cell.get("events", [])[:3]
-            ]
-            dots = [
-                category_color(ev.get("type", "events"))
-                for ev in cell.get("events", [])[:4]
-            ]
-            more = cell.get("overflow", 0) + cell.get("class_count", 0)
+            is_past = d < today
+            # Past days are over: don't surface their events/class rosters on the
+            # glanceable month grid (Casey 2026-07-12 — the calendar showed every
+            # past day "full of happenings": stale one-off rows the daily expire
+            # sweep hadn't reaped PLUS recurring class rosters projected backward).
+            # The cell still renders (greyed via ``is_past``), just empty.
+            chips: list[dict[str, Any]]
+            dots: list[str]
+            if is_past:
+                chips, dots, more, count = [], [], 0, 0
+            else:
+                chips = [
+                    {
+                        "title": ev["title"],
+                        "time": ev.get("time"),
+                        "color": category_color(ev.get("type", "events")),
+                    }
+                    for ev in cell.get("events", [])[:3]
+                ]
+                dots = [
+                    category_color(ev.get("type", "events"))
+                    for ev in cell.get("events", [])[:4]
+                ]
+                more = cell.get("overflow", 0) + cell.get("class_count", 0)
+                count = cell.get("count", 0) + cell.get("class_count", 0)
             week.append(
                 {
                     "empty": False,
@@ -599,12 +611,12 @@ def calendar_month_view(
                     "iso": iso,
                     "is_today": cell.get("is_today", False),
                     "is_selected": sel is not None and d == sel,
-                    "is_past": d < today,
+                    "is_past": is_past,
                     "is_weekend": d.weekday() >= 5,
                     "chips": chips,
                     "dots": dots,
                     "more": more,
-                    "count": cell.get("count", 0) + cell.get("class_count", 0),
+                    "count": count,
                 }
             )
         weeks.append(week)

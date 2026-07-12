@@ -210,3 +210,49 @@ def test_conditions_and_feed_shape_on_seeded_db() -> None:
         assert len(cal["weeks"]) >= 4
     finally:
         db.close()
+
+
+def test_calendar_month_view_blanks_past_days(monkeypatch) -> None:
+    """Past days render empty on the /calendar month grid (Casey 2026-07-12: the
+    calendar was showing every past day full of stale one-offs + backward-projected
+    class rosters). Today and future days keep their chips/dots/count."""
+    today = date(2027, 3, 15)
+
+    def _cell(day: int) -> dict:
+        return {
+            "in_month": True,
+            "day": day,
+            "iso": date(2027, 3, day).isoformat(),
+            "is_today": day == 15,
+            "events": [{"title": f"Ev{day}", "time": "12 PM", "type": "events"}],
+            "overflow": 2,
+            "count": 3,
+            "class_count": 4,
+        }
+
+    def _fake_grid(db, *, year, month, today):  # noqa: ARG001
+        return {
+            "weeks": [[_cell(5), _cell(15), _cell(25)]],
+            "month_oneoff_total": 9,
+            "month_class_total": 12,
+        }
+
+    monkeypatch.setattr(redesign.sandstone, "calendar_month", _fake_grid)
+    db = next(get_db())
+    try:
+        cal = redesign.calendar_month_view(db, year=2027, month=3, today=today)
+    finally:
+        db.close()
+
+    cells = {c["iso"]: c for wk in cal["weeks"] for c in wk if not c.get("empty")}
+    past, now_, future = cells["2027-03-05"], cells["2027-03-15"], cells["2027-03-25"]
+
+    # Past day: blanked (still rendered, greyed via is_past, but no events).
+    assert past["is_past"] is True
+    assert past["count"] == 0
+    assert past["chips"] == [] and past["dots"] == [] and past["more"] == 0
+
+    # Today + future: populated (3 one-off + 4 class = 7).
+    assert now_["is_past"] is False and now_["count"] == 7
+    assert future["is_past"] is False and future["count"] == 7
+    assert any("Ev25" in ch["title"] for ch in future["chips"])
