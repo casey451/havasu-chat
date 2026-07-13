@@ -9,9 +9,13 @@ name: prelaunch-verify
 # counts (Layer 3). The job exits non-zero when the launch gate FAILS, so a
 # regression turns the run red daily instead of surfacing at the next manual sweep.
 #
-# Artifacts (discrepancies.csv, render_digest.md, launch_gate.md) upload on every
-# run — review them, then a Casey-approved GATED apply quarantines / fixes the
-# rows (never in CI).
+# The source window spans ALL upcoming events (~15 months), so a far-future dead
+# link / wrong date is caught nightly, not just within 30 days. On a gate FAIL the
+# job opens/updates a "Nightly event source audit — findings" issue (loud, not a
+# buried artifact); artifacts (discrepancies.csv, render_digest.md, launch_gate.md)
+# still upload every run. Remediation stays a Casey-approved GATED apply (never in
+# CI) — auto-quarantine is intentionally avoided (source re-fetch has false
+# positives: multi-day dates, moved-but-alive links).
 #
 # NOTE: GitHub only runs scheduled workflows from the DEFAULT branch, so the cron
 # does not fire until this file is merged to main. Until then, trigger it with the
@@ -28,19 +32,24 @@ on:
         description: "Site to verify"
         default: "https://askhava.com"
       days_source:
-        description: "Layer 1+2 window (days)"
-        default: "30"
+        description: "Layer 1+2 window (days) — default covers all upcoming"
+        default: "460"
       gate_days:
         description: "Launch-gate window (days)"
         default: "14"
 
+# issues: write so a gate failure opens/updates a findings issue (loud daily
+# surfacing) instead of being buried in an artifact nobody downloads.
 permissions:
   contents: read
+  issues: write
 
 jobs:
   prelaunch-verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    # 30 min headroom: the source window now spans all upcoming events (~15 months),
+    # so Layer 1 re-fetches every one nightly (some origins are slow / bot-block).
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@93cb6efe18208431cddfb8368fd83d5badbf9bfd # v5
         with:
@@ -56,10 +65,13 @@ jobs:
 
       - name: Deep event verification (Layers 1-3, no DB)
         id: verify
+        # continue-on-error so a gate FAIL still runs the issue + artifact steps;
+        # the final step re-asserts the red signal.
+        continue-on-error: true
         run: |
           python scripts/prelaunch_verify.py \
             --base-url "${BASE_URL:-https://askhava.com}" \
-            --days-source "${DAYS_SOURCE:-30}" \
+            --days-source "${DAYS_SOURCE:-460}" \
             --days-render 21 \
             --movies-days 7 \
             --gate-days "${GATE_DAYS:-14}" \
@@ -76,6 +88,29 @@ jobs:
             cat relay/prelaunch/launch_gate.md >> "$GITHUB_STEP_SUMMARY"
           fi
 
+      - name: Open/update the findings issue (gate FAIL only)
+        if: ${{ always() && steps.verify.outcome == 'failure' }}
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          title="Nightly event source audit — findings"
+          body=relay/prelaunch/_issue_body.md
+          {
+            echo "The nightly source verification found blocking discrepancies (wrong date/time/venue, dead links). Review, then run the gated remediation apply."
+            echo ""
+            cat relay/prelaunch/launch_gate.md 2>/dev/null || echo "(launch_gate.md missing)"
+            echo ""
+            echo "Full per-event detail: the \`prelaunch-verify\` artifact on [this run](${GITHUB_SERVER_URL}/${GITHUB_REPOSITORY}/actions/runs/${GITHUB_RUN_ID}) (discrepancies.csv)."
+          } > "$body"
+          num=$(gh issue list --state open --search "$title in:title" \
+                  --json number,title --jq "map(select(.title==\"$title\"))[0].number // empty")
+          if [ -n "$num" ]; then
+            gh issue comment "$num" --body-file "$body"
+            echo "commented on issue #$num"
+          else
+            gh issue create --title "$title" --body-file "$body"
+          fi
+
       - name: Upload verification artifacts
         if: always()
         uses: actions/upload-artifact@330a01c490aca151604b8cf639adc76d48f6c5d4 # v5
@@ -83,3 +118,9 @@ jobs:
           name: prelaunch-verify
           path: relay/prelaunch/
           if-no-files-found: warn
+
+      - name: Re-assert gate failure (keep the run red)
+        if: ${{ steps.verify.outcome == 'failure' }}
+        run: |
+          echo "::error::launch gate FAILED — see the 'Nightly event source audit — findings' issue + the prelaunch-verify artifact."
+          exit 1
