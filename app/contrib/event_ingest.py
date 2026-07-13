@@ -62,6 +62,7 @@ from app.events.description_clean import (
     valid_event_url,
 )
 from app.events.event_type_tags import classify_event_type
+from app.events.lint import generic_venue_reason
 from app.events.scrapers.base import EventPayload, normalize_event_title
 from app.events.title_clean import INSTRUCTOR_NAMES
 from app.schemas.contribution import ContributionCreate, EventApprovalFields
@@ -105,6 +106,10 @@ class IngestCounts:
     # Fix 2.7 — listed weekday contradicted a schedule stated in the body; flagged
     # (logged), not dropped.
     flagged_weekday_mismatch: int = 0
+    # 2026-07-13 quality gate: a row that WOULD auto-publish but whose resolved
+    # venue is a bare street address (or other generic/placeholder "Where") is held
+    # PENDING for review instead of going live. Also lands in inserted_pending.
+    held_low_quality: int = 0
     errors: int = 0
 
     def as_dict(self) -> dict[str, int]:
@@ -121,6 +126,7 @@ class IngestCounts:
             "skipped_existing_pending": self.skipped_existing_pending,
             "skipped_duplicate_persisted": self.skipped_duplicate_persisted,
             "flagged_weekday_mismatch": self.flagged_weekday_mismatch,
+            "held_low_quality": self.held_low_quality,
             "errors": self.errors,
         }
 
@@ -586,23 +592,68 @@ def _vision_auto_approve_blocked(
     return _vision_row_held(rec) or weekday_mismatch
 
 
+# Sources whose events legitimately sit at a street ADDRESS rather than a named
+# place — a school (lhusd) or a civic building (legistar council/board agenda).
+# For these an address-as-venue is expected, not a parse miss, so the address
+# venue-quality hold is skipped; every other structured feed (go_lake_havasu,
+# river_scene, chamber) is expected to carry a NAMED venue, and an address there
+# is the farmers-market / grace-arts defect the 2026-07-13 audit found.
+_ADDRESS_VENUE_EXPECTED_SOURCES = frozenset({"lhusd", "legistar"})
+
+
+def _quality_hold(rec: EventRecord, *, source: str) -> str | None:
+    """Reason to HOLD an otherwise auto-approvable row for review, or ``None``.
+
+    "Bad info can't go live" (Casey 2026-07-13): the auto-approve sources
+    (chamber / go_lake_havasu / river_scene / legistar / lhusd) publish straight
+    to the live calendar, so a row whose resolved "Where" is a bare street address
+    would render address-as-venue on the public site. We route it to PENDING
+    instead (reviewable, reversible), reusing the same ``generic_venue_reason``
+    detector the lint battery / nightly audit use, so the ingest guard and the
+    audit never disagree on what counts as a bad venue.
+
+    Skipped for the address-expected sources (schools / civic buildings) and for
+    aggregators (which already land pending). Pure + network-free."""
+    if source in _ADDRESS_VENUE_EXPECTED_SOURCES:
+        return None
+    reason = generic_venue_reason(_location_name(rec))
+    if reason:
+        return f"generic_venue: {reason}"
+    return None
+
+
 def _would_auto_approve_dry_run(
     rec: EventRecord, *, source: str, weekday_mismatch: bool
 ) -> bool:
     """Dry-run preview of the auto-approve decision (no Contribution row exists).
 
     Mirrors ``should_auto_approve_event``'s registry + completeness gate against
-    the EventRecord and applies the same vision guard, so a dry run honestly
-    reports ``auto_approved`` vs ``inserted_pending`` instead of marking every row
-    pending. ``event_time_start`` is always set by ingest (start_time or 00:00),
-    so it is not re-checked here."""
+    the EventRecord and applies the same vision + quality guards, so a dry run
+    honestly reports ``auto_approved`` vs ``inserted_pending`` instead of marking
+    every row pending. ``event_time_start`` is always set by ingest (start_time or
+    00:00), so it is not re-checked here."""
     if source not in auto_approve_event_sources():
         return False
     if not (rec.title or "").strip() or rec.start_date is None:
         return False
+    if _quality_hold(rec, source=source) is not None:
+        return False
     return not _vision_auto_approve_blocked(
         rec, source=source, weekday_mismatch=weekday_mismatch
     )
+
+
+def _held_for_quality(rec: EventRecord, *, source: str, weekday_mismatch: bool) -> bool:
+    """True when a row is registry-eligible + would clear the vision gate but is
+    held ONLY by the quality gate — i.e. it would have gone live and now won't.
+    Used to count ``held_low_quality`` in both the dry-run and apply paths."""
+    if source not in auto_approve_event_sources():
+        return False
+    if not (rec.title or "").strip() or rec.start_date is None:
+        return False
+    if _vision_auto_approve_blocked(rec, source=source, weekday_mismatch=weekday_mismatch):
+        return False
+    return _quality_hold(rec, source=source) is not None
 
 
 def vision_record_should_hold(rec: EventRecord, *, source: str) -> bool:
@@ -949,6 +1000,10 @@ def ingest_event_records(
                     ):
                         counts.auto_approved += 1
                     else:
+                        if _held_for_quality(
+                            rec, source=source, weekday_mismatch=weekday_mismatch
+                        ):
+                            counts.held_low_quality += 1
                         counts.inserted_pending += 1
                     continue
 
@@ -960,9 +1015,11 @@ def ingest_event_records(
                     counts.inserted_pending += 1
                     continue
 
-                if should_auto_approve_event(created) and not _vision_auto_approve_blocked(
+                q_reason = _quality_hold(rec, source=source)
+                auto_eligible = should_auto_approve_event(created) and not _vision_auto_approve_blocked(
                     rec, source=source, weekday_mismatch=weekday_mismatch
-                ):
+                )
+                if auto_eligible and q_reason is None:
                     try:
                         ev = approve_event_contribution(
                             db, created.id, rec, end_date=payload.end_date
@@ -977,6 +1034,14 @@ def ingest_event_records(
                         print(f"warning: auto-approval failed for {source} "
                               f"contribution {created.id}: {e}", file=sys.stderr)
                 else:
+                    if auto_eligible and q_reason is not None:
+                        # Would have auto-published, held for a bad "Where" — leaves
+                        # it PENDING for /admin review rather than live.
+                        counts.held_low_quality += 1
+                        if verbose:
+                            print(f"info: held low-quality {source} contribution "
+                                  f"{created.id} ({rec.title!r}): {q_reason}",
+                                  file=sys.stderr)
                     counts.inserted_pending += 1
         except Exception as e:
             counts.errors += 1
