@@ -1,0 +1,83 @@
+name: parks-rec-ocr-quarantine-apply
+
+# Approval-gated, reversible quarantine of ALL live Parks & Rec vision-OCR calendar
+# events (the …/185/Parks-Recreation#cal| rows). The OCR of the monthly calendar
+# image is unreliable (garbled titles, wrong times); this pulls the whole OCR
+# source off the public calendar pending a reliable rebuild. WebTrac events are
+# untouched. Fenced like every prod-write op here:
+#   * manual trigger only (workflow_dispatch) — never scheduled, never on push
+#   * dry_run defaults TRUE: the first run previews the count and writes nothing
+#   * to apply: set dry_run=false AND type QUARANTINE in `confirm`
+#   * runs in the `production-writes` Environment
+#   * rows move status="live" -> "pending_review" (reversible); an undo snapshot is
+#     written and uploaded
+#
+# Reverse a run: download the `parks-rec-ocr-quarantine-undo` artifact, then locally:
+#   python scripts/parks_rec_ocr_quarantine_2026_07_13.py --undo-from undo_pr_ocr.json --apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview the count only (no writes). Uncheck to apply.'
+        type: boolean
+        default: true
+      confirm:
+        description: 'Type QUARANTINE to apply (ignored on dry run)'
+        required: false
+        default: ''
+
+concurrency:
+  group: parks-rec-ocr-quarantine-apply
+  cancel-in-progress: false
+
+jobs:
+  quarantine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-writes
+    steps:
+      - name: Guard — confirm phrase required to apply
+        if: ${{ !inputs.dry_run && inputs.confirm != 'QUARANTINE' }}
+        run: |
+          echo "::error::apply requested but confirm was '${{ inputs.confirm }}', expected 'QUARANTINE'. Aborting before any write."
+          exit 1
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Preview quarantine (DRY RUN — no writes)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/parks_rec_ocr_quarantine_2026_07_13.py
+
+      - name: Apply quarantine (reversible) + write undo snapshot
+        if: ${{ !inputs.dry_run && inputs.confirm == 'QUARANTINE' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/parks_rec_ocr_quarantine_2026_07_13.py \
+            --apply --undo-json undo_pr_ocr.json
+
+      - name: Purge CDN cache after the write (no-op without CF creds)
+        if: ${{ !inputs.dry_run && inputs.confirm == 'QUARANTINE' }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
+
+      - name: Upload undo snapshot
+        if: ${{ always() && !inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: parks-rec-ocr-quarantine-undo
+          path: undo_pr_ocr.json
+          if-no-files-found: warn
+          retention-days: 180
