@@ -8,12 +8,18 @@ name: expire-past-events
 # so the ~50%-past-dated backlog just accumulated. This puts the sweep on autopilot,
 # mirroring the river-scene-events / parks-rec cron pattern.
 #
-# Behavior: expire_past_events sets status="expired" on one-off events whose date
-# is older than today-7d, and on recurring series whose RRULE UNTIL has passed;
-# a recurring series with a live future occurrence is spared. Idempotent — a row
-# already expired is skipped, so a double-run (e.g. the month-boundary overlap) is
-# harmless. The FIRST run clears the existing backlog (~106 rows as of 2026-07-04),
-# then the daily cron keeps it clean.
+# Behavior: expire_past_events sets status="expired" on one-off events once their
+# EFFECTIVE END DATE (end_date, else start date) is before today Lake-Havasu — a
+# one-day grace — and on recurring series whose RRULE UNTIL has passed; a recurring
+# series with a live future occurrence (open-ended, or UNTIL in the future) is
+# spared, and a multi-day event still running (end_date >= today) is spared.
+# Idempotent — a row already expired is skipped, so a double-run (e.g. the
+# month-boundary overlap) is harmless.
+#
+# Policy history: the sweep previously keyed on the START date with a 7-day grace,
+# so "over" events lingered as live rows for up to a week and a long multi-day
+# event could be expired mid-run. Re-keyed on the end date with a one-day grace on
+# 2026-07-13 (see scripts/expire_past_events.py docstring).
 #
 # NOTE: GitHub only runs scheduled workflows from the repository's DEFAULT branch.
 # This file must be merged to main before the cron takes effect — merging IS the
@@ -30,7 +36,12 @@ on:
     # runs before the every-other-day scraper fleet (13:xx UTC) tops the calendar
     # back up with fresh events.
     - cron: "30 9 * * *"
-  workflow_dispatch: {}
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: "Preview the expire count only — no DB writes"
+        type: boolean
+        default: false
 
 jobs:
   expire-past-events:
@@ -52,4 +63,6 @@ jobs:
           # Same Railway Postgres secret the other event crons use. Set in:
           # GitHub repo -> Settings -> Secrets and variables -> Actions
           DATABASE_URL: ${{ secrets.DATABASE_URL }}
-        run: python -m scripts.expire_past_events --verbose
+        # workflow_dispatch with dry_run=true previews the count with no writes;
+        # the daily schedule (no inputs) always applies.
+        run: python -m scripts.expire_past_events --verbose ${{ inputs.dry_run && '--dry-run' || '' }}

@@ -560,8 +560,13 @@ def main(argv: list[str] | None = None) -> int:
     in_window = [e for e in catalog if e.start_date and today <= e.start_date <= src_end and not e.recurring]
     print(f"catalog: {len(catalog)} live events; {len(in_window)} in [{today}, {src_end}] (non-recurring)")
 
-    # Layer 3 render sweep + harvest render venue/time for in-window events
-    render_days = max(args.days_render, args.days_source)
+    # Layer 3 render sweep + harvest render venue/time for in-window events.
+    # Capped at --days-render (NOT max'd with --days-source): the source window can
+    # now span all upcoming events (a nightly cron widened it to ~15 months to catch
+    # far-future dead links), but rendering hundreds of day pages is both heavy and
+    # pointless — venue harvest only helps near-term rows, and events past the render
+    # horizon simply fall back to the ICS LOCATION for Layer-1 venue comparison.
+    render_days = args.days_render
     day_dates = [today + timedelta(days=i) for i in range(render_days + 1)]
 
     def _grab_day(d: date) -> tuple[date, PageResult | None]:
