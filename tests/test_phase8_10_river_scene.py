@@ -481,9 +481,13 @@ def test_pull_seed_overlap_flag() -> None:
 </div></body></html>"""
     ev_url = "https://riverscenemagazine.com/events/fm-test/"
     index = (FIXTURES / "river_scene_sitemap_index.xml").read_text(encoding="utf-8")
+    # lastmod must stay inside the pull's SITEMAP_LASTMOD_LOOKBACK_DAYS (90d) window,
+    # measured back from start_date (= today+7). A hardcoded lastmod rots: 2026-04-20
+    # sat exactly on the cutoff when today was 2026-07-12 and tipped past it on
+    # 07-13 (cutoff Apr 21), so the article was skipped and no contribution created.
     sub = f"""<?xml version="1.0" encoding="UTF-8"?>
 <urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
-  <url><loc>{ev_url}</loc><lastmod>2026-04-20</lastmod></url>
+  <url><loc>{ev_url}</loc><lastmod>{date.today().isoformat()}</lastmod></url>
 </urlset>"""
 
     def handler(request: httpx.Request) -> httpx.Response:
