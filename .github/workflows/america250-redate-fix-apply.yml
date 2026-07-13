@@ -1,0 +1,84 @@
+name: america250-redate-fix-apply
+
+# Approval-gated, reversible correction of the mis-dated "America 250" event: the
+# Parks & Rec vision scraper re-stamped the July-1 celebration (Event d2ff5ad0…)
+# onto 2026-07-12, putting a stale copy of a past event on today's calendar. This
+# restores the true date (07-12 -> 07-01), realigns the permalink anchor, and
+# expires the row. Fenced like every prod-write op here:
+#   * manual trigger only (workflow_dispatch) — never scheduled, never on push
+#   * dry_run defaults TRUE: the first run previews the row and writes nothing
+#   * to apply: set dry_run=false AND type CORRECT in `confirm`
+#   * runs in the `production-writes` Environment
+#   * a guard in the script refuses to touch the row unless it is in the known-bad
+#     state (id + title + date=2026-07-12 + status=live), so it is safe to re-run
+#     and cannot clobber a row a later scrape has already changed; writes an undo CSV
+#
+# Reverse a run: download the `america250-redate-undo` artifact, then locally:
+#   python scripts/fix_america250_redate_2026_07_12.py --undo-from undo_america250.csv --apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview only (no writes). Uncheck to apply.'
+        type: boolean
+        default: true
+      confirm:
+        description: 'Type CORRECT to apply (ignored on dry run)'
+        required: false
+        default: ''
+
+concurrency:
+  group: america250-redate-fix-apply
+  cancel-in-progress: false
+
+jobs:
+  fix:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-writes
+    steps:
+      - name: Guard — confirm phrase required to apply
+        if: ${{ !inputs.dry_run && inputs.confirm != 'CORRECT' }}
+        run: |
+          echo "::error::apply requested but confirm was '${{ inputs.confirm }}', expected 'CORRECT'. Aborting before any write."
+          exit 1
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Preview correction (DRY RUN — no writes)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/fix_america250_redate_2026_07_12.py
+
+      - name: Apply correction (reversible) + write undo CSV
+        if: ${{ !inputs.dry_run && inputs.confirm == 'CORRECT' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/fix_america250_redate_2026_07_12.py \
+            --apply --undo-csv undo_america250.csv
+
+      - name: Purge CDN cache after the write (no-op without CF creds)
+        if: ${{ !inputs.dry_run && inputs.confirm == 'CORRECT' }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
+
+      - name: Upload undo CSV
+        if: ${{ always() && !inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: america250-redate-undo
+          path: undo_america250.csv
+          if-no-files-found: warn
+          retention-days: 180
