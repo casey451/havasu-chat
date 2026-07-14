@@ -479,6 +479,33 @@ def _compose_description(row: VisionEventRow, *, kind: str) -> str:
     return " ".join(bits)
 
 
+# Disjoint activity-type vocabularies. A single title that draws an activity word
+# from TWO different groups is almost always an OCR merge of two adjacent calendar
+# cells (e.g. "Kids & Clay Kids - Pickleball" = a clay class + a pickleball
+# session) — the title, and therefore the whole row, is untrustworthy.
+_ACTIVITY_GROUPS: dict[str, frozenset[str]] = {
+    "art": frozenset({"clay", "craft", "paint", "acrylic", "watercolor", "water color",
+                      "pottery", "ceramic", "drawing", "art class"}),
+    "sport": frozenset({"pickleball", "dodgeball", "kickball", "basketball", "volleyball",
+                        "archery", "tennis", "soccer", "softball"}),
+    "cook": frozenset({"cooking", "mac & cheese", "mac and cheese", "baking", "bakers",
+                       "pizza", "culinary"}),
+    "water": frozenset({"kayak", "paddleboard", "paddle board", "swim", "splash pad", "watersports"}),
+    "dance": frozenset({"line dancing", "ballet", "zumba", "ballroom"}),
+    "games": frozenset({"dominoes", "e-sports", "esports", "trivia", "bingo"}),
+}
+
+
+def title_looks_merged(title: str | None) -> bool:
+    """True when a title mixes activity words from >=2 disjoint groups — the
+    signature of an OCR merge of two adjacent calendar cells. Conservative: a
+    single-activity title (even a multi-word one like "Adult Watersports Camp -
+    Kayak Day", all in the water group) is NOT flagged."""
+    low = (title or "").lower()
+    groups = {g for g, words in _ACTIVITY_GROUPS.items() if any(w in low for w in words)}
+    return len(groups) >= 2
+
+
 def row_to_event_record(
     row: VisionEventRow,
     ref: GalleryImage,
@@ -495,7 +522,9 @@ def row_to_event_record(
     # ``location``, drop it to the default venue AND hold the row: a scrambled
     # venue means the cell's whole field mapping is untrustworthy.
     venue_ok = is_known_facility(row.location)
-    hold = row.should_hide or (bool(row.location) and not venue_ok)
+    # Title-contamination guard (2026-07-13): an OCR merge of two adjacent cells
+    # ("Kids & Clay Kids - Pickleball") is held — the whole row is untrustworthy.
+    hold = row.should_hide or (bool(row.location) and not venue_ok) or title_looks_merged(row.title)
     return EventRecord(
         source=source,
         title=row.title,
