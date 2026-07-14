@@ -1,0 +1,79 @@
+name: split-finger-tags-backfill-apply
+
+# Approval-gated, reversible backfill of tags + derived category on the 33 live
+# Split Finger events that were approved with tags=[] (2026-07-14). Fenced like
+# every prod-write op here:
+#   * manual trigger only (workflow_dispatch)
+#   * dry_run defaults TRUE: previews every row, writes nothing
+#   * to apply: set dry_run=false AND type BACKFILL in `confirm`
+#   * runs in the `production-writes` Environment
+#   * idempotent: only touches a live split_finger event that still has no tags
+#   * writes + uploads an undo snapshot; restore locally with
+#     `python scripts/backfill_split_finger_event_tags_2026_07_14.py --undo-from undo.json --apply`
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview only (no writes). Uncheck to apply.'
+        type: boolean
+        default: true
+      confirm:
+        description: 'Type BACKFILL to apply (ignored on dry run)'
+        required: false
+        default: ''
+
+concurrency:
+  group: split-finger-tags-backfill-apply
+  cancel-in-progress: false
+
+jobs:
+  backfill:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-writes
+    steps:
+      - name: Guard — confirm phrase required to apply
+        if: ${{ !inputs.dry_run && inputs.confirm != 'BACKFILL' }}
+        run: |
+          echo "::error::apply requested but confirm was '${{ inputs.confirm }}', expected 'BACKFILL'. Aborting before any write."
+          exit 1
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Preview backfill (DRY RUN — no writes)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/backfill_split_finger_event_tags_2026_07_14.py
+
+      - name: Apply backfill (reversible) + write undo snapshot
+        if: ${{ !inputs.dry_run && inputs.confirm == 'BACKFILL' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/backfill_split_finger_event_tags_2026_07_14.py \
+            --apply --undo-json undo_sf_tags.json
+
+      - name: Purge CDN cache after the write (no-op without CF creds)
+        if: ${{ !inputs.dry_run && inputs.confirm == 'BACKFILL' }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
+
+      - name: Upload undo snapshot
+        if: ${{ always() && !inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: split-finger-tags-undo
+          path: undo_sf_tags.json
+          if-no-files-found: warn
+          retention-days: 180
