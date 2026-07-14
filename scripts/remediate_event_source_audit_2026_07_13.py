@@ -145,6 +145,19 @@ FIXES: list[Fix] = [
         and "shoreline to skyline" in (ev.title or "").lower(),
         lambda ev: {"start_time": time(18, 0)},
     ),
+    # Added 2026-07-14 (nightly prelaunch-verify source-audit finding): the
+    # allevents-sourced "Toddler Time | Smiley Shark Story & Craft" is live on
+    # 2026-07-18 but its source shows 2026-07-17 (DATE_MISMATCH, confirmed on
+    # recheck). allevents is a low-trust aggregator, so quarantine (hold for
+    # review), not silently trust its other date: status live -> pending_review.
+    Fix(
+        "9dd3a8af-7e11-455c-a692-cfe2d6c28994",
+        "quarantine Toddler Time (allevents date-mismatch: live 07-18 vs source 07-17)",
+        lambda ev: ev.status == "live"
+        and ev.date == date(2026, 7, 18)
+        and "toddler time" in (ev.title or "").lower(),
+        lambda ev: {"status": "pending_review"},
+    ),
 ]
 
 
