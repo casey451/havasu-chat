@@ -190,9 +190,21 @@ def event_payload_to_contribution(
     name = (payload.name or "").strip()
     if not name:
         raise ValueError("event payload requires name")
+    # Prepend metadata header lines the review-queue approver recovers
+    # (approve_pending_events._venue_from_notes / _tags_from_notes) and that
+    # clean_event_description strips back out of the public body (_METADATA_LINE_RE
+    # covers both "venue:" and "categories:"). Without the Categories line a
+    # review-gated scraper's ``payload.tags`` are lost on manual approval — the row
+    # publishes with tags=[] and no derived Event.category. (The auto-approve path
+    # passes ``payload.tags`` straight to approval and is unaffected.)
     notes = (payload.description or "").strip()
+    header: list[str] = []
     if payload.venue_name:
-        notes = f"Venue: {payload.venue_name}\n\n{notes}".strip()
+        header.append(f"Venue: {payload.venue_name}")
+    if payload.tags:
+        header.append(f"Categories: {', '.join(payload.tags)}")
+    if header:
+        notes = ("\n".join(header) + (f"\n\n{notes}" if notes else "")).strip()
     src: ContributionSource = scrape_source  # type: ignore[assignment]
     return ContributionCreate(
         entity_type="event",
