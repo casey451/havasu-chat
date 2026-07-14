@@ -1,0 +1,90 @@
+name: quarantine-events-apply
+
+# Approval-gated, reversible quarantine of live event rows by id — pull a
+# confirmed-bad row (dead link / changed date / redirect) out of the public
+# calendar (status live -> pending_review). The standing tool for acting on a
+# prelaunch-verify source-audit `quarantine` finding. Fenced like every prod-write
+# op here:
+#   * manual trigger only (workflow_dispatch)
+#   * dry_run defaults TRUE: previews the rows, writes nothing
+#   * to apply: set dry_run=false AND type QUARANTINE in `confirm`
+#   * runs in the `production-writes` Environment
+#   * idempotent: a row that is not `live` is skipped, so a re-run is safe
+#   * writes + uploads an undo snapshot; restore locally with
+#     `python scripts/quarantine_events_by_id.py --undo-from undo_quarantine.json --apply`
+
+on:
+  workflow_dispatch:
+    inputs:
+      ids:
+        description: 'Event ids to quarantine (space/comma-separated)'
+        required: true
+        default: ''
+      reason:
+        description: 'Reason recorded in the undo snapshot (e.g. "prelaunch-verify DATE_MISMATCH")'
+        required: false
+        default: ''
+      dry_run:
+        description: 'Preview only (no writes). Uncheck to apply.'
+        type: boolean
+        default: true
+      confirm:
+        description: 'Type QUARANTINE to apply (ignored on dry run)'
+        required: false
+        default: ''
+
+concurrency:
+  group: quarantine-events-apply
+  cancel-in-progress: false
+
+jobs:
+  quarantine:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-writes
+    steps:
+      - name: Guard — confirm phrase required to apply
+        if: ${{ !inputs.dry_run && inputs.confirm != 'QUARANTINE' }}
+        run: |
+          echo "::error::apply requested but confirm was '${{ inputs.confirm }}', expected 'QUARANTINE'. Aborting before any write."
+          exit 1
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Preview quarantine (DRY RUN — no writes)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python scripts/quarantine_events_by_id.py --ids "${{ inputs.ids }}"
+
+      - name: Apply quarantine (reversible) + write undo snapshot
+        if: ${{ !inputs.dry_run && inputs.confirm == 'QUARANTINE' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: |
+          python scripts/quarantine_events_by_id.py \
+            --ids "${{ inputs.ids }}" --reason "${{ inputs.reason }}" \
+            --apply --undo-json undo_quarantine.json
+
+      - name: Purge CDN cache after the write (no-op without CF creds)
+        if: ${{ !inputs.dry_run && inputs.confirm == 'QUARANTINE' }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
+
+      - name: Upload undo snapshot
+        if: ${{ always() && !inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: quarantine-events-undo
+          path: undo_quarantine.json
+          if-no-files-found: warn
+          retention-days: 180
