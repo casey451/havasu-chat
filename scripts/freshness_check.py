@@ -98,15 +98,24 @@ SOURCE_CHECKS: list[SourceCheck] = [
         label="Events: River Scene",
         source="river_scene_import",
         cadence="Mon/Wed/Fri (river-scene-events.yml)",
-        # Longest gap Fri->Mon = 3 days; +1 cycle (2 days) of slack = 5 days.
-        max_age_hours=120.0,
+        # event_rows mode measures the NEWEST imported river_scene row, which only
+        # advances when a genuinely NEW event lands. A small local magazine can go
+        # a couple weeks between new events while the scrape runs healthily every
+        # cycle (imported=0, all sitemap URLs dedupe-skipped) -- so the budget must
+        # cover a realistic content-quiet stretch, not just the run cadence, or the
+        # check false-alarms on a working pipeline. 14d tolerates that while still
+        # catching a truly dead pipeline. Proper long-term fix: give the pull an
+        # ingest_run heartbeat and switch to mode="ingest_run" (tracks the SCRAPE,
+        # not new-event arrival), like the WS12 connectors below.
+        max_age_hours=336.0,
     ),
     SourceCheck(
         label="Events: GoLakeHavasu",
         source="go_lake_havasu",
         cadence="Tue/Thu/Sat (golakehavasu-events.yml)",
-        # Longest gap Sat->Tue = 3 days; +1 cycle of slack = 5 days.
-        max_age_hours=120.0,
+        # Same event_rows caveat as River Scene above: the heartbeat only advances
+        # on a new import, so a content-quiet stretch must not page. 14d budget.
+        max_age_hours=336.0,
     ),
     # --- WS12 connectors (ingest_run heartbeat) -----------------------------
     # These are review-queue-first and low/seasonal-cadence, so they are tracked
