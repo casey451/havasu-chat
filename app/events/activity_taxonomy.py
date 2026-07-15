@@ -61,13 +61,22 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
         "golf", "toptracer", "top tracer", "golf simulator", "indoor golf",
         "driving range", "tee time",
     )),
+    # Baseball & Softball (Casey 2026-07-15) — its own facet, split out of Sports &
+    # Racing so the youth baseball/softball programming (camps, clinics, batting,
+    # HitTrax) reads as a distinct section. Placed BEFORE Sports & Racing so a
+    # softball title types here. Split Finger Athletics (a baseball/softball
+    # facility) additionally routes ALL its classes here via BASEBALL_VENUES.
+    ("Baseball & Softball", (
+        "baseball", "softball", "tee ball", "t-ball", "little league",
+        "batting", "hittrax", "wiffle", "wiffleball",
+    )),
     # Outdoor / field / court / racing sports (most of the calendar's "classes"
     # are really sports — Casey 2026-06-24). BMX racing and the team/court sports
     # type here instead of falling into the "Other classes" residue. Pickleball /
     # tennis keep their own subgroup above; aquatics/martial arts already typed.
     ("Sports & Racing", (
         "bmx", "motocross", "pump track", "pump-track", "balance bike", "strider",
-        "basketball", "volleyball", "soccer", "baseball", "softball", "kickball",
+        "basketball", "volleyball", "soccer", "kickball",
         "flag football", "track and field", "disc golf", "skate", "skateboard",
         # 2026-07-01 audit: the Parks & Rec "Dodgeball USA" program fell to the
         # "Other classes" residue and was rerouted to Around Town — it's a sport.
@@ -94,7 +103,7 @@ CLASS_SUBGROUPS: tuple[tuple[str, tuple[str, ...]], ...] = (
 SUBGROUP_ORDER: tuple[str, ...] = (
     "Yoga", "Pilates", "Strength & Cardio", "Mind & Body", "Aquatic fitness",
     "Dance", "Gymnastics", "Golf — courses", "Martial Arts", "Pickleball",
-    "Sports & Racing", "Other classes",
+    "Baseball & Softball", "Sports & Racing", "Other classes",
 )
 FALLBACK_LABEL = "Other classes"
 
@@ -111,6 +120,7 @@ SUBGROUP_SLUGS: dict[str, str] = {
     "Strength & Cardio": "strength-cardio",
     "Mind & Body": "mind-body",
     "Pickleball": "pickleball",
+    "Baseball & Softball": "baseball",
     "Sports & Racing": "sports-racing",
 }
 
@@ -120,6 +130,18 @@ SUBGROUP_SLUGS: dict[str, str] = {
 MARTIAL_ARTS_VENUES: tuple[str, ...] = (
     "bridge city",
     "arevalo",
+)
+
+# The "Baseball & Softball" subgroup label (kept as a constant so the venue-force
+# below can't drift from the CLASS_SUBGROUPS / SUBGROUP_ORDER / SUBGROUP_SLUGS keys).
+BASEBALL_LABEL = "Baseball & Softball"
+
+# Baseball/softball VENUES whose classes ALL file under Baseball & Softball
+# regardless of the class title (a strength/agility class at a baseball facility is
+# still that facility's baseball programming — Casey 2026-07-15). Substring matched,
+# lower-cased. Mirrors MARTIAL_ARTS_VENUES.
+BASEBALL_VENUES: tuple[str, ...] = (
+    "split finger",
 )
 
 
@@ -191,6 +213,11 @@ def classify_class_subgroup(
     vlow = (venue or "").lower()
     if is_martial_arts_name(venue) or any(v in vlow for v in MARTIAL_ARTS_VENUES):
         return "Martial Arts"
+    # A baseball/softball VENUE wins over the title, like the martial-arts dojo
+    # rule above: every class at Split Finger Athletics files under Baseball &
+    # Softball even when its title reads "Strength/Conditioning" or "Team Speed".
+    if any(v in vlow for v in BASEBALL_VENUES):
+        return BASEBALL_LABEL
     by_title = _title_subgroup(title)
     # "disc golf" matches the Golf keyword "golf" but is a FIELD sport (PDGA), not
     # ball golf — route it to Sports & Racing instead (the negative guard the
