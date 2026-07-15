@@ -140,6 +140,17 @@ def is_civic(title: str | None, tags: list[str] | None = None) -> bool:
     return bool(_CIVIC_RE.search(joined))
 
 
+def _is_sports_camp(tags: list[str] | None) -> bool:
+    """True for a multi-day sports camp/clinic — a Fitness & Sports program that
+    reads as a dated one-off. Requires BOTH a ``sports`` and a ``camp`` tag so a
+    VBS/church camp (no sports tag) and a one-off sports event (no camp tag) are
+    left in their existing buckets."""
+    if not tags:
+        return False
+    ts = {str(t).strip().lower() for t in tags}
+    return "sports" in ts and "camp" in ts
+
+
 def group_for_tier(
     tier: int, *, recurring: bool, title: str = "", tags: list[str] | None = None
 ) -> str:
@@ -161,6 +172,13 @@ def group_for_tier(
     # regularly-scheduled council meeting can't be swept into the Fitness list.
     if is_civic(title, tags):
         return "civic"
+    # Sports-camp gate (Casey 2026-07-14): a multi-day sports camp/clinic is a
+    # Fitness & Sports program even though it reads as a dated one-off (not
+    # recurring, so it would otherwise fall through to "Things to Do"). Gated on
+    # BOTH a sports AND a camp tag so a non-sports camp (VBS/church) or a one-off
+    # sports event (a race, a single game) is never swept in.
+    if _is_sports_camp(tags):
+        return "classes"
     # Event-vs-class gate (2026-06-23): a one-off item from the event feed carries
     # the ``events`` source tag; it is a happening, never a fitness/pool class —
     # even if a loose keyword tripped the class/aquatic tier (live: "Splash Bash!
