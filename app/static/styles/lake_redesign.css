@@ -245,7 +245,7 @@ body{margin:0;background:radial-gradient(130% 70% at 50% -12%, #f8f4ea 0%, var(-
 .sechd .sl{font-family:var(--disp);font-weight:500;font-size:16.5px;letter-spacing:-.01em}
 .sechd .sc{font-size:11px;font-weight:600;color:var(--teal-deep);background:var(--teal-soft);border-radius:999px;padding:3px 9px}  /* --teal-deep on --teal-soft ≥4.5:1 (was --teal 3.58:1) */
 .sec.lead .sechd .sc{color:#5a4510;background:var(--brass-soft)}  /* dark brass on --brass-soft ≥4.5:1 (was --brass 3.58:1) */
-.sechd .sp{font-size:12px;color:var(--ink3);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:44%}
+.sechd .sp{font-size:12px;color:var(--ink3);margin-left:auto;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:60%}  /* 44%→60% 2026-07-15: fully-collapsed rows read barren on wide screens; a longer teaser fills them without reversing the 2026-07-04 declutter */
 .sec[open] .sechd .sp{display:none}
 /* v4.4 §6.2: the closed-section preview is a desktop nicety — hide it on mobile. */
 @media(max-width:979px){.sechd .sp{display:none}}
@@ -520,9 +520,13 @@ a.gas-card:hover{border-color:var(--teal-line);box-shadow:var(--sh-sm)}
      340px rail always fits inside the shell. */
   .main{display:grid;grid-template-columns:minmax(0,1fr) 340px;gap:28px;align-items:start;padding:8px 24px 0}
   .rail{display:flex;flex-direction:column;gap:14px;position:sticky;top:150px;margin-top:0}
-  /* v4.4: desktop shows the rail news card and hides the mobile ticker. */
-  .newsbar{display:none}
-  .newscard{display:flex}
+  /* v4.4: desktop shows the rail news card (stacked — without the explicit
+     column direction the card's header/items/footer laid out as a squished
+     horizontal row inside the 340px rail; Casey screenshot 2026-07-15). The
+     mobile ticker's desktop hide CANNOT live here: the base .newsbar rule sits
+     later in this file (ticker block, 2026-06-29) and equal specificity means
+     source order wins — the hide is at the END of that block instead. */
+  .newscard{display:flex;flex-direction:column}
   .cell{min-height:104px}
   .cell .chips{display:flex}
   .cell .dots{display:none}
@@ -561,10 +565,12 @@ a.gas-card:hover{border-color:var(--teal-line);box-shadow:var(--sh-sm)}
   .nb-tag{padding-right:8px}
   .nb-tag .lbl,.nb-more .lbl{display:none}
 }
-@media(min-width:980px){
-  .nb-track{height:38px}
-  .nb-h{-webkit-line-clamp:1}
-}
+/* Desktop: news lives in the rail news card (v4.4 §4) — the ticker is mobile-only.
+   This hide MUST stay below the base .newsbar rule above: both selectors have
+   equal specificity, so source order decides. An earlier copy of this hide inside
+   the main desktop block was silently defeated when this ticker section landed
+   after it, which is how desktop ended up showing the news twice (2026-07-15). */
+@media(min-width:980px){.newsbar{display:none}}
 
 .newshead{padding:18px 16px 4px}
 .newshead h1{font-family:var(--disp);font-weight:500;font-size:24px;letter-spacing:-.02em;margin:0}
@@ -702,7 +708,7 @@ h2.also-sec{font-family:var(--disp);font-weight:500;font-size:19px;letter-spacin
 .cat-claim p{font-size:13.5px;color:var(--ink3);margin:4px 0 0}
 
 /* brass call-to-action button */
-.btn-brass{display:inline-flex;align-items:center;font-size:13px;font-weight:600;color:#fff;background:var(--brass);border:1px solid var(--brass);border-radius:999px;padding:9px 18px;text-decoration:none;cursor:pointer;transition:.2s;flex:none}
+.btn-brass{display:inline-flex;align-items:center;font-size:13px;font-weight:600;color:#fff;background:#957120;border:1px solid #957120;border-radius:999px;padding:9px 18px;text-decoration:none;cursor:pointer;transition:.2s;flex:none}  /* #957120 (was var(--brass) #9a7625): #fff on brass was 4.21:1 — AA needs ≥4.5:1 (pa11y, PR #848); hover #856322 stays darker */
 .btn-brass:hover{background:#856322;border-color:#856322}
 .btn-brass:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(154,118,37,.34)}
 
