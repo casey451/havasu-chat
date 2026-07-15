@@ -97,6 +97,22 @@ _WS_RE = re.compile(r"\s+")
 _CAMP_TAGS = ("sports", "youth", "camp")
 _CLASS_TAGS = ("sports", "fitness")
 
+# Verbatim typos in the RunSwift source titles, corrected at ingest so a re-scrape
+# never reintroduces them. The vendor's own class name misspells "Strength" as
+# "Stength"; fixing it at the root keeps the published title (and every future
+# occurrence) correct. Whole-word, on the vendor's exact spelling.
+_SOURCE_TITLE_FIXES: tuple[tuple[re.Pattern[str], str], ...] = (
+    (re.compile(r"\bStength\b"), "Strength"),
+)
+
+
+def _clean_source_name(name: str) -> str:
+    """Correct known verbatim RunSwift source-title typos (see _SOURCE_TITLE_FIXES)."""
+    out = (name or "").strip()
+    for pat, repl in _SOURCE_TITLE_FIXES:
+        out = pat.sub(repl, out)
+    return out
+
 
 def _strip_html(s: str | None) -> str:
     return _WS_RE.sub(" ", _HTML_TAG_RE.sub(" ", s or "")).strip()
@@ -211,7 +227,7 @@ class SplitFingerClient(EventIngestClient):
                 RawHit(
                     source=self.source_name,
                     source_stable_id=url,
-                    name=str(camp.get("name") or "Camp"),
+                    name=_clean_source_name(str(camp.get("name") or "Camp")),
                     raw={
                         "kind": "camp",
                         "item": camp,
@@ -246,7 +262,7 @@ class SplitFingerClient(EventIngestClient):
                     RawHit(
                         source=self.source_name,
                         source_stable_id=url,
-                        name=str(cls.get("name") or "Class"),
+                        name=_clean_source_name(str(cls.get("name") or "Class")),
                         raw={
                             "kind": "class",
                             "item": cls,
@@ -276,13 +292,13 @@ class SplitFingerClient(EventIngestClient):
 
         if raw["kind"] == "camp":
             end_date = date.fromisoformat(str(raw["end_date"]))
-            name = _camp_title(str(item.get("name") or "Camp"))
+            name = _camp_title(_clean_source_name(str(item.get("name") or "Camp")))
             when = _multi_day_when(start_date, end_date)
             desc = _description(item, per_session=False, when=when)
             tags = list(_CAMP_TAGS)
         else:
             end_date = None
-            name = str(item.get("name") or "Class").strip()
+            name = _clean_source_name(str(item.get("name") or "Class"))
             desc = _description(item, per_session=True, when="Recurring class at Split Finger Athletics.")
             tags = list(_CLASS_TAGS)
 
