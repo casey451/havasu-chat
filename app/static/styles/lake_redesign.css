@@ -572,6 +572,24 @@ a.gas-card:hover{border-color:var(--teal-line);box-shadow:var(--sh-sm)}
    after it, which is how desktop ended up showing the news twice (2026-07-15). */
 @media(min-width:980px){.newsbar{display:none}}
 
+/* Home = mobile on desktop (Casey 2026-07-15): /home used a 2-col feed+rail grid
+   on desktop while every narrower width already stacked to one column, so desktop
+   and mobile didn't read as the same page. Collapse desktop /home to ONE centered
+   column in the same stacking order as mobile — news via the ticker (the rail news
+   card stays hidden, exactly like mobile; showing both would duplicate the news,
+   the bug #848 just fixed), and Find-a-business flows below the sections. Scoped to
+   .home-page (home-only body class) so no other desktop layout moves. ~800px keeps
+   the 7-card date strip and 2-col directory comfortable while the full-width
+   masthead/footer still frame the page. */
+@media(min-width:980px){
+  .home-page main#main{max-width:800px;margin-inline:auto}
+  .home-page .cond{max-width:800px;margin-inline:auto}
+  .home-page .main{display:block;padding:8px 16px 0}
+  .home-page .rail{position:static;margin-top:14px}
+  .home-page .newscard{display:none}
+  .home-page .newsbar{display:flex}
+}
+
 .newshead{padding:18px 16px 4px}
 .newshead h1{font-family:var(--disp);font-weight:500;font-size:24px;letter-spacing:-.02em;margin:0}
 .newssub{font-size:12.5px;color:var(--ink2);margin:4px 0 0;line-height:1.45}

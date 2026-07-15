@@ -10,6 +10,11 @@
 {% block meta_description %}What's happening today in Lake Havasu City — events, the lake, live conditions, and the local directory.{% endblock %}
 {% block og_image %}{{ absolute_url('/static/img/og-home.png') }}{% endblock %}
 
+{# Home-only body hook (2026-07-15): scopes the desktop single-column layout in
+   lake_redesign.css (.home-page …) so /home stacks like mobile without touching
+   any other page. #}
+{% block body_attrs %} class="home-page"{% endblock %}
+
 {# F18: site-level structured data on the home page. Organization (knowledge
    panel) + WebSite with a SearchAction sitelinks searchbox pointing at the same
    /chat?q= the hero search submits to. The v4 home previously emitted none. #}
