@@ -708,7 +708,7 @@ h2.also-sec{font-family:var(--disp);font-weight:500;font-size:19px;letter-spacin
 .cat-claim p{font-size:13.5px;color:var(--ink3);margin:4px 0 0}
 
 /* brass call-to-action button */
-.btn-brass{display:inline-flex;align-items:center;font-size:13px;font-weight:600;color:#fff;background:var(--brass);border:1px solid var(--brass);border-radius:999px;padding:9px 18px;text-decoration:none;cursor:pointer;transition:.2s;flex:none}
+.btn-brass{display:inline-flex;align-items:center;font-size:13px;font-weight:600;color:#fff;background:#957120;border:1px solid #957120;border-radius:999px;padding:9px 18px;text-decoration:none;cursor:pointer;transition:.2s;flex:none}  /* #957120 (was var(--brass) #9a7625): #fff on brass was 4.21:1 — AA needs ≥4.5:1 (pa11y, PR #848); hover #856322 stays darker */
 .btn-brass:hover{background:#856322;border-color:#856322}
 .btn-brass:focus-visible{outline:none;box-shadow:0 0 0 3px rgba(154,118,37,.34)}
 
