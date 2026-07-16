@@ -1401,3 +1401,32 @@ body.map-page .rd-shell > main{padding:0}
 .paddle{font-size:13.5px;color:var(--ink2);margin-top:8px;line-height:1.6}
 .paddle a{color:var(--teal);text-decoration:none}
 .paddle a:hover{text-decoration:underline}
+
+/* ── Desktop polish 2026-07-16 — three surfaces that read broken/barren on wide
+   screens ("web version needs formatting help; mobile looks good"). Everything
+   below is scoped to >=980px so mobile is untouched.
+   1) /chat: a short empty-state left the footer mid-viewport with a dead zone
+      above the bottom-fixed composer (footer ended ~y=868 in a 1297px viewport,
+      composer floated at y=1136). The chat surface now owns the first screen —
+      the footer scrolls in below the fold — and the empty-state sits at a
+      comfortable hero height instead of hugging the masthead.
+   2) /today: the stat blocks are class="card cstat" but no global .card surface
+      exists, so they rendered as floating text — visibly unfinished next to
+      /lake's proper condition cards. Give them the standard surface (same
+      recipe as .sec/.railcard).
+   3) /events-ui: with every accordion collapsed the rows are ~1160px slivers;
+      cap the stack at 880px so it reads as a tidy index (same desktop-reads-
+      like-mobile philosophy as the /home 800px collapse, #849). And when a
+      section has no .sp teaser (preview_rows empty) the chevron lost its
+      margin-left:auto anchor and hugged the count chip — dock it right again
+      via .sc + .cv. */
+@media(min-width:980px){
+  /* 1 — /chat */
+  .ll-chat .chat-shell{min-height:calc(100vh - 240px);min-height:calc(100dvh - 240px)}
+  .ll-chat .empty-state{padding-top:clamp(40px,16vh,190px)}
+  /* 2 — /today */
+  .todayx .cstat{background:var(--surface);border:1px solid var(--hair);border-radius:var(--rad);box-shadow:var(--sh-sm)}
+  /* 3 — /events-ui */
+  .evx{max-width:880px;margin-inline:auto}
+  .sechd .sc + .cv{margin-left:auto}
+}
