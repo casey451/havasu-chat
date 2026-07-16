@@ -41,6 +41,7 @@ import logging
 import os
 import random
 import re
+import time
 from typing import Any
 from urllib.parse import urlparse, urlunparse
 
@@ -438,18 +439,59 @@ def _fetch_lhc_stations_with_client(
     return merged
 
 
-def fetch_lhc_stations(zips: tuple[str, ...] = LHC_ZIPS) -> list[dict[str, Any]]:
+# 2026-07-16: gas-prices #131 — Cloudflare challenged ("Just a moment…") every
+# ZIP in the run and the pull exited with 0 stations, which left /api/gas stale
+# past its 10h threshold overnight and turned the 15-minute freshness-canary red
+# until the next scheduled slot 9.5h later (dozens of failure emails). A
+# challenge poisons the whole SESSION (all ZIPs 403 together), so the recovery
+# that works is a fresh client on a fresh connection after a pause — not another
+# request on the challenged session. When a full pass yields zero stations we
+# retry the entire pull on a new client with linear backoff + jitter.
+EMPTY_RETRY_ATTEMPTS = 3
+EMPTY_RETRY_BASE_SECONDS = 45.0
+EMPTY_RETRY_JITTER_SECONDS = 15.0
+
+
+def fetch_lhc_stations(
+    zips: tuple[str, ...] = LHC_ZIPS,
+    *,
+    attempts: int = EMPTY_RETRY_ATTEMPTS,
+    sleep=time.sleep,
+) -> list[dict[str, Any]]:
     """Fetch + de-duplicate raw GasBuddy stations across all LHC ZIPs.
 
     De-dupes on GasBuddy station ``id`` (the same station appears in more than
     one ZIP search because GasBuddy returns a radius around the term).
+
+    A pass that returns ZERO stations (the Cloudflare-challenge signature) is
+    retried up to ``attempts`` times total, each on a brand-new client session,
+    sleeping ``EMPTY_RETRY_BASE_SECONDS * attempt`` (+ jitter) between passes.
+    ``sleep`` is injectable so tests exercise the retry loop offline.
     """
     proxy = _proxy_url()
-    if proxy and _is_scraperapi_proxy(proxy):
-        merged = _fetch_lhc_stations_scraperapi(proxy, zips)
-    else:
-        with _build_client(proxy=proxy) as client:
-            merged = _fetch_lhc_stations_with_client(client, zips)
+    total = max(1, attempts)
+    merged: list[dict[str, Any]] = []
+    for attempt in range(1, total + 1):
+        if proxy and _is_scraperapi_proxy(proxy):
+            merged = _fetch_lhc_stations_scraperapi(proxy, zips)
+        else:
+            with _build_client(proxy=proxy) as client:
+                merged = _fetch_lhc_stations_with_client(client, zips)
+        if merged:
+            break
+        if attempt < total:
+            delay = EMPTY_RETRY_BASE_SECONDS * attempt + random.uniform(
+                0, EMPTY_RETRY_JITTER_SECONDS
+            )
+            logger.warning(
+                "GasBuddy returned 0 stations (attempt %d/%d) — likely a "
+                "Cloudflare challenge on this session; retrying on a fresh "
+                "client in %.0fs",
+                attempt,
+                total,
+                delay,
+            )
+            sleep(delay)
 
     logger.info("GasBuddy returned %d unique stations across %d ZIPs", len(merged), len(zips))
     return merged
