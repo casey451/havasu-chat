@@ -230,6 +230,42 @@ def test_predawn_twin_loses_to_daytime_sibling():
     assert survivors == {1}
 
 
+class _TwinEv:
+    """Minimal stand-in for the pre-dawn demotion tests (end time included)."""
+
+    def __init__(self, st, et, src, idx):
+        self.start_time = st
+        self.end_time = et
+        self.location_name = "American Legion Post 81"
+        self.description = "x"
+        self.source = src
+        self.id = f"e{idx}"
+
+
+def test_predawn_twin_with_end_time_still_loses_to_daytime_sibling():
+    """The live escape (2026-07-22): an AM/PM misparse that shifted the whole
+    WINDOW ("3–5 PM" scraped as "3–5 AM") carries an end time, so the per-event
+    TBD guard doesn't read it as a placeholder — Troy's Alligator Feed rendered
+    at both 3 AM and 3 PM on 2026-07-25. The group-context demotion must drop
+    it, and it must never WIN the cluster on source priority: here the misparse
+    comes from the higher-priority source, yet the 3 PM sibling anchors."""
+    from app.events.dedup import _group_survivor_positions
+
+    members = [(0, _TwinEv(time(3, 0), time(5, 0), "go_lake_havasu", 0)),
+               (1, _TwinEv(time(15, 0), None, "river_scene", 1))]
+    assert _group_survivor_positions(members) == {1}
+
+
+def test_all_predawn_group_is_not_demoted():
+    """No >= 05:00 sibling → no demotion: a genuine overnight block two sources
+    agree on keeps the existing clustering (>120 min apart = two sessions)."""
+    from app.events.dedup import _group_survivor_positions
+
+    members = [(0, _TwinEv(time(2, 0), time(3, 0), "river_scene", 0)),
+               (1, _TwinEv(time(4, 30), time(5, 30), "go_lake_havasu", 1))]
+    assert _group_survivor_positions(members) == {0, 1}
+
+
 # --------------------------------------------------------------------------- #
 # Ingest parity: provider activity flows through the occurrence builder, so a
 # future-scraped generically-named class classifies right with no extra step.

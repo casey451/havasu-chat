@@ -420,6 +420,71 @@ def test_pull_skips_known_url_without_fetch(capsys: pytest.CaptureFixture[str]) 
     )
 
 
+def test_pull_skip_bumps_scraped_at_on_reseen_event(
+    capsys: pytest.CaptureFixture[str],
+) -> None:
+    """Freshness heartbeat (2026-07-22): re-seeing an already-imported article
+    stamps ``scraped_at`` on its Event rows, so a week with no NEW RiverScene
+    posts reads FRESH to data-freshness-check — green pulls used to write
+    nothing (fetched 98, skipped 63, imported 0) and the monitor paged STALE
+    at the >5d budget. Dry runs stay write-free."""
+    url = "https://riverscenemagazine.com/events/reseen-heartbeat/"
+    with SessionLocal() as db:
+        db.add(
+            Event(
+                id="rs-reseen-1",
+                title="Reseen Heartbeat Event",
+                normalized_title="reseen heartbeat event",
+                date=date(2099, 1, 1),
+                start_time=time(18, 0),
+                location_name="London Bridge Beach",
+                location_normalized="london bridge beach",
+                description="A previously imported RiverScene event.",
+                status="live",
+                source="river_scene",
+                source_url=normalize_submission_url(url),
+                event_url=url,
+            )
+        )
+        db.commit()
+
+    index = (FIXTURES / "river_scene_sitemap_index.xml").read_text(encoding="utf-8")
+    sub = f"""<?xml version="1.0" encoding="UTF-8"?>
+<urlset xmlns="http://www.sitemaps.org/schemas/sitemap/0.9">
+  <url><loc>{url}</loc><lastmod>2026-04-20</lastmod></url>
+</urlset>"""
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        u = str(request.url)
+        if u.endswith("/wp-sitemap.xml"):
+            return httpx.Response(200, text=index)
+        if "wp-sitemap-posts-events" in u:
+            return httpx.Response(200, text=sub)
+        return httpx.Response(404)
+
+    def _client() -> httpx.Client:
+        return httpx.Client(
+            transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True
+        )
+
+    with _client() as client:
+        assert run_pull(date(2026, 6, 1), dry_run=True, http_client=client) == 0
+    with SessionLocal() as db:
+        assert db.get(Event, "rs-reseen-1").scraped_at is None  # dry run: no write
+
+    with _client() as client:
+        assert run_pull(date(2026, 6, 1), dry_run=False, http_client=client) == 0
+    with SessionLocal() as db:
+        stamped = db.get(Event, "rs-reseen-1").scraped_at
+        assert stamped is not None
+        assert stamped.tzinfo is not None  # TZAwareDateTime aware round-trip
+    out = capsys.readouterr().out
+    assert any(
+        ln.strip().startswith("reseen_touched:") and ln.split()[-1] == "1"
+        for ln in out.splitlines()
+    )
+
+
 def test_duplicate_check_handles_legacy_null_source_url() -> None:
     """Pre-Commit-1 catalog rows may have NULL source_url but the article URL in event_url."""
     article = "https://riverscenemagazine.com/events/legacy-dedupe-only/"

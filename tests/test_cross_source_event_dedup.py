@@ -107,6 +107,39 @@ def test_two_real_times_far_apart_are_separate_sessions() -> None:
     assert kept == [matinee, evening]
 
 
+def test_predawn_window_misparse_twin_folds_into_daytime_survivor() -> None:
+    """The 2026-07-22 escape: an AM/PM misparse shifting the whole window
+    ("3–5 PM" scraped as "3–5 AM") carries an END time, so it isn't TBD per
+    event — yet it must still fold onto its daytime twin (Troy's Alligator
+    Feed rendered at 3 AM *and* 3 PM on 2026-07-25). >2h apart would normally
+    read as separate sessions; the pre-dawn demotion overrides that."""
+    pre = _ev(
+        "Troy's Alligator Feed",
+        start=time(3, 0),
+        end=time(5, 0),
+        source="allevents",
+        ev_id="pre-3am",
+    )
+    real = _ev(
+        "Troy's Alligator Feed",
+        start=time(15, 0),
+        source="river_scene",
+        ev_id="real-3pm",
+    )
+    kept = dedup_cross_source_event_rows([pre, real])
+    assert kept == [real]
+    assert real.start_time == time(15, 0)  # the survivor's real time is untouched
+
+
+def test_all_predawn_twins_stay_undemoted() -> None:
+    """No >= 05:00 sibling in the group → no demotion: an overnight block two
+    sources agree on keeps the matinee/evening clustering (>2h apart = kept)."""
+    early = _ev("Meteor Watch Party", start=time(1, 30), end=time(2, 30), ev_id="a")
+    later = _ev("Meteor Watch Party", start=time(4, 30), end=time(5, 30), ev_id="b")
+    kept = dedup_cross_source_event_rows([early, later])
+    assert kept == [early, later]
+
+
 def test_two_real_times_within_two_hours_merge_to_named_venue() -> None:
     """Two sources, slightly different real times: one survivor, named venue."""
     addressed = _ev("Sunset Concert", start=time(18, 0), venue="2025 Main St", ev_id="a")
