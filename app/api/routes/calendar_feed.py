@@ -21,6 +21,7 @@ from app.core.rate_limit import limiter, public_api_rate_limit
 from app.db.database import get_db
 from app.db.models import Event
 from app.events.activity_taxonomy import activity_bucket, resolve_activity
+from app.events.dedup import dedup_cross_source_event_rows
 from app.events.title_clean import clean_event_title
 from app.home.event_buckets import GROUP_DEFS
 from app.seo.urls import base_url as _canonical_base_url
@@ -190,6 +191,12 @@ def events_ics_feed(request: Request, db: Session = Depends(get_db)) -> Response
         .limit(_MAX_EVENTS)
         .all()
     )
+    # Collapse cross-source twins exactly as the site's read paths do
+    # (2026-07-22): this feed used to emit the RAW table, so subscribed
+    # calendar apps showed every DB twin the site hides — e.g. the all-day +
+    # 8 AM "Pickleball Open Play" pair, every single day. Read-only graft
+    # semantics (set_committed_value) — nothing is written back.
+    rows = dedup_cross_source_event_rows(rows)
 
     lines: list[str] = [
         "BEGIN:VCALENDAR",
