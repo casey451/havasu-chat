@@ -1,0 +1,82 @@
+name: remediate-event-source-audit-2026-07-22-apply
+
+# Approval-gated, reversible remediation of the 2026-07-22 source-audit triage
+# (docs/audits/2026-07/EVENT_SOURCE_AUDIT_TRIAGE_2026-07-22.md): 3 audit-verified
+# time fixes, 3 ALL-CAPS retitles, Farmers Market + Grace Arts venue names, and
+# 11 same-date far-future twin retirements. Fenced like every prod-write op here:
+#   * manual trigger only (workflow_dispatch) — never scheduled, never on push
+#   * dry_run defaults TRUE: the first run previews every change and writes nothing
+#   * to apply: set dry_run=false AND type REMEDIATE in `confirm`
+#   * runs in the `production-writes` Environment
+#   * each fix is guarded on the row's known-bad state (id + exact value), so it
+#     is idempotent and cannot clobber a row a later scrape already changed;
+#     writes an undo snapshot before commit
+#
+# Reverse a run: download the undo artifact, then locally:
+#   python -m scripts.remediate_event_source_audit_2026_07_22 \
+#     --undo-from remediate_event_source_audit_undo_<stamp>.json --apply
+
+on:
+  workflow_dispatch:
+    inputs:
+      dry_run:
+        description: 'Preview only (no writes). Uncheck to apply.'
+        type: boolean
+        default: true
+      confirm:
+        description: 'Type REMEDIATE to apply (ignored on dry run)'
+        required: false
+        default: ''
+
+concurrency:
+  group: remediate-event-source-audit-2026-07-22-apply
+  cancel-in-progress: false
+
+jobs:
+  remediate:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    environment: production-writes
+    steps:
+      - name: Guard — confirm phrase required to apply
+        if: ${{ !inputs.dry_run && inputs.confirm != 'REMEDIATE' }}
+        run: |
+          echo "::error::apply requested but confirm was '${{ inputs.confirm }}', expected 'REMEDIATE'. Aborting before any write."
+          exit 1
+
+      - uses: actions/checkout@v5
+
+      - uses: actions/setup-python@v6
+        with:
+          python-version: "3.12"
+          cache: pip
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Preview remediation (DRY RUN — no writes)
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m scripts.remediate_event_source_audit_2026_07_22
+
+      - name: Apply remediation (reversible) + write undo snapshot
+        if: ${{ !inputs.dry_run && inputs.confirm == 'REMEDIATE' }}
+        env:
+          DATABASE_URL: ${{ secrets.DATABASE_URL }}
+        run: python -m scripts.remediate_event_source_audit_2026_07_22 --apply
+
+      - name: Purge CDN cache after the write (no-op without CF creds)
+        if: ${{ !inputs.dry_run && inputs.confirm == 'REMEDIATE' }}
+        env:
+          CF_PURGE_API_TOKEN: ${{ secrets.CF_PURGE_API_TOKEN }}
+          CF_ZONE_ID: ${{ secrets.CF_ZONE_ID }}
+        run: python scripts/purge_cdn_cache.py
+
+      - name: Upload undo snapshot
+        if: ${{ always() && !inputs.dry_run }}
+        uses: actions/upload-artifact@v4
+        with:
+          name: event-audit-remediation-2026-07-22-undo
+          path: remediate_event_source_audit_undo_*.json
+          if-no-files-found: warn
+          retention-days: 180
