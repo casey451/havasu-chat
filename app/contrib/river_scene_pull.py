@@ -9,7 +9,7 @@ from __future__ import annotations
 import difflib
 import re
 import sys
-from datetime import date, timedelta
+from datetime import UTC, date, datetime, timedelta
 
 import httpx
 from sqlalchemy import func, select
@@ -127,6 +127,32 @@ def _duplicate_rs_article_import(db: Session, article_url: str) -> bool:
     return legacy_event_hit is not None
 
 
+def _touch_reseen_events(db: Session, article_url: str) -> int:
+    """Stamp ``scraped_at`` on already-imported Event rows for a sitemap URL.
+
+    Freshness heartbeat (2026-07-22): a healthy pull that re-sees only
+    already-imported URLs used to write NOTHING, so ``max(created_at /
+    scraped_at)`` for ``river_scene`` aged until ``data-freshness-check`` paged
+    STALE (>5d budget) on any week RiverScene simply published no new events —
+    green runs (fetched_urls: 98, skipped_duplicate: 63, errors: 0), zero
+    writes. The sitemap still listing the article IS a re-verification, so
+    record it on the rows the skip matched — the same field
+    ``merge_scraper_into_event`` bumps, written tz-aware per TZAwareDateTime's
+    contract. Returns the number of rows touched.
+    """
+    normalized = cs.normalize_submission_url(article_url)
+    if not normalized:
+        return 0
+    rows = list(db.scalars(select(Event).where(Event.source_url == normalized)))
+    if not rows:
+        return 0
+    now = datetime.now(UTC)
+    for ev in rows:
+        ev.scraped_at = now
+    db.commit()
+    return len(rows)
+
+
 def run_pull(
     start_date: date,
     *,
@@ -147,6 +173,7 @@ def run_pull(
     errors = 0
     imported = 0
     skipped_duplicate = 0
+    reseen_touched = 0
     skipped_cross_source = 0
     skipped_past_or_unparseable = 0
     flagged_seed_overlap = 0
@@ -159,6 +186,7 @@ def run_pull(
             errors, \
             imported, \
             skipped_duplicate, \
+            reseen_touched, \
             skipped_cross_source, \
             skipped_past_or_unparseable, \
             flagged_seed_overlap, \
@@ -180,6 +208,11 @@ def run_pull(
                 continue
             with SessionLocal() as db:
                 if _duplicate_rs_article_import(db, url):
+                    # Freshness heartbeat: the sitemap still lists this known
+                    # article — stamp scraped_at on its Event rows so a
+                    # no-new-events week doesn't page data-freshness-check.
+                    if not dry_run:
+                        reseen_touched += _touch_reseen_events(db, url)
                     skipped_duplicate += 1
                     continue
 
@@ -278,6 +311,7 @@ def run_pull(
         print(f"  auto_approved:                 {auto_approved}")
         print(f"  auto_approval_failed:          {auto_approval_failed}")
         print(f"  skipped_duplicate:             {skipped_duplicate}")
+        print(f"  reseen_touched:                {reseen_touched}")
         print(f"  skipped_cross_source:          {skipped_cross_source}")
         print(f"  skipped_past_or_unparseable:   {skipped_past_or_unparseable}")
         print(f"  flagged_seed_overlap:          {flagged_seed_overlap}")
