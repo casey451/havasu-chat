@@ -439,7 +439,7 @@ def week_strip(
     # event-table twins (the aquatic programs) are dropped by normalized title
     # + date + start-time window, same as calendar_month.
     event_keys = {
-        ((ev.title or "").strip().lower(), d, ev.start_time)
+        ((ev.title or "").strip().lower(), d, ev.start_time, ev.location_name or "")
         for d, evs in by_day.items()
         for ev in evs
     }
@@ -745,7 +745,7 @@ def calendar_month(
             for d, evs in occ_by_date.items()
         }
     by_day: dict[int, list[dict[str, Any]]] = {}
-    event_keys: set[tuple[str, date, time | None]] = set()
+    event_keys: set[tuple[str, date, time | None, str]] = set()
     from app.events.event_type_tags import is_civic_meeting
 
     # Recurring-in-practice series (2026-07-01 month audit): venue specials
@@ -769,7 +769,9 @@ def calendar_month(
     for occ_date, evs in occ_by_date.items():
         bucket = by_day.setdefault(occ_date.day, [])
         for ev in evs:
-            event_keys.add(((ev.title or "").strip().lower(), occ_date, ev.start_time))
+            event_keys.add(
+                ((ev.title or "").strip().lower(), occ_date, ev.start_time, ev.location_name or "")
+            )
             # Venue-hours rows (facet:hours) are places being OPEN, not events
             # (2026-07-01 month audit): never a month-cell pill or count. The
             # day view already filters these DB twins of the curated registries.
