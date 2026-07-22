@@ -27,6 +27,7 @@ from app.db.models import Category, Entity, EntityCategory, Provider, Schedule
 from app.events.activity_taxonomy import provider_activity_label
 from app.events.dedup_match import (
     DEFAULT_DEDUP_TIME_WINDOW_MINUTES,
+    significant_tokens,
     times_within_window,
     tokens_subset_match,
 )
@@ -296,30 +297,79 @@ def _tokens_match(a: frozenset[str], b: frozenset[str]) -> bool:
     return tokens_subset_match(a, b)
 
 
+# Venue-name tokens too generic to distinguish venues; what's left is the
+# distinguishing part ("Aquatic Center" ⊆ "Lake Havasu City Aquatic Center").
+# The bare-city fallback reduces to the empty set, which never anchors a match.
+_VENUE_GENERIC_TOKENS: frozenset[str] = frozenset({"lake", "havasu", "city", "the", "of", "at"})
+
+
+def _venue_sig_tokens(name: str | None) -> frozenset[str]:
+    return frozenset(
+        t for t in _NON_ALNUM_RE.split((name or "").lower()) if t and t not in _VENUE_GENERIC_TOKENS
+    )
+
+
 def drop_event_duplicates(
     occurrences: list[ClassOccurrence],
-    event_keys: set[tuple[str, date]] | set[tuple[str, date, time | None]],
+    event_keys: (
+        set[tuple[str, date]]
+        | set[tuple[str, date, time | None]]
+        | set[tuple[str, date, time | None, str]]
+    ),
 ) -> list[ClassOccurrence]:
     """Drop class occurrences already represented by a live Event occurrence.
 
-    ``event_keys`` accepts the legacy ``(lowercased title, date)`` pairs or the
-    richer ``(title, date, start_time)`` triples; with triples, the start-time
-    window keeps distinct sessions of the same class apart. Matching is
-    token-subset on normalized titles (see :func:`_dedup_title_tokens`), so
-    instructor-suffixed Event titles still suppress their Schedule twins.
+    ``event_keys`` accepts the legacy ``(lowercased title, date)`` pairs, the
+    ``(title, date, start_time)`` triples, or ``(title, date, start_time,
+    venue)`` quads; with triples+, the start-time window keeps distinct
+    sessions of the same class apart. Matching is token-subset on normalized
+    titles (see :func:`_dedup_title_tokens`), so instructor-suffixed Event
+    titles still suppress their Schedule twins.
+
+    Quads additionally enable the qualifier-stripped DIRECTIONAL match
+    (2026-07-22): a roster entry whose significant activity tokens are ALL
+    contained in an Event's — after dropping generic qualifiers like
+    free/family/open — at the EXACT same start time and a token-matching venue
+    is the same real session (the live pair: the Aquatic Center's "Open Swim"
+    roster next to the noon "Free Family Swim" event, rendered twice on
+    2026-07-29). Directional (roster ⊆ event) so a MORE specific roster
+    ("Swim Lessons") never hides behind a generic event; exact-start +
+    venue-anchored so distinct sessions ("Lap Swim" 12:15) and other venues
+    always survive.
     """
-    by_date: dict[date, list[tuple[frozenset[str], time | None]]] = {}
+    by_date: dict[
+        date, list[tuple[frozenset[str], time | None, frozenset[str], frozenset[str]]]
+    ] = {}
     for key in event_keys:
         title, day = key[0], key[1]
         start = key[2] if len(key) > 2 else None  # type: ignore[misc]
-        by_date.setdefault(day, []).append((_dedup_title_tokens(title), start))
+        venue = key[3] if len(key) > 3 else ""  # type: ignore[misc]
+        tokens = _dedup_title_tokens(title)
+        by_date.setdefault(day, []).append(
+            (tokens, start, significant_tokens(tokens), _venue_sig_tokens(venue))
+        )
 
     kept: list[ClassOccurrence] = []
     for o in occurrences:
         tokens = _dedup_title_tokens(o.title)
+        sig = significant_tokens(tokens)
+        venue_sig = _venue_sig_tokens(o.venue)
         is_dup = any(
-            _tokens_match(tokens, ev_tokens) and _times_compatible(o.start_time, ev_start)
-            for ev_tokens, ev_start in by_date.get(o.date, ())
+            (
+                _tokens_match(tokens, ev_tokens)
+                and _times_compatible(o.start_time, ev_start)
+            )
+            or (
+                bool(sig)
+                and o.start_time is not None
+                and ev_start is not None
+                and o.start_time == ev_start
+                and sig <= ev_sig
+                and bool(venue_sig)
+                and bool(ev_venue_sig)
+                and (venue_sig <= ev_venue_sig or ev_venue_sig <= venue_sig)
+            )
+            for ev_tokens, ev_start, ev_sig, ev_venue_sig in by_date.get(o.date, ())
         )
         if not is_dup:
             kept.append(o)

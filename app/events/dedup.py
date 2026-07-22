@@ -18,6 +18,7 @@ from sqlalchemy.orm.attributes import set_committed_value
 from app.db.models import Entity, Event, Provider
 from app.events.dedup_match import (
     DEFAULT_DEDUP_TIME_WINDOW_MINUTES,
+    GENERIC_TITLE_QUALIFIERS,
     start_minutes,
     times_within_window,
     tokens_subset_match,
@@ -414,9 +415,20 @@ def _absorb_display_fields(survivor: Event, losers: list[Event]) -> None:
 
 def _cluster_survivor_and_losers(
     cluster: list[tuple[int, Event]],
+    *,
+    core_positions: set[int] | None = None,
 ) -> tuple[int, list[int]]:
-    """(survivor position, [loser positions]) for one already-formed cluster."""
-    survivor = min(cluster, key=lambda m: _survivor_rank(m[1]))[0]
+    """(survivor position, [loser positions]) for one already-formed cluster.
+
+    ``core_positions`` restricts who may WIN survivorship (used by
+    :func:`_group_clusters` so a folded pre-dawn misparse twin can never anchor
+    the merged display on source priority alone); every member outside the
+    winner still drops as a loser. ``None`` → any member may win.
+    """
+    pool = cluster
+    if core_positions:
+        pool = [m for m in cluster if m[0] in core_positions] or cluster
+    survivor = min(pool, key=lambda m: _survivor_rank(m[1]))[0]
     losers = [idx for idx, _ev in cluster if idx != survivor]
     return survivor, losers
 
@@ -429,8 +441,11 @@ def _group_clusters(members: list[tuple[int, Event]]) -> list[tuple[int, list[in
     cluster; a bigger gap means a genuinely separate session, so each cluster
     keeps its own survivor (the matinee/evening guard). Time-TBD members are
     duplicates of a timed sibling when one exists (the fake-noon twin loses);
-    with no timed sibling they all collapse onto a single TBD survivor. The
-    caller drops the losers and grafts their best fields onto the survivor.
+    a pre-dawn (01:00–04:59) member is demoted into the same fold when a
+    daytime (>= 05:00) sibling exists — even when it carries an end time (the
+    AM/PM window-misparse twin); with no timed sibling TBD members all collapse
+    onto a single TBD survivor. The caller drops the losers and grafts their
+    best fields onto the survivor.
     """
     timed = [
         m for m in members if not _start_is_tbd_for_dedup(m[1].start_time, m[1].end_time)
@@ -438,6 +453,25 @@ def _group_clusters(members: list[tuple[int, Event]]) -> list[tuple[int, list[in
     if not timed:
         # All TBD → one survivor absorbs the whole group.
         return [_cluster_survivor_and_losers(members)]
+    # Pre-dawn demotion (2026-07-22): _start_is_tbd_for_dedup already reads a
+    # bare 01:00–04:59 start with NO end time as an AM/PM parse error, but the
+    # live escape was a misparse that shifted the whole WINDOW ("3–5 PM" scraped
+    # as "3–5 AM") — its end time defeats the per-event guard, and Troy's
+    # Alligator Feed rendered at both 3 AM and 3 PM on 2026-07-25. Inside a
+    # duplicate group, a pre-dawn start coexisting with a real daytime
+    # (>= 05:00) sibling is that misparse twin regardless of end time: fold it
+    # like a TBD member (it drops; its fields absorb onto the daytime survivor).
+    # A group whose timed members are ALL pre-dawn is left alone, so an
+    # overnight event two sources agree on still renders; 05:00+ stays real
+    # (5 AM Lap Swim). The per-event contract — a LONE timed pre-dawn block is
+    # real (pinned in test_calendar_classification) — is unchanged; this
+    # verdict needs the group context.
+    demoted: list[tuple[int, Event]] = []
+    if any(m[1].start_time.hour >= 5 for m in timed):
+        demoted = [m for m in timed if 1 <= m[1].start_time.hour <= 4]
+    if demoted:
+        demoted_positions = {pos for pos, _ev in demoted}
+        timed = [m for m in timed if m[0] not in demoted_positions]
     timed.sort(key=lambda m: start_minutes(m[1].start_time))
     clusters: list[list[tuple[int, Event]]] = [[timed[0]]]
     for member in timed[1:]:
@@ -447,11 +481,20 @@ def _group_clusters(members: list[tuple[int, Event]]) -> list[tuple[int, list[in
         else:
             clusters.append([member])
     # TBD members are twins of the nearest timed cluster's survivor when one
-    # exists — fold them into the first cluster so their fields can be absorbed
-    # (and they drop) rather than surviving as a separate timeless row.
+    # exists — fold them (and any demoted pre-dawn twin) into the first cluster
+    # so their fields can be absorbed (and they drop) rather than surviving as a
+    # separate timeless/misparsed row. Survivorship of that cluster is
+    # restricted to its real timed core: a demoted twin must never win on
+    # source priority and anchor the merged display at 3 AM.
     tbd = [m for m in members if _start_is_tbd_for_dedup(m[1].start_time, m[1].end_time)]
-    clusters[0].extend(tbd)
-    return [_cluster_survivor_and_losers(c) for c in clusters]
+    folded = tbd + demoted
+    if not folded:
+        return [_cluster_survivor_and_losers(c) for c in clusters]
+    first_core = {pos for pos, _ev in clusters[0]}
+    clusters[0].extend(folded)
+    out = [_cluster_survivor_and_losers(clusters[0], core_positions=first_core)]
+    out.extend(_cluster_survivor_and_losers(c) for c in clusters[1:])
+    return out
 
 
 def _group_survivor_positions(members: list[tuple[int, Event]]) -> set[int]:
@@ -493,14 +536,10 @@ _VENUE_MATCH_RATIO = 92
 _BARE_CITY_VENUES: frozenset[str] = frozenset({"lake havasu city", "lake havasu", "havasu"})
 # Title words too generic to imply "same session" — the merge needs a SHARED word
 # OUTSIDE this set (so "Free Family Swim"/"Open Swim"/"Free Swim Day!" share
-# "swim", but "Mini Bakers" and "Sports Camp" at one Parks&Rec venue share nothing).
-_TITLE_STOPWORDS: frozenset[str] = frozenset({
-    "the", "and", "for", "with", "free", "day", "days", "night", "nights",
-    "family", "kids", "open", "lake", "havasu", "city", "event", "events",
-    "class", "classes", "series", "summer", "winter", "spring", "fall", "live",
-    "music", "party", "sponsored", "annual", "session", "sessions", "community",
-    "public", "all", "ages", "adult", "adults", "youth", "senior", "seniors",
-})
+# "swim", but "Mini Bakers" and "Sports Camp" at one Parks&Rec venue share
+# nothing). The list itself lives in dedup_match (2026-07-22) so the
+# class-occurrence qualifier guard strips the SAME words.
+_TITLE_STOPWORDS: frozenset[str] = GENERIC_TITLE_QUALIFIERS
 
 
 def _significant_title_tokens(ev: Event) -> set[str]:
