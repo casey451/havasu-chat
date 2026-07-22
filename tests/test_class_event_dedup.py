@@ -127,6 +127,46 @@ def test_distinct_classes_same_venue_survive():
 
 # --- url fallback ---------------------------------------------------------------
 
+def test_qualifier_stripped_roster_drops_at_exact_start_same_venue():
+    """The live 2026-07-29 pair: the Aquatic Center's "Open Swim" roster entry
+    rendered next to the noon "Free Family Swim" EVENT — same pool, same slot.
+    Plain token-subset can't see it ({open, swim} vs {free, family, swim});
+    the qualifier-stripped directional match (both reduce to {swim}) at the
+    exact same start and a token-matching venue drops the roster line."""
+    keys = {("free family swim", D, time(12, 0), "Lake Havasu City Aquatic Center")}
+    assert drop_event_duplicates([occ("Open Swim", 12)], keys) == []
+
+
+def test_qualifier_match_requires_exact_start():
+    # 12:15 vs the event's 12:00 — a distinct session, kept (the loose branch
+    # needs exact equality; the ±window applies only to plain subset matches).
+    keys = {("free family swim", D, time(12, 0), "Lake Havasu City Aquatic Center")}
+    kept = drop_event_duplicates([occ("Open Swim", 12, 15)], keys)
+    assert [o.title for o in kept] == ["Open Swim"]
+
+
+def test_qualifier_match_is_directional_more_specific_roster_survives():
+    # "Swim Lessons" carries a significant token the event lacks — it is NOT
+    # covered by a generic "Free Family Swim" event even at the same clock.
+    keys = {("free family swim", D, time(12, 0), "Lake Havasu City Aquatic Center")}
+    kept = drop_event_duplicates([occ("Swim Lessons", 12)], keys)
+    assert [o.title for o in kept] == ["Swim Lessons"]
+
+
+def test_qualifier_match_requires_matching_venue():
+    keys = {("free family swim", D, time(12, 0), "Rotary Community Park")}
+    kept = drop_event_duplicates([occ("Open Swim", 12)], keys)
+    assert [o.title for o in kept] == ["Open Swim"]
+
+
+def test_all_qualifier_event_title_never_covers_a_roster():
+    # An event title made ONLY of generic qualifiers has no significant tokens
+    # → the directional branch never fires (no wildcard-by-emptiness).
+    keys = {("free family open day", D, time(12, 0), "Lake Havasu City Aquatic Center")}
+    kept = drop_event_duplicates([occ("Open Swim", 12)], keys)
+    assert [o.title for o in kept] == ["Open Swim"]
+
+
 def test_slugless_class_has_no_link_instead_of_self_link():
     o = occ("Beginner Pilates", 9, venue="Havasu Pilates Studio", slug=None)
     assert o.url == ""  # template renders a non-link row

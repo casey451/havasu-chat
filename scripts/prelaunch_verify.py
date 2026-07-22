@@ -88,6 +88,10 @@ _SOURCE_MAP: list[tuple[str, str, bool]] = [
     ("lakehavasufarmersmarket.com", "farmers_market", False),
     ("havasuchamber.com", "chamber", True),
     ("jotform.com", "form", False),
+    # 2026-07-22 triage: Split Finger stores its RunSwift booking landing (no
+    # per-event pages) — 24 nightly UNVERIFIABLE repeats until classified.
+    ("splitfingerathletics.com", "split_finger", False),
+    ("runswiftapp.com", "split_finger", False),
 ]
 
 
@@ -97,10 +101,32 @@ _SOURCE_MAP: list[tuple[str, str, bool]] = [
 # auto-quarantine, and it keeps the nightly cron from false-alarming on flakiness.
 _FLAKY_SOURCE_DOMAINS = frozenset({"usabmx.com"})
 
+# ── 2026-07-22 triage: mute the three classes of nightly repeat findings that
+# carry no information (docs/audits/2026-07/EVENT_SOURCE_AUDIT_TRIAGE_2026-07-22.md).
+# Each list is deliberately narrow; anything NOT listed keeps flagging.
+
+# Domains whose event pages are reachable but never embed Event JSON-LD (River
+# Scene publishes articles; Legistar publishes agendas). "200 but no schema"
+# there is the page working as designed, not an UNVERIFIABLE defect — their own
+# connectors re-verify fields. Dead links on them still quarantine as before.
+_SCHEMA_NOT_EXPECTED_DOMAINS = frozenset({"riverscenemagazine.com", "legistar.com"})
+
+# Official sites of recurring series whose provenance IS their homepage (the
+# farmers market and Grace Arts publish one page for the whole season). A
+# homepage landing there is accepted; marquee one-offs on other domains keep
+# their SOURCE_IS_HOMEPAGE finding — that's the real repoint backlog.
+_HOMEPAGE_PROVENANCE_OK_DOMAINS = frozenset(
+    {"lakehavasufarmersmarket.com", "graceartslive.com"}
+)
+
+
+def _host_matches(url: str, domains: frozenset[str]) -> bool:
+    host = (urlparse(url).netloc or "").lower().replace("www.", "")
+    return any(host == d or host.endswith("." + d) for d in domains)
+
 
 def _is_flaky_domain(url: str) -> bool:
-    host = (urlparse(url).netloc or "").lower().replace("www.", "")
-    return any(host == d or host.endswith("." + d) for d in _FLAKY_SOURCE_DOMAINS)
+    return _host_matches(url, _FLAKY_SOURCE_DOMAINS)
 
 
 def classify_source(url: str) -> tuple[str, bool]:
@@ -414,15 +440,28 @@ def _verify_once(client: httpx.Client, ev: CatEvent) -> dict:
                            detail=f"DEAD_LINK: HTTP {r.status_code} (source gone)",
                            proposed_action="quarantine" if per_event_link else "review")
         else:  # 401/403/429/5xx — bot-block or transient, NOT proof the event is gone
-            res.update(field="fetch", site_value=ev.url, source_value=f"HTTP {r.status_code}",
-                       detail=f"UNREACHABLE: HTTP {r.status_code} (bot-block/transient — recheck)",
-                       proposed_action="review")
+            if not ev.per_event_source:
+                # Connector landing origin bot-blocking CI (Iron Wolf 502s x16
+                # nightly): its feed health is the connector cron's job, not a
+                # per-event finding (2026-07-22 triage).
+                res.update(detail=f"connector_origin_unreachable_ok (HTTP {r.status_code}; "
+                           "feed health is the connector cron's job)",
+                           proposed_action="")
+            else:
+                res.update(field="fetch", site_value=ev.url, source_value=f"HTTP {r.status_code}",
+                           detail=f"UNREACHABLE: HTTP {r.status_code} (bot-block/transient — recheck)",
+                           proposed_action="review")
         return res
     if final_path in ("", "/"):
         if per_event_link:
             res.update(field="fetch", site_value=ev.url, source_value=str(r.url),
                        detail="REDIRECTED_HOME: per-event link now lands on a home page",
                        proposed_action="quarantine")
+        elif not ev.per_event_source or _host_matches(ev.url, _HOMEPAGE_PROVENANCE_OK_DOMAINS):
+            # Connector landings + known homepage-provenance series (farmers
+            # market, Grace Arts): the homepage IS the source (2026-07-22 triage).
+            res.update(detail="connector_landing_ok (homepage provenance accepted for this source)",
+                       proposed_action="")
         else:
             res.update(field="provenance", site_value=ev.url,
                        detail="SOURCE_IS_HOMEPAGE: provenance is only a site homepage (weak, not per-event)",
@@ -430,7 +469,14 @@ def _verify_once(client: httpx.Client, ev: CatEvent) -> dict:
         return res
     node = extract_jsonld_event(r.text)
     if not node:
-        if ev.per_event_source:
+        if _host_matches(ev.url, _SCHEMA_NOT_EXPECTED_DOMAINS):
+            # River Scene articles / Legistar agendas never embed Event JSON-LD;
+            # a reachable page is the source working as designed (2026-07-22
+            # triage). Dead links there still quarantine above.
+            res.update(field="", detail="reachable_no_schema_ok (source never embeds Event "
+                       "JSON-LD; its connector re-verifies fields)",
+                       proposed_action="")
+        elif ev.per_event_source:
             res.update(field="schema", detail="UNVERIFIABLE: 200 but no Event schema to compare",
                        proposed_action="review")
         else:

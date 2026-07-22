@@ -558,10 +558,14 @@ def day_groups(
         for ev in events
         if not _occurrence_expired(day, ev.start_time, ev.end_time, now)
     ]
-    # (title, date, start_time) triples: the start-time window keeps distinct
-    # sessions apart while still suppressing renamed twins (see
-    # drop_event_duplicates).
-    event_keys = {((ev.title or "").strip().lower(), day, ev.start_time) for ev in events}
+    # (title, date, start_time, venue) quads: the start-time window keeps
+    # distinct sessions apart while suppressing renamed twins, and the venue
+    # anchors the qualifier-stripped roster-vs-event match ("Open Swim" roster
+    # vs the noon "Free Family Swim" event — see drop_event_duplicates).
+    event_keys = {
+        ((ev.title or "").strip().lower(), day, ev.start_time, ev.location_name or "")
+        for ev in events
+    }
 
     rows_by_group: dict[str, list[dict[str, Any]]] = {key: [] for key, _l, _i in GROUP_DEFS}
     # Seniors is the one gated, EXCLUSIVE overlay: every senior-tagged occurrence
@@ -894,7 +898,7 @@ def week_rows(
             for d, evs in by_day.items()
         }
     event_keys = {
-        ((ev.title or "").strip().lower(), d, ev.start_time)
+        ((ev.title or "").strip().lower(), d, ev.start_time, ev.location_name or "")
         for d, evs in by_day.items()
         for ev in evs
     }

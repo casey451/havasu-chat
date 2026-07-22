@@ -63,3 +63,22 @@ def tokens_subset_match(a: frozenset[str] | set[str], b: frozenset[str] | set[st
     (neither a subset of the other) stays apart.
     """
     return bool(a) and bool(b) and (a <= b or b <= a)
+
+
+# Title words too generic to imply "same session" on their own — shared by the
+# render-time cross-source pass (``dedup._significant_title_tokens``) and the
+# class-occurrence qualifier-stripped guard (2026-07-22), one list so the two
+# can't drift. "Free Family Swim" / "Open Swim" both reduce to ``{"swim"}``;
+# "Mini Bakers" / "Sports Camp" share nothing significant.
+GENERIC_TITLE_QUALIFIERS: frozenset[str] = frozenset({
+    "the", "and", "for", "with", "free", "day", "days", "night", "nights",
+    "family", "kids", "open", "lake", "havasu", "city", "event", "events",
+    "class", "classes", "series", "summer", "winter", "spring", "fall", "live",
+    "music", "party", "sponsored", "annual", "session", "sessions", "community",
+    "public", "all", "ages", "adult", "adults", "youth", "senior", "seniors",
+})
+
+
+def significant_tokens(tokens: frozenset[str] | set[str]) -> frozenset[str]:
+    """Drop the generic qualifier words — what's left names the activity."""
+    return frozenset(t for t in tokens if t not in GENERIC_TITLE_QUALIFIERS)

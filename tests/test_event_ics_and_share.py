@@ -73,6 +73,65 @@ def test_ics_route_404_for_unknown():
     assert r.status_code == 404
 
 
+def test_events_ics_feed_collapses_cross_source_twins():
+    """Feed parity with the site's read paths (2026-07-22): /events.ics used to
+    emit the RAW live table, so calendar apps subscribed to the feed showed
+    every cross-source twin the site hides — live case: the all-day + 8 AM
+    "Pickleball Open Play" pair, on every day of the rolling forward window."""
+    import uuid
+
+    day = date(2099, 7, 22)
+    tbd_id, timed_id = str(uuid.uuid4()), str(uuid.uuid4())
+    with SessionLocal() as db:
+        db.add_all(
+            [
+                Event(
+                    id=tbd_id,
+                    title="Pickleball Open Play",
+                    normalized_title="pickleball open play",
+                    date=day,
+                    # Midnight-fallback contract: the schema's NOT NULL start
+                    # stores the all-day row as a bare 00:00 → TBD for dedup.
+                    start_time=time(0, 0),
+                    end_time=None,
+                    location_name="Mike Delaney Complex",
+                    location_normalized="mike delaney complex",
+                    description="All-day open play.",
+                    event_url="https://example.com/pb-allday",
+                    tags=[],
+                    status="live",
+                    source="pickleball",
+                ),
+                Event(
+                    id=timed_id,
+                    title="Pickleball Open Play",
+                    normalized_title="pickleball open play",
+                    date=day,
+                    start_time=time(8, 0),
+                    end_time=time(11, 0),
+                    location_name="Mike Delaney Complex",
+                    location_normalized="mike delaney complex",
+                    description="Morning open play.",
+                    event_url="https://example.com/pb-timed",
+                    tags=[],
+                    status="live",
+                    source="lhc_parks_rec",
+                ),
+            ]
+        )
+        db.commit()
+    try:
+        r = client.get("/events.ics")
+        assert r.status_code == 200
+        assert r.text.count("SUMMARY:Pickleball Open Play") == 1
+    finally:
+        with SessionLocal() as db:
+            db.query(Event).filter(Event.id.in_([tbd_id, timed_id])).delete(
+                synchronize_session=False
+            )
+            db.commit()
+
+
 def test_permalink_has_addtocal_share_and_organizer():
     eid = _make_event(title="Followthrough Event")
     r = client.get(f"/events/{eid}")
