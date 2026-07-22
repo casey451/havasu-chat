@@ -29,6 +29,15 @@ logger = logging.getLogger(__name__)
 
 SITEMAP_INDEX_URL = "https://riverscenemagazine.com/wp-sitemap.xml"
 EVENTS_SITEMAP_PREFIX = "wp-sitemap-posts-events-"
+# 2026-07-21 site redesign: the default WordPress sitemap moved to a Yoast-style
+# index at /sitemap.xml (per robots.txt) whose event children are
+# events-sitemap-1.xml … events-sitemap-N.xml. /wp-sitemap.xml now 404s, which
+# killed the 2026-07-22 pull. The category taxonomy child
+# (event-category-sitemap.xml) and the separate river-cities post type
+# (river-cities-events-sitemap.xml) are NOT event pages — the pattern is
+# anchored so neither matches, preserving the legacy crawl's scope.
+FALLBACK_SITEMAP_INDEX_URL = "https://riverscenemagazine.com/sitemap.xml"
+NEW_EVENTS_SITEMAP_RE = re.compile(r"/events-sitemap-\d+\.xml$")
 USER_AGENT = "Hava/0.1 (+https://github.com/casey451/havasu-chat)"
 RIVER_SCENE_PROXY_ENV = "RIVER_SCENE_SCRAPE_PROXY_URL"
 _FALLBACK_PROXY_ENV = "GAS_SCRAPE_PROXY_URL"
@@ -249,6 +258,11 @@ def _title_from_soup(soup: BeautifulSoup) -> str:
             s = s[: -len(" | RiverScene Magazine")].strip()
         if s.startswith("RiverScene Magazine | "):
             s = s[len("RiverScene Magazine | ") :].strip()
+        # 2026-07-21 redesign title shape: "Event Name – RiverScene Magazine"
+        # (en-dash or hyphen).
+        for suffix in (" – RiverScene Magazine", " - RiverScene Magazine"):
+            if s.endswith(suffix):
+                s = s[: -len(suffix)].strip()
         if s:
             return s[:500]
     for h2 in soup.find_all("h2"):
@@ -279,6 +293,57 @@ def _find_event_details_table(soup: BeautifulSoup) -> Tag | None:
             if len(tds) >= 2 and tds[0].get_text(strip=True) == "Start Date":
                 return table
     return None
+
+
+def _find_event_detail_grid(soup: BeautifulSoup) -> Tag | None:
+    """The 2026-07-21 redesign's details block: ``div.event-detail-grid``."""
+    for div in soup.find_all("div"):
+        classes = div.get("class") or []
+        if "event-detail-grid" in classes:
+            return div
+    return None
+
+
+def _grid_label_map(grid: Tag) -> dict[str, str]:
+    """Label/value pairs from the redesign's ``event-info-tile`` blocks.
+
+    Each tile is ``div.event-info-tile > div > [div.fw-bold label, div value]``
+    (the value div carries ``text-muted``). Same output shape as
+    :func:`_table_label_map`, so the parse path downstream is shared. The
+    redesign labels the venue "Location" (the legacy table said "Venue");
+    the caller accepts either.
+    """
+    out: dict[str, str] = {}
+    for tile in grid.find_all("div"):
+        tile_classes = tile.get("class") or []
+        if "event-info-tile" not in tile_classes:
+            continue
+        label_div = None
+        for div in tile.find_all("div"):
+            classes = div.get("class") or []
+            if "fw-bold" in classes or "fw-black" in classes:
+                label_div = div
+                break
+        if label_div is None:
+            continue
+        label = label_div.get_text(" ", strip=True)
+        value_div = label_div.find_next_sibling("div")
+        if not label or value_div is None:
+            continue
+        if label in ("Website", "Facebook"):
+            out[label] = _detail_link_or_plain(label, value_div)
+        else:
+            out[label] = value_div.get_text(" ", strip=True)
+    return out
+
+
+def _description_from_content_body(soup: BeautifulSoup) -> str:
+    """The redesign's event body: ``div.content-body`` inside the article card."""
+    for div in soup.find_all("div"):
+        classes = div.get("class") or []
+        if "content-body" in classes:
+            return div.decode_contents().strip()
+    return ""
 
 
 def _detail_link_or_plain(label: str, value_cell: Tag) -> str:
@@ -380,7 +445,9 @@ def fetch_sitemap_urls(
     *, client: httpx.Client | None = None, start_date: date | None = None
 ) -> list[str]:
     """
-    Load ``wp-sitemap.xml``, follow ``wp-sitemap-posts-events-*.xml`` children,
+    Load ``wp-sitemap.xml`` (falling back to the redesign's ``/sitemap.xml``
+    when the legacy index 404s), follow its event children
+    (``wp-sitemap-posts-events-*.xml`` legacy / ``events-sitemap-N.xml`` new),
     and return every ``<url><loc>``.
 
     When ``start_date`` is provided, entries with a parseable ``<lastmod>`` that
@@ -390,14 +457,24 @@ def fetch_sitemap_urls(
         with build_river_scene_client(timeout=SITEMAP_HTTP_TIMEOUT) as c:
             return fetch_sitemap_urls(client=c, start_date=start_date)
 
-    xml_index = _http_get_text(SITEMAP_INDEX_URL, client, timeout=SITEMAP_HTTP_TIMEOUT)
+    try:
+        xml_index = _http_get_text(SITEMAP_INDEX_URL, client, timeout=SITEMAP_HTTP_TIMEOUT)
+    except httpx.HTTPStatusError as e:
+        if e.response.status_code != 404:
+            raise
+        # 2026-07-21 redesign: legacy index gone; use the Yoast-style index.
+        xml_index = _http_get_text(
+            FALLBACK_SITEMAP_INDEX_URL, client, timeout=SITEMAP_HTTP_TIMEOUT
+        )
     root = ET.fromstring(xml_index)
     ns = {"sm": "http://www.sitemaps.org/schemas/sitemap/0.9"}
     sub_locs: list[str] = []
     for sm in root.findall("sm:sitemap", ns):
         loc = sm.find("sm:loc", ns)
-        if loc is not None and loc.text and EVENTS_SITEMAP_PREFIX in loc.text:
-            sub_locs.append(loc.text.strip())
+        if loc is not None and loc.text:
+            loc_text = loc.text.strip()
+            if EVENTS_SITEMAP_PREFIX in loc_text or NEW_EVENTS_SITEMAP_RE.search(loc_text):
+                sub_locs.append(loc_text)
 
     urls: list[str] = []
     seen_sub: set[str] = set()
@@ -441,10 +518,15 @@ def fetch_and_parse_event(
     html = _http_get_text(url, client, timeout=EVENT_PAGE_HTTP_TIMEOUT)
     soup = BeautifulSoup(html, "html.parser")
     table = _find_event_details_table(soup)
+    grid: Tag | None = None
     if table is None:
-        return None
+        # 2026-07-21 redesign: the details table became an event-detail-grid of
+        # tiles with the same labels. Same downstream parse either way.
+        grid = _find_event_detail_grid(soup)
+        if grid is None:
+            return None
 
-    labels = _table_label_map(table)
+    labels = _table_label_map(table) if table is not None else _grid_label_map(grid)
     start_raw = labels.get("Start Date")
     start_d = _parse_us_date(start_raw or "")
     if start_d is None:
@@ -470,7 +552,8 @@ def fetch_and_parse_event(
     et = et_range if et_range is not None else st
 
     org = (labels.get("Organizer") or "").strip() or None
-    venue_txt = _clean_venue_text(labels.get("Venue") or "")
+    # Legacy tables label the venue "Venue"; the redesign's grid says "Location".
+    venue_txt = _clean_venue_text(labels.get("Venue") or labels.get("Location") or "")
     venue_name = venue_txt or None
     venue_address = None
 
@@ -480,7 +563,11 @@ def fetch_and_parse_event(
         cats.append(cat_cell.strip())
 
     title = _title_from_soup(soup)
-    desc_html = _description_above_table(soup, table)
+    desc_html = (
+        _description_above_table(soup, table)
+        if table is not None
+        else _description_from_content_body(soup)
+    )
     if not desc_html.strip():
         # No prose above the details table: recover the real body from the page's
         # og:description / JSON-LD so the event doesn't fall back to a metadata-only

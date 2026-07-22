@@ -179,6 +179,82 @@ def test_fetch_sitemap_urls_parses_index_and_sub() -> None:
     assert "https://riverscenemagazine.com/events/third/" in urls
 
 
+def _client_for_new_sitemap_test() -> httpx.Client:
+    """The 2026-07-21 redesign: /wp-sitemap.xml 404s; /sitemap.xml is a
+    Yoast-style index whose event children are events-sitemap-N.xml."""
+    index = (FIXTURES / "river_scene_new_sitemap_index.xml").read_text(encoding="utf-8")
+    sub = (FIXTURES / "river_scene_new_events_sitemap.xml").read_text(encoding="utf-8")
+
+    requested: list[str] = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        u = str(request.url)
+        requested.append(u)
+        if u.endswith("/wp-sitemap.xml"):
+            return httpx.Response(404, text="gone with the redesign")
+        if u.endswith("/sitemap.xml"):
+            return httpx.Response(200, text=index)
+        if u.endswith("/events-sitemap-1.xml"):
+            return httpx.Response(200, text=sub)
+        return httpx.Response(404, text="not found")
+
+    client = httpx.Client(
+        transport=httpx.MockTransport(handler), timeout=5.0, follow_redirects=True
+    )
+    client._rs_requested = requested  # type: ignore[attr-defined]
+    return client
+
+
+def test_fetch_sitemap_urls_falls_back_to_redesign_index_on_404() -> None:
+    with _client_for_new_sitemap_test() as client:
+        urls = fetch_sitemap_urls(client=client)
+        requested = client._rs_requested  # type: ignore[attr-defined]
+    assert urls == [
+        "https://riverscenemagazine.com/events/grid-single-day/",
+        "https://riverscenemagazine.com/events/grid-stale/",
+    ]
+    # Legacy index tried first, then the fallback; the taxonomy child
+    # (event-category-sitemap) and the river-cities post type are NOT crawled.
+    assert any(u.endswith("/wp-sitemap.xml") for u in requested)
+    assert any(u.endswith("/sitemap.xml") for u in requested)
+    assert not any("event-category-sitemap" in u for u in requested)
+    assert not any("river-cities-events-sitemap" in u for u in requested)
+
+
+def test_fetch_sitemap_urls_new_index_honors_lastmod_cutoff() -> None:
+    with _client_for_new_sitemap_test() as client:
+        urls = fetch_sitemap_urls(client=client, start_date=date(2026, 1, 1))
+    # The 2020-lastmod entry is skipped; the fresh one survives.
+    assert urls == ["https://riverscenemagazine.com/events/grid-single-day/"]
+
+
+def test_fetch_and_parse_redesign_grid_page() -> None:
+    """The redesign's event page: no entry-content table — an event-detail-grid
+    of tiles (same labels; venue tile now says "Location") plus a content-body
+    description, and a "– RiverScene Magazine" title suffix."""
+    html = (FIXTURES / "river_scene_event_grid.html").read_text(encoding="utf-8")
+    u = "https://riverscenemagazine.com/events/grid-single-day/"
+    with _html_client(html, u) as client:
+        rse = fetch_and_parse_event(u, client=client, today=date(2099, 6, 1))
+    assert rse is not None
+    assert rse.title == "Life Jacket Exchange"
+    assert rse.start_date == date(2099, 7, 19)
+    assert rse.end_date == date(2099, 7, 19)
+    assert rse.start_time is not None and rse.start_time.hour == 10
+    assert rse.end_time is not None and rse.end_time.hour == 12
+    assert rse.venue_name is not None and "London Bridge Beach" in rse.venue_name
+    assert rse.organizer is not None and "Boating Safety" in rse.organizer
+    assert "vest style life jacket" in rse.description_html
+
+
+def test_fetch_and_parse_redesign_grid_past_event_returns_none() -> None:
+    html = (FIXTURES / "river_scene_event_grid.html").read_text(encoding="utf-8")
+    u = "https://riverscenemagazine.com/events/grid-single-day/"
+    with _html_client(html, u) as client:
+        rse = fetch_and_parse_event(u, client=client, today=date(2099, 8, 1))
+    assert rse is None  # July 19, 2099 is already past this "today"
+
+
 def _html_client(
     html: str, page_url: str = "https://riverscenemagazine.com/events/x/"
 ) -> httpx.Client:
