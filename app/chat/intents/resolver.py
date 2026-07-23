@@ -404,7 +404,13 @@ def _event_window(text: str) -> str | None:
     if "next month" in text:
         return "next_month"
     if dr is not None:
-        return "range"
+        # Concrete dates from extract_date_range ("saturday", "July 25",
+        # "2026-07-25") ride along inside the window token. The old bare
+        # "range" token had no branch in _event_window_dates, so the parsed
+        # date was silently discarded and every "what's on <day>" answer
+        # fell back to the upcoming window anchored on *today* — a Saturday
+        # ask rendered Thursday's calendar.
+        return f"range:{dr['start'].isoformat()}:{dr['end'].isoformat()}"
     return "upcoming"
 
 

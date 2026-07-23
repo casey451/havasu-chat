@@ -41,6 +41,13 @@ from app.providers.queries import is_open_now
 
 _PROVIDER_LIMIT = 12
 _EVENT_LIMIT = 24
+# Multi-day windows fetch deeper, then trim per day. With the old flat 24-row
+# chronological cap, the window's FIRST day (today's recurring rec/senior
+# programs alone run ~19 rows) exhausted the cap and every later day counted
+# zero — the week strip showed Sat/Sun as empty when Saturday had a full
+# calendar, and one-off events beyond ~tomorrow never appeared in chat at all.
+_EVENT_LIMIT_MULTI_DAY = 200
+_EVENT_PER_DAY_CAP = 12
 
 
 # ---------------------------------------------------------------------------
@@ -377,6 +384,22 @@ def _provider_to_row(p: Provider) -> dict[str, Any]:
 def _event_window_dates(window: str, today: date) -> tuple[date, date]:
     from app.events.queries import event_window_for_chip
 
+    if window.startswith("range:"):
+        # "range:<start-iso>:<end-iso>" — concrete dates the resolver pulled
+        # from the user's text ("saturday", "July 25"). Before this branch
+        # existed the token fell through to the upcoming fallback below and
+        # the asked-for day was ignored entirely.
+        parts = window.split(":")
+        if len(parts) == 3:
+            try:
+                r_start = date.fromisoformat(parts[1])
+                r_end = date.fromisoformat(parts[2])
+            except ValueError:
+                pass
+            else:
+                if r_start <= r_end:
+                    return r_start, r_end
+        return today, today + timedelta(days=30)
     if window == "today":
         return today, today
     if window == "tomorrow":
@@ -395,18 +418,44 @@ def _event_window_dates(window: str, today: date) -> tuple[date, date]:
 
 
 def _event_to_row(event, occ: date) -> dict[str, Any]:
-    """Tier2 event-row shape consumed by build_day_agenda / build_week_strip."""
-    return {
+    """Tier2 event-row shape consumed by build_day_agenda / build_week_strip.
+
+    Same display contract as the /home day view (site review §1 parity):
+
+    * A bogus midnight start (the ingest's 00:00/no-end "time unknown"
+      convention — :func:`app.events.time_labels.is_time_tbd`) must NOT reach
+      the JS renderer as ``"00:00"``, which drew a literal "12 am" row at the
+      top of Morning. TBD rows carry ``start_time None`` plus the day view's
+      honest chip via ``time_label`` ("All day" / "Drop-in — call for hours" /
+      "Time TBD" — chat-new.js renders ``time_label`` when there is no start).
+    * Titles/venues run through the shared cleaners so "Pickleball Open Play –
+      Mike Delaney Pickleball Complex at Dick Samp Park" doesn't repeat the
+      venue that renders right beside it.
+    """
+    from app.events.time_labels import is_time_tbd
+    from app.events.title_clean import clean_event_title, clean_venue_label
+    from app.home.events_views import _row_time_label
+
+    venue = getattr(event, "location_name", None)
+    tbd = is_time_tbd(event.start_time, event.end_time)
+    row = {
         "type": "event",
-        "name": event.title,
+        "name": clean_event_title(event.title, location_name=venue),
         "date": occ.isoformat(),
         "end_date": event.end_date.isoformat() if event.end_date else None,
-        "start_time": event.start_time.strftime("%H:%M") if event.start_time else None,
-        "end_time": event.end_time.strftime("%H:%M") if event.end_time else None,
-        "location_name": event.location_name,
+        "start_time": (
+            None if tbd else (event.start_time.strftime("%H:%M") if event.start_time else None)
+        ),
+        "end_time": (
+            None if tbd else (event.end_time.strftime("%H:%M") if event.end_time else None)
+        ),
+        "location_name": clean_venue_label(venue) if venue else venue,
         "tags": list(event.tags or []),
         "event_url": event.event_url,
     }
+    if tbd:
+        row["time_label"] = _row_time_label(event.title or "", event.start_time, event.end_time)
+    return row
 
 
 def _query_events(
@@ -421,7 +470,9 @@ def _query_events(
     from app.events.queries import events_in_window
 
     start, end = _event_window_dates(window, today)
-    pairs = events_in_window(db, window_start=start, window_end=end, limit=_EVENT_LIMIT)
+    span_days = (end - start).days + 1
+    fetch_limit = _EVENT_LIMIT if span_days <= 1 else _EVENT_LIMIT_MULTI_DAY
+    pairs = events_in_window(db, window_start=start, window_end=end, limit=fetch_limit)
     rows: list[dict[str, Any]] = []
     for event, occ in pairs:
         title = event.title
@@ -439,7 +490,28 @@ def _query_events(
             # activities -- keep them out of the concierge's events list.
             continue
         rows.append(_event_to_row(event, occ))
+    if span_days > 1:
+        rows = _cap_rows_per_day(rows, _EVENT_PER_DAY_CAP)
     return rows
+
+
+def _cap_rows_per_day(rows: list[dict[str, Any]], per_day: int) -> list[dict[str, Any]]:
+    """Trim a chronological multi-day row list to ``per_day`` rows per date.
+
+    Keeps input order (earliest first within each day). This replaces the old
+    flat cap, under which the first day of the window consumed the entire
+    budget and every later day rendered as "0 events".
+    """
+    counts: dict[str, int] = {}
+    out: list[dict[str, Any]] = []
+    for r in rows:
+        d = str(r.get("date"))
+        n = counts.get(d, 0)
+        if n >= per_day:
+            continue
+        counts[d] = n + 1
+        out.append(r)
+    return out
 
 
 # ---------------------------------------------------------------------------

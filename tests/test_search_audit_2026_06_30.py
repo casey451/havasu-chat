@@ -264,7 +264,10 @@ def test_live_music_filter_keeps_only_real_music(monkeypatch):
 
     rows = q._query_events(None, "today", today=date(2026, 7, 1), activity="live_music")
     names = {r["name"] for r in rows}
-    assert names == {"Live Band at Kokopelli"}, names
+    # 2026-07-23 day-query sweep: row names are display-cleaned now — the
+    # " at Kokopelli" venue echo is stripped because the venue renders right
+    # beside the title (title_clean §6). Filtering still runs on raw titles.
+    assert names == {"Live Band"}, names
 
 
 def test_generic_things_to_do_excludes_civic_meetings(monkeypatch):
@@ -278,7 +281,8 @@ def test_generic_things_to_do_excludes_civic_meetings(monkeypatch):
     names = {r["name"] for r in rows}
     assert "City Council Meeting" not in names
     assert "Planning & Zoning Commission" not in names
-    assert {"Live Band at Kokopelli", "BMX Local Race (Kids)"} <= names
+    # Venue-echo title stripped (see test_live_music_filter_keeps_only_real_music).
+    assert {"Live Band", "BMX Local Race (Kids)"} <= names
 
 
 def test_resolver_sets_live_music_slot_for_band_phrasings():
