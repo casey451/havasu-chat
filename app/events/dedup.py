@@ -735,7 +735,12 @@ def merge_scraper_into_event(
 ) -> list[str]:
     """Apply §6.4 merge semantics; return list of field names updated."""
     updated: list[str] = []
-    now = datetime.now(UTC).replace(tzinfo=None)
+    # Aware UTC: ``scraped_at`` is a TZAwareDateTime column, which REJECTS naive
+    # datetimes on write. The old ``.replace(tzinfo=None)`` made every call here
+    # raise ValueError the moment it reached ``event.scraped_at = now`` — the
+    # museum-events importer (scripts/scrape_events.py) is the only caller and
+    # died on its first same-title merge.
+    now = datetime.now(UTC)
 
     def _set(attr: str, value: Any) -> None:
         if value is None or value == "":
