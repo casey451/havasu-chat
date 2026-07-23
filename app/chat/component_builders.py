@@ -99,6 +99,7 @@ class AgendaItem(TypedDict):
     start: NotRequired[Any]
     end: NotRequired[Any]
     range_label: NotRequired[str]
+    time_label: NotRequired[str]
 
 
 class DayAgendaPayload(TypedDict):
@@ -582,15 +583,34 @@ def _event_to_agenda_item(row: dict[str, Any]) -> AgendaItem:
     """
     tags = [t for t in (row.get("tags") or []) if isinstance(t, str)]
     category = _pretty_category_from_tags(tags) or "Event"
+    venue = row.get("location_name") or ""
+    # Defensive display-cleaning at the last hop so EVERY producer of event
+    # rows (intents runtime, tier2 event_dict, event-intent fast path) renders
+    # like the /home day view: no "Title – Venue" echo of the venue shown right
+    # beside it (title_clean site review §6).
+    from app.events.title_clean import clean_event_title
+
     item: AgendaItem = {
-        "title": row.get("name") or "",
+        "title": clean_event_title(row.get("name") or "", location_name=venue),
         "start": row.get("start_time"),
         "end": row.get("end_time"),
-        "venue": row.get("location_name") or "",
+        "venue": venue,
         "category": category,
         "category_warm": _is_warm_category(category, tags),
         "url": _event_url(row),
     }
+    # Time chip for rows without a usable clock time: pass the producer's label
+    # through, else derive the day view's honest chip ("All day" for open-play
+    # rec, "Drop-in — call for hours", "Time TBD") so the JS renderer never
+    # shows a blank time cell — and never a fabricated "12 am".
+    if not item.get("start"):
+        time_label = row.get("time_label")
+        if not time_label:
+            from app.home.events_views import _row_time_label
+
+            time_label = _row_time_label(str(row.get("name") or ""), None, None)
+        if time_label:
+            item["time_label"] = str(time_label)
     # Date range is shown as a "May 8 – 10" label when present.
     if row.get("end_date") and row.get("end_date") != row.get("date"):
         try:
